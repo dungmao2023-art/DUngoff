@@ -1,7 +1,13 @@
 # Lộ trình
 
-Nguyên tắc: hoàn thiện **Excel trước** để chứng minh kiến trúc; Word, PowerPoint và PDF đi sau
-trên cùng engine. Một hạng mục chỉ được đánh dấu xong khi có kiểm thử tự động chạy trên Windows.
+Nguyên tắc: Excel đã dùng để chứng minh kiến trúc. **Ưu tiên do người dùng chốt (24/11/2026):**
+1. Có bộ cài Windows đầu tiên (engine headless).
+2. Dồn sức hoàn thiện **một** công cụ đến mức đầy đủ (Word, PowerPoint, hoặc PDF xem + sửa),
+   chạy song song nhiều tác vụ trên các nhánh riêng, mỗi nhánh qua CI trước khi gộp.
+3. Lần lượt các công cụ còn lại.
+4. Excel: giữ mức cơ bản trong bộ cài đầu, nâng lên mức tốt ở giai đoạn cuối.
+
+Một hạng mục chỉ được đánh dấu xong khi có kiểm thử tự động chạy trên Windows.
 
 ## Giai đoạn 0: Chứng minh kiến trúc (v0.1, hiện tại)
 - [x] Engine LOK: mở/render/gõ/công thức/lưu, tên tệp tiếng Việt
