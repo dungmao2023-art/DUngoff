@@ -2,6 +2,7 @@
 #define LOK_USE_UNSTABLE_API
 #include "dung/Engine.h"
 
+#include <cassert>   // LibreOfficeKitInit.h dùng assert() nhưng không tự include (MSVC báo lỗi)
 #include <LibreOfficeKit/LibreOfficeKitInit.h>
 #include <LibreOfficeKit/LibreOfficeKit.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
