@@ -12,3 +12,10 @@ grep -v '^FONTCONFIG_' "$core/download.lst" > "$tmp"
 sed 's/^[0-9]*://' "$here/overrides/download.lst.fontconfig" >> "$tmp"
 mv "$tmp" "$core/download.lst"
 grep -n '^FONTCONFIG_' "$core/download.lst"
+
+echo "== external/freetype: thêm module hvf (mới trong freetype 2.15.0) vào danh sách build Windows"
+mk="$core/external/freetype/StaticLibrary_freetype.mk"
+if ! grep -q 'src/hvf/hvf' "$mk"; then
+  sed -i 's#^\(\s*\)src/lzw/ftlzw \\#\1src/hvf/hvf \\\n\1src/lzw/ftlzw \\#' "$mk"
+fi
+grep -n 'src/hvf/hvf\|src/lzw/ftlzw' "$mk"
