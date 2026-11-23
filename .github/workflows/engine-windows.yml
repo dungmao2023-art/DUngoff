@@ -137,7 +137,7 @@ jobs:
           export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=6G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
           cd /cygdrive/c/lo/core
           set +e
-          timeout --signal=INT "${MAKE_MINUTES}m" /opt/lo/bin/make build-nocheck > /cygdrive/c/lo/report/make.log 2>&1
+          timeout --signal=INT "${MAKE_MINUTES}m" /opt/lo/bin/make build > /cygdrive/c/lo/report/make.log 2>&1
           rc=$?
           set -e
           echo "make exit code: $rc" | tee -a /cygdrive/c/lo/report/make.log
@@ -204,3 +204,12 @@ jobs:
           if ($round -ge [int]$env:MAX_ROUNDS) { Write-Host "Đã đạt số lượt tối đa"; exit 1 }
           gh workflow run engine-windows.yml --repo $env:GITHUB_REPOSITORY --ref main -f round=$($round + 1)
           Write-Host "Đã kích hoạt lượt $($round + 1)"
+      - name: Kết luận lượt build
+        if: always() && steps.exists.outputs.done == '0'
+        shell: pwsh
+        run: |
+          $r = "${{ steps.make.outputs.result }}"
+          Write-Host "Kết quả make: $r"
+          if ($r -eq "done" -or $r -eq "timeout") { exit 0 }
+          Write-Host "::error::Build engine dừng (kết quả: $r). Xem nhánh ci-report-engine."
+          exit 1
