@@ -109,6 +109,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> args(argv, argv + argc);
 #endif
     fs::path program, xlsx, csv, out, docx, pptx;
+    std::vector<fs::path> extraSheets; // --sheet <tệp>: định dạng bảng tính khác (xls, ods, xlsm...)
     for (size_t i = 1; i + 1 < args.size(); i += 2) {
         if (args[i] == "--program") program = fromUtf8(args[i + 1]);
         else if (args[i] == "--xlsx") xlsx = fromUtf8(args[i + 1]);
@@ -116,6 +117,7 @@ int main(int argc, char** argv) {
         else if (args[i] == "--out") out = fromUtf8(args[i + 1]);
         else if (args[i] == "--docx") docx = fromUtf8(args[i + 1]);
         else if (args[i] == "--pptx") pptx = fromUtf8(args[i + 1]);
+        else if (args[i] == "--sheet") extraSheets.push_back(fromUtf8(args[i + 1]));
     }
     if (program.empty() || xlsx.empty() || out.empty()) {
         std::cerr << "Cách dùng: dung-smoketest --program <dir> --xlsx <tệp> [--csv <tệp>] --out <dir>\n";
@@ -321,6 +323,24 @@ int main(int argc, char** argv) {
             renderCheck(*d, "pdf");
             auto r = d->saveAs(out / "pdf-sua.pdf");
             check(!r.ok, "PDF: không ghi lại khi chưa xác nhận: " + r.message);
+        }
+    }
+
+    // ---------------- Các định dạng bảng tính khác ----------------
+    for (const auto& f : extraSheets) {
+        step("mở " + f.filename().u8string());
+        const FormatInfo* info = formatForPath(f);
+        auto d = engine->open(f, &err);
+        const std::string name = f.filename().u8string();
+        check(d && d->kind() == DocKind::Spreadsheet, "Mở " + name + " -> Excel " + err);
+        if (!d || !info) continue;
+        const bool expectRO = info->fidelity != Fidelity::Native;
+        check(d->readOnly() == expectRO, name + (expectRO ? ": chế độ chỉ đọc + cảnh báo" : ": chỉnh sửa được"));
+        check(d->partCount() == 2, name + ": đủ 2 sheet (thực tế " + std::to_string(d->partCount()) + ")");
+        renderCheck(*d, f.extension().u8string().substr(1));
+        if (expectRO) {
+            auto r = d->saveAs(out / fs::u8path(f.stem().u8string() + "-thu" + f.extension().u8string()));
+            check(!r.ok, name + ": không ghi lại cùng định dạng: " + r.message);
         }
     }
 

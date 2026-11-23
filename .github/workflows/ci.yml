@@ -43,8 +43,12 @@ jobs:
         run: |
           set -o pipefail
           python3 tests/fixtures/make_fixtures.py fixtures
+          # Sinh thêm .xls và .ods từ tệp mẫu để kiểm tra các định dạng Excel khác
+          soffice --headless --convert-to xls --outdir fixtures fixtures/mau-doanh-thu.xlsx > /dev/null 2>&1
+          soffice --headless --convert-to ods --outdir fixtures fixtures/mau-doanh-thu.xlsx > /dev/null 2>&1
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/mau-doanh-thu.xlsx \
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
+            --sheet fixtures/mau-doanh-thu.xls --sheet fixtures/mau-doanh-thu.ods \
             --out smoke 2>&1 | tee report/linux-smoketest.log
       - name: Kiểm thử engine ở chế độ một luồng engine (unipoll, như trên Windows)
         run: |
