@@ -12,7 +12,6 @@
 --without-helppack-integration
 --without-myspell-dicts
 --without-doxygen
---disable-skia
 --disable-gpgmepp
 --disable-online-update
 --disable-report-builder

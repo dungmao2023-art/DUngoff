@@ -23,3 +23,10 @@
   `unresolved external symbol hvf_driver_class` (log lần build 2, nhánh `ci-report-engine`).
 - **Cách sửa:** `apply-overrides.sh` thêm dòng `src/hvf/hvf` (tệp gộp một nguồn của freetype, cùng kiểu với
   `src/cff/cff`) vào danh sách. Không đổi phiên bản freetype.
+
+## Không dùng `--disable-skia` cho biến thể 26.8
+
+- **Lý do:** ở 26.8, `vcl/win/app/salinst.cxx` và `WindowsInstance.cxx` include `vcl/inc/skia/utils.hxx` vô điều kiện,
+  nên khi tắt Skia thì lỗi `fatal error C1083: Cannot open include file: 'SkRegion.h'` (log lần build 3).
+- **Cách xử lý:** giữ Skia (giống bản Windows chính thức). Build lâu hơn nhưng là đường đã được kiểm chứng.
+  Biến thể Collabora (`autogen-coda.input`) vẫn tắt Skia như cấu hình gốc của họ.
