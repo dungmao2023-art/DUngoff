@@ -17,7 +17,9 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/engine-windows.yml"
-      - "engine-build/**"
+      - "engine-build/autogen.input"
+      - "engine-build/apply-overrides.sh"
+      - "engine-build/overrides/**"
 
 concurrency:
   group: engine-windows
