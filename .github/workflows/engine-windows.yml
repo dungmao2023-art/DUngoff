@@ -69,7 +69,14 @@ jobs:
         run: |
           mkdir -p /opt/lo/bin /cygdrive/c/lo/report
           cd /opt/lo/bin
+          # Theo .config/admin_java_and_deps.winget của chính LibreOffice
           wget -q https://dev-www.libreoffice.org/bin/cygwin/make-4.2.1-msvc.exe -O make && chmod +x make
+          wget -q https://dev-www.libreoffice.org/extern/pkgconf-2.4.3.exe -O pkgconf-2.4.3.exe && chmod +x pkgconf-2.4.3.exe
+          wget -q https://dev-www.libreoffice.org/bin/cygwin/nasm.exe -O nasm && chmod +x nasm
+          wget -q https://github.com/StrawberryPerl/Perl-Dist-Strawberry/releases/download/SP_54001_64bit_UCRT/strawberry-perl-5.40.0.1-64bit-portable.zip -O /tmp/spp.zip
+          mkdir -p /cygdrive/c/lo/spp && unzip -q /tmp/spp.zip -d /cygdrive/c/lo/spp && rm /tmp/spp.zip
+          ls /cygdrive/c/lo/spp | head
+          sha256sum make pkgconf-2.4.3.exe nasm | tee /cygdrive/c/lo/report/tools-sha256.txt
           wget -q https://github.com/ccache/ccache/releases/download/v4.10.2/ccache-4.10.2-windows-x86_64.zip -O ccache.zip
           unzip -q -j ccache.zip '*/ccache.exe' && rm ccache.zip && chmod +x ccache.exe
           /opt/lo/bin/make --version | head -1
