@@ -62,6 +62,15 @@ jobs:
           python3 tests/verify_roundtrip.py fixtures/mau-doanh-thu.xlsx "$(cat smoke/saved-path.txt)" \
             --expect "Doanh thu!F2=Dũng" --expect "Doanh thu!F3==D5*2" --expect 'Doanh thu!G2=="Tổng: "&D5' \
             --known tests/known_differences.txt 2>&1 | tee report/linux-roundtrip.log
+      - name: Tệp stress 5000 dòng tổng hợp — round-trip (chưa chặn, để đo mốc ban đầu)
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python3 tests/fixtures/make_stress.py fixtures
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --roundtrip fixtures/stress-5000-dong.xlsx \
+            --out smoke-stress 2>&1 | tee report/linux-stress.log
+          python3 tests/verify_roundtrip.py fixtures/stress-5000-dong.xlsx "$(cat smoke-stress/saved-path.txt)" \
+            --known tests/known_differences.txt 2>&1 | tee report/linux-stress-roundtrip.log
       - name: Ảnh chụp giao diện thật (Xvfb)
         if: always() && hashFiles('build/app/DungOffice') != ''
         run: |
@@ -133,7 +142,11 @@ jobs:
             Select-String -Path report/windows-build.log -Pattern "error" | Select-Object -First 10 | ForEach-Object { Write-Host "::error::$($_.Line)" }
             exit 1
           }
-      - name: Kiểm thử engine trên Windows (smoke test)
+      - name: Kiểm thử đầy đủ engine trên Windows (nhập liệu, lưu) — chưa chặn job
+        id: full
+        # Engine chính thức (MSI) không hỗ trợ nhập liệu trên Windows: bước này sẽ treo ở F2.
+        # Bỏ dòng continue-on-error khi engine headless (--enable-headless) được dùng.
+        continue-on-error: true
         timeout-minutes: 15
         run: |
           $env:PYTHONUTF8 = "1"
@@ -170,7 +183,19 @@ jobs:
           Get-Content report/windows-smoketest.log
           Get-Content report/windows-smoketest.err.log -ErrorAction SilentlyContinue | Select-Object -First 40
           if ($mainExit) { exit 1 }
+      - name: Kiểm thử cơ bản engine trên Windows (mở, hiển thị) — chặn job
+        timeout-minutes: 5
+        run: |
+          $env:PYTHONUTF8 = "1"
+          $basicArgs = @("--program", "$PWD/build/lo/engine/program", "--xlsx", "fixtures/mau-doanh-thu.xlsx",
+                    "--chi-mo", "1", "--out", "$PWD/smoke-co-ban")
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList $basicArgs -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-basic.log -RedirectStandardError report/windows-basic.err.log
+          if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-basic.log; exit 1 }
+          Get-Content report/windows-basic.log
+          if ($p.ExitCode) { exit 1 }
       - name: Kiểm tra round-trip XLSX
+        if: steps.full.outcome == 'success'
         run: |
           $env:PYTHONUTF8 = "1"
           $saved = Get-Content smoke/saved-path.txt -Encoding UTF8
@@ -182,6 +207,7 @@ jobs:
         run: |
           ./scripts/package-windows.ps1 -BuildDir build/out -EngineDir build/lo/engine -QtDir $env:QT_ROOT_DIR -OutDir build/dist *>&1 | Tee-Object report/windows-package.log
       - name: Ảnh chụp giao diện thật trên Windows
+        if: steps.full.outcome == 'success'
         run: |
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           function Shot($name, $argList) {
@@ -202,6 +228,7 @@ jobs:
           Shot "docx" "`"$PWD/fixtures/mau-van-ban.docx`""
           Shot "pdf" "`"$PWD/smoke/Tài liệu thử/ban-in.pdf`""
       - name: Bộ cài OneClick (Inno Setup) — chỉ khi mọi kiểm thử đã đạt
+        if: success() && steps.full.outcome == 'success'
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
@@ -210,7 +237,7 @@ jobs:
           if ($LASTEXITCODE) { exit 1 }
           Get-ChildItem installer/Output/*.exe | ForEach-Object { "{0}  {1:N0} MB" -f $_.Name, ($_.Length / 1MB) } | Tee-Object -Append report/windows-installer.log
       - uses: actions/upload-artifact@v4
-        if: success()
+        if: success() && steps.full.outcome == 'success'
         with:
           name: DungOffice-Setup-x64
           path: installer/Output/*.exe
@@ -221,7 +248,7 @@ jobs:
           name: report-windows
           path: report/
       - name: Phát hành (chỉ khi gắn tag v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && steps.full.outcome == 'success'
         uses: softprops/action-gh-release@v2
         with:
           files: installer/Output/*.exe

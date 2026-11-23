@@ -111,6 +111,7 @@ int main(int argc, char** argv) {
     fs::path program, xlsx, csv, out, docx, pptx;
     std::vector<fs::path> extraSheets; // --sheet <tệp>: định dạng bảng tính khác (xls, ods, xlsm...)
     fs::path roundtrip;                // --roundtrip <tệp>: chỉ mở, render mọi sheet, lưu bản sao (không sửa)
+    bool basicOnly = false;            // --chi-mo 1: dừng sau bước hiển thị (engine chưa hỗ trợ nhập liệu)
     for (size_t i = 1; i + 1 < args.size(); i += 2) {
         if (args[i] == "--program") program = fromUtf8(args[i + 1]);
         else if (args[i] == "--xlsx") xlsx = fromUtf8(args[i + 1]);
@@ -120,6 +121,7 @@ int main(int argc, char** argv) {
         else if (args[i] == "--pptx") pptx = fromUtf8(args[i + 1]);
         else if (args[i] == "--sheet") extraSheets.push_back(fromUtf8(args[i + 1]));
         else if (args[i] == "--roundtrip") roundtrip = fromUtf8(args[i + 1]);
+        else if (args[i] == "--chi-mo") basicOnly = (args[i + 1] == "1"); // chỉ mở + hiển thị, bỏ nhập liệu/lưu
     }
     if (!roundtrip.empty() && !program.empty() && !out.empty()) {
         std::error_code e2;
@@ -221,6 +223,13 @@ int main(int argc, char** argv) {
         if (buf[i] < 200 || buf[i + 1] < 200 || buf[i + 2] < 200) ++nonWhite;
     writeBmp(out / "tile-sheet1.bmp", buf, px, px);
     check(nonWhite > 500, "Render tile có nội dung (" + std::to_string(nonWhite) + " điểm ảnh tối)");
+
+    // ---------------- Chỉ mở và hiển thị (--chi-mo 1) ----------------
+    if (basicOnly) {
+        std::cout << (g_fail ? "\nKẾT QUẢ CƠ BẢN: CÓ LỖI\n" : "\nKẾT QUẢ CƠ BẢN: ĐẠT\n");
+        std::cout.flush();
+        std::_Exit(g_fail ? 1 : 0);
+    }
 
     // ---------------- Chỉnh sửa ----------------
     doc->clearEvents();
