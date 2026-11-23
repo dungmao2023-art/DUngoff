@@ -125,8 +125,9 @@ jobs:
           }
       - name: Kiểm thử engine trên Windows (smoke test)
         run: |
-          python tests/fixtures/make_fixtures.py fixtures
           $env:PYTHONUTF8 = "1"
+          python tests/fixtures/make_fixtures.py fixtures *>&1 | Tee-Object report/windows-fixtures.log
+          Get-ChildItem fixtures | ForEach-Object { "$($_.Name)  $($_.Length)" } | Tee-Object -Append report/windows-fixtures.log
           & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --xlsx fixtures/mau-doanh-thu.xlsx `
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx `
             --out "$PWD/smoke" *>&1 | Tee-Object report/windows-smoketest.log

@@ -95,6 +95,11 @@ int main(int argc, char** argv) {
     // Đặt tệp mẫu vào thư mục có tên tiếng Việt để kiểm tra đường dẫn Unicode.
     fs::path viDir = out / fs::u8path("Tài liệu thử");
     fs::create_directories(viDir, ec);
+    if (ec || !fs::is_directory(viDir))
+        std::cout << "       [chẩn đoán] tạo thư mục '" << viDir.u8string() << "' lỗi: " << ec.message() << std::endl;
+    if (!fs::exists(xlsx))
+        std::cout << "       [chẩn đoán] không thấy tệp mẫu '" << fs::absolute(xlsx).u8string() << "' (cwd="
+                  << fs::current_path().u8string() << ")" << std::endl;
     fs::path original = viDir / fs::u8path("Báo cáo doanh thu.xlsx");
     fs::copy_file(xlsx, original, fs::copy_options::overwrite_existing, ec);
     check(!ec, "Chuẩn bị tệp gốc trong thư mục tiếng Việt" + (ec ? ": " + ec.message() + " (" + xlsx.u8string() +
