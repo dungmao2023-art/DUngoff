@@ -69,6 +69,7 @@ private:
     int m_rowStartPx = 0, m_colStartPx = 0;
     QTimer m_headerTimer;
     QTimer m_areaTimer;
+    QTimer m_fitTimer;
     int m_pressButtons = 0;
     bool m_fitted = false;
 };

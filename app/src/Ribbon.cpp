@@ -56,7 +56,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     m_tabs->setDrawBase(false);
     m_tabs->setExpanding(false);
     m_pages = new QStackedWidget(this);
-    m_pages->setFixedHeight(84);
+    m_pages->setFixedHeight(94);
     v->addWidget(m_tabs);
     v->addWidget(m_pages);
     connect(m_tabs, &QTabBar::currentChanged, m_pages, &QStackedWidget::setCurrentIndex);

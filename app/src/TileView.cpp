@@ -31,6 +31,10 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
     m_areaTimer.setSingleShot(true);
     m_areaTimer.setInterval(60);
     connect(&m_areaTimer, &QTimer::timeout, this, &TileView::sendVisibleArea);
+    // Vừa khung chạy sau khi bố cục đã ổn định (tránh tính theo kích thước tạm lúc khởi tạo)
+    m_fitTimer.setSingleShot(true);
+    m_fitTimer.setInterval(200);
+    connect(&m_fitTimer, &QTimer::timeout, this, &TileView::fitWidthOnce);
 
     m_doc->documentSize(m_docW, m_docH);
     updateScrollBars();
@@ -48,13 +52,12 @@ QPoint TileView::origin() const {
 }
 
 void TileView::fitWidthOnce() {
-    if (m_fitted || m_isCalc || m_docW <= 0 || viewport()->width() < 100) return;
+    if (m_fitted || m_isCalc || m_docW <= 0 || m_docH <= 0 || !isVisible() || viewport()->width() < 400) return;
     m_fitted = true;
-    if (m_doc->kind() == dung::DocKind::Presentation || m_doc->kind() == dung::DocKind::Drawing) {
-        // Vừa khít chiều rộng (tối đa 100%)
-        const double fit = (viewport()->width() - 40) * 15.0 * 100.0 / m_docW;
-        setZoom(std::clamp((int)fit, 25, 100));
-    }
+    const double fitW = (viewport()->width() - 48) * 15.0 * 100.0 / m_docW;
+    const double fitH = (viewport()->height() - 36) * 15.0 * 100.0 / m_docH;
+    if (m_doc->kind() == dung::DocKind::Presentation) setZoom(std::clamp((int)std::min(fitW, fitH), 25, 100)); // cả slide
+    else if (m_doc->kind() == dung::DocKind::Drawing) setZoom(std::clamp((int)fitW, 25, 100));             // PDF: vừa chiều rộng
 }
 
 QPoint TileView::toTwips(const QPoint& p) const {
@@ -235,7 +238,7 @@ void TileView::paintEvent(QPaintEvent* ev) {
 void TileView::resizeEvent(QResizeEvent* e) {
     QAbstractScrollArea::resizeEvent(e);
     updateScrollBars();
-    fitWidthOnce();
+    if (!m_fitted) m_fitTimer.start();
     m_areaTimer.start();
 }
 
