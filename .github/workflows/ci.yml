@@ -124,7 +124,7 @@ jobs:
             exit 1
           }
       - name: Kiểm thử engine trên Windows (smoke test)
-        timeout-minutes: 10
+        timeout-minutes: 15
         run: |
           $env:PYTHONUTF8 = "1"
           # Bước cài Qt có thể đổi trình Python mặc định -> cài gói kiểm thử cho đúng trình đang dùng
@@ -132,10 +132,31 @@ jobs:
           python tests/fixtures/make_fixtures.py fixtures *>&1 | Tee-Object report/windows-fixtures.log
           if ($LASTEXITCODE) { Write-Host "::error::Không tạo được tệp mẫu"; exit 1 }
           Get-ChildItem fixtures | ForEach-Object { "$($_.Name)  $($_.Length)" } | Tee-Object -Append report/windows-fixtures.log
-          & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --xlsx fixtures/mau-doanh-thu.xlsx `
-            --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx `
-            --out "$PWD/smoke" *>&1 | Tee-Object report/windows-smoketest.log
-          if ($LASTEXITCODE) { exit 1 }
+          $smokeArgs = @("--program", "$PWD/build/lo/engine/program", "--xlsx", "fixtures/mau-doanh-thu.xlsx",
+                    "--csv", "fixtures/mau.csv", "--docx", "fixtures/mau-van-ban.docx",
+                    "--pptx", "fixtures/mau-trinh-chieu.pptx", "--out", "$PWD/smoke")
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList $smokeArgs -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-smoketest.log -RedirectStandardError report/windows-smoketest.err.log
+          # Chẩn đoán treo: sau 50 giây nếu còn chạy -> chụp màn hình + dump ngăn xếp các luồng
+          if (-not $p.WaitForExit(50000)) {
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save("report/windows-hang-screen.png")
+            Get-Process | Where-Object { $_.MainWindowTitle } | ForEach-Object { "$($_.ProcessName): $($_.MainWindowTitle)" } | Out-File report/windows-hang-windows.txt
+            $cdb = "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\cdb.exe"
+            if (Test-Path $cdb) {
+              # Ký hiệu: Microsoft + máy chủ symbol chính thức của LibreOffice (bản phát hành)
+              $sym = "srv*C:\sym*https://msdl.microsoft.com/download/symbols;srv*C:\sym*https://dev-downloads.libreoffice.org/symstore/symbols"
+              $c = Start-Process $cdb -ArgumentList @("-p", $p.Id, "-y", "`"$sym`"", "-c", "`"~*kn 50; qd`"") -PassThru -NoNewWindow `
+                     -RedirectStandardOutput report/windows-hang-stacks.txt
+              if (-not $c.WaitForExit(300000)) { Stop-Process $c -Force; "cdb quá thời gian" | Add-Content report/windows-hang-stacks.txt }
+            } else { "không có cdb" | Out-File report/windows-hang-stacks.txt }
+          }
+          $p.WaitForExit()
+          Get-Content report/windows-smoketest.log
+          if ($p.ExitCode) { exit 1 }
       - name: Kiểm tra round-trip XLSX
         run: |
           $env:PYTHONUTF8 = "1"
