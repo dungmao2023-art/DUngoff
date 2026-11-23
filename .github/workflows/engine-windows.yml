@@ -3,7 +3,9 @@ name: Engine Windows (LibreOffice headless)
 # Build engine LibreOffice cho Windows với --enable-headless (cần để LibreOfficeKit render tile vào
 # giao diện riêng của Dũng Office; bản phát hành chính thức không có backend này — xem docs/WINDOWS_ENGINE.md).
 # Runner miễn phí giới hạn 6 giờ/job: make chạy tối đa ~5 giờ, kết quả biên dịch được giữ trong ccache,
-# rồi workflow tự kích hoạt lại để build tiếp cho đến khi xong (tối đa MAX_ROUNDS lượt).
+# rồi workflow tự kích hoạt lại để build tiếp cho đến khi xong.
+# Quy tắc: tối đa 3 lượt; checkpoint (ccache) có tệp kê khai SHA-256, kiểm tra khi khôi phục;
+# dừng hẳn khi gặp lỗi tài nguyên (đĩa/bộ nhớ) hoặc lỗi biên dịch; chỉ chạy tiếp khi hết giờ.
 
 on:
   workflow_dispatch:
@@ -24,7 +26,8 @@ concurrency:
 env:
   LO_TAG: libreoffice-26.8.3.1
   ENGINE_RELEASE: engine-26.8.3.1-headless
-  MAX_ROUNDS: "6"
+  MAX_ROUNDS: "3"
+  MIN_FREE_GB: "40"
   MAKE_MINUTES: "290"
 
 permissions:
@@ -70,8 +73,11 @@ jobs:
           unzip -q -j ccache.zip '*/ccache.exe' && rm ccache.zip && chmod +x ccache.exe
           /opt/lo/bin/make --version | head -1
           ./ccache.exe --version | head -1
-          df -h /cygdrive/c /cygdrive/d 2>/dev/null || true
+          df -h /cygdrive/c /cygdrive/d 2>/dev/null | tee /cygdrive/c/lo/report/disk.txt || true
           nproc
+          free_gb=$(df -BG --output=avail /cygdrive/c | tail -1 | tr -dc '0-9')
+          echo "Ổ C còn trống: ${free_gb} GB (tối thiểu ${MIN_FREE_GB} GB)"
+          if [ "$free_gb" -lt "$MIN_FREE_GB" ]; then echo "::error::LỖI TÀI NGUYÊN: không đủ dung lượng đĩa"; exit 1; fi
       - name: Lấy mã nguồn LibreOffice (${{ env.LO_TAG }})
         if: steps.exists.outputs.done == '0'
         run: |
@@ -86,11 +92,29 @@ jobs:
           path: C:\lo\ccache
           key: lo-ccache-${{ env.LO_TAG }}-${{ github.run_id }}
           restore-keys: lo-ccache-${{ env.LO_TAG }}-
+      - name: Kiểm tra checksum checkpoint
+        if: steps.exists.outputs.done == '0'
+        run: |
+          d=/cygdrive/c/lo/ccache
+          log=/cygdrive/c/lo/report/checkpoint.txt
+          if [ ! -d "$d" ]; then echo "Không có checkpoint: build từ đầu" | tee "$log"; exit 0; fi
+          if [ ! -f "$d/dung-manifest.sha256" ]; then
+            echo "Checkpoint không có tệp kê khai SHA-256 (lượt cũ): chỉ dựa vào checksum nội bộ của ccache" | tee "$log"; exit 0
+          fi
+          cd "$d"
+          n=$(wc -l < dung-manifest.sha256)
+          if sha256sum -c --quiet dung-manifest.sha256 > /tmp/verify.txt 2>&1; then
+            echo "Checkpoint hợp lệ: $n tệp khớp SHA-256" | tee "$log"
+          else
+            echo "CHECKPOINT HỎNG: $(grep -c FAILED /tmp/verify.txt) tệp sai checksum — bỏ checkpoint, build sạch" | tee "$log"
+            head -20 /tmp/verify.txt >> "$log"
+            cd / && rm -rf "$d"
+          fi
       - name: Cấu hình (autogen)
         if: steps.exists.outputs.done == '0'
         run: |
           export PATH=/opt/lo/bin:$PATH
-          export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=8G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
+          export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=6G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
           cd /cygdrive/c/lo/core
           cp "$(cygpath -u "$GITHUB_WORKSPACE")/dungoff/engine-build/autogen.input" autogen.input
           echo "--with-external-tar=C:/lo/tarballs" >> autogen.input
@@ -102,7 +126,7 @@ jobs:
         if: steps.exists.outputs.done == '0'
         run: |
           export PATH=/opt/lo/bin:$PATH
-          export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=8G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
+          export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=6G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
           cd /cygdrive/c/lo/core
           set +e
           timeout --signal=INT "${MAKE_MINUTES}m" /opt/lo/bin/make build-nocheck > /cygdrive/c/lo/report/make.log 2>&1
@@ -110,9 +134,22 @@ jobs:
           set -e
           echo "make exit code: $rc" | tee -a /cygdrive/c/lo/report/make.log
           /opt/lo/bin/ccache.exe -s | tee /cygdrive/c/lo/report/ccache.txt || true
-          if [ $rc -eq 0 ]; then echo "result=done" >> "$(cygpath -u "$GITHUB_OUTPUT")";
+          if grep -q -E "No space left on device|not enough space on the disk|LNK1180|C1060|C1076|C3859|out of heap space|LNK1102|LNK1248|fatal error C1083: Cannot open compiler generated file|virtual memory" /cygdrive/c/lo/report/make.log; then
+            echo "::error::LỖI TÀI NGUYÊN (đĩa/bộ nhớ) — dừng, không chạy lượt tiếp"
+            grep -n -E "No space left|not enough space|LNK1180|C1060|C1076|C3859|heap space|LNK1102|LNK1248|virtual memory" /cygdrive/c/lo/report/make.log | head -20 > /cygdrive/c/lo/report/resource-errors.txt
+            echo "result=resource" >> "$(cygpath -u "$GITHUB_OUTPUT")"
+          elif [ $rc -eq 0 ]; then echo "result=done" >> "$(cygpath -u "$GITHUB_OUTPUT")";
           elif [ $rc -eq 124 ] || [ $rc -eq 130 ]; then echo "result=timeout" >> "$(cygpath -u "$GITHUB_OUTPUT")";
           else echo "result=error" >> "$(cygpath -u "$GITHUB_OUTPUT")"; fi
+      - name: Tạo tệp kê khai SHA-256 cho checkpoint
+        if: always() && steps.exists.outputs.done == '0'
+        run: |
+          d=/cygdrive/c/lo/ccache
+          [ -d "$d" ] || exit 0
+          cd "$d"
+          rm -f dung-manifest.sha256
+          find . -type f -print0 | sort -z | xargs -0 -r sha256sum > /tmp/manifest && mv /tmp/manifest dung-manifest.sha256
+          echo "Checkpoint: $(wc -l < dung-manifest.sha256) tệp, $(du -sh . | cut -f1)" | tee -a /cygdrive/c/lo/report/checkpoint.txt
       - name: Lưu ccache
         if: always() && steps.exists.outputs.done == '0'
         uses: actions/cache/save@v4
@@ -142,8 +179,10 @@ jobs:
           cd /cygdrive/c/lo/report
           [ -f make.log ] && { tail -400 make.log > make-tail.log; grep -n -E "error|Error|\*\*\*" make.log | tail -80 > make-errors.log || true; rm make.log; }
           [ -f /cygdrive/c/lo/core/config.log ] && tail -300 /cygdrive/c/lo/core/config.log > config-tail.log
-          printf '# Engine Windows — lượt %s\n\n- run: %s/%s/actions/runs/%s\n- kết quả make: %s\n' \
-            "${{ inputs.round || '1' }}" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "${{ steps.make.outputs.result }}" > README.md
+          printf '# Engine Windows — lượt %s/%s\n\n- run: %s/%s/actions/runs/%s\n- kết quả make: %s\n\n## Checkpoint\n' \
+            "${{ inputs.round || '1' }}" "$MAX_ROUNDS" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "${{ steps.make.outputs.result }}" > README.md
+          cat checkpoint.txt >> README.md 2>/dev/null || true
+          mkdir -p "round-${{ inputs.round || '1' }}" && mv -f *.log *.txt "round-${{ inputs.round || '1' }}/" 2>/dev/null || true
           git init -q -b ci-report-engine && git config user.name dung-ci && git config user.email ci@users.noreply.github.com
           git add -A && git commit -qm "engine report run $GITHUB_RUN_ID"
           git push -fq "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-report-engine
