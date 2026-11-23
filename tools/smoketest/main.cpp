@@ -18,6 +18,8 @@
 #include <iterator>
 #include <chrono>
 #include <thread>
+#include <atomic>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -29,6 +31,36 @@
 using namespace dung;
 
 static int g_fail = 0;
+static std::mutex g_stepMutex;
+static std::string g_step = "khởi động";
+static std::atomic<long long> g_stepStart{0};
+static long long nowMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+// Đánh dấu bước đang chạy; watchdog dùng để báo chính xác bước bị treo.
+static void step(const std::string& name) {
+    {
+        std::lock_guard<std::mutex> g(g_stepMutex);
+        g_step = name;
+    }
+    g_stepStart = nowMs();
+    std::cout << "  -> " << name << std::endl;
+}
+static void startWatchdog(int perStepSeconds) {
+    g_stepStart = nowMs();
+    std::thread([perStepSeconds] {
+        for (;;) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            if (nowMs() - g_stepStart > perStepSeconds * 1000LL) {
+                std::lock_guard<std::mutex> g(g_stepMutex);
+                std::cout << "[LỖI]  TREO quá " << perStepSeconds << " giây ở bước: " << g_step << std::endl;
+                std::cout << "\nKẾT QUẢ: CÓ LỖI (treo)\n";
+                std::cout.flush();
+                std::_Exit(3);
+            }
+        }
+    }).detach();
+}
 static void check(bool ok, const std::string& what) {
     std::cout << (ok ? "[ĐẠT]  " : "[LỖI]  ") << what << std::endl;
     if (!ok) ++g_fail;
@@ -91,6 +123,7 @@ int main(int argc, char** argv) {
     }
     std::error_code ec;
     fs::create_directories(out, ec);
+    startWatchdog(90);
 
     // Đặt tệp mẫu vào thư mục có tên tiếng Việt để kiểm tra đường dẫn Unicode.
     fs::path viDir = out / fs::u8path("Tài liệu thử");
@@ -107,12 +140,14 @@ int main(int argc, char** argv) {
     const auto originalBytes = readAll(original);
 
     std::string err;
+    step("khởi động engine");
     auto engine = Engine::create(program, out / "profile", out / "work", &err);
     check((bool)engine, "Khởi động engine LibreOfficeKit " + err);
     if (!engine) return 1;
     std::cout << "       Phiên bản engine: " << engine->versionInfo() << std::endl;
 
     // ---------------- Mở XLSX ----------------
+    step("mở XLSX");
     auto doc = engine->open(original, &err);
     check((bool)doc, "Mở XLSX " + err);
     if (!doc) return 1;
@@ -127,6 +162,7 @@ int main(int argc, char** argv) {
     const int px = 512;
     std::vector<uint8_t> buf(px * px * 4, 0);
     const int twips = px * 15; // 100% zoom: 1px = 15 twip
+    step("render tile XLSX");
     doc->setClientView(px, px, twips, twips, 0, 0, twips, twips);
     doc->paintTile(buf.data(), px, px, 0, 0, twips, twips);
     size_t nonWhite = 0;
@@ -137,6 +173,7 @@ int main(int argc, char** argv) {
 
     // ---------------- Chỉnh sửa ----------------
     doc->clearEvents();
+    step("gõ nội dung vào F2");
     gotoCell(*doc, "F2");
     check(waitAddress(*doc, "F2"), "Di chuyển con trỏ ô tới F2");
     doc->typeText(u"Dũng\n");
@@ -152,6 +189,7 @@ int main(int argc, char** argv) {
     doc->clearEvents();
     gotoCell(*doc, "G2");
     check(waitAddress(*doc, "G2"), "Di chuyển tới G2");
+    step("EnterString");
     doc->command(".uno:EnterString", Document::stringArg("StringName", "=\"Tổng: \"&D5"));
     gotoCell(*doc, "G3");
     waitAddress(*doc, "G3");
@@ -161,6 +199,7 @@ int main(int argc, char** argv) {
           "Nhập công thức từ thanh công thức (EnterString): " + doc->lastPayload(LOK_CALLBACK_CELL_FORMULA));
 
     // Clipboard: lấy nội dung ô đang chọn dạng văn bản
+    step("clipboard");
     gotoCell(*doc, "A2");
     waitAddress(*doc, "A2");
     std::string sel = doc->selectionAs("text/plain;charset=utf-8");
@@ -171,6 +210,7 @@ int main(int argc, char** argv) {
     check(doc->modified(), "Engine báo tài liệu đã thay đổi");
 
     // ---------------- Quy tắc an toàn khi lưu ----------------
+    step("quy tắc lưu an toàn");
     auto r1 = doc->saveAs(original);
     check(!r1.ok, "Từ chối ghi đè tệp gốc khi chưa xác nhận: " + r1.message);
     auto r2 = doc->saveAs(viDir / "khac.xls");
@@ -184,6 +224,7 @@ int main(int argc, char** argv) {
     }
 
     // ---------------- Lưu thành (mặc định) ----------------
+    step("Lưu thành XLSX");
     fs::path suggested = doc->suggestSaveAsPath();
     check(suggested != original && suggested.extension() == ".xlsx",
           "Gợi ý Lưu thành tệp mới: " + suggested.filename().u8string());
@@ -203,6 +244,7 @@ int main(int argc, char** argv) {
     }
     SaveOptions exp;
     exp.allowLossyExport = true;
+    step("xuất PDF");
     auto pdf = doc->saveAs(viDir / "ban-in.pdf", exp);
     check(pdf.ok, "Xuất PDF khi đã xác nhận: " + pdf.message);
 
@@ -218,11 +260,13 @@ int main(int argc, char** argv) {
     // Ghi kết quả cho script Python kiểm chứng round-trip
     std::ofstream(out / "saved-path.txt") << suggested.u8string();
     std::cout << "       Đóng tài liệu..." << std::endl;
+    step("đóng tài liệu XLSX");
     doc.reset();
     std::cout << "       Đã đóng." << std::endl;
 
     // ---------------- CSV: chỉ đọc ----------------
     if (!csv.empty()) {
+        step("mở CSV");
         auto c = engine->open(csv, &err);
         check((bool)c, "Mở CSV " + err);
         if (c) {
@@ -248,6 +292,7 @@ int main(int argc, char** argv) {
         check(dark > 50, "Render " + label + " có nội dung (" + std::to_string(dark) + " điểm ảnh tối)");
     };
     if (!docx.empty()) {
+        step("mở DOCX");
         auto d = engine->open(docx, &err);
         check(d && d->kind() == DocKind::Text && !d->readOnly(), "Mở DOCX -> Word, chỉnh sửa được " + err);
         if (d) {
@@ -257,6 +302,7 @@ int main(int argc, char** argv) {
         }
     }
     if (!pptx.empty()) {
+        step("mở PPTX");
         auto d = engine->open(pptx, &err);
         check(d && d->kind() == DocKind::Presentation && d->partCount() == 2,
               "Mở PPTX -> PowerPoint, 2 trang chiếu " + err);
@@ -268,6 +314,7 @@ int main(int argc, char** argv) {
     }
     {
         fs::path pdfPath = viDir / "ban-in.pdf";
+        step("mở PDF");
         auto d = engine->open(pdfPath, &err);
         check(d && d->kind() == DocKind::Drawing && d->readOnly(), "Mở PDF -> chế độ xem (chỉ đọc) " + err);
         if (d) {
@@ -278,6 +325,7 @@ int main(int argc, char** argv) {
     }
 
     // ---------------- Tạo mới ----------------
+    step("tạo mới");
     auto nw = engine->createNew(DocKind::Spreadsheet, &err);
     check((bool)nw && nw->kind() == DocKind::Spreadsheet, "Tạo sổ làm việc mới " + err);
     if (nw) {

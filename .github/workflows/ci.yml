@@ -124,6 +124,7 @@ jobs:
             exit 1
           }
       - name: Kiểm thử engine trên Windows (smoke test)
+        timeout-minutes: 10
         run: |
           $env:PYTHONUTF8 = "1"
           # Bước cài Qt có thể đổi trình Python mặc định -> cài gói kiểm thử cho đúng trình đang dùng
