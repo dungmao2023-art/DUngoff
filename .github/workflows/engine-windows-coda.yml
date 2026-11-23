@@ -1,0 +1,217 @@
+name: Engine Windows (Collabora CODA headless)
+
+# Biến thể: build từ tag coda-* của Collabora Office Desktop (bản Windows họ đã phát hành, cùng kho
+# LibreOffice core, MPL-2.0), cấu hình theo distro-configs/CODAWindows.conf, bỏ thương hiệu Collabora.
+# Build engine LibreOffice cho Windows với --enable-headless (cần để LibreOfficeKit render tile vào
+# giao diện riêng của Dũng Office; bản phát hành chính thức không có backend này — xem docs/WINDOWS_ENGINE.md).
+# Runner miễn phí giới hạn 6 giờ/job: make chạy tối đa ~5 giờ, kết quả biên dịch được giữ trong ccache,
+# rồi workflow tự kích hoạt lại để build tiếp cho đến khi xong.
+# Quy tắc: tối đa 3 lượt; checkpoint (ccache) có tệp kê khai SHA-256, kiểm tra khi khôi phục;
+# dừng hẳn khi gặp lỗi tài nguyên (đĩa/bộ nhớ) hoặc lỗi biên dịch; chỉ chạy tiếp khi hết giờ.
+
+on:
+  workflow_dispatch:
+    inputs:
+      round:
+        description: "Lượt build (tự tăng khi chạy tiếp)"
+        default: "1"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/engine-windows-coda.yml"
+      - "engine-build/autogen-coda.input"
+
+concurrency:
+  group: engine-windows-coda
+  cancel-in-progress: false
+
+env:
+  LO_TAG: coda-25.04.9.2-2
+  ENGINE_RELEASE: engine-coda-25.04.9.2-headless
+  MAX_ROUNDS: "3"
+  MIN_FREE_GB: "40"
+  MAKE_MINUTES: "290"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 355
+    defaults:
+      run:
+        shell: C:\cygwin\bin\bash.exe --login -eo pipefail -o igncr '{0}'
+    steps:
+      - name: Kiểm tra engine đã có chưa
+        id: exists
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:ENGINE_RELEASE --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { "done=1" >> $env:GITHUB_OUTPUT; Write-Host "Engine đã được build trước đó." } else { "done=0" >> $env:GITHUB_OUTPUT; Write-Host "Chưa có engine: bắt đầu build." }
+          exit 0
+      - uses: actions/checkout@v4
+        if: steps.exists.outputs.done == '0'
+        with:
+          path: dungoff
+      - name: Cài Cygwin
+        if: steps.exists.outputs.done == '0'
+        uses: cygwin/cygwin-install-action@v4
+        with:
+          install-dir: C:\cygwin
+          packages: >-
+            autoconf automake bison cabextract doxygen flex gcc-g++ gettext-devel git gnupg gperf
+            make nasm openssh openssl patch perl python3 pkg-config rsync unzip wget zip
+            perl-Archive-Zip perl-Font-TTF perl-IO-String
+      - name: Chuẩn bị công cụ (make bản MSVC, ccache)
+        if: steps.exists.outputs.done == '0'
+        run: |
+          mkdir -p /opt/lo/bin /cygdrive/c/lo/report
+          cd /opt/lo/bin
+          # Theo .config/admin_java_and_deps.winget của chính LibreOffice
+          wget -q https://dev-www.libreoffice.org/bin/cygwin/make-4.2.1-msvc.exe -O make && chmod +x make
+          wget -q https://dev-www.libreoffice.org/extern/pkgconf-2.4.3.exe -O pkgconf-2.4.3.exe && chmod +x pkgconf-2.4.3.exe
+          wget -q https://dev-www.libreoffice.org/bin/cygwin/nasm.exe -O nasm && chmod +x nasm
+          wget -q https://github.com/StrawberryPerl/Perl-Dist-Strawberry/releases/download/SP_54001_64bit_UCRT/strawberry-perl-5.40.0.1-64bit-portable.zip -O /tmp/spp.zip
+          mkdir -p /cygdrive/c/lo/spp && unzip -q /tmp/spp.zip -d /cygdrive/c/lo/spp && rm /tmp/spp.zip
+          ls /cygdrive/c/lo/spp | head
+          sha256sum make pkgconf-2.4.3.exe nasm | tee /cygdrive/c/lo/report/tools-sha256.txt
+          wget -q https://github.com/ccache/ccache/releases/download/v4.10.2/ccache-4.10.2-windows-x86_64.zip -O ccache.zip
+          unzip -q -j ccache.zip '*/ccache.exe' && rm ccache.zip && chmod +x ccache.exe
+          /opt/lo/bin/make --version | head -1
+          ./ccache.exe --version | head -1
+          df -h /cygdrive/c /cygdrive/d 2>/dev/null | tee /cygdrive/c/lo/report/disk.txt || true
+          nproc
+          free_gb=$(df -BG --output=avail /cygdrive/c | tail -1 | tr -dc '0-9')
+          echo "Ổ C còn trống: ${free_gb} GB (tối thiểu ${MIN_FREE_GB} GB)"
+          if [ "$free_gb" -lt "$MIN_FREE_GB" ]; then echo "::error::LỖI TÀI NGUYÊN: không đủ dung lượng đĩa"; exit 1; fi
+      - name: Lấy mã nguồn LibreOffice (${{ env.LO_TAG }})
+        if: steps.exists.outputs.done == '0'
+        run: |
+          cd /cygdrive/c/lo
+          git config --global core.autocrlf false
+          git clone --depth 1 -b "$LO_TAG" https://github.com/LibreOffice/core.git core 2>&1 | tail -2
+          cd core && git log -1 --format='%H %s'
+      - name: Khôi phục ccache
+        if: steps.exists.outputs.done == '0'
+        uses: actions/cache/restore@v4
+        with:
+          path: C:\lo\ccache
+          key: lo-ccache-${{ env.LO_TAG }}-${{ github.run_id }}
+          restore-keys: lo-ccache-${{ env.LO_TAG }}-
+      - name: Kiểm tra checksum checkpoint
+        if: steps.exists.outputs.done == '0'
+        run: |
+          d=/cygdrive/c/lo/ccache
+          log=/cygdrive/c/lo/report/checkpoint.txt
+          if [ ! -d "$d" ]; then echo "Không có checkpoint: build từ đầu" | tee "$log"; exit 0; fi
+          if [ ! -f "$d/dung-manifest.sha256" ]; then
+            echo "Checkpoint không có tệp kê khai SHA-256 (lượt cũ): chỉ dựa vào checksum nội bộ của ccache" | tee "$log"; exit 0
+          fi
+          cd "$d"
+          n=$(wc -l < dung-manifest.sha256)
+          if sha256sum -c --quiet dung-manifest.sha256 > /tmp/verify.txt 2>&1; then
+            echo "Checkpoint hợp lệ: $n tệp khớp SHA-256" | tee "$log"
+          else
+            echo "CHECKPOINT HỎNG: $(grep -c FAILED /tmp/verify.txt) tệp sai checksum — bỏ checkpoint, build sạch" | tee "$log"
+            head -20 /tmp/verify.txt >> "$log"
+            cd / && rm -rf "$d"
+          fi
+      - name: Cấu hình (autogen)
+        if: steps.exists.outputs.done == '0'
+        run: |
+          export PATH=/opt/lo/bin:$PATH
+          export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=4G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
+          cd /cygdrive/c/lo/core
+          cp "$(cygpath -u "$GITHUB_WORKSPACE")/dungoff/engine-build/autogen-coda.input" autogen.input
+          echo "--with-external-tar=C:/lo/tarballs" >> autogen.input
+          mkdir -p /cygdrive/c/lo/tarballs
+          cat autogen.input
+          ./autogen.sh 2>&1 | tee /cygdrive/c/lo/report/autogen.log | tail -60
+      - name: Build (tối đa ${{ env.MAKE_MINUTES }} phút)
+        id: make
+        if: steps.exists.outputs.done == '0'
+        run: |
+          export PATH=/opt/lo/bin:$PATH
+          export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=4G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
+          cd /cygdrive/c/lo/core
+          set +e
+          timeout --signal=INT "${MAKE_MINUTES}m" /opt/lo/bin/make build > /cygdrive/c/lo/report/make.log 2>&1
+          rc=$?
+          set -e
+          echo "make exit code: $rc" | tee -a /cygdrive/c/lo/report/make.log
+          /opt/lo/bin/ccache.exe -s | tee /cygdrive/c/lo/report/ccache.txt || true
+          if grep -q -E "No space left on device|not enough space on the disk|LNK1180|C1060|C1076|C3859|out of heap space|LNK1102|LNK1248|fatal error C1083: Cannot open compiler generated file|virtual memory" /cygdrive/c/lo/report/make.log; then
+            echo "::error::LỖI TÀI NGUYÊN (đĩa/bộ nhớ) — dừng, không chạy lượt tiếp"
+            grep -n -E "No space left|not enough space|LNK1180|C1060|C1076|C3859|heap space|LNK1102|LNK1248|virtual memory" /cygdrive/c/lo/report/make.log | head -20 > /cygdrive/c/lo/report/resource-errors.txt
+            echo "result=resource" >> "$(cygpath -u "$GITHUB_OUTPUT")"
+          elif [ $rc -eq 0 ]; then echo "result=done" >> "$(cygpath -u "$GITHUB_OUTPUT")";
+          elif [ $rc -eq 124 ] || [ $rc -eq 130 ]; then echo "result=timeout" >> "$(cygpath -u "$GITHUB_OUTPUT")";
+          else echo "result=error" >> "$(cygpath -u "$GITHUB_OUTPUT")"; fi
+      - name: Tạo tệp kê khai SHA-256 cho checkpoint
+        if: always() && steps.exists.outputs.done == '0'
+        run: |
+          d=/cygdrive/c/lo/ccache
+          [ -d "$d" ] || exit 0
+          cd "$d"
+          rm -f dung-manifest.sha256
+          find . -type f -print0 | sort -z | xargs -0 -r sha256sum > /tmp/manifest && mv /tmp/manifest dung-manifest.sha256
+          echo "Checkpoint: $(wc -l < dung-manifest.sha256) tệp, $(du -sh . | cut -f1)" | tee -a /cygdrive/c/lo/report/checkpoint.txt
+      - name: Lưu ccache
+        if: always() && steps.exists.outputs.done == '0'
+        uses: actions/cache/save@v4
+        with:
+          path: C:\lo\ccache
+          key: lo-ccache-${{ env.LO_TAG }}-${{ github.run_id }}
+      - name: Đóng gói engine và phát hành
+        if: steps.make.outputs.result == 'done'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd /cygdrive/c/lo/core
+          test -f instdir/program/mergedlo.dll -o -f instdir/program/sofficeapp.dll
+          printf 'Engine %s (Collabora CODA, kho LibreOffice core), build --enable-headless cho Dũng Office\nNguồn: https://github.com/LibreOffice/core/tree/%s\nCấu hình: xem autogen.input\n' "$LO_TAG" "$LO_TAG" > instdir/dung-engine-headless.txt
+          cp autogen.input instdir/dung-autogen.input
+          mv instdir engine
+          7z a -t7z -mx=7 /cygdrive/c/lo/dung-engine-headless-win64.7z engine > /dev/null
+          ls -la /cygdrive/c/lo/dung-engine-headless-win64.7z
+          gh release create "$ENGINE_RELEASE" /cygdrive/c/lo/dung-engine-headless-win64.7z \
+            --repo "$GITHUB_REPOSITORY" --title "Engine $LO_TAG (headless, Windows x64)" \
+            --notes "Engine build từ tag $LO_TAG (Collabora Office Desktop, kho LibreOffice core) với cấu hình CODAWindows.conf, không thương hiệu Collabora, dùng cho Dũng Office. Mã nguồn: https://github.com/LibreOffice/core/tree/$LO_TAG . Giấy phép MPL-2.0."
+      - name: Báo cáo (nhánh ci-report-engine-coda)
+        if: always() && steps.exists.outputs.done == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd /cygdrive/c/lo/report
+          [ -f make.log ] && { tail -400 make.log > make-tail.log; grep -n -E "error|Error|\*\*\*" make.log | tail -80 > make-errors.log || true; rm make.log; }
+          [ -f /cygdrive/c/lo/core/config.log ] && tail -300 /cygdrive/c/lo/core/config.log > config-tail.log
+          printf '# Engine Windows — lượt %s/%s\n\n- run: %s/%s/actions/runs/%s\n- kết quả make: %s\n\n## Checkpoint\n' \
+            "${{ inputs.round || '1' }}" "$MAX_ROUNDS" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "${{ steps.make.outputs.result }}" > README.md
+          cat checkpoint.txt >> README.md 2>/dev/null || true
+          mkdir -p "round-${{ inputs.round || '1' }}" && mv -f *.log *.txt "round-${{ inputs.round || '1' }}/" 2>/dev/null || true
+          git init -q -b ci-report-engine-coda && git config user.name dung-ci && git config user.email ci@users.noreply.github.com
+          git add -A && git commit -qm "engine report run $GITHUB_RUN_ID"
+          git push -fq "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-report-engine-coda
+      - name: Chạy tiếp lượt sau (nếu hết giờ)
+        if: steps.make.outputs.result == 'timeout'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $round = [int]("${{ inputs.round }}" -replace '^$', '1')
+          if ($round -ge [int]$env:MAX_ROUNDS) { Write-Host "Đã đạt số lượt tối đa"; exit 1 }
+          gh workflow run engine-windows-coda.yml --repo $env:GITHUB_REPOSITORY --ref main -f round=$($round + 1)
+          Write-Host "Đã kích hoạt lượt $($round + 1)"
+      - name: Kết luận lượt build
+        if: always() && steps.exists.outputs.done == '0'
+        shell: pwsh
+        run: |
+          $r = "${{ steps.make.outputs.result }}"
+          Write-Host "Kết quả make: $r"
+          if ($r -eq "done" -or $r -eq "timeout") { exit 0 }
+          Write-Host "::error::Build engine dừng (kết quả: $r). Xem nhánh ci-report-engine-coda."
+          exit 1
