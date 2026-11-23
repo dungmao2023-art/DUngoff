@@ -389,6 +389,10 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
 #ifdef _WIN32
     const char* modeEnv = std::getenv("DUNG_ENGINE_MODE");
     const bool useEngineThread = modeEnv && std::string(modeEnv) == "unipoll";
+    // Engine tự build với --enable-headless (có tệp đánh dấu): backend svp không có cửa sổ Win32
+    // -> chạy chế độ đa luồng như trên Linux, gọi trực tiếp, không cần hook.
+    const bool headlessEngine = fs::exists(fs::absolute(programDir).parent_path() / "dung-engine-headless.txt");
+    if (headlessEngine) _putenv_s("SAL_USE_VCLPLUGIN", "svp");
 #else
     const char* up = std::getenv("DUNG_LOK_UNIPOLL");
     const bool useEngineThread = up && std::string(up) == "1";
@@ -397,7 +401,7 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
     if (!useEngineThread) {
         kit = lok_init_2(prog.c_str(), profile.c_str());
 #ifdef _WIN32
-        if (kit) {
+        if (kit && !headlessEngine) {
             // Chế độ đa luồng (LibreOffice tự chạy luồng VCL Main). Mọi lệnh gọi LOK sẽ được chạy
             // trên luồng VCL Main qua hook — tránh deadlock SolarMutex/SendMessage giữa hai luồng.
             const DWORD vclThread = findVclMainThread();
