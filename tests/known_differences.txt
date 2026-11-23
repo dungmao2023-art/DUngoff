@@ -11,3 +11,8 @@ Ghi chú!B1: định dạng số 'General' -> '#,##0'
 Doanh thu!B2: tác giả comment 'Dũng' -> 'Unknown Author'
 #
 # DS-003: hằng Boolean thành công thức =TRUE()/=FALSE() (giá trị giữ nguyên)
+#
+# DS-004: định dạng có điều kiện kiểu thanh dữ liệu (data bar) được ghi thêm phần mở rộng x14
+#         (số cfRule 1 -> 2). Cùng một quy tắc, thêm dữ liệu cho Excel 2010+.
+Tệp: số quy tắc định dạng có điều kiện (cfRule, kể cả x14) 1 -> 2
+Tệp: số phần mở rộng định dạng có điều kiện (x14) 0 -> 1
