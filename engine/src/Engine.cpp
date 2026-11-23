@@ -2,7 +2,8 @@
 #define LOK_USE_UNSTABLE_API
 #include "dung/Engine.h"
 
-#include <cassert>   // LibreOfficeKitInit.h dùng assert() nhưng không tự include (MSVC báo lỗi)
+#include <cassert>
+#include <cwchar>   // LibreOfficeKitInit.h dùng assert() nhưng không tự include (MSVC báo lỗi)
 #include <LibreOfficeKit/LibreOfficeKitInit.h>
 #include <LibreOfficeKit/LibreOfficeKit.hxx>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
@@ -229,7 +230,8 @@ struct EngineThread {
     }
     void post() {
 #ifdef _WIN32
-        PostMessageW(hwnd, kRunQueue, 0, 0);
+        if (hwnd) PostMessageW(hwnd, kRunQueue, 0, 0);
+        else PostThreadMessageW(threadId, kRunQueue, 0, 0);
 #else
         { std::lock_guard<std::mutex> g(mutex); wake = true; }
         cv.notify_all();
@@ -264,6 +266,44 @@ LRESULT CALLBACK EngineThread::wndProc(HWND h, UINT msg, WPARAM w, LPARAM l) {
 }
 int lokPoll(void*, int) { return 0; }   // backend Win32 không dùng poll callback
 void lokWake(void*) {}
+
+// Hook WH_GETMESSAGE gắn vào luồng "VCL Main" của LibreOffice: khi vòng lặp của LibreOffice lấy
+// thông điệp kRunQueue (thread message), hook chạy các tác vụ đang chờ NGAY TRÊN luồng VCL Main.
+LRESULT CALLBACK getMsgHook(int code, WPARAM wParam, LPARAM lParam) {
+    if (code == HC_ACTION && wParam == PM_REMOVE && g_engineThread) {
+        MSG* m = reinterpret_cast<MSG*>(lParam);
+        if (m->message == kRunQueue && m->hwnd == nullptr) {
+            m->message = WM_NULL;
+            g_engineThread->drain();
+        }
+    }
+    return CallNextHookEx(nullptr, code, wParam, lParam);
+}
+
+struct FindCtx { DWORD pid; HWND found; };
+BOOL CALLBACK findSalWnd(HWND h, LPARAM lp) {
+    auto* c = reinterpret_cast<FindCtx*>(lp);
+    DWORD pid = 0;
+    GetWindowThreadProcessId(h, &pid);
+    wchar_t cls[64] = {};
+    GetClassNameW(h, cls, 63);
+    if (pid == c->pid && std::wcsncmp(cls, L"SAL", 3) == 0) { c->found = h; return FALSE; }
+    return TRUE;
+}
+// Tìm luồng VCL Main: luồng sở hữu cửa sổ ẩn SALCOMWND / SAL* của LibreOffice trong tiến trình này.
+DWORD findVclMainThread() {
+    for (int attempt = 0; attempt < 50; ++attempt) {
+        HWND h = FindWindowExW(HWND_MESSAGE, nullptr, L"SALCOMWND", nullptr);
+        if (!h) {
+            FindCtx c{GetCurrentProcessId(), nullptr};
+            EnumWindows(&findSalWnd, reinterpret_cast<LPARAM>(&c));
+            h = c.found;
+        }
+        if (h) return GetWindowThreadProcessId(h, nullptr);
+        Sleep(100);
+    }
+    return 0;
+}
 #else
 // Linux (headless svp, unipoll): LibreOffice gọi poll khi rảnh -> chờ tác vụ tối đa timeoutUs rồi chạy.
 int lokPoll(void* data, int timeoutUs) {
@@ -347,7 +387,8 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
 #endif
     const std::string profile = toFileUrl(profileDir);
 #ifdef _WIN32
-    const bool useEngineThread = true;
+    const char* modeEnv = std::getenv("DUNG_ENGINE_MODE");
+    const bool useEngineThread = modeEnv && std::string(modeEnv) == "unipoll";
 #else
     const char* up = std::getenv("DUNG_LOK_UNIPOLL");
     const bool useEngineThread = up && std::string(up) == "1";
@@ -355,6 +396,26 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
     LibreOfficeKit* kit = nullptr;
     if (!useEngineThread) {
         kit = lok_init_2(prog.c_str(), profile.c_str());
+#ifdef _WIN32
+        if (kit) {
+            // Chế độ đa luồng (LibreOffice tự chạy luồng VCL Main). Mọi lệnh gọi LOK sẽ được chạy
+            // trên luồng VCL Main qua hook — tránh deadlock SolarMutex/SendMessage giữa hai luồng.
+            const DWORD vclThread = findVclMainThread();
+            if (!vclThread) {
+                if (error) *error = "Không tìm thấy luồng VCL Main của engine.";
+                return nullptr;
+            }
+            auto* et = new EngineThread();
+            et->threadId = vclThread;
+            if (!SetWindowsHookExW(WH_GETMESSAGE, &getMsgHook, nullptr, vclThread)) {
+                if (error) *error = "Không gắn được hook vào luồng engine (lỗi " + std::to_string(GetLastError()) + ").";
+                return nullptr;
+            }
+            g_engineThread = et;
+            std::fprintf(stderr, "[dung-engine] chế độ đa luồng + hook, VCL Main = luồng %lu\n", (unsigned long)vclThread);
+            std::fflush(stderr);
+        }
+#endif
     } else {
         std::promise<LibreOfficeKit*> ready;
         auto readyFut = ready.get_future();
