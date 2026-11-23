@@ -161,9 +161,18 @@ jobs:
             } else { "không có cdb" | Out-File report/windows-hang-stacks.txt }
           }
           $p.WaitForExit()
+          $mainExit = $p.ExitCode
+          "exit=$mainExit" | Add-Content report/windows-smoketest.log
           Get-Content report/windows-smoketest.log
           Get-Content report/windows-smoketest.err.log -ErrorAction SilentlyContinue | Select-Object -First 40
-          if ($p.ExitCode) { exit 1 }
+          # Chẩn đoán thêm: biến thể có runLoop (Desktop::Main) để so sánh
+          $env:DUNG_ENGINE_RUNLOOP = "1"
+          $q = Start-Process build/out/dung-smoketest.exe -ArgumentList ($smokeArgs[0..3] + @("--out", "$PWD/smoke-runloop")) -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-smoketest-runloop.log -RedirectStandardError report/windows-smoketest-runloop.err.log
+          if (-not $q.WaitForExit(150000)) { Stop-Process $q -Force }
+          "exit=$($q.ExitCode)" | Add-Content report/windows-smoketest-runloop.log
+          Remove-Item Env:DUNG_ENGINE_RUNLOOP
+          if ($mainExit) { exit 1 }
       - name: Kiểm tra round-trip XLSX
         run: |
           $env:PYTHONUTF8 = "1"

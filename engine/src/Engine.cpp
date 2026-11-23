@@ -380,10 +380,17 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
             // Vòng lặp chính của LibreOffice chạy trên luồng này cho đến khi tiến trình kết thúc.
             // Gọi thẳng qua bảng hàm C (không tạo thêm lok::Office để tránh destroy() hai lần).
             const auto t0 = std::chrono::steady_clock::now();
-            k->pClass->runLoop(k, &lokPoll, &lokWake, et);
+            // DUNG_ENGINE_RUNLOOP=0: bỏ qua runLoop (không chạy Desktop::Main), chỉ tự bơm thông điệp.
+            const char* rl = std::getenv("DUNG_ENGINE_RUNLOOP");
+#ifdef _WIN32
+            const bool doRunLoop = rl && std::string(rl) == "1";   // Windows: mặc định KHÔNG (Desktop::Main thoát ngay)
+#else
+            const bool doRunLoop = !(rl && std::string(rl) == "0");
+#endif
+            if (doRunLoop) k->pClass->runLoop(k, &lokPoll, &lokWake, et);
             const long long ms = (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
                                      std::chrono::steady_clock::now() - t0).count();
-            std::fprintf(stderr, "[dung-engine] runLoop trả về sau %lld ms; luồng engine tự bơm thông điệp tiếp\n", ms);
+            std::fprintf(stderr, "[dung-engine] runLoop=%d, trả về sau %lld ms; luồng engine tự bơm thông điệp\n", doRunLoop ? 1 : 0, ms);
             std::fflush(stderr);
 #ifdef _WIN32
             // VCL Main vẫn là luồng này (InitVCL đã chạy ở đây), cửa sổ ẩn và bộ hẹn giờ của LibreOffice
