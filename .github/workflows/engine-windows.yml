@@ -124,7 +124,7 @@ jobs:
         if: steps.exists.outputs.done == '0'
         run: |
           export PATH=/opt/lo/bin:$PATH
-          export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=6G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
+          export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=4G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
           cd /cygdrive/c/lo/core
           cp "$(cygpath -u "$GITHUB_WORKSPACE")/dungoff/engine-build/autogen.input" autogen.input
           echo "--with-external-tar=C:/lo/tarballs" >> autogen.input
@@ -136,7 +136,7 @@ jobs:
         if: steps.exists.outputs.done == '0'
         run: |
           export PATH=/opt/lo/bin:$PATH
-          export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=6G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
+          export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=4G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
           cd /cygdrive/c/lo/core
           set +e
           timeout --signal=INT "${MAKE_MINUTES}m" /opt/lo/bin/make build > /cygdrive/c/lo/report/make.log 2>&1
