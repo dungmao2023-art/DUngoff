@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS  Build Dũng Office trên Windows (dành cho nhà phát triển).
   Yêu cầu: Visual Studio 2022 (C++), CMake, Ninja, Qt 6.8 (msvc2022_64), Python 3 + openpyxl (chỉ để kiểm thử).
   Chạy trong "x64 Native Tools Command Prompt for VS 2022" / Developer PowerShell:

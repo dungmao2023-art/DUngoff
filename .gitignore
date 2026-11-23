@@ -1,8 +1,8 @@
-build/
-out/
-fixtures/
-smoke/
-report/
+/build/
+/out/
+/fixtures/
+/smoke/
+/report/
 installer/Output/
 installer/Vietnamese.isl
 *.user

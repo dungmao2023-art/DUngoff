@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Tải bản LibreOffice chính thức (MSI Windows x64) từ máy chủ của The Document Foundation,
   kiểm tra SHA-256, rồi giải nén (administrative install, không cài vào hệ thống) để làm

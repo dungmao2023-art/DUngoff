@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS  Gom ứng dụng + Qt + runtime engine thành thư mục chạy được (dist\DungOffice).
 #>
 param(
