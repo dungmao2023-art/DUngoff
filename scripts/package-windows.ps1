@@ -12,7 +12,11 @@ $app = Join-Path $OutDir "DungOffice"
 if (Test-Path $app) { Remove-Item -Recurse -Force $app }
 New-Item -ItemType Directory -Force -Path $app | Out-Null
 
-Copy-Item (Join-Path $BuildDir "DungOffice.exe") $app
+# Đích của target DungOffice nằm trong thư mục con app\ của thư mục build (xem app/CMakeLists.txt)
+$exe = Join-Path $BuildDir "app\DungOffice.exe"
+if (-not (Test-Path $exe)) { $exe = Join-Path $BuildDir "DungOffice.exe" }
+if (-not (Test-Path $exe)) { throw "Không tìm thấy DungOffice.exe trong $BuildDir" }
+Copy-Item $exe $app
 & (Join-Path $QtDir "bin\windeployqt.exe") --release --no-translations --no-system-d3d-compiler `
    --no-opengl-sw --no-compiler-runtime (Join-Path $app "DungOffice.exe")
 if ($LASTEXITCODE) { throw "windeployqt lỗi" }
