@@ -8,7 +8,9 @@ trên cùng engine. Một hạng mục chỉ được đánh dấu xong khi có 
 - [x] Lưu an toàn: bản tạm, Lưu thành mặc định, sao lưu, ghi nguyên tử, chỉ đọc theo định dạng
 - [x] Smoke test + so sánh round-trip XLSX, khác biệt đã biết được công khai
 - [x] Giao diện Qt: Home, thanh bên, ribbon ngữ cảnh, thẻ tài liệu, thanh công thức, sheet, status bar, kéo thả, gần đây
-- [ ] CI Windows xanh với LibreOffice 26.8.3 chính thức → bộ cài OneClick đầu tiên
+- [x] Build Windows (MSVC, Qt 6.8); engine 26.8.3 chính thức khởi động và mở XLSX trên Windows
+- [ ] **Engine Windows tự build với `--enable-headless`** (bản chính thức không render tile được — xem WINDOWS_ENGINE.md)
+- [ ] CI Windows xanh với engine tự build → bộ cài OneClick đầu tiên
 - [ ] Ảnh chụp UI trên Windows được xem xét, sửa lỗi hiển thị
 
 ## Giai đoạn 1: Excel dùng được hằng ngày

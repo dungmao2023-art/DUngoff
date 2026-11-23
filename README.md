@@ -39,8 +39,11 @@ Dũng Office (Qt 6) tự vẽ.
 | Round-trip XLSX: công thức, comment, hyperlink, ô gộp, định dạng số, "00123" | ✅ có 2 khác biệt đã biết (DS-001, DS-002) | `tests/verify_roundtrip.py` |
 | DOCX / PPTX: mở, render, Lưu thành; tạo mới | ✅ mức engine | smoke test |
 | PDF: mở xem (chỉ đọc), xuất PDF có xác nhận | ✅ mức engine | smoke test |
-| Giao diện Qt 6 (Home, thanh bên, ribbon, thẻ, thanh công thức, sheet, status bar) | 🟡 đã viết; build và ảnh chụp trong CI | `.github/workflows/ci.yml` |
-| Build Windows + runtime LibreOffice 26.8.3 chính thức + bộ cài OneClick | 🟡 trong CI (Windows runner) | job `windows` |
+| Giao diện Qt 6 (Home, thanh bên, ribbon, thẻ, thanh công thức, sheet, status bar) | ✅ chạy thật trên Linux, có ảnh chụp | nhánh `ci-report` |
+| Build trên Windows (MSVC + Qt 6.8) | ✅ biên dịch được | job `windows` |
+| Engine trên Windows với LibreOffice 26.8.3 **chính thức**: khởi động, mở XLSX | ✅ | job `windows` |
+| Engine trên Windows: hiển thị/chỉnh sửa trong giao diện riêng | ❌ bản chính thức thiếu backend headless → cần tự build engine `--enable-headless` | [docs/WINDOWS_ENGINE.md](docs/WINDOWS_ENGINE.md) |
+| Bộ cài OneClick | ⏸ chưa tạo: chỉ tạo khi kiểm thử Windows đạt | |
 
 Kết quả CI mới nhất (log và ảnh chụp giao diện) được đẩy lên nhánh
 [`ci-report`](../../tree/ci-report). **Bộ cài chỉ được tạo khi mọi kiểm thử Windows đã đạt.**
