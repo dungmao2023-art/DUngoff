@@ -97,7 +97,8 @@ int main(int argc, char** argv) {
     fs::create_directories(viDir, ec);
     fs::path original = viDir / fs::u8path("Báo cáo doanh thu.xlsx");
     fs::copy_file(xlsx, original, fs::copy_options::overwrite_existing, ec);
-    check(!ec, "Chuẩn bị tệp gốc trong thư mục tiếng Việt");
+    check(!ec, "Chuẩn bị tệp gốc trong thư mục tiếng Việt" + (ec ? ": " + ec.message() + " (" + xlsx.u8string() +
+                                                                 " -> " + original.u8string() + ")" : std::string()));
     const auto originalBytes = readAll(original);
 
     std::string err;

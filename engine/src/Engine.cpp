@@ -16,6 +16,11 @@
 #include <random>
 #include <sstream>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <cstdlib>
+#endif
+
 namespace dung {
 
 // ---------------------------------------------------------------- tiện ích đường dẫn
@@ -207,7 +212,20 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
     }
 #endif
 
+#ifdef _WIN32
+    // LibreOfficeKitInit.h nạp mergedlo.dll bằng LoadLibraryW(đường dẫn đầy đủ). Windows KHÔNG tìm DLL
+    // phụ thuộc trong thư mục của DLL đó, nên phải thêm thư mục program vào đường tìm DLL và PATH.
+    {
+        const std::wstring wprog = fs::absolute(programDir).make_preferred().wstring();
+        SetDllDirectoryW(wprog.c_str());
+        const wchar_t* oldPath = _wgetenv(L"PATH");
+        std::wstring newPath = wprog + L";" + (oldPath ? oldPath : L"");
+        _wputenv_s(L"PATH", newPath.c_str());
+    }
+    const std::string prog = toUtf8(fs::absolute(programDir).make_preferred());
+#else
     const std::string prog = toUtf8(programDir);
+#endif
     const std::string profile = toFileUrl(profileDir);
     LibreOfficeKit* kit = lok_init_2(prog.c_str(), profile.c_str());
     if (!kit) {
