@@ -13,8 +13,14 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <deque>
+#include <functional>
+#include <future>
+#include <optional>
 #include <random>
 #include <sstream>
+#include <thread>
+#include <type_traits>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -186,6 +192,119 @@ std::string csvImportOptions(const fs::path& p) {
 
 } // namespace
 
+
+// ---------------------------------------------------------------- luồng engine
+// Trên Windows, bản LibreOffice chính thức dùng backend Win32 (cửa sổ ẩn thật). Nếu gọi API LOK
+// từ một luồng khác "VCL Main", luồng gọi giữ SolarMutex rồi SendMessage sang cửa sổ của VCL Main,
+// còn VCL Main lại chờ SolarMutex -> TREO (đã xác nhận bằng dump ngăn xếp trên CI).
+// Cách giải: chế độ "unipoll" của LOK — MỘT luồng engine riêng gọi lok_init + runLoop, nên luồng
+// đó chính là VCL Main; mọi lệnh gọi engine từ luồng khác được chuyển sang luồng này qua một cửa sổ
+// message-only (vòng lặp của LibreOffice dispatch thông điệp của nó).
+// Trên Linux, chế độ đa luồng mặc định đã chạy đúng nên giữ nguyên (gọi trực tiếp).
+namespace {
+#ifdef _WIN32
+constexpr UINT kRunQueue = WM_APP + 0x4C4F; // "LO"
+#endif
+
+struct EngineThread {
+#ifdef _WIN32
+    HWND hwnd = nullptr;
+    DWORD threadId = 0;
+#else
+    std::thread::id threadId;
+    std::condition_variable cv;
+    bool wake = false;
+#endif
+    std::mutex mutex;
+    std::deque<std::function<void()>> queue;
+    bool busy = false;      // đang chạy một tác vụ (tác vụ có thể tự bơm vòng lặp -> tránh lồng nhau)
+    bool pending = false;
+
+    bool onThisThread() const {
+#ifdef _WIN32
+        return GetCurrentThreadId() == threadId;
+#else
+        return std::this_thread::get_id() == threadId;
+#endif
+    }
+    void post() {
+#ifdef _WIN32
+        PostMessageW(hwnd, kRunQueue, 0, 0);
+#else
+        { std::lock_guard<std::mutex> g(mutex); wake = true; }
+        cv.notify_all();
+#endif
+    }
+    void drain() {
+        if (busy) { pending = true; return; }
+        busy = true;
+        for (;;) {
+            std::function<void()> job;
+            {
+                std::lock_guard<std::mutex> g(mutex);
+                if (queue.empty()) break;
+                job = std::move(queue.front());
+                queue.pop_front();
+            }
+            job();
+        }
+        busy = false;
+        if (pending) { pending = false; post(); }
+    }
+#ifdef _WIN32
+    static LRESULT CALLBACK wndProc(HWND h, UINT msg, WPARAM w, LPARAM l);
+#endif
+};
+EngineThread* g_engineThread = nullptr;
+
+#ifdef _WIN32
+LRESULT CALLBACK EngineThread::wndProc(HWND h, UINT msg, WPARAM w, LPARAM l) {
+    if (msg == kRunQueue && g_engineThread) { g_engineThread->drain(); return 0; }
+    return DefWindowProcW(h, msg, w, l);
+}
+int lokPoll(void*, int) { return 0; }   // backend Win32 không dùng poll callback
+void lokWake(void*) {}
+#else
+// Linux (headless svp, unipoll): LibreOffice gọi poll khi rảnh -> chờ tác vụ tối đa timeoutUs rồi chạy.
+int lokPoll(void* data, int timeoutUs) {
+    auto* et = static_cast<EngineThread*>(data);
+    {
+        std::unique_lock<std::mutex> lk(et->mutex);
+        if (et->queue.empty() && !et->wake && timeoutUs != 0)
+            et->cv.wait_for(lk, std::chrono::microseconds(timeoutUs < 0 ? 100000 : timeoutUs),
+                            [et] { return et->wake || !et->queue.empty(); });
+        et->wake = false;
+    }
+    et->drain();
+    return 0;
+}
+void lokWake(void* data) {
+    auto* et = static_cast<EngineThread*>(data);
+    { std::lock_guard<std::mutex> g(et->mutex); et->wake = true; }
+    et->cv.notify_all();
+}
+#endif
+} // namespace
+
+template <class F> static auto onEngine(F&& f) -> decltype(f()) {
+    using R = decltype(f());
+    if (!g_engineThread || g_engineThread->onThisThread()) return f();
+    std::promise<void> done;
+    auto fut = done.get_future();
+    std::optional<std::conditional_t<std::is_void_v<R>, int, R>> result;
+    {
+        std::lock_guard<std::mutex> g(g_engineThread->mutex);
+        g_engineThread->queue.emplace_back([&] {
+            if constexpr (std::is_void_v<R>) f();
+            else result.emplace(f());
+            done.set_value();
+        });
+    }
+    g_engineThread->post();
+    fut.wait();
+    if constexpr (!std::is_void_v<R>) return std::move(*result);
+}
+
 // ---------------------------------------------------------------- Engine
 std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::path& profileDir,
                                        const fs::path& workDir, std::string* error) {
@@ -227,7 +346,43 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
     const std::string prog = toUtf8(programDir);
 #endif
     const std::string profile = toFileUrl(profileDir);
-    LibreOfficeKit* kit = lok_init_2(prog.c_str(), profile.c_str());
+#ifdef _WIN32
+    const bool useEngineThread = true;
+#else
+    const char* up = std::getenv("DUNG_LOK_UNIPOLL");
+    const bool useEngineThread = up && std::string(up) == "1";
+#endif
+    LibreOfficeKit* kit = nullptr;
+    if (!useEngineThread) {
+        kit = lok_init_2(prog.c_str(), profile.c_str());
+    } else {
+        std::promise<LibreOfficeKit*> ready;
+        auto readyFut = ready.get_future();
+        std::thread([prog, profile, &ready] {
+            auto* et = new EngineThread();
+#ifdef _WIN32
+            et->threadId = GetCurrentThreadId();
+            WNDCLASSW wc{};
+            wc.lpfnWndProc = &EngineThread::wndProc;
+            wc.hInstance = GetModuleHandleW(nullptr);
+            wc.lpszClassName = L"DungOfficeEngineQueue";
+            RegisterClassW(&wc);
+            et->hwnd = CreateWindowExW(0, wc.lpszClassName, L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, wc.hInstance, nullptr);
+            _putenv_s("SAL_LOK_OPTIONS", "unipoll");
+#else
+            et->threadId = std::this_thread::get_id();
+            setenv("SAL_LOK_OPTIONS", "unipoll", 1);
+#endif
+            LibreOfficeKit* k = lok_init_2(prog.c_str(), profile.c_str());
+            if (!k) { ready.set_value(nullptr); return; }
+            g_engineThread = et;
+            ready.set_value(k);
+            // Vòng lặp chính của LibreOffice chạy trên luồng này cho đến khi tiến trình kết thúc.
+            // Gọi thẳng qua bảng hàm C (không tạo thêm lok::Office để tránh destroy() hai lần).
+            k->pClass->runLoop(k, &lokPoll, &lokWake, et);
+        }).detach();
+        kit = readyFut.get();
+    }
     if (!kit) {
         if (error)
             *error = "Không khởi động được engine tài liệu (LibreOfficeKit) tại: " + prog +
@@ -244,7 +399,7 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
 Engine::~Engine() = default; // LibreOffice tự dọn khi tiến trình kết thúc (không thể khởi tạo lại).
 
 std::string Engine::versionInfo() const {
-    char* v = m_office->getVersionInfo();
+    char* v = onEngine([&] { return m_office->getVersionInfo(); });
     std::string s = v ? v : "";
     free(v);
     return s;
@@ -272,9 +427,10 @@ std::unique_ptr<Document> Engine::open(const fs::path& original, std::string* er
     // LibreOffice (nếu hiện sẽ treo vì không có giao diện LibreOffice).
     std::string options = "Batch=true";
     if (info->ext == "csv") options += "," + csvImportOptions(working);
-    lok::Document* d = m_office->documentLoad(toFileUrl(working).c_str(), options.c_str());
+    const std::string url = toFileUrl(working);
+    lok::Document* d = onEngine([&] { return m_office->documentLoad(url.c_str(), options.c_str()); });
     if (!d) {
-        char* err = m_office->getError();
+        char* err = onEngine([&] { return m_office->getError(); });
         std::string m = std::string("Engine không mở được tệp. ") + (err ? err : "");
         free(err);
         fs::remove_all(dir, ec);
@@ -286,11 +442,14 @@ std::unique_ptr<Document> Engine::open(const fs::path& original, std::string* er
     doc->m_original = original;
     doc->m_working = working;
     doc->m_workDir = dir;
-    doc->m_kind = kindFromLok(d->getDocumentType());
     if (info->fidelity != Fidelity::Native) doc->m_readOnly = true;
     if (!info->warning.empty()) doc->m_warnings.push_back(info->warning);
-    d->registerCallback(&Document::lokCallback, doc.get());
-    d->initializeForRendering(nullptr);
+    Document* raw = doc.get();
+    onEngine([&] {
+        raw->m_kind = kindFromLok(d->getDocumentType());
+        d->registerCallback(&Document::lokCallback, raw);
+        d->initializeForRendering(nullptr);
+    });
     return doc;
 }
 
@@ -305,9 +464,9 @@ std::unique_ptr<Document> Engine::createNew(DocKind kind, std::string* error) {
         if (error) *error = "Không thể tạo mới loại tài liệu này.";
         return nullptr;
     }
-    lok::Document* d = m_office->documentLoad(factory, "Batch=true");
+    lok::Document* d = onEngine([&] { return m_office->documentLoad(factory, "Batch=true"); });
     if (!d) {
-        char* err = m_office->getError();
+        char* err = onEngine([&] { return m_office->getError(); });
         if (error) *error = std::string("Engine không tạo được tài liệu mới. ") + (err ? err : "");
         free(err);
         return nullptr;
@@ -315,21 +474,26 @@ std::unique_ptr<Document> Engine::createNew(DocKind kind, std::string* error) {
     std::unique_ptr<Document> doc(new Document());
     doc->m_engine = this;
     doc->m_doc.reset(d);
-    doc->m_kind = kindFromLok(d->getDocumentType());
+    doc->m_kind = onEngine([&] { return kindFromLok(d->getDocumentType()); });
     doc->m_newName = name;
     std::error_code ec;
     doc->m_workDir = m_workDir / ("new-" + std::to_string(++m_counter) + "-" + randomToken());
     fs::create_directories(doc->m_workDir, ec);
-    d->registerCallback(&Document::lokCallback, doc.get());
-    d->initializeForRendering(nullptr);
+    Document* raw = doc.get();
+    onEngine([&] {
+        d->registerCallback(&Document::lokCallback, raw);
+        d->initializeForRendering(nullptr);
+    });
     return doc;
 }
 
 // ---------------------------------------------------------------- Document
 Document::~Document() {
     if (m_doc) {
-        m_doc->registerCallback(nullptr, nullptr);
-        m_doc.reset(); // gọi destroy() của LOK
+        onEngine([&] {
+            m_doc->registerCallback(nullptr, nullptr);
+            m_doc.reset(); // gọi destroy() của LOK
+        });
     }
     std::error_code ec;
     if (!m_workDir.empty()) fs::remove_all(m_workDir, ec); // chỉ xoá thư mục TẠM của chính mình
@@ -339,36 +503,38 @@ std::string Document::displayName() const {
     return isNew() ? m_newName : toUtf8(m_original.filename());
 }
 
-int Document::partCount() { return m_doc->getParts(); }
-int Document::currentPart() { return m_doc->getPart(); }
-void Document::setPart(int part) { m_doc->setPart(part); }
+int Document::partCount() { return onEngine([&] { return m_doc->getParts(); }); }
+int Document::currentPart() { return onEngine([&] { return m_doc->getPart(); }); }
+void Document::setPart(int part) { onEngine([&] { m_doc->setPart(part); }); }
 std::string Document::partName(int part) {
-    char* s = m_doc->getPartName(part);
+    char* s = onEngine([&] { return m_doc->getPartName(part); });
     std::string r = s ? s : "";
     free(s);
     return r;
 }
 
-void Document::documentSize(long& w, long& h) { m_doc->getDocumentSize(&w, &h); }
+void Document::documentSize(long& w, long& h) { onEngine([&] { m_doc->getDocumentSize(&w, &h); }); }
 
 void Document::paintTile(uint8_t* buffer, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH) {
-    m_doc->paintTile(buffer, pxW, pxH, twipX, twipY, twipW, twipH);
+    onEngine([&] { m_doc->paintTile(buffer, pxW, pxH, twipX, twipY, twipW, twipH); });
 }
 
 void Document::setClientView(int pxTileW, int pxTileH, int twipTileW, int twipTileH, int visX,
                              int visY, int visW, int visH) {
-    m_doc->setClientZoom(pxTileW, pxTileH, twipTileW, twipTileH);
-    m_doc->setClientVisibleArea(visX, visY, visW, visH);
+    onEngine([&] {
+        m_doc->setClientZoom(pxTileW, pxTileH, twipTileW, twipTileH);
+        m_doc->setClientVisibleArea(visX, visY, visW, visH);
+    });
 }
 
 void Document::postKey(int type, int charCode, int keyCode) {
     if (m_readOnly && !isNavigationKey(charCode, keyCode)) return; // chặn chỉnh sửa ở chế độ chỉ đọc
-    m_doc->postKeyEvent(type, charCode, keyCode);
+    onEngine([&] { m_doc->postKeyEvent(type, charCode, keyCode); });
 }
 
 void Document::postMouse(int type, int x, int y, int count, int buttons, int modifier) {
     if (m_readOnly && count >= 2) count = 1; // không cho nhấp đúp để vào chế độ sửa ô
-    m_doc->postMouseEvent(type, x, y, count, buttons, modifier);
+    onEngine([&] { m_doc->postMouseEvent(type, x, y, count, buttons, modifier); });
 }
 
 void Document::typeText(const std::u16string& text) {
@@ -383,11 +549,11 @@ void Document::typeText(const std::u16string& text) {
 
 void Document::command(const std::string& cmd, const std::string& args, bool notify) {
     if (m_readOnly && !isReadOnlySafeCommand(cmd)) return;
-    m_doc->postUnoCommand(cmd.c_str(), args.empty() ? nullptr : args.c_str(), notify);
+    onEngine([&] { m_doc->postUnoCommand(cmd.c_str(), args.empty() ? nullptr : args.c_str(), notify); });
 }
 
 std::string Document::commandValues(const std::string& q) {
-    char* s = m_doc->getCommandValues(q.c_str());
+    char* s = onEngine([&] { return m_doc->getCommandValues(q.c_str()); });
     std::string r = s ? s : "";
     free(s);
     return r;
@@ -412,7 +578,7 @@ std::string Document::stringArg(const std::string& name, const std::string& valu
 
 std::string Document::selectionAs(const std::string& mime) {
     char* used = nullptr;
-    char* s = m_doc->getTextSelection(mime.c_str(), &used);
+    char* s = onEngine([&] { return m_doc->getTextSelection(mime.c_str(), &used); });
     std::string r = s ? s : "";
     free(s);
     free(used);
@@ -421,7 +587,7 @@ std::string Document::selectionAs(const std::string& mime) {
 
 bool Document::paste(const std::string& mime, const std::string& data) {
     if (m_readOnly) return false;
-    return m_doc->paste(mime.c_str(), data.c_str(), data.size());
+    return onEngine([&] { return m_doc->paste(mime.c_str(), data.c_str(), data.size()); });
 }
 
 void Document::setEventSink(EventSink sink) {
@@ -585,7 +751,8 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
     // --- Ghi ra tệp tạm cùng thư mục, kiểm tra, rồi mới thay thế nguyên tử ---
     fs::path tmp = target.parent_path() /
                    fs::u8path("~dung-" + randomToken() + "-" + target.stem().u8string() + "." + ext);
-    bool ok = m_doc->saveAs(toFileUrl(tmp).c_str(), ext.c_str(), nullptr);
+    const std::string tmpUrl = toFileUrl(tmp);
+    bool ok = onEngine([&] { return m_doc->saveAs(tmpUrl.c_str(), ext.c_str(), nullptr); });
     if (!ok) {
         fs::remove(tmp, ec);
         r.message = "Engine không ghi được tệp.";

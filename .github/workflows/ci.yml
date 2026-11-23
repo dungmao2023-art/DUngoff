@@ -46,6 +46,12 @@ jobs:
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/mau-doanh-thu.xlsx \
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
             --out smoke 2>&1 | tee report/linux-smoketest.log
+      - name: Kiểm thử engine ở chế độ một luồng engine (unipoll, như trên Windows)
+        run: |
+          set -o pipefail
+          DUNG_LOK_UNIPOLL=1 ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/mau-doanh-thu.xlsx \
+            --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
+            --out smoke-unipoll 2>&1 | tee report/linux-smoketest-unipoll.log
       - name: Kiểm tra round-trip XLSX (không mất dữ liệu)
         run: |
           set -o pipefail
