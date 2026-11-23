@@ -126,7 +126,10 @@ jobs:
       - name: Kiểm thử engine trên Windows (smoke test)
         run: |
           $env:PYTHONUTF8 = "1"
+          # Bước cài Qt có thể đổi trình Python mặc định -> cài gói kiểm thử cho đúng trình đang dùng
+          python -m pip install --quiet openpyxl python-docx python-pptx
           python tests/fixtures/make_fixtures.py fixtures *>&1 | Tee-Object report/windows-fixtures.log
+          if ($LASTEXITCODE) { Write-Host "::error::Không tạo được tệp mẫu"; exit 1 }
           Get-ChildItem fixtures | ForEach-Object { "$($_.Name)  $($_.Length)" } | Tee-Object -Append report/windows-fixtures.log
           & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --xlsx fixtures/mau-doanh-thu.xlsx `
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx `
