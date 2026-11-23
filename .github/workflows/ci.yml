@@ -162,6 +162,7 @@ jobs:
           }
           $p.WaitForExit()
           Get-Content report/windows-smoketest.log
+          Get-Content report/windows-smoketest.err.log -ErrorAction SilentlyContinue | Select-Object -First 40
           if ($p.ExitCode) { exit 1 }
       - name: Kiểm tra round-trip XLSX
         run: |

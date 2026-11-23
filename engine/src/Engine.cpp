@@ -379,7 +379,23 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
             ready.set_value(k);
             // Vòng lặp chính của LibreOffice chạy trên luồng này cho đến khi tiến trình kết thúc.
             // Gọi thẳng qua bảng hàm C (không tạo thêm lok::Office để tránh destroy() hai lần).
+            const auto t0 = std::chrono::steady_clock::now();
             k->pClass->runLoop(k, &lokPoll, &lokWake, et);
+            const long long ms = (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - t0).count();
+            std::fprintf(stderr, "[dung-engine] runLoop trả về sau %lld ms; luồng engine tự bơm thông điệp tiếp\n", ms);
+            std::fflush(stderr);
+#ifdef _WIN32
+            // VCL Main vẫn là luồng này (InitVCL đã chạy ở đây), cửa sổ ẩn và bộ hẹn giờ của LibreOffice
+            // đều thuộc luồng này -> tự bơm thông điệp là đủ để engine tiếp tục xử lý.
+            MSG m;
+            while (GetMessageW(&m, nullptr, 0, 0) > 0) {
+                TranslateMessage(&m);
+                DispatchMessageW(&m);
+            }
+#else
+            for (;;) lokPoll(et, 100000);
+#endif
         }).detach();
         kit = readyFut.get();
     }
