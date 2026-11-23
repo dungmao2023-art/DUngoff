@@ -406,8 +406,16 @@ bool Document::paste(const std::string& mime, const std::string& data) {
 }
 
 void Document::setEventSink(EventSink sink) {
-    std::lock_guard<std::mutex> g(m_mutex);
-    m_sink = std::move(sink);
+    std::vector<std::pair<int, std::string>> replay;
+    {
+        std::lock_guard<std::mutex> g(m_mutex);
+        m_sink = sink;
+        if (sink) replay = m_last;
+    }
+    // Sự kiện phát ra trước khi giao diện đăng ký (con trỏ ô, nội dung ô, trạng thái nút...)
+    // được phát lại để giao diện không bị trống lúc mới mở. Bỏ qua sự kiện vẽ lại.
+    for (const auto& e : replay)
+        if (e.first != LOK_CALLBACK_INVALIDATE_TILES) sink(EngineEvent{e.first, e.second});
 }
 
 void Document::clearEvents() {
@@ -429,8 +437,13 @@ void Document::onEvent(int type, const char* payload) {
                 m_modified = ev.payload.find("true") != std::string::npos;
         }
         bool found = false;
+        const auto key = [&](const std::string& pl) { return pl.substr(0, pl.find('=')); };
         for (auto& p : m_last)
-            if (p.first == type) { p.second = ev.payload; found = true; break; }
+            if (p.first == type && (type != LOK_CALLBACK_STATE_CHANGED || key(p.second) == key(ev.payload))) {
+                p.second = ev.payload;
+                found = true;
+                break;
+            }
         if (!found) m_last.emplace_back(type, ev.payload);
         if (m_queue.size() > 4000) m_queue.erase(m_queue.begin(), m_queue.begin() + 2000);
         m_queue.emplace_back(type, ev.payload);

@@ -39,15 +39,33 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
 
 QPoint TileView::headerSize() const { return m_isCalc ? QPoint(46, 22) : QPoint(0, 0); }
 
+QPoint TileView::origin() const {
+    if (m_isCalc) return headerSize();
+    // Word/PowerPoint/PDF: căn giữa theo chiều ngang khi trang hẹp hơn khung nhìn, chừa lề 12px.
+    const int docPx = (int)(m_docW / twipsPerPx());
+    const int x = std::max(12, (viewport()->width() - docPx) / 2);
+    return QPoint(x, 12);
+}
+
+void TileView::fitWidthOnce() {
+    if (m_fitted || m_isCalc || m_docW <= 0 || viewport()->width() < 100) return;
+    m_fitted = true;
+    if (m_doc->kind() == dung::DocKind::Presentation || m_doc->kind() == dung::DocKind::Drawing) {
+        // Vừa khít chiều rộng (tối đa 100%)
+        const double fit = (viewport()->width() - 40) * 15.0 * 100.0 / m_docW;
+        setZoom(std::clamp((int)fit, 25, 100));
+    }
+}
+
 QPoint TileView::toTwips(const QPoint& p) const {
-    const QPoint h = headerSize();
+    const QPoint h = origin();
     const double tpp = twipsPerPx();
     return QPoint((int)std::lround((p.x() - h.x() + horizontalScrollBar()->value()) * tpp),
                   (int)std::lround((p.y() - h.y() + verticalScrollBar()->value()) * tpp));
 }
 
 QRect TileView::toView(const QRect& t) const {
-    const QPoint h = headerSize();
+    const QPoint h = origin();
     const double tpp = twipsPerPx();
     const int x = (int)std::floor(t.x() / tpp) - horizontalScrollBar()->value() + h.x();
     const int y = (int)std::floor(t.y() / tpp) - verticalScrollBar()->value() + h.y();
@@ -129,16 +147,22 @@ void TileView::requestHeaders() {
 
 void TileView::paintEvent(QPaintEvent* ev) {
     QPainter p(viewport());
-    const QPoint h = headerSize();
-    const QRect content = viewport()->rect().adjusted(h.x(), h.y(), 0, 0);
+    const QPoint h = origin();
+    const QRect content = viewport()->rect().adjusted(headerSize().x(), headerSize().y(), 0, 0);
     p.fillRect(viewport()->rect(), m_isCalc ? Qt::white : QColor(0xE9, 0xEE, 0xF5));
+    if (!m_isCalc) {
+        // Bóng đổ nhẹ quanh trang
+        const QRect page(h.x() - horizontalScrollBar()->value(), h.y() - verticalScrollBar()->value(),
+                         (int)(m_docW / twipsPerPx()), (int)(m_docH / twipsPerPx()));
+        p.fillRect(page.translated(2, 2), QColor(0, 0, 0, 28));
+    }
 
     // ---- Tile ----
     p.save();
     p.setClipRect(content);
     const int sx = horizontalScrollBar()->value(), sy = verticalScrollBar()->value();
     const int tx0 = sx / kTilePx, ty0 = sy / kTilePx;
-    const int tx1 = (sx + content.width()) / kTilePx, ty1 = (sy + content.height()) / kTilePx;
+    const int tx1 = (sx + viewport()->width()) / kTilePx, ty1 = (sy + viewport()->height()) / kTilePx;
     const int maxTx = (int)(m_docW / twipsPerPx()) / kTilePx, maxTy = (int)(m_docH / twipsPerPx()) / kTilePx;
     for (int ty = ty0; ty <= ty1; ++ty) {
         for (int tx = tx0; tx <= tx1; ++tx) {
@@ -211,6 +235,7 @@ void TileView::paintEvent(QPaintEvent* ev) {
 void TileView::resizeEvent(QResizeEvent* e) {
     QAbstractScrollArea::resizeEvent(e);
     updateScrollBars();
+    fitWidthOnce();
     m_areaTimer.start();
 }
 
@@ -307,7 +332,7 @@ void TileView::handleEvent(int type, const QString& payload) {
 void TileView::sendMouse(int type, QMouseEvent* e, int count) {
     const QPoint h = headerSize();
     const QPoint pos = e->position().toPoint();
-    if (pos.x() < h.x() || pos.y() < h.y()) return; // nhấp vào vùng tiêu đề (chưa hỗ trợ chọn cả hàng/cột)
+    if (m_isCalc && (pos.x() < h.x() || pos.y() < h.y())) return; // nhấp vào vùng tiêu đề (chưa hỗ trợ chọn cả hàng/cột)
     const QPoint t = toTwips(pos);
     int buttons = toLokButtons(e->buttons() | e->button());
     if (type == LOK_MOUSEEVENT_MOUSEBUTTONUP) buttons = m_pressButtons;

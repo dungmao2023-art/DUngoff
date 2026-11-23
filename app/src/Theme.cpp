@@ -43,7 +43,7 @@ QTabBar#RibbonTabs::tab:selected { color: #1F5FBF; border-bottom: 2px solid #1F5
 QTabBar#RibbonTabs::tab:hover { color: #1F5FBF; }
 QToolButton#RibbonButton {
   background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 2px 4px;
-  font-size: 11px; min-width: 46px;
+  font-size: 11px; min-width: 54px;
 }
 QToolButton#RibbonButton:hover { background: #E8F0FC; border-color: #C9DAF5; }
 QToolButton#RibbonButton:checked { background: #D4E3FA; border-color: #9DBCEB; }

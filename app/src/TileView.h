@@ -43,6 +43,8 @@ private:
     double twipsPerPx() const { return 15.0 * 100.0 / m_zoom; }
     int tileTwips() const { return (int)(kTilePx * twipsPerPx()); }
     QPoint headerSize() const;                       // (rộng cột tiêu đề hàng, cao hàng tiêu đề cột)
+    QPoint origin() const;                           // góc trên-trái của tài liệu trong viewport (khi chưa cuộn)
+    void fitWidthOnce();
     QPoint toTwips(const QPoint& viewPos) const;     // toạ độ viewport -> twip tài liệu
     QRect toView(const QRect& twips) const;          // hình chữ nhật twip -> viewport
     void updateScrollBars();
@@ -68,4 +70,5 @@ private:
     QTimer m_headerTimer;
     QTimer m_areaTimer;
     int m_pressButtons = 0;
+    bool m_fitted = false;
 };

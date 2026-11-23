@@ -6,12 +6,44 @@
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QPainter>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QStackedWidget>
 #include <QTabBar>
 #include <QToolButton>
 #include <QVBoxLayout>
 
 using dung::DocKind;
+
+// Vẽ biểu tượng từ glyph của font icon (Segoe Fluent/MDL2) hoặc ký tự thay thế.
+static QIcon glyphIcon(const QString& glyph, bool iconFont, qreal dpr) {
+    const int px = 22;
+    QPixmap pm(QSize(px, px) * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::TextAntialiasing);
+    QFont f = iconFont ? QFont(theme::iconFontFamily()) : QFont(QStringLiteral("Segoe UI"));
+    f.setPixelSize(iconFont ? 18 : (glyph.size() > 2 ? 10 : 15));
+    f.setBold(!iconFont);
+    p.setFont(f);
+    p.setPen(theme::kBlueDark);
+    p.drawText(QRect(0, 0, px, px), Qt::AlignCenter, glyph);
+    p.end();
+    QIcon icon(pm);
+    // Trạng thái vô hiệu: màu xám
+    QPixmap dis(pm.size());
+    dis.setDevicePixelRatio(dpr);
+    dis.fill(Qt::transparent);
+    QPainter d(&dis);
+    d.setFont(f);
+    d.setPen(QColor(0xA0, 0xAE, 0xC0));
+    d.drawText(QRect(0, 0, px, px), Qt::AlignCenter, glyph);
+    d.end();
+    icon.addPixmap(dis, QIcon::Disabled);
+    return icon;
+}
 
 Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     setObjectName(QStringLiteral("Ribbon"));
@@ -24,7 +56,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     m_tabs->setDrawBase(false);
     m_tabs->setExpanding(false);
     m_pages = new QStackedWidget(this);
-    m_pages->setFixedHeight(78);
+    m_pages->setFixedHeight(84);
     v->addWidget(m_tabs);
     v->addWidget(m_pages);
     connect(m_tabs, &QTabBar::currentChanged, m_pages, &QStackedWidget::setCurrentIndex);
@@ -35,7 +67,17 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
     const Group file{tr("Tệp"), {
         {QStringLiteral("save"), tr("Lưu"), 0xE74E, QStringLiteral("💾"), false},
         {QStringLiteral("saveAs"), tr("Lưu thành"), 0xE792, QStringLiteral("⇩"), false},
-        {QStringLiteral("exportPdf"), tr("Xuất PDF"), 0xEA90, QStringLiteral("PDF"), false},
+    }};
+    const Tab fileTab{tr("Tệp"), {
+        {tr("Lưu"), {
+            {QStringLiteral("save"), tr("Lưu"), 0xE74E, QStringLiteral("💾"), false},
+            {QStringLiteral("saveAs"), tr("Lưu thành"), 0xE792, QStringLiteral("⇩"), false},
+            {QStringLiteral("exportPdf"), tr("Xuất PDF"), 0xEA90, QStringLiteral("PDF"), false},
+        }},
+        {tr("Tệp"), {
+            {QStringLiteral("open"), tr("Mở"), 0xE8E5, QStringLiteral("📂"), false},
+            {QStringLiteral("close"), tr("Đóng"), 0xE711, QStringLiteral("✕"), false},
+        }},
     }};
     const Group clip{tr("Bộ nhớ tạm"), {
         {QStringLiteral("paste"), tr("Dán"), 0xE77F, QStringLiteral("📋"), false},
@@ -59,12 +101,12 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
 
     if (ro) {
         // Chế độ chỉ đọc: chỉ còn các thao tác không sửa nội dung.
-        return {{tr("Trang đầu"), {file, {tr("Bộ nhớ tạm"), {{QStringLiteral("copy"), tr("Sao chép"), 0xE8C8, QStringLiteral("⧉"), false}}}, view}}};
+        return {fileTab, {tr("Trang đầu"), {file, {tr("Bộ nhớ tạm"), {{QStringLiteral("copy"), tr("Sao chép"), 0xE8C8, QStringLiteral("⧉"), false}}}, view}}};
     }
 
     switch (kind) {
     case DocKind::Spreadsheet:
-        return {
+        return {fileTab,
             {tr("Trang đầu"), {file, undo, clip, font,
                 {tr("Căn lề"), {
                     {QStringLiteral(".uno:AlignLeft"), tr("Trái"), 0xE8E4, QStringLiteral("⇤"), true},
@@ -79,7 +121,9 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     {QStringLiteral(".uno:NumberFormatIncDecimals"), tr("Thêm số lẻ"), 0xE948, QStringLiteral(".0+"), false},
                     {QStringLiteral(".uno:NumberFormatDecDecimals"), tr("Bớt số lẻ"), 0xE949, QStringLiteral(".0−"), false},
                 }},
-                {tr("Ô"), {
+            }},
+            {tr("Chèn"), {
+                {tr("Hàng & cột"), {
                     {QStringLiteral(".uno:InsertRowsBefore"), tr("Chèn hàng"), 0xE710, QStringLiteral("+≡"), false},
                     {QStringLiteral(".uno:InsertColumnsBefore"), tr("Chèn cột"), 0xE710, QStringLiteral("+‖"), false},
                     {QStringLiteral(".uno:DeleteRows"), tr("Xoá hàng"), 0xE74D, QStringLiteral("−≡"), false},
@@ -101,7 +145,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
             }}}},
         };
     case DocKind::Text:
-        return {
+        return {fileTab,
             {tr("Trang đầu"), {file, undo, clip, font,
                 {tr("Đoạn văn"), {
                     {QStringLiteral(".uno:LeftPara"), tr("Trái"), 0xE8E4, QStringLiteral("⇤"), true},
@@ -118,7 +162,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
             {tr("Xem"), {view}},
         };
     case DocKind::Presentation:
-        return {
+        return {fileTab,
             {tr("Trang đầu"), {file, undo, clip,
                 {tr("Trang chiếu"), {
                     {QStringLiteral(".uno:InsertPage"), tr("Trang mới"), 0xE710, QStringLiteral("+"), false},
@@ -130,11 +174,18 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
             {tr("Xem"), {view}},
         };
     default: // PDF / bản vẽ
-        return {{tr("Trang đầu"), {file, view}}};
+        return {fileTab, {tr("Trang đầu"), {file, view}}};
     }
 }
 
 QWidget* Ribbon::buildPage(const Tab& t) {
+    auto* scroll = new QScrollArea;
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setStyleSheet(QStringLiteral("QScrollArea{background:transparent;} QScrollArea > QWidget > QWidget{background:transparent;}"));
+    scroll->horizontalScrollBar()->setFixedHeight(6);
     auto* page = new QWidget;
     auto* h = new QHBoxLayout(page);
     h->setContentsMargins(0, 4, 0, 0);
@@ -151,20 +202,16 @@ QWidget* Ribbon::buildPage(const Tab& t) {
         for (const Btn& b : g.buttons) {
             auto* tb = new QToolButton(gw);
             tb->setObjectName(QStringLiteral("RibbonButton"));
-            tb->setToolButtonStyle(Qt::ToolButtonTextOnly);
+            tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
             tb->setCheckable(b.checkable);
             tb->setAutoRaise(true);
             tb->setFocusPolicy(Qt::NoFocus); // không lấy focus khỏi tài liệu
             const QString g1 = iconFont.isEmpty() ? b.fallback : QString(QChar(b.mdl2));
-            tb->setText(g1 + QLatin1Char('\n') + b.label);
-            if (!iconFont.isEmpty()) {
-                // Dòng biểu tượng dùng font icon; dòng chữ dùng font giao diện (Qt chọn fallback theo ký tự).
-                QFont f = tb->font();
-                f.setFamilies({QStringLiteral("Segoe UI"), iconFont});
-                tb->setFont(f);
-            }
+            tb->setIcon(glyphIcon(g1, !iconFont.isEmpty(), devicePixelRatioF()));
+            tb->setIconSize(QSize(22, 22));
+            tb->setText(b.label);
             tb->setToolTip(b.label);
-            tb->setMinimumHeight(52);
+            tb->setMinimumHeight(56);
             const QString id = b.id;
             connect(tb, &QToolButton::clicked, this, [this, id, tb] {
                 if (id.startsWith(QLatin1String(".uno:"))) {
@@ -191,7 +238,8 @@ QWidget* Ribbon::buildPage(const Tab& t) {
         }
     }
     h->addStretch(1);
-    return page;
+    scroll->setWidget(page);
+    return scroll;
 }
 
 void Ribbon::setKind(DocKind kind, bool readOnly) {
@@ -210,7 +258,8 @@ void Ribbon::setKind(DocKind kind, bool readOnly) {
         m_tabs->addTab(t.title);
         m_pages->addWidget(buildPage(t));
     }
-    m_tabs->setCurrentIndex(std::clamp(current, 0, m_tabs->count() - 1));
+    // Lần đầu mở tab "Trang đầu" (chỉ số 1, sau tab "Tệp")
+    m_tabs->setCurrentIndex(std::clamp(current < 0 ? 1 : current, 0, m_tabs->count() - 1));
 }
 
 void Ribbon::setCommandState(const QString& cmd, const QString& value) {
