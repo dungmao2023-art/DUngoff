@@ -1,0 +1,211 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LO_VERSION: "26.8.3"
+  QT_VERSION: "6.8.3"
+
+jobs:
+  # ------------------------------------------------------------------ Linux: build nhanh + kiểm thử engine + ảnh chụp UI
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cài phụ thuộc (LibreOffice của Ubuntu, Qt 6, công cụ kiểm thử)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libreoffice-calc libreoffice-writer libreoffice-impress libreoffice-draw \
+            qt6-base-dev libgl-dev cmake ninja-build python3-openpyxl python3-pip \
+            xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils
+          pip3 install --break-system-packages python-docx python-pptx
+          mkdir -p report
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee report/linux-configure.log
+          cmake --build build 2>&1 | tee report/linux-build.log
+      - name: Báo lỗi biên dịch
+        if: failure()
+        run: grep -E "error|Error" report/linux-build.log | head -10 | sed 's/^/::error::/' || true
+      - name: Kiểm thử engine (smoke test)
+        run: |
+          set -o pipefail
+          python3 tests/fixtures/make_fixtures.py fixtures
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/mau-doanh-thu.xlsx \
+            --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
+            --out smoke 2>&1 | tee report/linux-smoketest.log
+      - name: Kiểm tra round-trip XLSX (không mất dữ liệu)
+        run: |
+          set -o pipefail
+          python3 tests/verify_roundtrip.py fixtures/mau-doanh-thu.xlsx "$(cat smoke/saved-path.txt)" \
+            --expect "Doanh thu!F2=Dũng" --expect "Doanh thu!F3==D5*2" --expect 'Doanh thu!G2=="Tổng: "&D5' \
+            --known tests/known_differences.txt 2>&1 | tee report/linux-roundtrip.log
+      - name: Ảnh chụp giao diện thật (Xvfb)
+        if: always() && hashFiles('build/app/DungOffice') != ''
+        run: |
+          shot() { # $1 = tên ảnh, còn lại = đối số
+            name=$1; shift
+            xvfb-run -a -s "-screen 0 1366x820x24" bash -c "
+              ./build/app/DungOffice $* > report/linux-ui-$name.log 2>&1 &
+              pid=\$!; sleep 22
+              import -window root report/linux-ui-$name.png
+              kill -0 \$pid && echo ALIVE >> report/linux-ui-$name.log || echo DIED >> report/linux-ui-$name.log
+              kill \$pid; sleep 1; kill -9 \$pid 2>/dev/null || true" || true
+          }
+          shot home
+          shot excel fixtures/mau-doanh-thu.xlsx
+          shot docx fixtures/mau-van-ban.docx
+          shot pptx fixtures/mau-trinh-chieu.pptx
+          shot csv fixtures/mau.csv
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-linux
+          path: report/
+
+  # ------------------------------------------------------------------ Windows: runtime LibreOffice chính thức + MSVC + Qt
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install openpyxl python-docx python-pptx
+      - name: Cài Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: win64_msvc2022_64
+          cache: true
+      - name: Cache runtime LibreOffice
+        uses: actions/cache@v4
+        with:
+          path: build/lo/engine
+          key: lo-engine-${{ env.LO_VERSION }}-v1
+      - name: Tải LibreOffice chính thức (kiểm tra SHA-256)
+        run: |
+          New-Item -ItemType Directory -Force report | Out-Null
+          if (-not (Test-Path build/lo/engine/program/sofficeapp.dll)) {
+            ./scripts/fetch-libreoffice.ps1 -Version $env:LO_VERSION -OutDir build/lo *>&1 | Tee-Object report/windows-fetch.log
+          }
+          Get-ChildItem build/lo/engine/program/sofficeapp.dll
+      - name: Build
+        run: |
+          cmake -S . -B build/out -G Ninja -DCMAKE_BUILD_TYPE=Release *>&1 | Tee-Object report/windows-configure.log
+          cmake --build build/out --parallel *>&1 | Tee-Object report/windows-build.log
+          if ($LASTEXITCODE) {
+            Select-String -Path report/windows-build.log -Pattern "error" | Select-Object -First 10 | ForEach-Object { Write-Host "::error::$($_.Line)" }
+            exit 1
+          }
+      - name: Kiểm thử engine trên Windows (smoke test)
+        run: |
+          python tests/fixtures/make_fixtures.py fixtures
+          $env:PYTHONUTF8 = "1"
+          & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --xlsx fixtures/mau-doanh-thu.xlsx `
+            --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx `
+            --out "$PWD/smoke" *>&1 | Tee-Object report/windows-smoketest.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm tra round-trip XLSX
+        run: |
+          $env:PYTHONUTF8 = "1"
+          $saved = Get-Content smoke/saved-path.txt -Encoding UTF8
+          python tests/verify_roundtrip.py fixtures/mau-doanh-thu.xlsx "$saved" `
+            --expect "Doanh thu!F2=Dũng" --expect "Doanh thu!F3==D5*2" --expect 'Doanh thu!G2=="Tổng: "&D5' `
+            --known tests/known_differences.txt *>&1 | Tee-Object report/windows-roundtrip.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Đóng gói thư mục chạy được
+        run: |
+          ./scripts/package-windows.ps1 -BuildDir build/out -EngineDir build/lo/engine -QtDir $env:QT_ROOT_DIR -OutDir build/dist *>&1 | Tee-Object report/windows-package.log
+      - name: Ảnh chụp giao diện thật trên Windows
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          function Shot($name, $argList) {
+            $p = if ($argList) { Start-Process build/dist/DungOffice/DungOffice.exe -ArgumentList $argList -PassThru } `
+                 else { Start-Process build/dist/DungOffice/DungOffice.exe -PassThru }
+            Start-Sleep 30
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save("report/windows-ui-$name.png")
+            "$name : $(if ($p.HasExited) { "DIED exit=$($p.ExitCode)" } else { 'ALIVE' })" | Add-Content report/windows-ui.log
+            if (-not $p.HasExited) { Stop-Process $p -Force }
+            Start-Sleep 2
+          }
+          Shot "home" $null
+          Shot "excel" "`"$PWD/fixtures/mau-doanh-thu.xlsx`""
+          Shot "docx" "`"$PWD/fixtures/mau-van-ban.docx`""
+          Shot "pdf" "`"$PWD/smoke/Tài liệu thử/ban-in.pdf`""
+      - name: Bộ cài OneClick (Inno Setup) — chỉ khi mọi kiểm thử đã đạt
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          try { Invoke-WebRequest https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/Vietnamese.isl -OutFile installer/Vietnamese.isl } catch { Write-Host "Không tải được Vietnamese.isl, dùng tiếng Anh" }
+          & $iscc /DSourceDir="$PWD\build\dist\DungOffice" /DAppVersion="0.1.0" installer/DungOffice.iss *>&1 | Tee-Object report/windows-installer.log
+          if ($LASTEXITCODE) { exit 1 }
+          Get-ChildItem installer/Output/*.exe | ForEach-Object { "{0}  {1:N0} MB" -f $_.Name, ($_.Length / 1MB) } | Tee-Object -Append report/windows-installer.log
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: DungOffice-Setup-x64
+          path: installer/Output/*.exe
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report-windows
+          path: report/
+      - name: Phát hành (chỉ khi gắn tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/*.exe
+
+  # ------------------------------------------------------------------ Báo cáo: đẩy log + ảnh chụp lên nhánh ci-report
+  report:
+    if: always() && github.event_name != 'pull_request'
+    needs: [linux, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: report-*
+          path: report
+      - name: Đẩy báo cáo lên nhánh ci-report
+        run: |
+          cd report
+          {
+            echo "# Báo cáo CI — ${GITHUB_SHA::8}"
+            echo
+            echo "- Linux: ${{ needs.linux.result }}"
+            echo "- Windows: ${{ needs.windows.result }}"
+            echo "- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > README.md
+          git init -q -b ci-report
+          git config user.name "dung-ci"
+          git config user.email "ci@users.noreply.github.com"
+          git add -A
+          git commit -qm "CI report ${GITHUB_SHA::8} (run ${{ github.run_id }})"
+          git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-report

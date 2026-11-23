@@ -1,0 +1,11 @@
+build/
+out/
+fixtures/
+smoke/
+report/
+installer/Output/
+installer/Vietnamese.isl
+*.user
+.vs/
+.vscode/
+__pycache__/

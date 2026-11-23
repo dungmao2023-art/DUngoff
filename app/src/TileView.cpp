@@ -1,0 +1,368 @@
+// SPDX-License-Identifier: MPL-2.0
+#define LOK_USE_UNSTABLE_API
+#include "TileView.h"
+
+#include "KeyMap.h"
+#include "Theme.h"
+
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
+
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QPainter>
+#include <QScrollBar>
+#include <QWheelEvent>
+#include <cmath>
+
+TileView::TileView(dung::Document* doc, QWidget* parent)
+    : QAbstractScrollArea(parent), m_doc(doc), m_isCalc(doc->kind() == dung::DocKind::Spreadsheet) {
+    setFocusPolicy(Qt::StrongFocus);
+    setAttribute(Qt::WA_InputMethodEnabled, true);
+    viewport()->setAttribute(Qt::WA_OpaquePaintEvent, true);
+    viewport()->setMouseTracking(false);
+    setFrameShape(QFrame::NoFrame);
+    horizontalScrollBar()->setSingleStep(40);
+    verticalScrollBar()->setSingleStep(40);
+
+    m_headerTimer.setSingleShot(true);
+    m_headerTimer.setInterval(40);
+    connect(&m_headerTimer, &QTimer::timeout, this, &TileView::requestHeaders);
+    m_areaTimer.setSingleShot(true);
+    m_areaTimer.setInterval(60);
+    connect(&m_areaTimer, &QTimer::timeout, this, &TileView::sendVisibleArea);
+
+    m_doc->documentSize(m_docW, m_docH);
+    updateScrollBars();
+    sendVisibleArea();
+}
+
+QPoint TileView::headerSize() const { return m_isCalc ? QPoint(46, 22) : QPoint(0, 0); }
+
+QPoint TileView::toTwips(const QPoint& p) const {
+    const QPoint h = headerSize();
+    const double tpp = twipsPerPx();
+    return QPoint((int)std::lround((p.x() - h.x() + horizontalScrollBar()->value()) * tpp),
+                  (int)std::lround((p.y() - h.y() + verticalScrollBar()->value()) * tpp));
+}
+
+QRect TileView::toView(const QRect& t) const {
+    const QPoint h = headerSize();
+    const double tpp = twipsPerPx();
+    const int x = (int)std::floor(t.x() / tpp) - horizontalScrollBar()->value() + h.x();
+    const int y = (int)std::floor(t.y() / tpp) - verticalScrollBar()->value() + h.y();
+    return QRect(x, y, std::max(1, (int)std::ceil(t.width() / tpp)), std::max(1, (int)std::ceil(t.height() / tpp)));
+}
+
+void TileView::setZoom(int percent) {
+    percent = std::clamp(percent, 25, 400);
+    if (percent == m_zoom) return;
+    // Giữ điểm giữa màn hình khi đổi zoom
+    const QPoint center = toTwips(viewport()->rect().center());
+    m_zoom = percent;
+    m_tiles.clear();
+    updateScrollBars();
+    const QPoint h = headerSize();
+    horizontalScrollBar()->setValue((int)(center.x() / twipsPerPx()) - (viewport()->width() - h.x()) / 2);
+    verticalScrollBar()->setValue((int)(center.y() / twipsPerPx()) - (viewport()->height() - h.y()) / 2);
+    sendVisibleArea();
+    viewport()->update();
+    emit zoomChanged(m_zoom);
+}
+
+void TileView::resetForPartChange() {
+    m_tiles.clear();
+    m_selection.clear();
+    m_doc->documentSize(m_docW, m_docH);
+    horizontalScrollBar()->setValue(0);
+    verticalScrollBar()->setValue(0);
+    updateScrollBars();
+    sendVisibleArea();
+    viewport()->update();
+}
+
+void TileView::updateScrollBars() {
+    const QPoint h = headerSize();
+    double w = m_docW / twipsPerPx(), hh = m_docH / twipsPerPx();
+    if (m_isCalc) { w += viewport()->width(); hh += viewport()->height(); } // bảng tính: cho cuộn thêm để mở rộng
+    else { w += 24; hh += 24; }
+    horizontalScrollBar()->setRange(0, std::max(0, (int)w - viewport()->width() + h.x()));
+    verticalScrollBar()->setRange(0, std::max(0, (int)hh - viewport()->height() + h.y()));
+    horizontalScrollBar()->setPageStep(viewport()->width());
+    verticalScrollBar()->setPageStep(viewport()->height());
+}
+
+void TileView::sendVisibleArea() {
+    const QPoint h = headerSize();
+    const double tpp = twipsPerPx();
+    const int x = (int)(horizontalScrollBar()->value() * tpp), y = (int)(verticalScrollBar()->value() * tpp);
+    const int w = (int)((viewport()->width() - h.x()) * tpp), hh = (int)((viewport()->height() - h.y()) * tpp);
+    m_doc->setClientView(kTilePx, kTilePx, tileTwips(), tileTwips(), x, y, std::max(w, 1), std::max(hh, 1));
+    if (m_isCalc) m_headerTimer.start();
+}
+
+void TileView::requestHeaders() {
+    if (!m_isCalc) return;
+    const QPoint h = headerSize();
+    const double tpp = twipsPerPx();
+    const int x = (int)(horizontalScrollBar()->value() * tpp), y = (int)(verticalScrollBar()->value() * tpp);
+    const int w = (int)((viewport()->width() - h.x()) * tpp) + 1, hh = (int)((viewport()->height() - h.y()) * tpp) + 1;
+    const std::string q = ".uno:ViewRowColumnHeaders?x=" + std::to_string(x) + "&y=" + std::to_string(y) +
+                          "&width=" + std::to_string(w) + "&height=" + std::to_string(hh);
+    const QJsonObject o = QJsonDocument::fromJson(QByteArray::fromStdString(m_doc->commandValues(q))).object();
+    auto parse = [](const QJsonArray& a, QVector<Header>& out, int& startPx) {
+        out.clear();
+        startPx = 0;
+        for (int i = 0; i < a.size(); ++i) {
+            const QJsonObject e = a.at(i).toObject();
+            const QJsonValue sz = e.value(QStringLiteral("size"));
+            const int px = sz.isString() ? sz.toString().toInt() : sz.toInt();
+            const QJsonValue tx = e.value(QStringLiteral("text"));
+            if (i == 0) { startPx = px; continue; }   // phần tử đầu: vị trí bắt đầu
+            out.push_back({tx.isString() ? tx.toString() : QString::number(tx.toInt()), px});
+        }
+    };
+    parse(o.value(QStringLiteral("rows")).toArray(), m_rows, m_rowStartPx);
+    parse(o.value(QStringLiteral("columns")).toArray(), m_cols, m_colStartPx);
+    viewport()->update();
+}
+
+void TileView::paintEvent(QPaintEvent* ev) {
+    QPainter p(viewport());
+    const QPoint h = headerSize();
+    const QRect content = viewport()->rect().adjusted(h.x(), h.y(), 0, 0);
+    p.fillRect(viewport()->rect(), m_isCalc ? Qt::white : QColor(0xE9, 0xEE, 0xF5));
+
+    // ---- Tile ----
+    p.save();
+    p.setClipRect(content);
+    const int sx = horizontalScrollBar()->value(), sy = verticalScrollBar()->value();
+    const int tx0 = sx / kTilePx, ty0 = sy / kTilePx;
+    const int tx1 = (sx + content.width()) / kTilePx, ty1 = (sy + content.height()) / kTilePx;
+    const int maxTx = (int)(m_docW / twipsPerPx()) / kTilePx, maxTy = (int)(m_docH / twipsPerPx()) / kTilePx;
+    for (int ty = ty0; ty <= ty1; ++ty) {
+        for (int tx = tx0; tx <= tx1; ++tx) {
+            const QRect target(tx * kTilePx - sx + h.x(), ty * kTilePx - sy + h.y(), kTilePx, kTilePx);
+            if (!ev->region().intersects(target)) continue;
+            if (!m_isCalc && (tx > maxTx || ty > maxTy)) continue; // ngoài trang
+            const quint64 key = (quint64(tx) << 32) | quint64(ty);
+            auto it = m_tiles.find(key);
+            if (it == m_tiles.end()) {
+                QImage img(kTilePx, kTilePx, QImage::Format_ARGB32_Premultiplied);
+                img.fill(Qt::white);
+                m_doc->paintTile(img.bits(), kTilePx, kTilePx, tx * tileTwips(), ty * tileTwips(), tileTwips(), tileTwips());
+                if (m_tiles.size() > 600) m_tiles.clear(); // giới hạn bộ nhớ
+                it = m_tiles.insert(key, img);
+            }
+            p.drawImage(target.topLeft(), it.value());
+        }
+    }
+    // ---- Lớp phủ: vùng chọn, con trỏ ô, con trỏ văn bản ----
+    QColor sel = theme::kBlue;
+    sel.setAlpha(50);
+    for (const QRect& r : m_selection) p.fillRect(toView(r), sel);
+    if (!m_cellCursor.isEmpty()) {
+        p.setPen(QPen(theme::kExcel, 2));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(toView(m_cellCursor).adjusted(0, 0, -1, -1));
+        const QRect v = toView(m_cellCursor);
+        p.fillRect(QRect(v.right() - 3, v.bottom() - 3, 6, 6), theme::kExcel); // tay nắm
+    }
+    if (m_caretVisible && !m_caret.isEmpty() && hasFocus()) {
+        QRect c = toView(m_caret);
+        c.setWidth(2);
+        p.fillRect(c, Qt::black);
+    }
+    p.restore();
+
+    // ---- Tiêu đề hàng/cột (Excel) ----
+    if (m_isCalc) {
+        const QColor bg(0xF3, 0xF6, 0xFA), line(0xD9, 0xE1, 0xEC);
+        p.fillRect(QRect(0, 0, viewport()->width(), h.y()), bg);
+        p.fillRect(QRect(0, 0, h.x(), viewport()->height()), bg);
+        p.setPen(line);
+        p.drawLine(0, h.y() - 1, viewport()->width(), h.y() - 1);
+        p.drawLine(h.x() - 1, 0, h.x() - 1, viewport()->height());
+        QFont f = font();
+        f.setPointSizeF(f.pointSizeF() * 0.85);
+        p.setFont(f);
+        int prev = m_colStartPx;
+        for (const Header& c : m_cols) {
+            const QRect r(prev - sx + h.x(), 0, c.endPx - prev, h.y());
+            p.setPen(line);
+            p.drawLine(r.right(), 0, r.right(), h.y());
+            p.setPen(theme::kMuted);
+            if (r.right() > h.x()) p.drawText(r, Qt::AlignCenter, c.text);
+            prev = c.endPx;
+        }
+        prev = m_rowStartPx;
+        for (const Header& rw : m_rows) {
+            const QRect r(0, prev - sy + h.y(), h.x(), rw.endPx - prev);
+            p.setPen(line);
+            p.drawLine(0, r.bottom(), h.x(), r.bottom());
+            p.setPen(theme::kMuted);
+            if (r.bottom() > h.y()) p.drawText(r, Qt::AlignCenter, rw.text);
+            prev = rw.endPx;
+        }
+        p.fillRect(QRect(0, 0, h.x() - 1, h.y() - 1), bg);
+    }
+}
+
+void TileView::resizeEvent(QResizeEvent* e) {
+    QAbstractScrollArea::resizeEvent(e);
+    updateScrollBars();
+    m_areaTimer.start();
+}
+
+void TileView::scrollContentsBy(int, int) {
+    viewport()->update();
+    m_areaTimer.start();
+    if (m_isCalc) m_headerTimer.start();
+}
+
+QRect TileView::parseRect(const QString& s, bool* ok) {
+    const QStringList parts = s.split(QLatin1Char(','));
+    if (parts.size() < 4) { if (ok) *ok = false; return {}; }
+    if (ok) *ok = true;
+    return QRect(parts[0].trimmed().toInt(), parts[1].trimmed().toInt(), parts[2].trimmed().toInt(),
+                 parts[3].trimmed().toInt());
+}
+
+QVector<QRect> TileView::parseRects(const QString& s) {
+    QVector<QRect> out;
+    if (s.isEmpty() || s.startsWith(QLatin1String("EMPTY"))) return out;
+    for (const QString& part : s.split(QLatin1Char(';'))) {
+        bool ok = false;
+        const QRect r = parseRect(part, &ok);
+        if (ok && !r.isEmpty()) out.push_back(r);
+    }
+    return out;
+}
+
+void TileView::invalidateTwips(const QRect& r) {
+    const int tt = tileTwips();
+    for (auto it = m_tiles.begin(); it != m_tiles.end();) {
+        const int tx = int(it.key() >> 32), ty = int(it.key() & 0xffffffff);
+        const QRect tr(tx * tt, ty * tt, tt, tt);
+        if (tr.intersects(r)) it = m_tiles.erase(it);
+        else ++it;
+    }
+    viewport()->update();
+}
+
+void TileView::handleEvent(int type, const QString& payload) {
+    switch (type) {
+    case LOK_CALLBACK_INVALIDATE_TILES: {
+        if (payload.startsWith(QLatin1String("EMPTY"))) { m_tiles.clear(); viewport()->update(); break; }
+        bool ok = false;
+        QRect r = parseRect(payload, &ok);
+        if (ok) {
+            // Calc có thể gửi chiều rộng/cao rất lớn (đến hết sheet) -> chặn tràn số.
+            if (r.width() < 0 || r.width() > 100000000) r.setWidth(100000000);
+            if (r.height() < 0 || r.height() > 100000000) r.setHeight(100000000);
+            invalidateTwips(r);
+        }
+        if (m_isCalc) m_headerTimer.start();
+        break;
+    }
+    case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED:
+        m_doc->documentSize(m_docW, m_docH);
+        updateScrollBars();
+        if (!m_isCalc) { m_tiles.clear(); viewport()->update(); }
+        break;
+    case LOK_CALLBACK_CELL_CURSOR:
+        m_cellCursor = payload.startsWith(QLatin1String("EMPTY")) ? QRect() : parseRect(payload);
+        if (!m_cellCursor.isEmpty()) {
+            // Tự cuộn để ô đang chọn luôn nhìn thấy
+            const QRect v = toView(m_cellCursor);
+            const QPoint h = headerSize();
+            if (v.right() > viewport()->width()) horizontalScrollBar()->setValue(horizontalScrollBar()->value() + v.right() - viewport()->width() + 20);
+            else if (v.left() < h.x()) horizontalScrollBar()->setValue(horizontalScrollBar()->value() - (h.x() - v.left()) - 20);
+            if (v.bottom() > viewport()->height()) verticalScrollBar()->setValue(verticalScrollBar()->value() + v.bottom() - viewport()->height() + 20);
+            else if (v.top() < h.y()) verticalScrollBar()->setValue(verticalScrollBar()->value() - (h.y() - v.top()) - 20);
+        }
+        viewport()->update();
+        break;
+    case LOK_CALLBACK_TEXT_SELECTION:
+        m_selection = parseRects(payload);
+        viewport()->update();
+        break;
+    case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR: {
+        QString rect = payload;
+        if (payload.startsWith(QLatin1Char('{')))
+            rect = QJsonDocument::fromJson(payload.toUtf8()).object().value(QStringLiteral("rectangle")).toString();
+        m_caret = rect.startsWith(QLatin1String("EMPTY")) ? QRect() : parseRect(rect);
+        viewport()->update();
+        break;
+    }
+    case LOK_CALLBACK_CURSOR_VISIBLE:
+        m_caretVisible = payload.contains(QLatin1String("true"));
+        viewport()->update();
+        break;
+    default:
+        break;
+    }
+}
+
+void TileView::sendMouse(int type, QMouseEvent* e, int count) {
+    const QPoint h = headerSize();
+    const QPoint pos = e->position().toPoint();
+    if (pos.x() < h.x() || pos.y() < h.y()) return; // nhấp vào vùng tiêu đề (chưa hỗ trợ chọn cả hàng/cột)
+    const QPoint t = toTwips(pos);
+    int buttons = toLokButtons(e->buttons() | e->button());
+    if (type == LOK_MOUSEEVENT_MOUSEBUTTONUP) buttons = m_pressButtons;
+    m_doc->postMouse(type, t.x(), t.y(), count, buttons, toLokModifiers(e->modifiers()));
+}
+
+void TileView::mousePressEvent(QMouseEvent* e) {
+    setFocus();
+    m_pressButtons = toLokButtons(e->buttons());
+    sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, e, 1);
+}
+void TileView::mouseReleaseEvent(QMouseEvent* e) { sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, e, 1); }
+void TileView::mouseMoveEvent(QMouseEvent* e) {
+    if (e->buttons() != Qt::NoButton) sendMouse(LOK_MOUSEEVENT_MOVE, e, 1);
+}
+void TileView::mouseDoubleClickEvent(QMouseEvent* e) {
+    m_pressButtons = toLokButtons(e->buttons());
+    sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, e, 2);
+}
+
+void TileView::wheelEvent(QWheelEvent* e) {
+    if (e->modifiers() & Qt::ControlModifier) {
+        setZoom(m_zoom + (e->angleDelta().y() > 0 ? 10 : -10));
+        e->accept();
+        return;
+    }
+    QAbstractScrollArea::wheelEvent(e);
+}
+
+void TileView::keyPressEvent(QKeyEvent* e) {
+    const LokKey k = toLokKey(e);
+    if (!k.valid) { QAbstractScrollArea::keyPressEvent(e); return; }
+    m_doc->postKey(LOK_KEYEVENT_KEYINPUT, k.charCode, k.keyCode);
+    e->accept();
+}
+
+void TileView::keyReleaseEvent(QKeyEvent* e) {
+    const LokKey k = toLokKey(e);
+    if (!k.valid) return;
+    m_doc->postKey(LOK_KEYEVENT_KEYUP, k.charCode, k.keyCode);
+    e->accept();
+}
+
+void TileView::inputMethodEvent(QInputMethodEvent* e) {
+    // Bộ gõ tiếng Việt kiểu IME (Telex/VNI của Windows): gửi chuỗi đã chốt.
+    const QString s = e->commitString();
+    for (const QChar c : s) {
+        m_doc->postKey(LOK_KEYEVENT_KEYINPUT, c.unicode(), 0);
+        m_doc->postKey(LOK_KEYEVENT_KEYUP, c.unicode(), 0);
+    }
+    e->accept();
+}
+
+QVariant TileView::inputMethodQuery(Qt::InputMethodQuery q) const {
+    if (q == Qt::ImCursorRectangle) return toView(m_caret.isEmpty() ? m_cellCursor : m_caret);
+    if (q == Qt::ImEnabled) return true;
+    return QAbstractScrollArea::inputMethodQuery(q);
+}

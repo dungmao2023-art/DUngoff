@@ -1,0 +1,11 @@
+# Khác biệt đã biết giữa tệp gốc và tệp Dũng Office lưu ra.
+# Mỗi dòng là tiền tố của một thông báo khác biệt từ verify_roundtrip.py.
+# KHÔNG thêm dòng vào đây để "cho qua" lỗi mới: mỗi dòng phải có mục tương ứng trong
+# docs/DATA_SAFETY.md (mục "Vấn đề đã biết") kèm kế hoạch khắc phục.
+#
+# DS-001: ô công thức tham chiếu sheet khác, định dạng General, được engine gán định dạng số
+#         của ô nguồn khi ghi XLSX. Giá trị và công thức không đổi.
+Ghi chú!B1: định dạng số 'General' -> '#,##0'
+#
+# DS-002: tác giả comment không được giữ (thành "Unknown Author"). Nội dung comment giữ nguyên.
+Doanh thu!B2: tác giả comment 'Dũng' -> 'Unknown Author'
