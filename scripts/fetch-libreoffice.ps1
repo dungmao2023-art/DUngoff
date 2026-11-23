@@ -5,7 +5,7 @@
   runtime engine cho Dũng Office.
 
 .PARAMETER Version   Phiên bản LibreOffice, ví dụ 26.8.3
-.PARAMETER OutDir    Thư mục đích; runtime nằm ở <OutDir>\engine (chứa program\sofficeapp.dll)
+.PARAMETER OutDir    Thư mục đích; runtime nằm ở <OutDir>\engine (chứa program\mergedlo.dll)
 
 Chỉ dùng trên máy build / CI. Người dùng cuối nhận runtime đã đóng gói sẵn trong bộ cài.
 #>
@@ -70,12 +70,40 @@ if ($p.ExitCode -ne 0) {
 Write-Host "Nội dung sau giải nén:"
 Get-ChildItem $admin | ForEach-Object { Write-Host "  $($_.Name)" }
 
-$dll = Get-ChildItem -Path $admin -Recurse -Filter sofficeapp.dll | Select-Object -First 1
-if (-not $dll) { throw "Không tìm thấy sofficeapp.dll sau khi giải nén" }
-$root = Split-Path (Split-Path $dll.FullName -Parent) -Parent   # thư mục chứa program\
+# Bản Windows chính thức dùng "merged libs": điểm vào LibreOfficeKit nằm trong mergedlo.dll
+# (LibreOfficeKitInit.h tự thử sofficeapp.dll rồi mergedlo.dll).
+$dll = Get-ChildItem -Path $admin -Recurse -Include mergedlo.dll, sofficeapp.dll | Select-Object -First 1
+if (-not $dll) { throw "Không tìm thấy mergedlo.dll / sofficeapp.dll sau khi giải nén" }
+$programDir = Split-Path $dll.FullName -Parent
+$root = Split-Path $programDir -Parent   # thư mục chứa program\, share\, presets\...
+
+# Administrative install để riêng DLL runtime (System64) và phông (Fonts) — đưa vào engine.
+foreach ($sys in @("System64", "System")) {
+  $sd = Join-Path $root $sys
+  if (Test-Path $sd) {
+    Get-ChildItem $sd -Filter *.dll -Recurse | ForEach-Object {
+      $dst = Join-Path $programDir $_.Name
+      if (-not (Test-Path $dst)) { Copy-Item $_.FullName $dst; Write-Host "  + runtime $($_.Name)" }
+    }
+  }
+}
+$fontsSrc = Join-Path $root "Fonts"
+if (Test-Path $fontsSrc) {
+  $fontsDst = Join-Path $root "share\fonts\truetype"
+  New-Item -ItemType Directory -Force $fontsDst | Out-Null
+  Get-ChildItem $fontsSrc -File | ForEach-Object {
+    $dst = Join-Path $fontsDst $_.Name
+    if (-not (Test-Path $dst)) { Copy-Item $_.FullName $dst }
+  }
+}
+
 $engine = Join-Path $OutDir "engine"
 if (Test-Path $engine) { Remove-Item -Recurse -Force $engine }
-Move-Item $root $engine
+New-Item -ItemType Directory -Force $engine | Out-Null
+foreach ($item in Get-ChildItem $root) {
+  if ($item.Name -in @("System", "System64", "Fonts") -or $item.Extension -eq ".msi") { continue }
+  Move-Item $item.FullName (Join-Path $engine $item.Name)
+}
 Remove-Item -Recurse -Force $admin
 
 # Chưa lược bớt tệp nào: mọi việc thu gọn runtime phải đi kèm kiểm thử chứng minh không ảnh hưởng

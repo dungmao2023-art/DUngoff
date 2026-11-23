@@ -101,11 +101,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/lo/engine
-          key: lo-engine-${{ env.LO_VERSION }}-v1
+          key: lo-engine-${{ env.LO_VERSION }}-v2
       - name: Tải LibreOffice chính thức (kiểm tra SHA-256)
         run: |
           New-Item -ItemType Directory -Force report | Out-Null
-          if (-not (Test-Path build/lo/engine/program/sofficeapp.dll)) {
+          if (-not (Test-Path build/lo/engine/program/mergedlo.dll) -and -not (Test-Path build/lo/engine/program/sofficeapp.dll)) {
             try {
               ./scripts/fetch-libreoffice.ps1 -Version $env:LO_VERSION -OutDir build/lo *>&1 | Tee-Object report/windows-fetch.log
             } catch {
@@ -114,7 +114,7 @@ jobs:
               throw
             }
           }
-          Get-ChildItem build/lo/engine/program/sofficeapp.dll
+          Get-ChildItem build/lo/engine/program/*.dll | Where-Object { $_.Name -in @('mergedlo.dll','sofficeapp.dll') }
       - name: Build
         run: |
           cmake -S . -B build/out -G Ninja -DCMAKE_BUILD_TYPE=Release *>&1 | Tee-Object report/windows-configure.log
