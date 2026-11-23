@@ -110,6 +110,7 @@ int main(int argc, char** argv) {
 #endif
     fs::path program, xlsx, csv, out, docx, pptx;
     std::vector<fs::path> extraSheets; // --sheet <tệp>: định dạng bảng tính khác (xls, ods, xlsm...)
+    fs::path roundtrip;                // --roundtrip <tệp>: chỉ mở, render mọi sheet, lưu bản sao (không sửa)
     for (size_t i = 1; i + 1 < args.size(); i += 2) {
         if (args[i] == "--program") program = fromUtf8(args[i + 1]);
         else if (args[i] == "--xlsx") xlsx = fromUtf8(args[i + 1]);
@@ -118,6 +119,54 @@ int main(int argc, char** argv) {
         else if (args[i] == "--docx") docx = fromUtf8(args[i + 1]);
         else if (args[i] == "--pptx") pptx = fromUtf8(args[i + 1]);
         else if (args[i] == "--sheet") extraSheets.push_back(fromUtf8(args[i + 1]));
+        else if (args[i] == "--roundtrip") roundtrip = fromUtf8(args[i + 1]);
+    }
+    if (!roundtrip.empty() && !program.empty() && !out.empty()) {
+        std::error_code e2;
+        fs::create_directories(out, e2);
+        startWatchdog(240);
+        const auto originalBytes = readAll(roundtrip);
+        std::string err;
+        step("khởi động engine");
+        auto engine = Engine::create(program, out / "profile", out / "work", &err);
+        check((bool)engine, "Khởi động engine " + err);
+        if (!engine) return 1;
+        step("mở " + roundtrip.filename().u8string());
+        const auto t0 = std::chrono::steady_clock::now();
+        auto d = engine->open(roundtrip, &err);
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+        check((bool)d, "Mở tệp (" + std::to_string(ms) + " ms) " + err);
+        if (!d) return 1;
+        std::cout << "       Loại: " << kindName(d->kind()) << ", chỉ đọc: " << (d->readOnly() ? "có" : "không")
+                  << ", số sheet: " << d->partCount() << std::endl;
+        for (int i = 0; i < d->partCount(); ++i) {
+            step("render sheet " + d->partName(i));
+            d->setPart(i);
+            const int n = 512;
+            std::vector<uint8_t> b(n * n * 4, 0);
+            const auto r0 = std::chrono::steady_clock::now();
+            d->setClientView(n, n, n * 15, n * 15, 0, 0, n * 15, n * 15);
+            d->paintTile(b.data(), n, n, 0, 0, n * 15, n * 15);
+            const auto rms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - r0).count();
+            size_t dark = 0;
+            for (size_t k = 0; k < b.size(); k += 4)
+                if (b[k] < 200 || b[k + 1] < 200 || b[k + 2] < 200) ++dark;
+            writeBmp(out / ("sheet-" + std::to_string(i + 1) + ".bmp"), b, n, n);
+            check(dark > 100, "Sheet '" + d->partName(i) + "' render có nội dung (" + std::to_string(rms) + " ms)");
+        }
+        d->setPart(0);
+        step("Lưu thành bản sao");
+        fs::path target = out / fs::u8path(roundtrip.stem().u8string() + " - Dũng Office.xlsx");
+        fs::remove(target, e2);
+        const auto s0 = std::chrono::steady_clock::now();
+        auto r = d->saveAs(target);
+        const auto sms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - s0).count();
+        check(r.ok, "Lưu thành XLSX (" + std::to_string(sms) + " ms): " + r.message);
+        check(readAll(roundtrip) == originalBytes, "Tệp gốc giữ nguyên từng byte");
+        std::ofstream(out / "saved-path.txt") << target.u8string();
+        std::cout << (g_fail ? "\nKẾT QUẢ: CÓ LỖI\n" : "\nKẾT QUẢ: TẤT CẢ ĐẠT\n");
+        std::cout.flush();
+        std::_Exit(g_fail ? 1 : 0);
     }
     if (program.empty() || xlsx.empty() || out.empty()) {
         std::cerr << "Cách dùng: dung-smoketest --program <dir> --xlsx <tệp> [--csv <tệp>] --out <dir>\n";

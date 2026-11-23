@@ -9,3 +9,5 @@ Ghi chú!B1: định dạng số 'General' -> '#,##0'
 #
 # DS-002: tác giả comment không được giữ (thành "Unknown Author"). Nội dung comment giữ nguyên.
 Doanh thu!B2: tác giả comment 'Dũng' -> 'Unknown Author'
+#
+# DS-003: hằng Boolean thành công thức =TRUE()/=FALSE() (giá trị giữ nguyên)
