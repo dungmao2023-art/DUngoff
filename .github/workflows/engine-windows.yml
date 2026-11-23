@@ -49,7 +49,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view $env:ENGINE_RELEASE --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) { "done=1" >> $env:GITHUB_OUTPUT; Write-Host "Engine đã được build trước đó." } else { "done=0" >> $env:GITHUB_OUTPUT }
+          if ($LASTEXITCODE -eq 0) { "done=1" >> $env:GITHUB_OUTPUT; Write-Host "Engine đã được build trước đó." } else { "done=0" >> $env:GITHUB_OUTPUT; Write-Host "Chưa có engine: bắt đầu build." }
+          exit 0
       - uses: actions/checkout@v4
         if: steps.exists.outputs.done == '0'
         with:
