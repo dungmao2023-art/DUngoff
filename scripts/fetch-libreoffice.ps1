@@ -60,8 +60,15 @@ if (-not $SkipHashCheck) {
 $admin = Join-Path $OutDir "admin"
 if (Test-Path $admin) { Remove-Item -Recurse -Force $admin }
 Write-Host "Giải nén MSI (administrative install)…"
-$p = Start-Process msiexec.exe -ArgumentList @("/a", "`"$msi`"", "/qn", "TARGETDIR=`"$admin`"") -Wait -PassThru
-if ($p.ExitCode -ne 0) { throw "msiexec /a lỗi $($p.ExitCode)" }
+$msiLog = Join-Path $OutDir "msiexec-admin.log"
+$p = Start-Process msiexec.exe -ArgumentList @("/a", "`"$msi`"", "/qn", "/l*v", "`"$msiLog`"", "TARGETDIR=`"$admin`"") -Wait -PassThru
+Write-Host "msiexec /a kết thúc với mã $($p.ExitCode)"
+if ($p.ExitCode -ne 0) {
+  if (Test-Path $msiLog) { Get-Content $msiLog -Tail 40 | ForEach-Object { Write-Host "  $_" } }
+  throw "msiexec /a lỗi $($p.ExitCode)"
+}
+Write-Host "Nội dung sau giải nén:"
+Get-ChildItem $admin | ForEach-Object { Write-Host "  $($_.Name)" }
 
 $dll = Get-ChildItem -Path $admin -Recurse -Filter sofficeapp.dll | Select-Object -First 1
 if (-not $dll) { throw "Không tìm thấy sofficeapp.dll sau khi giải nén" }

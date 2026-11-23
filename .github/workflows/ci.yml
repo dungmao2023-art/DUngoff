@@ -106,7 +106,13 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force report | Out-Null
           if (-not (Test-Path build/lo/engine/program/sofficeapp.dll)) {
-            ./scripts/fetch-libreoffice.ps1 -Version $env:LO_VERSION -OutDir build/lo *>&1 | Tee-Object report/windows-fetch.log
+            try {
+              ./scripts/fetch-libreoffice.ps1 -Version $env:LO_VERSION -OutDir build/lo *>&1 | Tee-Object report/windows-fetch.log
+            } catch {
+              "LỖI: $($_.Exception.Message)" | Tee-Object -Append report/windows-fetch.log
+              if (Test-Path build/lo/msiexec-admin.log) { Get-Content build/lo/msiexec-admin.log -Tail 80 | Add-Content report/windows-fetch.log }
+              throw
+            }
           }
           Get-ChildItem build/lo/engine/program/sofficeapp.dll
       - name: Build

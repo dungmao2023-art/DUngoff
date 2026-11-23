@@ -321,7 +321,7 @@ void TileView::mousePressEvent(QMouseEvent* e) {
 }
 void TileView::mouseReleaseEvent(QMouseEvent* e) { sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, e, 1); }
 void TileView::mouseMoveEvent(QMouseEvent* e) {
-    if (e->buttons() != Qt::NoButton) sendMouse(LOK_MOUSEEVENT_MOVE, e, 1);
+    if (e->buttons() != Qt::NoButton) sendMouse(LOK_MOUSEEVENT_MOUSEMOVE, e, 1);
 }
 void TileView::mouseDoubleClickEvent(QMouseEvent* e) {
     m_pressButtons = toLokButtons(e->buttons());
