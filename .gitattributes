@@ -4,3 +4,7 @@
 *.rc text eol=crlf
 *.ico binary
 *.png binary
+
+# Tệp đưa vào cây mã nguồn LibreOffice (patch, makefile, script) phải giữ LF
+engine-build/** text eol=lf
+*.sh text eol=lf

@@ -93,6 +93,8 @@ jobs:
           git config --global core.autocrlf false
           git clone --depth 1 -b "$LO_TAG" https://github.com/LibreOffice/core.git core 2>&1 | tail -2
           cd core && git log -1 --format='%H %s'
+          # Ghi đè module có lỗi ở nhánh Windows-headless (xem engine-build/overrides/README.md)
+          bash "$(cygpath -u "$GITHUB_WORKSPACE")/dungoff/engine-build/apply-overrides.sh" /cygdrive/c/lo/core
       - name: Khôi phục ccache
         if: steps.exists.outputs.done == '0'
         uses: actions/cache/restore@v4
