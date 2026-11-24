@@ -272,6 +272,19 @@ jobs:
           if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-basic.log; exit 1 }
           Get-Content report/windows-basic.log
           if ($p.ExitCode) { exit 1 }
+      - name: Word trên Windows — lệnh UNO thật, lề chuẩn VN trong DOCX (engine 26.8)
+        continue-on-error: true
+        timeout-minutes: 8
+        run: |
+          $env:PYTHONUTF8 = "1"
+          pip install --quiet python-docx
+          $p = Start-Process build/out/dung-smoketest.exe -PassThru -NoNewWindow `
+                 -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--out", "$PWD/smoke-word", "--word", "1") `
+                 -RedirectStandardOutput report/windows-word.log -RedirectStandardError report/windows-word.err.log
+          if (-not $p.WaitForExit(240000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-word.log }
+          Get-Content report/windows-word.log | Select-String "KẾT QUẢ|LỖI" | ForEach-Object { $_.Line }
+          python tests/word/verify_docx.py smoke-word/word-dinh-dang.docx *>&1 | Tee-Object report/windows-word-docx.log
+          if ($LASTEXITCODE) { exit 1 }
       - name: Thăm dò vẽ lại sau khi gõ chữ (Writer, Calc, Impress) — engine headless
         continue-on-error: true
         timeout-minutes: 8
