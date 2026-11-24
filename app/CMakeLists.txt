@@ -30,6 +30,7 @@ include(src/print/print.cmake)
 include(src/update/update.cmake)
 include(src/toolbox/toolbox.cmake)
 include(src/tools/screenshot/screenshot.cmake)
+include(src/tools/filesearch/filesearch.cmake)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/src/pdf/pdf.cmake)
 target_link_libraries(DungOffice PRIVATE dungengine Qt6::Widgets)

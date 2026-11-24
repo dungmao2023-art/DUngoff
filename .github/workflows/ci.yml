@@ -75,6 +75,10 @@ jobs:
           set -o pipefail
           ./build/app/dung-shottest 2>&1 | tee report/linux-shottest.log
           QT_QPA_PLATFORM=offscreen ./build/app/dung-shotwidgettest 2>&1 | tee report/linux-shotwidgettest.log
+      - name: Kiểm thử công cụ tìm tệp (tên, nội dung, chỉ mục, đo thời gian và RAM)
+        run: |
+          set -o pipefail
+          DUNG_FS_TEMPLATES="$PWD/templates" ./build/app/dung-filesearchtest 2>&1 | tee report/linux-filesearchtest.log
       - name: Kiểm thử tiện ích văn bản tiếng Việt (số tiền, ngày, bảng mã cũ)
         run: |
           set -o pipefail
@@ -302,6 +306,12 @@ jobs:
           python -m pip install --quiet openpyxl python-pptx
           python tests/fixtures/mailmerge/make_mailmerge_fixtures.py mm-fixtures
           & $exe.FullName mm-fixtures *>&1 | Tee-Object report/windows-mailmergetest.log
+      - name: Kiểm thử công cụ tìm tệp trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-filesearchtest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-filesearchtest.exe"; exit 1 }
+          $env:DUNG_FS_TEMPLATES = "$PWD/templates"
+          & $exe.FullName *>&1 | Tee-Object report/windows-filesearchtest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử tiện ích văn bản tiếng Việt trên Windows
         run: |

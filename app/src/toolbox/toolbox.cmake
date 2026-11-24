@@ -16,7 +16,7 @@ target_sources(DungOffice PRIVATE
   # và tự đăng ký bằng DUNG_REGISTER_TOOL trong tệp .cpp của nó. Bỏ dấu # khi tệp đã có trong repo:
   ${DUNG_TB_DIR}/tools/MailMergeTool.cpp     # createMailMergeWidget   — điền tên hàng loạt vào giấy mời
   ${DUNG_TB_DIR}/tools/ScreenshotTool.cpp    # createScreenshotWidget  — chụp và chỉnh sửa màn hình
-  # ${DUNG_TB_DIR}/tools/FileSearchTool.cpp  # createFileSearchWidget  — tìm từ khoá trong thư mục
+  ${DUNG_TB_DIR}/tools/FileSearchTool.cpp    # createFileSearchWidget  — tìm từ khoá trong thư mục
   # ${DUNG_TB_DIR}/tools/FileToolsTool.cpp   # createFileToolsWidget   — công cụ làm việc với tệp/thư mục/liên kết
 )
 target_include_directories(DungOffice PRIVATE ${DUNG_TB_DIR})
