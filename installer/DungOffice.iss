@@ -35,6 +35,8 @@ InfoBeforeFile=thong-tin.rtf
 AppPublisher=Trần Văn Dũng
 AppPublisherURL=https://github.com/dungmao2023-art/DUngoff
 MinVersion=10.0
+; Báo cho Explorer biết liên kết tệp đã đổi
+ChangesAssociations=yes
 
 [Languages]
 ; Vietnamese.isl là bản dịch không chính thức của Inno Setup (CI tải từ jrsoftware/issrc).
@@ -47,6 +49,12 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Tạo biểu tượng trên màn hình nền"; GroupDescription: "Tuỳ chọn (đã chọn sẵn):"
 Name: "startmenu"; Description: "Tạo lối tắt trong Start Menu"; GroupDescription: "Tuỳ chọn (đã chọn sẵn):"
+; Liên kết tệp: mỗi loại một ô riêng. Ô nào CHƯA có phần mềm khác mở thì được chọn sẵn (xem [Code]); ô đã có phần mềm khác thì bỏ chọn sẵn.
+; Windows 10/11 không cho bộ cài chiếm quyền mặc định thay người dùng: Dũng Office luôn hiện trong "Mở bằng"; muốn đặt làm mặc định thì chọn trong Cài đặt Windows.
+Name: "assoc_docx"; Description: "Cho phép mở tệp Word (.docx) bằng Dũng Office"; GroupDescription: "Liên kết tệp (Windows vẫn do bạn chọn phần mềm mặc định):"; Flags: unchecked
+Name: "assoc_xlsx"; Description: "Cho phép mở tệp Excel (.xlsx) bằng Dũng Office"; GroupDescription: "Liên kết tệp (Windows vẫn do bạn chọn phần mềm mặc định):"; Flags: unchecked
+Name: "assoc_pptx"; Description: "Cho phép mở tệp PowerPoint (.pptx) bằng Dũng Office"; GroupDescription: "Liên kết tệp (Windows vẫn do bạn chọn phần mềm mặc định):"; Flags: unchecked
+Name: "assoc_pdf"; Description: "Cho phép mở tệp PDF (.pdf) bằng Dũng Office"; GroupDescription: "Liên kết tệp (Windows vẫn do bạn chọn phần mềm mặc định):"; Flags: unchecked
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -64,6 +72,99 @@ Root: HKCU; Subkey: "Software\Classes\.docx\OpenWithList\DungOffice.exe"; Flags:
 Root: HKCU; Subkey: "Software\Classes\.pptx\OpenWithList\DungOffice.exe"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\.pdf\OpenWithList\DungOffice.exe"; Flags: uninsdeletekey
 
+; --- Liên kết tệp theo lựa chọn ---
+; ProgID riêng từng loại + khai báo trong OpenWithProgids (hiện trong "Mở bằng"). KHÔNG ghi UserChoice (Windows bảo vệ bằng mã băm).
+; Giá trị mặc định của đuôi chỉ được tạo khi đuôi chưa có giá trị (createvalueifdoesntexist) -> không đè phần mềm khác;
+; khi gỡ cài đặt, giá trị đó chỉ bị xoá nếu vẫn trỏ về Dũng Office (xem [Code]).
+Root: HKCU; Subkey: "Software\Classes\DungOffice.docx"; ValueType: string; ValueData: "Tài liệu Word (Dũng Office)"; Flags: uninsdeletekey; Tasks: assoc_docx
+Root: HKCU; Subkey: "Software\Classes\DungOffice.docx\DefaultIcon"; ValueType: string; ValueData: "{app}\DungOffice.exe,0"; Tasks: assoc_docx
+Root: HKCU; Subkey: "Software\Classes\DungOffice.docx\shell\open\command"; ValueType: string; ValueData: """{app}\DungOffice.exe"" ""%1"""; Tasks: assoc_docx
+Root: HKCU; Subkey: "Software\Classes\.docx\OpenWithProgids"; ValueType: string; ValueName: "DungOffice.docx"; ValueData: ""; Flags: uninsdeletevalue uninsdeletekeyifempty; Tasks: assoc_docx
+Root: HKCU; Subkey: "Software\Classes\.docx"; ValueType: string; ValueData: "DungOffice.docx"; Flags: createvalueifdoesntexist uninsdeletekeyifempty; Tasks: assoc_docx
+Root: HKCU; Subkey: "Software\Classes\DungOffice.xlsx"; ValueType: string; ValueData: "Bảng tính Excel (Dũng Office)"; Flags: uninsdeletekey; Tasks: assoc_xlsx
+Root: HKCU; Subkey: "Software\Classes\DungOffice.xlsx\DefaultIcon"; ValueType: string; ValueData: "{app}\DungOffice.exe,0"; Tasks: assoc_xlsx
+Root: HKCU; Subkey: "Software\Classes\DungOffice.xlsx\shell\open\command"; ValueType: string; ValueData: """{app}\DungOffice.exe"" ""%1"""; Tasks: assoc_xlsx
+Root: HKCU; Subkey: "Software\Classes\.xlsx\OpenWithProgids"; ValueType: string; ValueName: "DungOffice.xlsx"; ValueData: ""; Flags: uninsdeletevalue uninsdeletekeyifempty; Tasks: assoc_xlsx
+Root: HKCU; Subkey: "Software\Classes\.xlsx"; ValueType: string; ValueData: "DungOffice.xlsx"; Flags: createvalueifdoesntexist uninsdeletekeyifempty; Tasks: assoc_xlsx
+Root: HKCU; Subkey: "Software\Classes\DungOffice.pptx"; ValueType: string; ValueData: "Trình chiếu PowerPoint (Dũng Office)"; Flags: uninsdeletekey; Tasks: assoc_pptx
+Root: HKCU; Subkey: "Software\Classes\DungOffice.pptx\DefaultIcon"; ValueType: string; ValueData: "{app}\DungOffice.exe,0"; Tasks: assoc_pptx
+Root: HKCU; Subkey: "Software\Classes\DungOffice.pptx\shell\open\command"; ValueType: string; ValueData: """{app}\DungOffice.exe"" ""%1"""; Tasks: assoc_pptx
+Root: HKCU; Subkey: "Software\Classes\.pptx\OpenWithProgids"; ValueType: string; ValueName: "DungOffice.pptx"; ValueData: ""; Flags: uninsdeletevalue uninsdeletekeyifempty; Tasks: assoc_pptx
+Root: HKCU; Subkey: "Software\Classes\.pptx"; ValueType: string; ValueData: "DungOffice.pptx"; Flags: createvalueifdoesntexist uninsdeletekeyifempty; Tasks: assoc_pptx
+Root: HKCU; Subkey: "Software\Classes\DungOffice.pdf"; ValueType: string; ValueData: "Tài liệu PDF (Dũng Office)"; Flags: uninsdeletekey; Tasks: assoc_pdf
+Root: HKCU; Subkey: "Software\Classes\DungOffice.pdf\DefaultIcon"; ValueType: string; ValueData: "{app}\DungOffice.exe,0"; Tasks: assoc_pdf
+Root: HKCU; Subkey: "Software\Classes\DungOffice.pdf\shell\open\command"; ValueType: string; ValueData: """{app}\DungOffice.exe"" ""%1"""; Tasks: assoc_pdf
+Root: HKCU; Subkey: "Software\Classes\.pdf\OpenWithProgids"; ValueType: string; ValueName: "DungOffice.pdf"; ValueData: ""; Flags: uninsdeletevalue uninsdeletekeyifempty; Tasks: assoc_pdf
+Root: HKCU; Subkey: "Software\Classes\.pdf"; ValueType: string; ValueData: "DungOffice.pdf"; Flags: createvalueifdoesntexist uninsdeletekeyifempty; Tasks: assoc_pdf
+
 [Run]
 Filename: "{app}\DungOffice.exe"; Description: "Mở Dũng Office"; Flags: nowait postinstall skipifsilent
 
+[Code]
+// Đuôi đã có phần mềm khác mở? (lựa chọn của người dùng trong Windows, hoặc giá trị mặc định ở HKCR)
+function ExtHasOtherHandler(const Ext: String): Boolean;
+var
+  S: String;
+begin
+  Result := False;
+  if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\' + Ext + '\UserChoice', 'ProgId', S) then
+    if S <> '' then
+    begin
+      Result := True;
+      Exit;
+    end;
+  if RegQueryStringValue(HKCR, Ext, '', S) then
+    if (S <> '') and (Pos('DungOffice.', S) <> 1) then
+      Result := True;
+end;
+
+var
+  AssocPreselected: Boolean;
+
+// Chọn sẵn ô liên kết cho loại tệp CHƯA có phần mềm nào mở; loại đã có thì bỏ chọn để người dùng tự quyết. Chỉ làm một lần.
+procedure PreselectAssociations;
+var
+  Exts: array[0..3] of String;
+  I: Integer;
+begin
+  Exts[0] := 'docx';
+  Exts[1] := 'xlsx';
+  Exts[2] := 'pptx';
+  Exts[3] := 'pdf';
+  for I := 0 to 3 do
+  begin
+    if ExtHasOtherHandler('.' + Exts[I]) then
+      WizardSelectTasks('!assoc_' + Exts[I])
+    else
+      WizardSelectTasks('assoc_' + Exts[I]);
+  end;
+end;
+
+procedure CurrentPageChanged(CurPageID: Integer);
+begin
+  if (CurPageID = wpSelectTasks) and (not AssocPreselected) then
+  begin
+    AssocPreselected := True;
+    PreselectAssociations;
+  end;
+end;
+
+// Gỡ cài đặt: chỉ xoá giá trị mặc định của đuôi nếu nó vẫn trỏ về Dũng Office (không xoá lựa chọn của phần mềm khác).
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Exts: array[0..3] of String;
+  I: Integer;
+  S: String;
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    Exts[0] := 'docx';
+    Exts[1] := 'xlsx';
+    Exts[2] := 'pptx';
+    Exts[3] := 'pdf';
+    for I := 0 to 3 do
+      if RegQueryStringValue(HKCU, 'Software\Classes\.' + Exts[I], '', S) then
+        if S = 'DungOffice.' + Exts[I] then
+          RegDeleteValue(HKCU, 'Software\Classes\.' + Exts[I], '');
+  end;
+end;
