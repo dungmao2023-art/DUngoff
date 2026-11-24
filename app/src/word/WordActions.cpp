@@ -94,6 +94,13 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         else if (name == QLatin1String("marginNarrow")) l = r = t = b = 1270;
         doc->command(".uno:PageLRMargin", join({argLong("PageLRMargin.Left", l), argLong("PageLRMargin.Right", r)}));
         doc->command(".uno:PageULMargin", join({argLong("PageULMargin.Upper", t), argLong("PageULMargin.Lower", b)}));
+#ifdef Q_OS_WIN
+        // Engine Windows 26.8.3: CI đã thử 6 bộ lệnh lề (PageLRMargin, LeftRightMargin... ) và tệp DOCX vẫn giữ lề 20 mm.
+        // Không giả vờ thành công: báo rõ để người dùng đặt lề bằng hộp thoại Định dạng trang.
+        QMessageBox::warning(parent, QObject::tr("Lề trang"),
+            QObject::tr("Phiên bản engine hiện tại trên Windows CHƯA xác nhận được việc đặt lề bằng nút này (kiểm thử tự động cho thấy lề không đổi).\n"
+                        "Vui lòng kiểm tra lại lề trong hộp thoại định dạng trang trước khi in hoặc gửi."));
+#endif
     } else if (name == QLatin1String("vnMoney")) {
         bool ok = false;
         const QString in = QInputDialog::getText(parent, QObject::tr("Số tiền → chữ"),
