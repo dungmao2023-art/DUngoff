@@ -268,6 +268,12 @@ void DocumentTab::paste() {
 }
 
 void DocumentTab::setZoom(int percent) { m_view->setZoom(percent); }
+
+void DocumentTab::stepPart(int delta) {
+    if (!m_slides || m_slides->count() == 0) return;
+    const int r = qBound(0, m_slides->currentRow() + delta, m_slides->count() - 1);
+    m_slides->setCurrentRow(r);
+}
 int DocumentTab::zoom() const { return m_view->zoom(); }
 
 // ---- Lưu an toàn ----

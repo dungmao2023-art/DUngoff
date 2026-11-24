@@ -5,7 +5,8 @@ param(
   [Parameter(Mandatory = $true)][string]$BuildDir,
   [Parameter(Mandatory = $true)][string]$EngineDir,
   [Parameter(Mandatory = $true)][string]$QtDir,
-  [Parameter(Mandatory = $true)][string]$OutDir
+  [Parameter(Mandatory = $true)][string]$OutDir,
+  [string]$QpdfDir = ""
 )
 $ErrorActionPreference = "Stop"
 $app = Join-Path $OutDir "DungOffice"
@@ -35,6 +36,11 @@ if ($crt) {
     if (-not (Test-Path $dst)) { Copy-Item $d.FullName $dst }
   }
 }
+
+# qpdf (Apache-2.0) cho Công cụ PDF: đặt trong qpdf\ cạnh DungOffice.exe
+if ($QpdfDir -and (Test-Path (Join-Path $QpdfDir "qpdf.exe"))) {
+  Copy-Item -Recurse $QpdfDir (Join-Path $app "qpdf")
+} else { Write-Warning "Không có qpdf: Công cụ PDF sẽ báo thiếu thành phần." }
 
 $root = Resolve-Path "$PSScriptRoot\.."
 Copy-Item (Join-Path $root "LICENSE") $app

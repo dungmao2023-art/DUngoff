@@ -19,3 +19,9 @@
 
 ## Inno Setup (chỉ dùng khi tạo bộ cài)
 - Giấy phép Inno Setup: https://jrsoftware.org/files/is/license.txt
+
+## qpdf (Công cụ PDF: gộp, tách, xoay, nén)
+- Bản quyền: Jay Berkenbilt và các cộng tác viên
+- Giấy phép: Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0)
+- Nguồn: https://github.com/qpdf/qpdf — Dũng Office chỉ gọi chương trình qpdf nguyên bản qua dòng lệnh,
+  đặt trong thư mục `qpdf\` cạnh DungOffice.exe.

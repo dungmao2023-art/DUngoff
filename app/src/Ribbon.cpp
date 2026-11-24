@@ -99,6 +99,28 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
         {QStringLiteral("zoomIn"), tr("Phóng to"), 0xE8A3, QStringLiteral("+"), false},
     }};
 
+    if (kind == DocKind::Drawing) {
+        // PDF: xem + công cụ PDF (mã ở app/src/pdf/). ID "pdfTools:*" xử lý trong MainWindow.
+        return {fileTab,
+            {tr("Trang đầu"), {file, view}},
+            {tr("Công cụ PDF"), {
+                {tr("Trang"), {
+                    {QStringLiteral("pdfPrev"), tr("Trang trước"), 0xE70E, QStringLiteral("▲"), false},
+                    {QStringLiteral("pdfNext"), tr("Trang sau"), 0xE70D, QStringLiteral("▼"), false},
+                }},
+                {tr("Thao tác"), {
+                    {QStringLiteral("pdfTools:merge"), tr("Gộp"), 0xE8B9, QStringLiteral("⊞"), false},
+                    {QStringLiteral("pdfTools:split"), tr("Tách"), 0xE8C6, QStringLiteral("✂"), false},
+                    {QStringLiteral("pdfTools:rotate"), tr("Xoay"), 0xE7AD, QStringLiteral("⟳"), false},
+                    {QStringLiteral("pdfTools:compress"), tr("Nén"), 0xE8B7, QStringLiteral("⇲"), false},
+                }},
+                {tr("Tệp"), {
+                    {QStringLiteral("pdfTools:info"), tr("Thông tin"), 0xE946, QStringLiteral("ⓘ"), false},
+                }},
+            }},
+        };
+    }
+
     if (ro) {
         // Chế độ chỉ đọc: chỉ còn các thao tác không sửa nội dung.
         return {fileTab, {tr("Trang đầu"), {file, {tr("Bộ nhớ tạm"), {{QStringLiteral("copy"), tr("Sao chép"), 0xE8C8, QStringLiteral("⧉"), false}}}, view}}};

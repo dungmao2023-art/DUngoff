@@ -30,7 +30,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libreoffice-calc libreoffice-writer libreoffice-impress libreoffice-draw \
             qt6-base-dev libgl-dev cmake ninja-build python3-openpyxl python3-pip \
-            xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils
+            xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils qpdf
           pip3 install --break-system-packages python-docx python-pptx
           mkdir -p report
       - name: Build
@@ -38,6 +38,11 @@ jobs:
           set -o pipefail
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee report/linux-configure.log
           cmake --build build 2>&1 | tee report/linux-build.log
+      - name: Kiểm thử công cụ PDF (qpdf)
+        run: |
+          set -o pipefail
+          qpdf --version | head -1
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-pdftest 2>&1 | tee report/linux-pdftest.log
       - name: Báo lỗi biên dịch
         if: failure()
         run: grep -E "error|Error" report/linux-build.log | head -10 | sed 's/^/::error::/' || true
@@ -137,6 +142,20 @@ jobs:
             }
           }
           Get-ChildItem build/lo/engine/program/mergedlo.dll
+      - name: Tải qpdf (Apache-2.0) cho công cụ PDF
+        run: |
+          # Ghim phiên bản; SHA-256 được in ra để ghim vào QPDF_SHA256 (chưa lấy được băm chính thức từ nhà phát hành).
+          $ver = "12.3.2"
+          $zip = "qpdf-$ver-msvc64.zip"
+          New-Item -ItemType Directory -Force build/qpdf-dl | Out-Null
+          Invoke-WebRequest "https://github.com/qpdf/qpdf/releases/download/v$ver/$zip" -OutFile "build/qpdf-dl/$zip"
+          $h = (Get-FileHash "build/qpdf-dl/$zip" -Algorithm SHA256).Hash.ToLower()
+          "qpdf $zip SHA-256 = $h" | Tee-Object report/windows-qpdf.log
+          if ($env:QPDF_SHA256 -and $env:QPDF_SHA256 -ne $h) { Write-Host "::error::SHA-256 qpdf không khớp"; exit 1 }
+          Expand-Archive "build/qpdf-dl/$zip" -DestinationPath build/qpdf-dl/x
+          $bin = Get-ChildItem build/qpdf-dl/x -Recurse -Filter qpdf.exe | Select-Object -First 1
+          Copy-Item (Join-Path $bin.DirectoryName "*") -Destination (New-Item -ItemType Directory -Force build/qpdf) -Recurse
+          & build/qpdf/qpdf.exe --version
       - name: Build
         run: |
           cmake -S . -B build/out -G Ninja -DCMAKE_BUILD_TYPE=Release *>&1 | Tee-Object report/windows-configure.log
@@ -145,6 +164,13 @@ jobs:
             Select-String -Path report/windows-build.log -Pattern "error" | Select-Object -First 10 | ForEach-Object { Write-Host "::error::$($_.Line)" }
             exit 1
           }
+      - name: Kiểm thử công cụ PDF (qpdf) trên Windows
+        run: |
+          $env:DUNG_QPDF = "$PWD/build/qpdf/qpdf.exe"
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-pdftest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-pdftest.exe"; exit 1 }
+          & $exe.FullName *>&1 | Tee-Object report/windows-pdftest.log
+          if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử đầy đủ engine trên Windows (nhập liệu, lưu) — chặn job
         id: full
         # Engine headless của dự án (engine-26.8.3.1-headless) đã đạt toàn bộ bước này
@@ -207,7 +233,7 @@ jobs:
           if ($LASTEXITCODE) { exit 1 }
       - name: Đóng gói thư mục chạy được
         run: |
-          ./scripts/package-windows.ps1 -BuildDir build/out -EngineDir build/lo/engine -QtDir $env:QT_ROOT_DIR -OutDir build/dist *>&1 | Tee-Object report/windows-package.log
+          ./scripts/package-windows.ps1 -BuildDir build/out -EngineDir build/lo/engine -QtDir $env:QT_ROOT_DIR -QpdfDir build/qpdf -OutDir build/dist *>&1 | Tee-Object report/windows-package.log
       - name: Ảnh chụp giao diện thật trên Windows
         if: steps.full.outcome == 'success'
         run: |

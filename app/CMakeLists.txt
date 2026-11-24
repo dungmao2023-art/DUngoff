@@ -17,6 +17,7 @@ if(WIN32)
   target_sources(DungOffice PRIVATE resources/app.rc)
 endif()
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/src/pdf/pdf.cmake)
 target_link_libraries(DungOffice PRIVATE dungengine Qt6::Widgets)
 target_include_directories(DungOffice PRIVATE ${PROJECT_SOURCE_DIR}/third_party/libreofficekit/include)
 target_compile_definitions(DungOffice PRIVATE DUNG_VERSION="${PROJECT_VERSION}")

@@ -24,7 +24,9 @@
 #include <QSlider>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QHash>
 #include <QTabBar>
+#include "pdf/PdfToolsDialog.h"
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolButton>
@@ -322,7 +324,19 @@ void MainWindow::onAppAction(const QString& id) {
     const bool docVisible = t && m_stack->currentWidget() == m_docArea;
     if (id == QLatin1String("open")) openDialog();
     else if (id == QLatin1String("newWorkbook")) newDoc(DocKind::Spreadsheet);
+    else if (id.startsWith(QLatin1String("pdfTools:"))) {
+        // Công cụ PDF (app/src/pdf/): dùng tệp PDF đang mở nếu có, nếu không thì người dùng tự chọn tệp.
+        static const QHash<QString, PdfToolsDialog::Tab> tabs{
+            {QStringLiteral("merge"), PdfToolsDialog::Merge}, {QStringLiteral("split"), PdfToolsDialog::Split},
+            {QStringLiteral("rotate"), PdfToolsDialog::Rotate}, {QStringLiteral("compress"), PdfToolsDialog::Compress},
+            {QStringLiteral("info"), PdfToolsDialog::Info}};
+        QString path;
+        if (docVisible && t->document() && !t->document()->isNew()) path = QString::fromStdU16String(t->document()->originalPath().u16string());
+        PdfToolsDialog::run(this, tabs.value(id.mid(9), PdfToolsDialog::Merge), path);
+    }
     else if (!docVisible) return;
+    else if (id == QLatin1String("pdfPrev")) t->stepPart(-1);
+    else if (id == QLatin1String("pdfNext")) t->stepPart(1);
     else if (id == QLatin1String("save")) t->save();
     else if (id == QLatin1String("saveAs")) t->saveAs();
     else if (id == QLatin1String("exportPdf")) t->exportPdf();
