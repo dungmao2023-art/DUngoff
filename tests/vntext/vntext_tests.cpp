@@ -111,7 +111,7 @@ int main() {
               QStringLiteral("không ép khi không chắc: %1").arg(in), QStringLiteral("verdict=%1 tin cậy=%2 text=%3").arg(int(r.verdict)).arg(r.confidence).arg(r.text));
     }
     { // force: cho phép người dùng quyết định, nhưng có cảnh báo
-        const auto r = legacyToUnicode(QString(u"Hµ"), LegacyEncoding::TCVN3, true);
+        const auto r = legacyToUnicode(QString::fromUtf16(u"Hµ"), LegacyEncoding::TCVN3, true);
         check(r.verdict == Verdict::Converted && r.text == QString::fromUtf8("Hà") && r.warnings.size() >= 1, "force: chuyển nhưng có cảnh báo");
     }
     { // đã là Unicode: không đụng
@@ -121,7 +121,7 @@ int main() {
     }
     { const QString in = QStringLiteral("Hello world 123"); const auto r = legacyToUnicode(in, LegacyEncoding::TCVN3);
       check(r.verdict == Verdict::NothingToConvert && r.text == in, "văn bản thuần ASCII: không có gì để chuyển"); }
-    { const QString in = QString(u"ViÖt Nam"); const auto r = legacyToUnicode(in, LegacyEncoding::VniWindows, true);
+    { const QString in = QString::fromUtf16(u"ViÖt Nam"); const auto r = legacyToUnicode(in, LegacyEncoding::VniWindows, true);
       check(r.verdict == Verdict::Unsupported && r.text == in && !r.warnings.isEmpty(), "VNI-Windows: chưa hỗ trợ, không đoán dù force"); }
     // Cấu trúc âm tiết
     for (const char *s : {"việt", "nam", "nghĩa", "trình", "thông", "chương", "tạo", "đào", "học", "ngoài", "quốc", "tiếng", "người", "yêu"})
@@ -132,7 +132,7 @@ int main() {
     { // toàn vẹn bảng mã: đúng 74 mã (67 chữ thường + 7 chữ hoa cơ sở), kết quả là ký tự dựng sẵn, không trùng nhau
         int mapped = 0; bool precomposed = true; QSet<QChar> seen; bool distinct = true;
         for (ushort c = 0xA1; c <= 0xFE; ++c) {
-            const QString in(QChar(c));
+            const QString in = QString(1, QChar(c));
             const auto r = legacyToUnicode(in, LegacyEncoding::TCVN3, true);
             if (r.text != in) {
                 ++mapped;
