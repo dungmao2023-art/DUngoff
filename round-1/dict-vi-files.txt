@@ -1,0 +1,7 @@
+description.xml
+dictionaries.xcu
+LICENSES-en.txt
+LICENSES-vi.txt
+META-INF
+vi_VN.aff
+vi_VN.dic

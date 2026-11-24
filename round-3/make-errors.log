@@ -1,0 +1,50 @@
+2676:[build CXX] setup_native/source/win32/customactions/tools/seterror.cxx
+2960:[build LNK] StaticLibrary/seterror.lib
+3188:[build CXX] workdir/UnpackedTarball/boost/libs/filesystem/src/codecvt_error_category.cpp
+3281:[build C  ] UnpackedTarball/libjpeg-turbo/src/jerror.c
+3370:[build C  ] UnpackedTarball/zstd/lib/common/error_private.c
+3476:[build C  ] UnpackedTarball/libpng/pngerror.c
+3881:[build CXX] workdir/UnpackedTarball/skia/src/sksl/SkSLErrorReporter.cpp
+4234:[build CXX] workdir/UnpackedTarball/skia/src/gpu/ShaderErrorHandler.cpp
+4788:[build CXX] workdir/UnpackedTarball/clucene/src/core/CLucene/debug/error.cpp
+4994:[build CXX] workdir/UnpackedTarball/zxing/core/src/Error.cpp
+5046:[build CXX] workdir/UnpackedTarball/zxing/core/src/qrcode/QRErrorCorrectionLevel.cpp
+5243:[build CXX] sal/osl/w32/file_error.cxx
+5294:[build C  ] UnpackedTarball/cairo/src/cairo-error.c
+5944:[build CXX] workdir/UnpackedTarball/poppler/poppler/Error.cc
+6469:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/ANTLRErrorListener.cpp
+6470:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/ANTLRErrorStrategy.cpp
+6473:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/BailErrorStrategy.cpp
+6474:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/BaseErrorListener.cpp
+6480:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/ConsoleErrorListener.cpp
+6481:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/DefaultErrorStrategy.cpp
+6482:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/DiagnosticErrorListener.cpp
+6496:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/ProxyErrorListener.cpp
+6527:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/atn/ErrorInfo.cpp
+6579:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/tree/ErrorNodeImpl.cpp
+6598:[build CXX] workdir/UnpackedTarball/afdko/a4/runtime/src/tree/xpath/XPathLexerErrorListener.cpp
+6842:0 new errors (1 suppressed by C:/lo/core/solenv/sanitizers/ui/modules/simpress.suppr, please fix it)
+6849:0 new errors (26 suppressed by C:/lo/core/solenv/sanitizers/ui/modules/scalc.suppr, please fix them)
+6893:0 new errors (5 suppressed by C:/lo/core/solenv/sanitizers/ui/svx.suppr, please fix them)
+6997:0 new errors (5 suppressed by C:/lo/core/solenv/sanitizers/ui/modules/swriter.suppr, please fix them)
+7225:[build CXX] ucbhelper/source/provider/simpleioerrorrequest.cxx
+7787:[build UIL] chart2/uiconfig/ui/dlg_InsertErrorBars
+7797:[build UIL] chart2/uiconfig/ui/sidebarerrorbar
+7814:[build UIL] chart2/uiconfig/ui/tp_ErrorBars
+8267:[build UIL] sc/uiconfig/scalc/ui/erroralerttabpage
+8524:[build UIL] sfx2/uiconfig/ui/errorfindemaildialog
+9006:[build UIL] vcl/uiconfig/ui/errornocontentdialog
+9007:[build UIL] vcl/uiconfig/ui/errornoprinterdialog
+13147:[build CXX] connectivity/source/commontools/sqlerror.cxx
+14651:[build CXX] xmlsecurity/source/xmlsec/errorcallback.cxx
+14690:[build CXX] xmloff/source/chart/XMLErrorBarStylePropertyHdl.cxx
+14691:[build CXX] xmloff/source/chart/XMLErrorIndicatorPropertyHdl.cxx
+14719:[build CXX] xmloff/source/core/xmlerror.cxx
+15282:[build CXX] forms/source/component/errorbroadcaster.cxx
+16474:[build CXX] chart2/source/controller/dialogs/dlg_InsertErrorBars.cxx
+16486:[build CXX] chart2/source/controller/dialogs/res_ErrorBar.cxx
+16503:[build CXX] chart2/source/controller/dialogs/tp_ErrorBars.cxx
+16519:[build CXX] chart2/source/controller/itemsetwrapper/ErrorBarItemConverter.cxx
+16569:[build CXX] chart2/source/controller/sidebar/ChartErrorBarPanel.cxx
+16720:[build CXX] chart2/source/tools/ErrorBar.cxx
+17030:[build CXX] uui/source/iahndl-errorhandler.cxx

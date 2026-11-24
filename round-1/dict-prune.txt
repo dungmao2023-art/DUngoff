@@ -1,0 +1,135 @@
+== Từ điển có trong engine (trước khi lọc):
+dict-af
+dict-an
+dict-ar
+dict-as
+dict-be
+dict-bg
+dict-bn
+dict-bo
+dict-br
+dict-bs
+dict-ca
+dict-ckb
+dict-cs
+dict-da
+dict-de
+dict-el
+dict-en
+dict-eo
+dict-es
+dict-et
+dict-fa
+dict-fr
+dict-gd
+dict-gl
+dict-gu
+dict-gug
+dict-he
+dict-hi
+dict-hr
+dict-hu
+dict-id
+dict-is
+dict-it
+dict-kmr-Latn
+dict-kn
+dict-ko
+dict-lo
+dict-lt
+dict-lv
+dict-mn
+dict-mr
+dict-ne
+dict-nl
+dict-no
+dict-oc
+dict-or
+dict-pl
+dict-pt-BR
+dict-pt-PT
+dict-ro
+dict-ru
+dict-si
+dict-sk
+dict-sl
+dict-sq
+dict-sr
+dict-sv
+dict-sw
+dict-ta
+dict-te
+dict-th
+dict-tr
+dict-uk
+dict-vi
+dict-zu
+474M	share/extensions
+bỏ dict-af
+bỏ dict-an
+bỏ dict-ar
+bỏ dict-as
+bỏ dict-be
+bỏ dict-bg
+bỏ dict-bn
+bỏ dict-bo
+bỏ dict-br
+bỏ dict-bs
+bỏ dict-ca
+bỏ dict-ckb
+bỏ dict-cs
+bỏ dict-da
+bỏ dict-de
+bỏ dict-el
+bỏ dict-eo
+bỏ dict-es
+bỏ dict-et
+bỏ dict-fa
+bỏ dict-fr
+bỏ dict-gd
+bỏ dict-gl
+bỏ dict-gu
+bỏ dict-gug
+bỏ dict-he
+bỏ dict-hi
+bỏ dict-hr
+bỏ dict-hu
+bỏ dict-id
+bỏ dict-is
+bỏ dict-it
+bỏ dict-kmr-Latn
+bỏ dict-kn
+bỏ dict-ko
+bỏ dict-lo
+bỏ dict-lt
+bỏ dict-lv
+bỏ dict-mn
+bỏ dict-mr
+bỏ dict-ne
+bỏ dict-nl
+bỏ dict-no
+bỏ dict-oc
+bỏ dict-or
+bỏ dict-pl
+bỏ dict-pt-BR
+bỏ dict-pt-PT
+bỏ dict-ro
+bỏ dict-ru
+bỏ dict-si
+bỏ dict-sk
+bỏ dict-sl
+bỏ dict-sq
+bỏ dict-sr
+bỏ dict-sv
+bỏ dict-sw
+bỏ dict-ta
+bỏ dict-te
+bỏ dict-th
+bỏ dict-tr
+bỏ dict-uk
+bỏ dict-zu
+share/extensions/dict-en
+share/extensions/dict-vi
+LICENSES-en.txt
+LICENSES-vi.txt
+6165628aa30e21751d3dcb4a579b299234c000003e9b23fc9d84d0c19ee43f48 *share/Scripts/python/dung_api.py

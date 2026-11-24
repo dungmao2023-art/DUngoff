@@ -1,0 +1,23 @@
+== Tiến độ lượt 1 ==
+Thời gian make: 43 phút
+Đơn vị build theo loại (trong log lượt này):
+    11858 [build CXX]
+     1255 [build UIL]
+     1003 [build XSL]
+      350 [build PKG]
+      300 [build XCX]
+      300 [build LNK]
+      285 [build SAX]
+      276 [build CPY]
+      214 [build LOC]
+      213 [build MOD]
+Tệp C/C++ đã đi qua trình biên dịch (kể cả trúng cache): 11858
+Module đã chạm tới: 112 / 137 (module có kích thước rất khác nhau, chỉ là chỉ báo thô)
+Dòng build cuối: [build ALL] top level modules: build-non-l10n-only build-l10n-only
+ccache (tích lũy qua các lượt, nếu thư mục cache được khôi phục):
+  Hits:             88669 / 105204 (84.28%)
+  Misses:           16535 / 105204 (15.72%)
+  Cache size (GB):    0.7 /    4.0 (18.31%)
+  Hits:             88669 / 105204 (84.28%)
+  Misses:           16535 / 105204 (15.72%)
+  (số 'Misses' tích lũy ~ số tệp đã biên dịch thật cho tới nay)

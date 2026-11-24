@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "C:\cygwin\tmp\test_dung_api.py", line 33, in <module>
+    import dung_api
+  File "C:\lo\core\instdir\program\uno.py", line 353, in _uno_import
+    return _builtin_import(name, *optargs, **kwargs)
+ModuleNotFoundError: No module named 'dung_api'
+mã thoát bài tự kiểm dung_api: 1
