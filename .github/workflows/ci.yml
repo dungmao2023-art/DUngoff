@@ -91,23 +91,6 @@ jobs:
             set -- $m
             timeout 120 ./build/dung-repaintprobe /usr/lib/libreoffice/program "probe-$1" "$2" "$1" 2>&1 | grep -E "^REPAINT" | tee -a report/linux-repaint.log
           done
-      - name: Kiểm thử ánh xạ phím/bộ gõ trên Windows
-        run: |
-          $exe = Get-ChildItem build/out -Recurse -Filter dung-keymaptest.exe | Select-Object -First 1
-          if (-not $exe) { Write-Host "::error::Không thấy dung-keymaptest.exe"; exit 1 }
-          $env:QT_QPA_PLATFORM = "offscreen"
-          & $exe.FullName *>&1 | Tee-Object report/windows-keymaptest.log
-          if ($LASTEXITCODE) { exit 1 }
-      - name: Kiểm kê nhập tiếng Việt qua engine Windows + đọc lại tệp
-        continue-on-error: true
-        run: |
-          $env:PYTHONUTF8 = "1"
-          $p = Start-Process build/out/dung-smoketest.exe -PassThru -NoNewWindow `
-                 -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--out", "$PWD/smoke-vn", "--vninput", "1") `
-                 -RedirectStandardOutput report/windows-vninput.log -RedirectStandardError report/windows-vninput.err.log
-          if (-not $p.WaitForExit(240000)) { Stop-Process $p -Force; "LỖI: quá thời gian" | Add-Content report/windows-vninput.log }
-          Get-Content report/windows-vninput.log
-          python tests/vninput/verify_vn.py smoke-vn *>&1 | Tee-Object report/windows-vninput-verify.log
       - name: Kiểm tra round-trip XLSX (không mất dữ liệu)
         run: |
           set -o pipefail
@@ -332,6 +315,23 @@ jobs:
             if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "REPAINT $($m[0]): LỖI quá thời gian" | Add-Content $outf }
             Get-Content $outf | Select-String "^REPAINT" | ForEach-Object { $_.Line }
           }
+      - name: Kiểm thử ánh xạ phím/bộ gõ trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-keymaptest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-keymaptest.exe"; exit 1 }
+          $env:QT_QPA_PLATFORM = "offscreen"
+          & $exe.FullName *>&1 | Tee-Object report/windows-keymaptest.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm kê nhập tiếng Việt qua engine Windows + đọc lại tệp
+        continue-on-error: true
+        run: |
+          $env:PYTHONUTF8 = "1"
+          $p = Start-Process build/out/dung-smoketest.exe -PassThru -NoNewWindow `
+                 -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--out", "$PWD/smoke-vn", "--vninput", "1") `
+                 -RedirectStandardOutput report/windows-vninput.log -RedirectStandardError report/windows-vninput.err.log
+          if (-not $p.WaitForExit(240000)) { Stop-Process $p -Force; "LỖI: quá thời gian" | Add-Content report/windows-vninput.log }
+          Get-Content report/windows-vninput.log
+          python tests/vninput/verify_vn.py smoke-vn *>&1 | Tee-Object report/windows-vninput-verify.log
       - name: Kiểm tra round-trip XLSX
         if: steps.full.outcome == 'success'
         run: |
