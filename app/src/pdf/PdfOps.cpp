@@ -82,9 +82,10 @@ public:
     explicit PasswordFile(const QString& password) {
         if (password.isEmpty()) return;
         if (m_file.open()) {
-            m_file.write(password.toUtf8());
+            // Tệp tham số của qpdf (@tệp): mỗi dòng một tham số. qpdf 12 trên Windows không nhận --password-file.
+            m_file.write("--password=" + password.toUtf8() + "\n");
             m_file.close();
-            m_args << QStringLiteral("--password-file=") + m_file.fileName();
+            m_args << QStringLiteral("@") + m_file.fileName();
         }
     }
     // Khi chỉ đọc thông tin thì không thêm --decrypt (qpdf bản mới từ chối tuỳ chọn biến đổi đi kèm tuỳ chọn kiểm tra).
