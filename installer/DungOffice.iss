@@ -25,9 +25,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 OutputBaseFilename=DungOffice-Setup-{#AppVersion}-x64
 SetupIconFile=..\app\resources\dungoffice.ico
 UninstallDisplayIcon={app}\DungOffice.exe
-Compression=lzma2/ultra64
+; ultra64 + nén liền khối trên ~600 MB engine làm trình biên dịch 32-bit của Inno Setup hết bộ nhớ
+Compression=lzma2/max
+LZMADictionarySize=16384
 SolidCompression=yes
-LZMANumBlockThreads=4
+LZMANumBlockThreads=1
 WizardStyle=modern
 LicenseFile=..\LICENSE
 MinVersion=10.0
