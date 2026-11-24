@@ -53,7 +53,11 @@ LokKey toLokKey(const QKeyEvent* e) {
         if (e->key() >= Qt::Key_F1 && e->key() <= Qt::Key_F24) code = KEY_F1 + (e->key() - Qt::Key_F1);
         break;
     }
-    const bool ctrlOrAlt = e->modifiers() & (Qt::ControlModifier | Qt::AltModifier);
+    // AltGr (nhiều bàn phím/bộ gõ) được Windows báo là Ctrl+Alt: nếu có chữ in được thì đó là GÕ CHỮ, không phải phím tắt.
+    const QString typed = e->text();
+    const bool bothCtrlAlt = (e->modifiers() & Qt::ControlModifier) && (e->modifiers() & Qt::AltModifier);
+    const bool altGrText = bothCtrlAlt && !typed.isEmpty() && typed.at(0).isPrint() && !typed.at(0).isSpace();
+    const bool ctrlOrAlt = !altGrText && (e->modifiers() & (Qt::ControlModifier | Qt::AltModifier));
     if (code) {
         k.keyCode = code | mods;
         if (code == KEY_SPACE && !ctrlOrAlt) k.charCode = ' ';
@@ -74,4 +78,20 @@ LokKey toLokKey(const QKeyEvent* e) {
         k.valid = true;
     }
     return k;
+}
+
+std::vector<ImeOp> imeToOps(const QString& commit, int replaceStart, int replaceLen, bool* unsupported) {
+    std::vector<ImeOp> ops;
+    if (unsupported) *unsupported = false;
+    if (replaceLen > 0) {
+        if (replaceStart <= 0) {
+            const int before = qMin(-replaceStart, replaceLen);
+            for (int i = 0; i < before; ++i) ops.push_back({ImeOp::Backspace, 0});
+            for (int i = 0; i < replaceLen - before; ++i) ops.push_back({ImeOp::Delete, 0});
+        } else if (unsupported) {
+            *unsupported = true;
+        }
+    }
+    for (const QChar c : commit) ops.push_back({ImeOp::Char, int(c.unicode())});
+    return ops;
 }

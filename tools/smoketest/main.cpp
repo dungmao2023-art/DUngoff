@@ -101,6 +101,7 @@ static bool waitAddress(Document& d, const std::string& addr, int ms = 15000) {
 
 // Kiểm thử PowerPoint (tools/smoketest/ppt_tests.cpp), bật bằng --ppt <mau.pptx>.
 int dungRunTemplateFidelity(const fs::path& program, const fs::path& dir, const fs::path& out); // template_fidelity.cpp
+int dungRunVnInput(const fs::path& program, const fs::path& out); // vn_input_tests.cpp
 int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::path& out);
 
 int main(int argc, char** argv) {
@@ -118,6 +119,7 @@ int main(int argc, char** argv) {
     fs::path program, xlsx, csv, out, docx, pptx;
     std::vector<fs::path> extraSheets; // --sheet <tệp>: định dạng bảng tính khác (xls, ods, xlsm...)
     fs::path roundtrip;                // --roundtrip <tệp>: chỉ mở, render mọi sheet, lưu bản sao (không sửa)
+    bool vnInput = false;              // --vninput 1: kiểm kê nhập tiếng Việt (vn_input_tests.cpp)
     bool wordMode = false;             // --word 1: kiểm thử các lệnh Word (word_tests.cpp)
     fs::path pptTests;                 // --ppt <tệp.pptx>: kiểm thử lệnh PowerPoint (ppt_tests.cpp)
     fs::path templatesDir;             // --templates <thư mục>: toàn vẹn hiển thị/in trên thư viện mẫu
@@ -132,6 +134,7 @@ int main(int argc, char** argv) {
         else if (args[i] == "--pptx") pptx = fromUtf8(args[i + 1]);
         else if (args[i] == "--sheet") extraSheets.push_back(fromUtf8(args[i + 1]));
         else if (args[i] == "--roundtrip") roundtrip = fromUtf8(args[i + 1]);
+        else if (args[i] == "--vninput") vnInput = (args[i + 1] == "1");
         else if (args[i] == "--word") wordMode = (args[i + 1] == "1");
         else if (args[i] == "--ppt") pptTests = fromUtf8(args[i + 1]);
         else if (args[i] == "--templates") templatesDir = fromUtf8(args[i + 1]);
@@ -139,6 +142,7 @@ int main(int argc, char** argv) {
         else if (args[i] == "--stress") stressFile = fromUtf8(args[i + 1]);
         else if (args[i] == "--chi-mo") basicOnly = (args[i + 1] == "1"); // chỉ mở + hiển thị, bỏ nhập liệu/lưu
     }
+    if (vnInput && !program.empty() && !out.empty()) return dungRunVnInput(program, out);
     if (wordMode && !program.empty() && !out.empty()) return runWordTests(program, out);
     if (!pptTests.empty() && !program.empty() && !out.empty()) return dungRunPptTests(program, pptTests, out);
     if (!templatesDir.empty() && !program.empty() && !out.empty()) return dungRunTemplateFidelity(program, templatesDir, out);

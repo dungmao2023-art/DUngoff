@@ -401,11 +401,16 @@ void TileView::keyReleaseEvent(QKeyEvent* e) {
 }
 
 void TileView::inputMethodEvent(QInputMethodEvent* e) {
-    // Bộ gõ tiếng Việt kiểu IME (Telex/VNI của Windows): gửi chuỗi đã chốt.
-    const QString s = e->commitString();
-    for (const QChar c : s) {
-        m_doc->postKey(LOK_KEYEVENT_KEYINPUT, c.unicode(), 0);
-        m_doc->postKey(LOK_KEYEVENT_KEYUP, c.unicode(), 0);
+    // Bộ gõ tiếng Việt kiểu IME (Telex/VNI của Windows): gửi chuỗi đã chốt, và thực hiện phần "thay thế"
+    // (bộ gõ yêu cầu xoá vài ký tự đã gõ trước đó rồi chốt ký tự có dấu) bằng Backspace/Delete.
+    // Phần đang soạn (preedit) chưa được hiển thị: chỉ khi bộ gõ chốt mới có chữ trong tài liệu.
+    bool unsupported = false;
+    const auto ops = imeToOps(e->commitString(), e->replacementStart(), e->replacementLength(), &unsupported);
+    for (const ImeOp& op : ops) {
+        const int keyCode = op.kind == ImeOp::Backspace ? 1283 : op.kind == ImeOp::Delete ? 1286 : 0;
+        const int ch = op.kind == ImeOp::Char ? op.charCode : 0;
+        m_doc->postKey(LOK_KEYEVENT_KEYINPUT, ch, keyCode);
+        m_doc->postKey(LOK_KEYEVENT_KEYUP, ch, keyCode);
     }
     e->accept();
 }

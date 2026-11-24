@@ -27,7 +27,7 @@ if(UNIX)
 endif()
 
 if(DUNG_BUILD_TESTS)
-  add_executable(dung-smoketest tools/smoketest/main.cpp tools/smoketest/ppt_tests.cpp tools/smoketest/excel_tests.cpp tools/smoketest/template_fidelity.cpp)
+  add_executable(dung-smoketest tools/smoketest/main.cpp tools/smoketest/ppt_tests.cpp tools/smoketest/excel_tests.cpp tools/smoketest/template_fidelity.cpp tools/smoketest/vn_input_tests.cpp)
   target_link_libraries(dung-smoketest PRIVATE dungengine)
   target_include_directories(dung-smoketest PRIVATE third_party/libreofficekit/include app/src/excel)
   if(WIN32)
