@@ -22,6 +22,7 @@ include(src/ppt/ppt.cmake)
 include(src/extras/extras.cmake)
 include(src/templates/templates.cmake)
 include(src/tableutil/tableutil.cmake)
+include(src/vntext/vntext.cmake)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/src/pdf/pdf.cmake)
 target_link_libraries(DungOffice PRIVATE dungengine Qt6::Widgets)
