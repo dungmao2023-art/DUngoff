@@ -14,6 +14,7 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <iterator>
 #include <deque>
 #include <functional>
 #include <future>
@@ -345,6 +346,50 @@ template <class F> static auto onEngine(F&& f) -> decltype(f()) {
     if constexpr (!std::is_void_v<R>) return std::move(*result);
 }
 
+// ---------------------------------------------------------------- Bảng thay thế phông
+// Các phông hiện đại của Microsoft 365 (Aptos...) không có trong engine. Nếu không có bảng thay thế,
+// engine rơi về phông hệ thống (vd PMingLiU) và chữ tiếng Việt có dấu bị vỡ khi xuất PDF/in.
+// Ta ghi vào hồ sơ engine một bảng thay thế sang phông có sẵn trong engine và đủ chữ Việt (Carlito, Liberation Sans).
+// "Always=false": chỉ thay khi máy KHÔNG có phông gốc — máy có Aptos thật vẫn dùng Aptos.
+// Chỉ thêm, không ghi đè mục khác của hồ sơ; chạy lặp lại không thêm trùng.
+static void seedFontSubstitution(const fs::path& profileDir) {
+    static const char* kMarker = "dung-aptos-0";
+    const char* fromFonts[] = {"Aptos", "Aptos Display", "Aptos Narrow", "Aptos SemiBold", "Aptos Light", "Aptos Black"};
+    std::string items =
+        "<item oor:path=\"/org.openoffice.Office.Common/Font/Substitution\"><prop oor:name=\"Replacement\" oor:op=\"fuse\"><value>true</value></prop></item>\n";
+    int i = 0;
+    for (const char* f : fromFonts) {
+        items += std::string("<item oor:path=\"/org.openoffice.Office.Common/Font/Substitution/FontPairs\"><node oor:name=\"dung-aptos-") +
+                 std::to_string(i++) + "\" oor:op=\"replace\"><prop oor:name=\"Always\" oor:op=\"fuse\"><value>false</value></prop>"
+                 "<prop oor:name=\"OnScreenOnly\" oor:op=\"fuse\"><value>false</value></prop>"
+                 "<prop oor:name=\"ReplaceFont\" oor:op=\"fuse\"><value>" + f + "</value></prop>"
+                 "<prop oor:name=\"SubstituteFont\" oor:op=\"fuse\"><value>Carlito;Liberation Sans</value></prop></node></item>\n";
+    }
+    std::error_code ec;
+    const fs::path dir = profileDir / "user";
+    fs::create_directories(dir, ec);
+    const fs::path file = dir / "registrymodifications.xcu";
+    std::string content;
+    if (fs::exists(file, ec)) {
+        std::ifstream in(file, std::ios::binary);
+        content.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        if (content.find(kMarker) != std::string::npos) return; // đã có
+        const size_t pos = content.rfind("</oor:items>");
+        if (pos == std::string::npos) return; // tệp lạ: không đụng vào
+        content.insert(pos, items);
+    } else {
+        content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<oor:items xmlns:oor=\"http://openoffice.org/2001/registry\" "
+                  "xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n" +
+                  items + "</oor:items>\n";
+    }
+    const fs::path tmp = file.string() + ".dung-tmp";
+    {
+        std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+        out << content;
+    }
+    fs::rename(tmp, file, ec);
+}
+
 // ---------------------------------------------------------------- Engine
 std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::path& profileDir,
                                        const fs::path& workDir, std::string* error) {
@@ -356,6 +401,7 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
     std::error_code ec;
     fs::create_directories(profileDir, ec);
     fs::create_directories(workDir, ec);
+    seedFontSubstitution(profileDir);
 #ifndef _WIN32
     // Trên Linux/macOS, LibreOffice đổi URL -> đường dẫn theo bảng mã của locale. Với locale
     // POSIX/ASCII, tên tệp tiếng Việt sẽ không mở được -> ép LC_CTYPE sang UTF-8.

@@ -240,6 +240,27 @@ jobs:
           $env:DUNG_TEST_ZIP = "$PWD/mau-thu.zip"
           & $exe.FullName *>&1 | Tee-Object report/windows-templatetest.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm chứng thay phông Aptos (2 mẫu PPT) trên engine Windows
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          $env:PYTHONUTF8 = "1"
+          python -m pip install --quiet pypdf python-docx python-pptx
+          "== Phông có trong engine ==" | Tee-Object report/windows-fonts.log
+          Get-ChildItem build/lo/engine/share/fonts/truetype -ErrorAction SilentlyContinue | ForEach-Object { $_.Name } | Tee-Object -Append report/windows-fonts.log
+          $src = "templates/DUNG_OFFICE_THU_VIEN_BIEU_MAU_2026/06_POWERPOINT/01_Mau_trinh_chieu_chinh_sua_duoc"
+          $dst = "aptos-tpl/DUNG_OFFICE_THU_VIEN_BIEU_MAU_2026/06_POWERPOINT/01_Mau_trinh_chieu_chinh_sua_duoc"
+          New-Item -ItemType Directory -Force $dst | Out-Null
+          Copy-Item "$src/01_Bao_cao_van_hanh_hien_dai.pptx","$src/02_De_xuat_du_an_ky_thuat.pptx" $dst
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--templates", "aptos-tpl", "--out", "$PWD/smoke-aptos") -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-aptos.log -RedirectStandardError report/windows-aptos.err.log
+          if (-not $p.WaitForExit(10 * 60 * 1000)) { $p.Kill(); "TREO quá 10 phút" | Add-Content report/windows-aptos.log }
+          Get-Content report/windows-aptos.log | Select-Object -Last 8
+          "== Hồ sơ engine: bảng thay thế phông ==" | Tee-Object -Append report/windows-fonts.log
+          Get-Content smoke-aptos/profile/user/registrymodifications.xcu -ErrorAction SilentlyContinue | Select-String "aptos|Substitution" | Select-Object -First 8 | Tee-Object -Append report/windows-fonts.log
+          python tests/templates/inventory_fidelity.py aptos-tpl smoke-aptos windows *>&1 | Tee-Object report/windows-aptos-inventory.log
+          python tests/templates/check_aptos.py aptos-tpl smoke-aptos *>&1 | Tee-Object report/windows-aptos-check.log
+          if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử đầy đủ engine trên Windows (nhập liệu, lưu) — chặn job
         id: full
         # Engine headless của dự án (engine-26.8.3.1-headless) đã đạt toàn bộ bước này
