@@ -437,6 +437,11 @@ int main(int argc, char** argv) {
         CHECK(be2.ok && be2.blank.isEmpty(), "trang trắng: tệp mật khẩu với mật khẩu đúng đọc được");
     }
 
+    // --- helper kiểm tra chữ ASCII (dùng trong giao diện để báo trước)
+    CHECK(isAsciiText(QStringLiteral("Trang {n}/{total} - CONFIDENTIAL")), "isAsciiText: chữ không dấu hợp lệ");
+    CHECK(!isAsciiText(QStringLiteral("Trang {n} - Bảo mật")), "isAsciiText: chữ có dấu bị nhận ra");
+    CHECK(!isAsciiText(QStringLiteral("a\tb")), "isAsciiText: ký tự điều khiển bị nhận ra");
+
     // --- dọn dẹp
     CHECK(tempLeftovers(d) == 0, "không còn tệp tạm ~dung-* trong thư mục làm việc");
     CHECK(suggestOutputPath(a).endsWith(QStringLiteral("a - Dũng Office.pdf")), "đề xuất tên tệp kết quả");

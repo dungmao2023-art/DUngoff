@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "PdfToolsDialog.h"
 
+#include <QCheckBox>
 #include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QSpinBox>
 #include <QDialogButtonBox>
 #include <QEventLoop>
 #include <QFileDialog>
@@ -39,10 +42,13 @@ void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
     PdfToolsDialog dlg(parent);
     dlg.m_tabs->setCurrentIndex(tab);
     if (!initialPath.isEmpty()) {
-        for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile})
+        for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile, dlg.m_numFile, dlg.m_stampFile, dlg.m_blankFile})
             if (e) e->setText(initialPath);
         dlg.refreshPageCount(initialPath, dlg.m_splitInfo);
         dlg.refreshPageCount(initialPath, dlg.m_rotInfo);
+        dlg.refreshPageCount(initialPath, dlg.m_numInfo);
+        dlg.refreshPageCount(initialPath, dlg.m_stampInfo);
+        dlg.refreshPageCount(initialPath, dlg.m_blankInfo);
         dlg.m_mergeList->addItem(initialPath);
     }
     dlg.exec();
@@ -50,7 +56,7 @@ void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
 
 PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle(tr("Công cụ PDF"));
-    resize(640, 420);
+    resize(680, 460);
     auto* lay = new QVBoxLayout(this);
     m_tabs = new QTabWidget(this);
     m_tabs->addTab(buildMerge(), tr("Gộp"));
@@ -58,6 +64,10 @@ PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     m_tabs->addTab(buildRotate(), tr("Xoay"));
     m_tabs->addTab(buildCompress(), tr("Nén"));
     m_tabs->addTab(buildInfo(), tr("Thông tin"));
+    m_tabs->addTab(buildNumber(), tr("Đánh số trang"));
+    m_tabs->addTab(buildStamp(), tr("Đóng dấu"));
+    m_tabs->addTab(buildImages(), tr("Ảnh → PDF"));
+    m_tabs->addTab(buildBlank(), tr("Trang trắng"));
     lay->addWidget(m_tabs);
     auto* note = new QLabel(tr("Tệp gốc không bao giờ bị sửa: kết quả luôn lưu thành tệp mới."), this);
     note->setStyleSheet("color:#555");
@@ -317,5 +327,235 @@ QWidget* PdfToolsDialog::buildInfo() {
     m_infoText = new QLabel(w);
     m_infoText->setTextInteractionFlags(Qt::TextSelectableByMouse);
     f->addRow(m_infoText);
+    return w;
+}
+
+// ---- Đánh số trang, đóng dấu, ảnh -> PDF, trang trắng ----
+
+namespace {
+void fillPositions(QComboBox* c, bool withDiagonal) {
+    c->addItem(QObject::tr("Dưới giữa"), int(Position::BottomCenter));
+    c->addItem(QObject::tr("Dưới phải"), int(Position::BottomRight));
+    c->addItem(QObject::tr("Dưới trái"), int(Position::BottomLeft));
+    c->addItem(QObject::tr("Trên giữa"), int(Position::TopCenter));
+    c->addItem(QObject::tr("Trên phải"), int(Position::TopRight));
+    c->addItem(QObject::tr("Trên trái"), int(Position::TopLeft));
+    c->addItem(QObject::tr("Giữa trang"), int(Position::Center));
+    if (withDiagonal) c->insertItem(0, QObject::tr("Chéo giữa trang"), int(Position::Diagonal));
+}
+const char* kAsciiHint = "Chữ có dấu tiếng Việt chưa dùng được ở mục này (font PDF chuẩn không có chữ có dấu). "
+                         "Hãy dùng chữ không dấu, hoặc đóng dấu bằng ảnh đã có chữ tiếng Việt.";
+}  // namespace
+
+QWidget* PdfToolsDialog::buildNumber() {
+    auto* w = new QWidget(this);
+    auto* f = new QFormLayout(w);
+    f->addRow(tr("Tệp PDF:"), fileRow(&m_numFile, [this] { refreshPageCount(m_numFile->text(), m_numInfo); }));
+    m_numInfo = new QLabel(w);
+    f->addRow(QString(), m_numInfo);
+    m_numFormat = new QLineEdit(QStringLiteral("{n}"), w);
+    m_numFormat->setPlaceholderText(tr("Ví dụ: Trang {n}/{total}"));
+    f->addRow(tr("Mẫu chữ:"), m_numFormat);
+    m_numPos = new QComboBox(w);
+    fillPositions(m_numPos, false);
+    f->addRow(tr("Vị trí:"), m_numPos);
+    m_numStart = new QSpinBox(w);
+    m_numStart->setRange(0, 100000);
+    m_numStart->setValue(1);
+    f->addRow(tr("Số bắt đầu:"), m_numStart);
+    m_numSize = new QDoubleSpinBox(w);
+    m_numSize->setRange(4, 72);
+    m_numSize->setValue(11);
+    f->addRow(tr("Cỡ chữ:"), m_numSize);
+    m_numPages = new QLineEdit(QStringLiteral("1-"), w);
+    m_numPages->setPlaceholderText(tr("Ví dụ: 1- hoặc 2-10"));
+    f->addRow(tr("Các trang được đánh số:"), m_numPages);
+    auto* hint = new QLabel(tr("{n} = số trang, {total} = số cuối cùng. Chỉ nhận chữ không dấu."), w);
+    hint->setStyleSheet("color:#555");
+    f->addRow(hint);
+    auto* go = new QPushButton(tr("Đánh số..."), w);
+    f->addRow(go);
+    connect(go, &QPushButton::clicked, this, [this] {
+        const QString src = m_numFile->text();
+        if (src.isEmpty()) { QMessageBox::information(this, tr("Đánh số trang"), tr("Hãy chọn tệp PDF.")); return; }
+        const QString fmt = m_numFormat->text();
+        if (!isAsciiText(fmt)) { QMessageBox::warning(this, tr("Đánh số trang"), tr(kAsciiHint)); return; }
+        NumberOptions o;
+        o.format = fmt;
+        o.pos = Position(m_numPos->currentData().toInt());
+        o.start = m_numStart->value();
+        o.fontSize = m_numSize->value();
+        o.pages = m_numPages->text().trimmed().isEmpty() ? QStringLiteral("1-") : m_numPages->text().trimmed();
+        const QString dest = pickDest(this, src, tr("đánh số"));
+        if (dest.isEmpty()) return;
+        const bool replace = QFileInfo::exists(dest);
+        showResult(runWithPasswords({src}, [this, src, o, dest, replace] { return addPageNumbers(inputFor(src), o, dest, replace); }),
+                   tr("Đánh số xong"));
+    });
+    return w;
+}
+
+QWidget* PdfToolsDialog::buildStamp() {
+    auto* w = new QWidget(this);
+    auto* f = new QFormLayout(w);
+    f->addRow(tr("Tệp PDF:"), fileRow(&m_stampFile, [this] { refreshPageCount(m_stampFile->text(), m_stampInfo); }));
+    m_stampInfo = new QLabel(w);
+    f->addRow(QString(), m_stampInfo);
+    m_stampText = new QLineEdit(w);
+    m_stampText->setPlaceholderText(tr("Ví dụ: BAN SAO / DRAFT (chữ không dấu)"));
+    f->addRow(tr("Chữ đóng dấu:"), m_stampText);
+    // Ảnh đóng dấu (JPEG/PNG)
+    auto* imgRow = new QWidget(w);
+    auto* ih = new QHBoxLayout(imgRow);
+    ih->setContentsMargins(0, 0, 0, 0);
+    m_stampImage = new QLineEdit(imgRow);
+    m_stampImage->setReadOnly(true);
+    auto* pick = new QPushButton(tr("Chọn ảnh..."), imgRow);
+    auto* clr = new QPushButton(tr("Bỏ"), imgRow);
+    ih->addWidget(m_stampImage, 1);
+    ih->addWidget(pick);
+    ih->addWidget(clr);
+    f->addRow(tr("Hoặc ảnh (JPEG/PNG):"), imgRow);
+    connect(pick, &QPushButton::clicked, this, [this] {
+        const QString p = QFileDialog::getOpenFileName(this, tr("Chọn ảnh đóng dấu"), QString(), tr("Ảnh (*.png *.jpg *.jpeg)"));
+        if (!p.isEmpty()) m_stampImage->setText(p);
+    });
+    connect(clr, &QPushButton::clicked, this, [this] { m_stampImage->clear(); });
+    m_stampPos = new QComboBox(w);
+    fillPositions(m_stampPos, true);
+    f->addRow(tr("Vị trí:"), m_stampPos);
+    m_stampSize = new QDoubleSpinBox(w);
+    m_stampSize->setRange(6, 200);
+    m_stampSize->setValue(48);
+    f->addRow(tr("Cỡ chữ:"), m_stampSize);
+    m_stampOpacity = new QDoubleSpinBox(w);
+    m_stampOpacity->setRange(0.05, 1.0);
+    m_stampOpacity->setSingleStep(0.05);
+    m_stampOpacity->setValue(0.3);
+    f->addRow(tr("Độ đậm (0.05–1):"), m_stampOpacity);
+    m_stampWidth = new QDoubleSpinBox(w);
+    m_stampWidth->setRange(5, 100);
+    m_stampWidth->setValue(30);
+    f->addRow(tr("Bề rộng ảnh (% trang):"), m_stampWidth);
+    m_stampPages = new QLineEdit(QStringLiteral("1-"), w);
+    f->addRow(tr("Các trang:"), m_stampPages);
+    auto* go = new QPushButton(tr("Đóng dấu..."), w);
+    f->addRow(go);
+    connect(go, &QPushButton::clicked, this, [this] {
+        const QString src = m_stampFile->text();
+        if (src.isEmpty()) { QMessageBox::information(this, tr("Đóng dấu"), tr("Hãy chọn tệp PDF.")); return; }
+        const QString text = m_stampText->text(), img = m_stampImage->text();
+        if (text.isEmpty() && img.isEmpty()) {
+            QMessageBox::information(this, tr("Đóng dấu"), tr("Hãy nhập chữ đóng dấu hoặc chọn một ảnh."));
+            return;
+        }
+        if (!text.isEmpty() && !isAsciiText(text)) { QMessageBox::warning(this, tr("Đóng dấu"), tr(kAsciiHint)); return; }
+        StampOptions o;
+        o.text = text;
+        o.imagePath = img;
+        o.pos = Position(m_stampPos->currentData().toInt());
+        o.fontSize = m_stampSize->value();
+        o.opacity = m_stampOpacity->value();
+        o.widthPercent = m_stampWidth->value();
+        o.pages = m_stampPages->text().trimmed().isEmpty() ? QStringLiteral("1-") : m_stampPages->text().trimmed();
+        const QString dest = pickDest(this, src, tr("đóng dấu"));
+        if (dest.isEmpty()) return;
+        const bool replace = QFileInfo::exists(dest);
+        showResult(runWithPasswords({src}, [this, src, o, dest, replace] { return stamp(inputFor(src), o, dest, replace); }),
+                   tr("Đóng dấu xong"));
+    });
+    return w;
+}
+
+QWidget* PdfToolsDialog::buildImages() {
+    auto* w = new QWidget(this);
+    auto* v = new QVBoxLayout(w);
+    v->addWidget(new QLabel(tr("Thêm ảnh JPG/PNG theo thứ tự trang (mỗi ảnh một trang):"), w));
+    m_imgList = new QListWidget(w);
+    v->addWidget(m_imgList, 1);
+    m_imgA4 = new QCheckBox(tr("Đặt mỗi ảnh vào trang A4 (giữ tỉ lệ). Bỏ chọn: trang đúng cỡ ảnh."), w);
+    v->addWidget(m_imgA4);
+    auto* h = new QHBoxLayout;
+    auto* add = new QPushButton(tr("Thêm ảnh..."), w);
+    auto* rem = new QPushButton(tr("Bớt"), w);
+    auto* up = new QPushButton(tr("Lên"), w);
+    auto* dn = new QPushButton(tr("Xuống"), w);
+    auto* go = new QPushButton(tr("Tạo PDF..."), w);
+    for (auto* b : {add, rem, up, dn}) h->addWidget(b);
+    h->addStretch(1);
+    h->addWidget(go);
+    v->addLayout(h);
+    connect(add, &QPushButton::clicked, this, [this] {
+        const QStringList fs = QFileDialog::getOpenFileNames(this, tr("Chọn ảnh"), QString(), tr("Ảnh (*.png *.jpg *.jpeg)"));
+        for (const QString& f : fs) m_imgList->addItem(f);
+    });
+    connect(rem, &QPushButton::clicked, this, [this] { delete m_imgList->takeItem(m_imgList->currentRow()); });
+    auto move = [this](int d) {
+        const int r = m_imgList->currentRow(), n = r + d;
+        if (r < 0 || n < 0 || n >= m_imgList->count()) return;
+        m_imgList->insertItem(n, m_imgList->takeItem(r));
+        m_imgList->setCurrentRow(n);
+    };
+    connect(up, &QPushButton::clicked, this, [move] { move(-1); });
+    connect(dn, &QPushButton::clicked, this, [move] { move(1); });
+    connect(go, &QPushButton::clicked, this, [this] {
+        QStringList imgs;
+        for (int i = 0; i < m_imgList->count(); ++i) imgs << m_imgList->item(i)->text();
+        if (imgs.isEmpty()) { QMessageBox::information(this, tr("Ảnh → PDF"), tr("Hãy thêm ít nhất một ảnh.")); return; }
+        // Gợi ý tên dựa trên ảnh đầu tiên, đuôi .pdf; không bao giờ ghi đè khi chưa xác nhận.
+        const QString dest = QFileDialog::getSaveFileName(this, tr("Lưu PDF thành"),
+                                                          suggestOutputPath(QFileInfo(imgs.first()).absolutePath() + QStringLiteral("/") +
+                                                                                QFileInfo(imgs.first()).completeBaseName() + QStringLiteral(".pdf"),
+                                                                            tr("từ ảnh")),
+                                                          tr("Tệp PDF (*.pdf)"));
+        if (dest.isEmpty()) return;
+        ImageOptions o;
+        o.fitA4 = m_imgA4->isChecked();
+        const bool replace = QFileInfo::exists(dest);
+        showResult(runWithPasswords({}, [imgs, o, dest, replace] { return imagesToPdf(imgs, o, dest, replace); }),
+                   tr("Tạo PDF xong"));
+    });
+    return w;
+}
+
+QWidget* PdfToolsDialog::buildBlank() {
+    auto* w = new QWidget(this);
+    auto* f = new QFormLayout(w);
+    f->addRow(tr("Tệp PDF:"), fileRow(&m_blankFile, [this] { refreshPageCount(m_blankFile->text(), m_blankInfo); }));
+    m_blankInfo = new QLabel(w);
+    f->addRow(QString(), m_blankInfo);
+    auto* hint = new QLabel(tr("Chỉ nhận ra trang hoàn toàn không có nội dung. Trang trông trắng nhưng là ảnh quét "
+                               "hoặc có ô tô nền trắng sẽ KHÔNG được nhận ra. Bấm \"Kiểm tra\" để xem danh sách trước khi bỏ."), w);
+    hint->setWordWrap(true);
+    f->addRow(hint);
+    auto* check = new QPushButton(tr("Kiểm tra"), w);
+    auto* rem = new QPushButton(tr("Bỏ các trang trắng..."), w);
+    f->addRow(check);
+    f->addRow(rem);
+    auto pagesText = [](const QList<int>& b) {
+        QStringList l;
+        for (int i : b) l << QString::number(i + 1);
+        return l.join(QStringLiteral(", "));
+    };
+    connect(check, &QPushButton::clicked, this, [this, pagesText] {
+        const QString src = m_blankFile->text();
+        if (src.isEmpty()) { QMessageBox::information(this, tr("Trang trắng"), tr("Hãy chọn tệp PDF.")); return; }
+        BlankReport r = findBlankPages(inputFor(src));
+        if (r.needPassword && askPassword(src)) r = findBlankPages(inputFor(src));
+        if (!r.ok) { QMessageBox::warning(this, tr("Trang trắng"), r.error.isEmpty() ? tr("Có lỗi không rõ.") : r.error); return; }
+        QString msg = r.blank.isEmpty() ? tr("Không có trang trắng (trong %1 trang).").arg(r.pages)
+                                        : tr("Trang trắng (%1/%2): %3").arg(r.blank.size()).arg(r.pages).arg(pagesText(r.blank));
+        if (!r.notes.isEmpty()) msg += tr("\n\nLưu ý:\n%1").arg(r.notes.join('\n'));
+        QMessageBox::information(this, tr("Trang trắng"), msg);
+    });
+    connect(rem, &QPushButton::clicked, this, [this] {
+        const QString src = m_blankFile->text();
+        if (src.isEmpty()) { QMessageBox::information(this, tr("Trang trắng"), tr("Hãy chọn tệp PDF.")); return; }
+        const QString dest = pickDest(this, src, tr("bỏ trang trắng"));
+        if (dest.isEmpty()) return;
+        const bool replace = QFileInfo::exists(dest);
+        showResult(runWithPasswords({src}, [this, src, dest, replace] { return removeBlankPages(inputFor(src), dest, replace); }),
+                   tr("Đã bỏ trang trắng"));
+    });
     return w;
 }

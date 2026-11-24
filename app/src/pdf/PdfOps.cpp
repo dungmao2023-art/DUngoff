@@ -1267,4 +1267,10 @@ QString suggestOutputPath(const QString& sourcePath, const QString& label) {
     return cand;
 }
 
+bool isAsciiText(const QString& s) {
+    for (QChar c : s)
+        if (c.unicode() < 32 || c.unicode() > 126) return false;
+    return true;
+}
+
 }  // namespace dungpdf

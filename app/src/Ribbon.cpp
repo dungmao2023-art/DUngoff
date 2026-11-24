@@ -116,6 +116,12 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     {QStringLiteral("pdfTools:rotate"), tr("Xoay"), 0xE7AD, QStringLiteral("⟳"), false},
                     {QStringLiteral("pdfTools:compress"), tr("Nén"), 0xE8B7, QStringLiteral("⇲"), false},
                 }},
+                {tr("Trang"), {
+                    {QStringLiteral("pdfTools:number"), tr("Đánh số trang"), 0xE8EF, QStringLiteral("#"), false},
+                    {QStringLiteral("pdfTools:stamp"), tr("Đóng dấu"), 0xE7C3, QStringLiteral("◉"), false},
+                    {QStringLiteral("pdfTools:images"), tr("Ảnh → PDF"), 0xE8B9, QStringLiteral("▣"), false},
+                    {QStringLiteral("pdfTools:blank"), tr("Trang trắng"), 0xE74D, QStringLiteral("□"), false},
+                }},
                 {tr("Tệp"), {
                     {QStringLiteral("pdfTools:info"), tr("Thông tin"), 0xE946, QStringLiteral("ⓘ"), false},
                 }},
