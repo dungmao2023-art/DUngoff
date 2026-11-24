@@ -135,6 +135,10 @@ public:
     // Ở chế độ nhúng, engine dùng clipboard nội bộ; giao diện chuyển qua lại với clipboard hệ thống.
     std::string selectionAs(const std::string& mimeType);   // vd. "text/plain;charset=utf-8", "text/html"
     bool paste(const std::string& mimeType, const std::string& data);
+    // Đợi engine xử lý xong phím/lệnh vừa gửi (phím và lệnh UNO được engine xếp hàng xử lý sau, còn dán thì chạy ngay).
+    // Đợi cho tới khi đã yên lặng quietMs tính từ lần gửi phím/lệnh cuối VÀ từ sự kiện thật cuối cùng của engine
+    // (không tính sự kiện giả "SYNTH"); tối đa maxMs. Không đợi nếu không có gì mới được gửi gần đây.
+    void waitInputIdle(int quietMs = 200, int maxMs = 3000);
 
     // --- Sự kiện ---
     void setEventSink(EventSink sink);
@@ -166,6 +170,8 @@ private:
     // để giao diện vẽ lại (xem docs/WINDOWS_ENGINE.md).
     void emitSynthetic();
     std::atomic<bool> m_modified{false};
+    std::atomic<long long> m_lastInputMs{0};   // lần gửi phím/lệnh/chuột gần nhất (steady_clock, ms)
+    std::atomic<long long> m_lastEventMs{0};   // sự kiện thật gần nhất từ engine
     fs::path m_original;
     fs::path m_working;
     fs::path m_workDir;   // thư mục tạm riêng của tài liệu này
