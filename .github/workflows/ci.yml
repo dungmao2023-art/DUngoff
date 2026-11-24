@@ -13,6 +13,8 @@ concurrency:
 
 env:
   LO_VERSION: "26.8.3"
+  ENGINE_TAG: "engine-26.8.3.1-headless"
+  ENGINE_SHA256: "03261237878855c27013ff81ba03d766fd794ff49f88d711a013747f7325cac1"
   QT_VERSION: "6.8.3"
 
 jobs:
@@ -116,24 +118,23 @@ jobs:
           version: ${{ env.QT_VERSION }}
           arch: win64_msvc2022_64
           cache: true
-      - name: Cache runtime LibreOffice
+      - name: Cache engine headless
         uses: actions/cache@v4
         with:
           path: build/lo/engine
-          key: lo-engine-${{ env.LO_VERSION }}-v2
-      - name: Tải LibreOffice chính thức (kiểm tra SHA-256)
+          key: engine-${{ env.ENGINE_TAG }}-${{ env.ENGINE_SHA256 }}
+      - name: Tải engine headless của dự án (kiểm tra SHA-256 đã ghim)
         run: |
           New-Item -ItemType Directory -Force report | Out-Null
-          if (-not (Test-Path build/lo/engine/program/mergedlo.dll) -and -not (Test-Path build/lo/engine/program/sofficeapp.dll)) {
+          if (-not (Test-Path build/lo/engine/dung-engine-headless.txt)) {
             try {
-              ./scripts/fetch-libreoffice.ps1 -Version $env:LO_VERSION -OutDir build/lo *>&1 | Tee-Object report/windows-fetch.log
+              ./scripts/fetch-engine.ps1 -Tag $env:ENGINE_TAG -Sha256 $env:ENGINE_SHA256 -OutDir build/lo *>&1 | Tee-Object report/windows-fetch.log
             } catch {
               "LỖI: $($_.Exception.Message)" | Tee-Object -Append report/windows-fetch.log
-              if (Test-Path build/lo/msiexec-admin.log) { Get-Content build/lo/msiexec-admin.log -Tail 80 | Add-Content report/windows-fetch.log }
               throw
             }
           }
-          Get-ChildItem build/lo/engine/program/*.dll | Where-Object { $_.Name -in @('mergedlo.dll','sofficeapp.dll') }
+          Get-ChildItem build/lo/engine/program/mergedlo.dll
       - name: Build
         run: |
           cmake -S . -B build/out -G Ninja -DCMAKE_BUILD_TYPE=Release *>&1 | Tee-Object report/windows-configure.log
