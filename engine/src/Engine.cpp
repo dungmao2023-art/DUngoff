@@ -50,6 +50,28 @@ std::string toFileUrl(const fs::path& p) {
     return out;
 }
 
+
+// Windows giới hạn MAX_PATH = 260 ký tự cho đường dẫn thường. Đường dẫn tuyệt đối dài hơn cần tiền tố \\?\ .
+// longPath() trả về đường dẫn có tiền tố khi đủ dài, ngược lại giữ nguyên; trên hệ khác luôn giữ nguyên.
+fs::path longPath(const fs::path& p) {
+#ifdef _WIN32
+    std::error_code ec;
+    fs::path a = fs::absolute(p, ec);
+    if (ec) return p;
+    std::wstring w = a.lexically_normal().make_preferred().wstring();
+    if (w.size() < 240 || w.rfind(L"\\\\?\\", 0) == 0) return p;
+    if (w.rfind(L"\\\\", 0) == 0) return fs::path(L"\\\\?\\UNC\\" + w.substr(2)); // \\máy\chia-se
+    return fs::path(L"\\\\?\\" + w);
+#else
+    return p;
+#endif
+}
+std::size_t pathChars(const fs::path& p) {
+    std::error_code ec;
+    fs::path a = fs::absolute(p, ec);
+    return (ec ? p : a).native().size();
+}
+
 namespace {
 
 std::string randomToken() {
@@ -83,7 +105,7 @@ std::string lowerExt(const fs::path& p) {
 
 bool samePath(const fs::path& a, const fs::path& b) {
     std::error_code ec;
-    if (fs::exists(a, ec) && fs::exists(b, ec)) return fs::equivalent(a, b, ec);
+    if (fs::exists(longPath(a), ec) && fs::exists(longPath(b), ec)) return fs::equivalent(longPath(a), longPath(b), ec);
     std::string x = toUtf8(fs::weakly_canonical(a, ec)), y = toUtf8(fs::weakly_canonical(b, ec));
 #ifdef _WIN32
     std::transform(x.begin(), x.end(), x.begin(), ::tolower);
@@ -125,7 +147,7 @@ fs::path backupPathFor(const fs::path& p) {
     fs::path b = p.parent_path() /
                  fs::u8path(p.stem().u8string() + ".dung-backup-" + timestamp() + p.extension().u8string());
     int n = 2;
-    while (fs::exists(b))
+    while (fs::exists(longPath(b)))
         b = p.parent_path() / fs::u8path(p.stem().u8string() + ".dung-backup-" + timestamp() + "-" +
                                          std::to_string(n++) + p.extension().u8string());
     return b;
@@ -544,19 +566,34 @@ std::string Engine::versionInfo() const {
 std::unique_ptr<Document> Engine::open(const fs::path& original, std::string* error) {
     auto fail = [&](const std::string& m) { if (error) *error = m; return std::unique_ptr<Document>(); };
     std::error_code ec;
-    if (!fs::is_regular_file(original, ec)) return fail("Không tìm thấy tệp: " + toUtf8(original));
+    if (!fs::is_regular_file(longPath(original), ec)) {
+        const size_t n = pathChars(original);
+        return fail("Không tìm thấy tệp: " + toUtf8(original) +
+                    (n >= 240 ? " (đường dẫn dài " + std::to_string(n) + " ký tự; nếu tệp có thật, hãy chuyển tệp tới thư mục có đường dẫn ngắn hơn)" : std::string()));
+    }
     const FormatInfo* info = formatForPath(original);
     if (!info) return fail("Định dạng tệp chưa được hỗ trợ: " + toUtf8(original.filename()));
 
     // 1) Sao chép tệp gốc sang bản làm việc tạm. Tệp gốc chỉ được ĐỌC đúng một lần ở đây.
+    //    Bản làm việc nằm ở thư mục tạm NGẮN; nếu tên tệp gốc quá dài thì rút ngắn tên (giữ đuôi) để tổng đường dẫn < 240 ký tự,
+    //    vì engine không mở được đường dẫn từ 260 ký tự trở lên.
     fs::path dir = m_workDir / ("doc-" + std::to_string(++m_counter) + "-" + randomToken());
-    fs::create_directories(dir, ec);
+    fs::create_directories(longPath(dir), ec);
     if (ec) return fail("Không tạo được thư mục làm việc tạm: " + ec.message());
     fs::path working = dir / original.filename();
-    fs::copy_file(original, working, fs::copy_options::overwrite_existing, ec);
+    if (pathChars(working) > 230) {
+        const std::string e = original.extension().u8string();
+        const size_t room = pathChars(dir) + 1 + e.size() < 230 ? 230 - (pathChars(dir) + 1 + e.size()) : 8;
+        std::string stem = original.stem().u8string();
+        // cắt theo ký tự UTF-8 hoàn chỉnh
+        size_t cut = std::min(stem.size(), room);
+        while (cut > 0 && (static_cast<unsigned char>(stem[cut]) & 0xC0) == 0x80 && cut < stem.size()) --cut;
+        working = dir / fs::u8path(stem.substr(0, cut) + e);
+    }
+    fs::copy_file(longPath(original), longPath(working), fs::copy_options::overwrite_existing, ec);
     if (ec) return fail("Không đọc được tệp (có thể đang bị khoá): " + ec.message());
     // Đảm bảo bản tạm ghi được (tệp gốc có thể mang thuộc tính chỉ đọc).
-    fs::permissions(working, fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add, ec);
+    fs::permissions(longPath(working), fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add, ec);
 
     // 2) Nạp bản tạm vào engine.
     // "Batch=true": chế độ im lặng — engine KHÔNG được hiện bất kỳ hộp thoại cũ nào của
@@ -636,7 +673,51 @@ Document::~Document() {
 }
 
 std::string Document::displayName() const {
+    if (!m_recoveredName.empty()) return m_recoveredName;
     return isNew() ? m_newName : toUtf8(m_original.filename());
+}
+
+void Document::setRecoveredOrigin(const fs::path& originalPath, const std::string& displayName) {
+    m_recoveredOrigin = originalPath;
+    m_recoveredName = displayName.empty() ? std::string("Tài liệu khôi phục") : displayName;
+    m_modified = true; // bản khôi phục luôn coi là chưa lưu
+}
+
+std::string Document::recoveryExt() const {
+    switch (m_kind) {
+    case DocKind::Spreadsheet: return "xlsx";
+    case DocKind::Presentation: return "pptx";
+    default: return "docx";
+    }
+}
+
+bool Document::saveRecoveryCopy(const fs::path& dest, std::string* error) {
+    auto fail = [&](const std::string& m) { if (error) *error = m; return false; };
+    if (m_workDir.empty()) return fail("Chưa có thư mục làm việc tạm.");
+    const std::string ext = lowerExt(dest);
+    if (!formatForExt(ext) || formatForExt(ext)->kind != m_kind) return fail("Đuôi tệp phục hồi không phù hợp: ." + ext);
+    std::error_code ec;
+    const bool wasModified = m_modified;
+    fs::path stage = m_workDir / fs::u8path("~rec-" + randomToken() + "." + ext);
+    const std::string url = toFileUrl(stage);
+    const bool ok = onEngine([&] { return m_doc->saveAs(url.c_str(), ext.c_str(), nullptr); });
+    // Một số bản engine báo "đã lưu" sau khi ghi bản sao; đây không phải lần lưu của người dùng nên khôi phục cờ.
+    if (wasModified) m_modified = true;
+    if (!ok) { fs::remove(stage, ec); return fail("Engine không ghi được bản phục hồi."); }
+    std::string why;
+    if (!looksValid(stage, ext, why)) { fs::remove(stage, ec); return fail("Bản phục hồi không hợp lệ (" + why + ")."); }
+    fs::create_directories(longPath(dest.parent_path()), ec);
+    fs::path sibling = dest.parent_path() / fs::u8path("~rec-" + randomToken() + ".tmp");
+    fs::copy_file(longPath(stage), longPath(sibling), fs::copy_options::none, ec);
+    fs::remove(stage, ec);
+    if (ec) return fail("Không ghi được bản phục hồi: " + ec.message());
+    fs::rename(longPath(sibling), longPath(dest), ec);
+    if (ec) {
+        const std::string em = ec.message();
+        fs::remove(longPath(sibling), ec);
+        return fail("Không đặt được bản phục hồi: " + em);
+    }
+    return true;
 }
 
 int Document::partCount() { return onEngine([&] { return m_doc->getParts(); }); }
@@ -703,16 +784,6 @@ void Document::postMouse(int type, int x, int y, int count, int buttons, int mod
     if (type != LOK_MOUSEEVENT_MOUSEMOVE) emitSynthetic();
 }
 
-void Document::typeText(const std::u16string& text) {
-    for (char16_t ch : text) {
-        int keyCode = 0;
-        if (ch == u'\n') keyCode = 1280; // RETURN
-        else if (ch == u'\t') keyCode = 1282; // TAB
-        postKey(LOK_KEYEVENT_KEYINPUT, keyCode ? 0 : (int)ch, keyCode);
-        postKey(LOK_KEYEVENT_KEYUP, keyCode ? 0 : (int)ch, keyCode);
-    }
-}
-
 void Document::postExtTextInput(int type, const std::string& utf8Text) {
     m_lastInputMs = steadyMs();
     onEngine([&] { m_doc->postWindowExtTextInputEvent(0, type, utf8Text.c_str()); });
@@ -721,6 +792,16 @@ void Document::postExtTextInput(int type, const std::string& utf8Text) {
 
 void Document::setViewLanguage(const std::string& lang) {
     onEngine([&] { m_doc->setViewLanguage(m_doc->getView(), lang.c_str()); });
+}
+
+void Document::typeText(const std::u16string& text) {
+    for (char16_t ch : text) {
+        int keyCode = 0;
+        if (ch == u'\n') keyCode = 1280; // RETURN
+        else if (ch == u'\t') keyCode = 1282; // TAB
+        postKey(LOK_KEYEVENT_KEYINPUT, keyCode ? 0 : (int)ch, keyCode);
+        postKey(LOK_KEYEVENT_KEYUP, keyCode ? 0 : (int)ch, keyCode);
+    }
 }
 
 void Document::command(const std::string& cmd, const std::string& args, bool notify) {
@@ -880,12 +961,30 @@ fs::path Document::suggestSaveAsPath(const std::string& wantedExt) const {
         std::error_code ec;
         if (!fs::is_directory(dir, ec)) dir = home ? fs::u8path(home) : fs::current_path();
         stem = m_newName;
+    } else if (!m_recoveredName.empty()) {
+        // Bản khôi phục: gợi ý lưu cạnh tệp gốc cũ (nếu còn thư mục), không phải trong thư mục phục hồi.
+        std::error_code ec;
+        if (!m_recoveredOrigin.empty() && fs::is_directory(longPath(m_recoveredOrigin.parent_path()), ec)) {
+            dir = m_recoveredOrigin.parent_path();
+            stem = m_recoveredOrigin.stem().u8string() + " - Dũng Office";
+        } else {
+            const char* home = std::getenv(
+#ifdef _WIN32
+                "USERPROFILE"
+#else
+                "HOME"
+#endif
+            );
+            dir = home ? fs::u8path(home) / "Documents" : fs::current_path();
+            if (!fs::is_directory(dir, ec)) dir = home ? fs::u8path(home) : fs::current_path();
+            stem = fs::u8path(m_recoveredName).stem().u8string() + " - khôi phục";
+        }
     } else {
         dir = m_original.parent_path();
         stem = m_original.stem().u8string() + " - Dũng Office";
     }
     fs::path p = dir / fs::u8path(stem + "." + ext);
-    for (int n = 2; fs::exists(p) || (!isNew() && samePath(p, m_original)); ++n)
+    for (int n = 2; fs::exists(longPath(p)) || (!isNew() && samePath(p, m_original)); ++n)
         p = dir / fs::u8path(stem + " (" + std::to_string(n) + ")." + ext);
     return p;
 }
@@ -929,7 +1028,7 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
         r.message = "Để bảo vệ dữ liệu, Dũng Office không ghi đè tệp gốc. Hãy dùng \"Lưu thành\" với tên mới.";
         return r;
     }
-    const bool exists = fs::exists(target, ec);
+    const bool exists = fs::exists(longPath(target), ec);
     bool ownOutput = false; // tệp do chính phiên này ghi ra trước đó -> ghi lại không cần hỏi/sao lưu
     for (const auto& o : m_sessionOutputs)
         if (samePath(o, target)) ownOutput = true;
@@ -937,43 +1036,58 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
         r.message = "Tệp đích đã tồn tại. Cần xác nhận thay thế.";
         return r;
     }
-    if (!fs::is_directory(target.parent_path(), ec)) {
+    if (!fs::is_directory(longPath(target.parent_path()), ec)) {
         r.message = "Thư mục đích không tồn tại: " + toUtf8(target.parent_path());
         return r;
     }
+    const size_t targetChars = pathChars(target);
+    const std::string longNote = targetChars >= 240
+        ? " (đường dẫn đích dài " + std::to_string(targetChars) + " ký tự; hãy lưu vào thư mục có đường dẫn ngắn hơn)" : std::string();
 
-    // --- Ghi ra tệp tạm cùng thư mục, kiểm tra, rồi mới thay thế nguyên tử ---
-    fs::path tmp = target.parent_path() /
-                   fs::u8path("~dung-" + randomToken() + "-" + target.stem().u8string() + "." + ext);
-    const std::string tmpUrl = toFileUrl(tmp);
-    bool ok = onEngine([&] { return m_doc->saveAs(tmpUrl.c_str(), ext.c_str(), nullptr); });
+    // --- Ghi ra tệp tạm, kiểm tra, rồi mới thay thế nguyên tử ---
+    // Engine ghi vào thư mục tạm NGẮN (engine không ghi được đường dẫn từ 260 ký tự), sau đó chép sang tệp tạm
+    // cùng thư mục với đích (dùng tiền tố \\?\ khi đường dẫn dài) và đổi tên để thay thế đích.
+    fs::path stage = m_workDir / fs::u8path("~luu-" + randomToken() + "." + ext);
+    const std::string stageUrl = toFileUrl(stage);
+    bool ok = onEngine([&] { return m_doc->saveAs(stageUrl.c_str(), ext.c_str(), nullptr); });
     if (!ok) {
-        fs::remove(tmp, ec);
+        fs::remove(stage, ec);
         r.message = "Engine không ghi được tệp.";
         return r;
     }
     std::string why;
-    if (!looksValid(tmp, ext, why)) {
-        fs::remove(tmp, ec);
+    if (!looksValid(stage, ext, why)) {
+        fs::remove(stage, ec);
         r.message = "Tệp ghi ra không hợp lệ (" + why + "). Tệp đích chưa bị thay đổi.";
         return r;
     }
     if (exists && !ownOutput) {
         r.backup = backupPathFor(target);
-        fs::copy_file(target, r.backup, fs::copy_options::none, ec);
+        fs::copy_file(longPath(target), longPath(r.backup), fs::copy_options::none, ec);
         if (ec) {
-            fs::remove(tmp, ec);
-            r.message = "Không tạo được bản sao lưu trước khi thay thế. Đã huỷ để bảo vệ dữ liệu.";
+            fs::remove(stage, ec);
+            r.message = "Không tạo được bản sao lưu trước khi thay thế. Đã huỷ để bảo vệ dữ liệu." + longNote;
             r.backup.clear();
             return r;
         }
     }
-    fs::rename(tmp, target, ec); // thay thế nguyên tử trong cùng ổ đĩa
+    fs::path sibling = target.parent_path() / fs::u8path("~dung-" + randomToken() + "." + ext);
+    fs::copy_file(longPath(stage), longPath(sibling), fs::copy_options::none, ec);
     if (ec) {
-        fs::remove(tmp, ec);
-        r.message = "Không đưa được tệp vào vị trí đích: " + ec.message();
+        fs::remove(longPath(sibling), ec);
+        fs::remove(stage, ec);
+        r.message = "Không ghi được vào thư mục đích: " + ec.message() + "." + longNote + " Tệp đích chưa bị thay đổi.";
         return r;
     }
+    fs::rename(longPath(sibling), longPath(target), ec); // thay thế nguyên tử trong cùng thư mục
+    if (ec) {
+        const std::string em = ec.message();
+        fs::remove(longPath(sibling), ec);
+        fs::remove(stage, ec);
+        r.message = "Không đưa được tệp vào vị trí đích: " + em + "." + longNote;
+        return r;
+    }
+    fs::remove(stage, ec);
     r.ok = true;
     r.written = target;
     r.message = "Đã lưu: " + toUtf8(target.filename());

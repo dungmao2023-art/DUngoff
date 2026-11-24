@@ -5,6 +5,8 @@
 #define LOK_USE_UNSTABLE_API
 #include "dung/Engine.h"
 
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
+
 #include <atomic>
 #include <chrono>
 #include <filesystem>
