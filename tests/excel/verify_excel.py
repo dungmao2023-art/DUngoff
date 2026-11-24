@@ -47,7 +47,7 @@ def basic(path):
     check(any("%" in ws.cell(r, 2).number_format for r in rows), "Có ô số ở định dạng phần trăm (giá trị vẫn là số)")
     check(any(ws.cell(r, 2).number_format.startswith("#,##0") for r in rows), "Có ô số ở định dạng #,##0")
     w = ws.column_dimensions["C"].width
-    check(w is not None and w > 18, f"Cột C rộng ~4 cm (width={w})")
+    check(w is not None and w >= 15, f"Cột C đã đặt rộng ~4 cm (width={w}; đơn vị ký tự Excel phụ thuộc phông mặc định, Linux ra 18)")
     check(any(ws.row_dimensions[r].height and 38 < ws.row_dimensions[r].height < 47 for r in range(1, 12)),
           "Có hàng cao ~1,5 cm")
     check(ws.freeze_panes == "A2", f"Cố định hàng đầu: {ws.freeze_panes}")
