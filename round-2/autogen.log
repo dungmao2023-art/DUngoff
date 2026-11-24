@@ -1,0 +1,387 @@
+ac-wrapper: autoconf: warning: auto-detected versions not found ( ); falling back to latest available
+Running './configure --host=x86_64-pc-cygwin --with-strawberry-perl-portable=C:/lo/spp --with-parallelism=4 --enable-ccache --enable-python=fully-internal --disable-pch --enable-mergelibs --enable-release-build --with-visual-studio=2022 --without-lxml --with-vendor=Dung Office --disable-gpgmepp --disable-lotuswordpro --disable-lpsolve --disable-mariadb-sdbc --disable-poppler --disable-postgresql-sdbc --with-theme=colibre --without-java --without-junit --disable-ext-nlpsolver --disable-ext-wiki-publisher --disable-report-builder --disable-scripting-beanshell --disable-scripting-javascript --disable-avmedia --disable-opengl --disable-skia --enable-cairo-rgba --enable-headless --disable-breakpad --disable-cli --disable-firebird-sdbc --disable-librelogo --disable-odk --disable-online-update --disable-opencl --disable-sal-log --disable-sdremote --disable-sdremote-bluetooth --without-myspell-dicts --without-galleries --without-help --without-templates --with-fonts --with-docrepair-fonts --disable-noto-font --without-doxygen --with-external-tar=C:/lo/tarballs --srcdir=/cygdrive/c/lo/core --enable-option-checking=fatal'
+********************************************************************
+*
+*   Running Collabora Office build configuration.
+*
+********************************************************************
+
+checking build system type... x86_64-pc-cygwin
+checking host system type... x86_64-pc-cygwin
+checking for product name... Collabora Office
+checking for package version... 25.04.9.2
+checking for product version... 25.04
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for grep... (cached) /usr/bin/grep
+checking for GNU Make... C:/cygwin/opt/lo/bin/make
+configure: Using a native Win32 GNU Make version.
+checking for explicit COMSPEC... found: C:\Windows\system32\cmd.exe
+checking for sed... /usr/bin/sed
+checking whether to use link-time optimization... no
+configure: VCL platform has a usable dynamic loading API: yes
+configure: VCL platform uses freetype+fontconfig: yes
+configure: VCL platform uses headless plugin: yes
+configure: VCL platform uses X11: no
+checking for explicit AFLAGS... no
+checking for explicit CFLAGS... no
+checking for explicit CXXFLAGS... no
+checking for explicit OBJCFLAGS... no
+checking for explicit OBJCXXFLAGS... no
+checking for explicit LDFLAGS... no
+checking for x86_64-pc-cygwin-pkg-config... /usr/bin/x86_64-pc-cygwin-pkg-config
+checking pkg-config is at least version 0.9.0... yes
+checking for library containing backtrace... no
+checking for libexecinfo... no
+checking whether to record build config... no
+checking whether build target is Release Build... yes
+checking whether build should auto use hardening compiler flags... no
+checking whether to build a Community flavor... yes
+checking whether to sign windows build... no
+checking for gawk... gawk
+checking for gawk... /usr/bin/gawk
+checking for bash... /bin/sh
+checking for pigz... no
+checking for gzip... /usr/bin/gzip
+checking for GNU or BSD tar... tar
+checking for tar's option to strip components... --strip-components
+checking how to build and package galleries... disable non-internal gallery build
+checking build with or without template files... disable non-internal templates
+checking for ccache... /opt/lo/bin/ccache.exe
+checking whether C:/cygwin/opt/lo/bin/ccache.exe has MSVC support... no
+checking for sccache... (cached) /opt/lo/bin/ccache.exe
+checking whether to build with Java support... no
+checking whether to treat the installation as read-only... no
+checking Visual C++... 
+checking multi-arch compiler... C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x86/cl.exe
+checking build compiler... C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe
+checking for short pathname of VC product directory... C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC
+checking for UCRT location... C:/PROGRA~2/WI3CF2~1/10/ (10.0.26100.0)
+checking for MSBuild.exe location for: 17.0... C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/../MSBuild/Current/Bin/amd64
+configure: found Visual C++ 2022
+checking cl.exe is at least Visual Studio 2019 version 16.5... yes
+checking cl.exe is at least Visual Studio 2019 version 16.10... yes
+checking for a x86 compiler and libraries for 32-bit binaries required for TWAIN support... found
+checking whether the compiler is actually Clang... no
+checking the dependency generation prefix (cl.exe -showIncludes)... "Note: including file:"
+checking whether cl.exe is already ccached... no
+checking whether to build with additional debug utilities... no
+checking whether to do a debug build... no
+checking whether ccache cl.exe supports -Xclang -debug-info-kind=constructor... no
+checking whether to generate debug information... no
+checking whether to compile with optimization flags... yes
+checking whether to build with .NET support... yes
+checking for dotnet.exe... /cygdrive/c/Program Files/dotnet/dotnet.exe
+checking for .NET SDK 8 or higher... yes
+checking which package format to use... none
+checking which help to build... no
+checking if we need to build the help index tooling... yes
+checking whether to enable xapian-omega support for online help... no
+checking whether to include the XML-help support... yes
+checking for helppack integration... no integration
+checking which lockfile binary to use... internal
+checking for getopt.h... no
+checking for paths.h... no
+checking for sys/param.h... no
+checking for utime... no
+checking for utimes... no
+checking for syslog.h... no
+checking whether to turn warnings to errors... no
+checking whether to have assert() failures abort even without --enable-debug... no
+checking whether to build the pagein binaries for oosplash... no
+checking whether to enable CPDB support... no
+checking whether to enable CUPS support... no
+checking which fontconfig to use... not tested
+checking whether we want to fetch tarballs... yes, if we use them
+checking whether to include MySpell dictionaries... no
+checking whether to use dicts from external paths... no
+checking whether to enable pch feature... no
+checking the GNU Make version... C:/cygwin/opt/lo/bin/make 4.2.1
+checking for --hash-style gcc linker support... no 
+checking for perl... /usr/bin/perl
+checking the Perl version... Perl 5
+checking for required Perl modules... all modules found
+checking for Windows SDK... 10.0.26100.0
+found Windows SDK 10.0 (C:/PROGRA~2/WI3CF2~1/10)
+checking for midl.exe... C:/PROGRA~2/WI3CF2~1/10//Bin/10.0.26100.0/x64/midl.exe
+checking whether cl.exe is already ccached... no
+checking whether jumbo sheets are supported... yes
+checking whether to enable runtime optimizations... yes
+checking for valgrind/valgrind.h... no
+checking for sys/sdt.h... no
+checking what the C++ library is... Microsoft
+checking for gperf... /usr/bin/gperf
+checking whether gperf is new enough... yes (3.1)
+checking which libcmis to use... internal
+checking whether ccache cl.exe supports C++20... yes (-std:c++20 -permissive- -Zc:__cplusplus,preprocessor)
+checking whether ccache cl.exe supports C++11 without Language Defect 757... yes
+checking whether ccache cl.exe supports C++2a constinit sorted vectors... no
+checking whether ccache cl.exe implements C++ DR P1155R3... yes
+checking whether ccache cl.exe supports C++20 std::atomic_ref... yes
+checking whether ccache cl.exe supports -Zc:dllexportInlines-... no
+checking whether C:/cygwin/opt/lo/bin/ccache.exe C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/1444~1.352/bin/Hostx64/x64/cl.exe  can compile SSE2 intrinsics... yes
+checking whether C:/cygwin/opt/lo/bin/ccache.exe C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/1444~1.352/bin/Hostx64/x64/cl.exe  can compile SSSE3 intrinsics... yes
+checking whether C:/cygwin/opt/lo/bin/ccache.exe C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/1444~1.352/bin/Hostx64/x64/cl.exe  can compile SSE4.1 intrinsics... yes
+checking whether C:/cygwin/opt/lo/bin/ccache.exe C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/1444~1.352/bin/Hostx64/x64/cl.exe  can compile SSE4.2 intrinsics... yes
+checking whether C:/cygwin/opt/lo/bin/ccache.exe C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/1444~1.352/bin/Hostx64/x64/cl.exe  can compile AVX intrinsics... yes
+checking whether C:/cygwin/opt/lo/bin/ccache.exe C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/1444~1.352/bin/Hostx64/x64/cl.exe  can compile AVX2 intrinsics... yes
+checking whether C:/cygwin/opt/lo/bin/ccache.exe C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/1444~1.352/bin/Hostx64/x64/cl.exe  can compile AVX512 intrinsics... yes
+checking whether C:/cygwin/opt/lo/bin/ccache.exe C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/1444~1.352/bin/Hostx64/x64/cl.exe  can compile F16C intrinsics... yes
+checking whether C:/cygwin/opt/lo/bin/ccache.exe C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/1444~1.352/bin/Hostx64/x64/cl.exe  can compile FMA intrinsics... yes
+checking for posix_fallocate... no
+checking for MSVC x64 DLL path... C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/redist/MSVC/14.44.35112/x64/Microsoft.VC143.CRT
+checking for MSVC x64 DLLs... found all (msvcp140.dll vcruntime140.dll)
+checking whether to enable export file validation... no, as Java is disabled
+checking for Microsoft Binary File Format Validator... no
+checking whether to enable EPM for packing... no
+checking whether to build the ODK... no
+checking whether to enable fuzzers... no
+checking which zlib to use... internal
+checking which md4c to use... bundled
+checking which libjpeg to use... internal, libjpeg-turbo
+checking for nasm... nasm
+checking for object file format of host system... Win64-COFF
+checking for object file format specifier (NAFLAGS) ... -fwin64 -DWIN64 -D__x86_64__ -DPIC
+checking whether the assembler (nasm -fwin64 -DWIN64 -D__x86_64__ -DPIC) works... yes
+checking which clucene to use... internal
+checking which expat to use... internal
+checking which xmlsec to use... internal
+checking whether to enable Embedded OpenType support... yes
+checking which libeot to use... internal
+checking which librevenge to use... internal
+checking which libodfgen to use... internal
+checking which libepubgen to use... internal
+checking which libwpd to use... internal
+checking which libwpg to use... internal
+checking which libwps to use... internal
+checking which libvisio to use... internal
+checking which libcdr to use... internal
+checking which libmspub to use... internal
+checking which libmwaw to use... internal
+checking which libetonyek to use... internal
+checking which libfreehand to use... internal
+checking which libebook to use... internal
+checking which libabw to use... internal
+checking which libpagemaker to use... internal
+checking which libqxp to use... internal
+checking which libzmf to use... internal
+checking which libstaroffice to use... internal
+checking which lcms2 to use... internal
+checking which cppunit to use... internal
+checking which freetype to use... not tested
+checking which libxslt to use... internal
+checking which libxml to use... internal
+checking which Python to use for Pyuno... fully internal
+checking whether to build LibreLogo... no
+checking whether to build the MariaDB/MySQL SDBC driver... no
+checking whether to build the PostgreSQL SDBC driver... no
+checking which curl to use... internal
+checking which boost to use... internal
+checking which mdds to use... internal
+checking which dragonbox to use... internal
+checking which fast_float to use... internal
+checking which frozen to use... internal
+checking which libfixmath to use... internal
+checking which glm to use... internal
+checking which odbc headers to use... external
+checking for sqlext.h... yes
+checking which nss to use... internal
+checking which TLS/SSL and cryptographic implementation to use... NSS
+checking which sane header to use... internal
+checking which icu to use... internal
+checking whether to enable breakpad... no
+checking which orcus to use... internal
+checking which graphite to use... internal
+checking which harfbuzz to use... internal
+checking whether to use Xrender... no
+checking whether to enable RandR support... no
+checking for WebDAV support... yes
+checking whether to execute CVE tests... yes
+checking whether to execute NaN payload tests... yes
+checking whether to disable OpenSSL usage... no
+checking which openssl to use... internal
+checking whether to enable the OpenSSL backend for rtl/cipher.h... no
+checking which argon2 to use... internal
+checking which redland to use... internal
+checking which libhunspell to use... internal
+checking which zxcvbn to use... internal
+checking whether to use zxing... yes
+checking which libzxing to use... internal
+checking whether zxing::tosvg function is available... no
+checking which box2d to use... internal
+checking which altlinuxhyph to use... internal
+checking which mythes to use... internal
+checking whether to build with CoinMP... yes
+checking whether to build with lpsolve... no
+checking which libexttextcat to use... internal
+checking which libnumbertext to use... internal
+checking for bison... /usr/bin/bison
+checking the bison version... checking for flex... /usr/bin/flex
+checking the flex version... checking for diff... /usr/bin/diff
+checking for uniq... /usr/bin/uniq
+checking for patch... /usr/bin/patch
+checking for gnucp... no
+checking for cp... /usr/bin/cp
+checking whether C:/cygwin/bin/cp.exe is GNU cp from coreutils with preserve= support... yes
+checking for the MSVC assembler (ml64.exe)... C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/MSVC/1444~1.352/bin/Hostx64/x64/ml64.exe
+checking for zip... /usr/bin/zip
+checking for unzip... /usr/bin/unzip
+checking for touch... /usr/bin/touch
+checking which epoxy to use... internal
+configure: VCLplugs to be built: win
+checking whether to enable DBUS support... no
+checking whether to enable Impress remote control... no
+checking for dconf >= 0.40.0... no
+checking whether to enable dconf... no
+checking whether to build the PDF import feature... yes
+checking whether to build PDFium... yes
+checking which OpenJPEG library to use... internal
+checking which Abseil library to use... internal
+checking whether to build Poppler... no
+checking whether to build Skia... no
+checking for clang-cl... C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64
+checking the dependency generation prefix (clang.exe -showIncludes)... "Note: including file:"
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 supports -Zc:dllexportInlines-... yes
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 can compile SSE2 intrinsics... yes
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 can compile SSSE3 intrinsics... yes
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 can compile SSE4.1 intrinsics... yes
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 can compile SSE4.2 intrinsics... yes
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 can compile AVX intrinsics... yes
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 can compile AVX2 intrinsics... yes
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 can compile AVX512 intrinsics... yes
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 can compile F16C intrinsics... yes
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 can compile FMA intrinsics... yes
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 is already ccached... no
+checking whether C:/PROGRA~1/MICROS~2/2022/ENTERP~1/VC/Tools/Llvm/bin/clang-cl.exe --target=x86_64-pc-windows-msvc -m64 is already ccached... no
+checking whether to enable gpgmepp... no
+checking whether to build Java Websocket for the UNO remote websocket client... no
+checking whether to build the Wiki Publisher extension... no
+checking whether to build the Report Builder... no
+checking whether to build support for scripts in BeanShell... no
+checking whether to build support for scripts in JavaScript... no
+checking whether to enable evolution 2 support... no
+checking which themes to include... colibre
+checking for extensions integration... yes, use integration
+checking whether to build opens___.ttf... no
+checking whether to include third-party fonts... yes
+checking whether to include 'docrepair' fonts... yes
+checking whether to include more Google Noto fonts... no
+checking whether to enable online update... no
+checking whether to enable mar online update... no
+checking for mar online update baseurl... no
+checking for mar online update certificateder... no
+checking for mar online update certificatename... no
+checking for mar online update certificatepath... no
+checking whether to use system bzip2... no
+checking whether to enable extension update... yes
+checking whether to create MSI with LIMITUI=1 (silent install)... no
+no
+checking whether and how to use Xinerama... no
+checking whether to use non-standard RGBA32 cairo pixel order... yes
+checking whether to use the system cairo... no
+checking whether to use MSVC /analyze... no
+checking whether to use system liblangtag... no
+checking which libpng to use... internal
+checking which libtiff to use... internal
+checking which libwebp to use... internal
+checking which languages to be built... en-US
+checking for alternative branding images directory... none
+checking for 'intro' progress settings... none
+checking for extra build ID... not set
+checking for vendor... Dung Office
+checking whether to install the compat oo* wrappers... no
+checking for install dirname... collaboraoffice
+checking for prefix... /usr/local
+checking for Google Drive client id and secret... not set
+checking for Alfresco Cloud client id and secret... not set
+checking for OneDrive client id and secret... not set
+checking whether to enable dependency tracking... yes
+checking for number of processors to use... 4
+realpath: /Lib/um/x64: No such file or directory
+configure: WARNING: realpath failed for "/Lib/um/x64", not necessarily a problem.
+checking whether ccache cl.exe supports a working C++20 consteval... no
+checking whether ccache cl.exe supports a working C++20 std::strong_order... yes
+checking whether to create huge library... yes
+checking whether to use icerun wrapper... no
+checking MPL subset... no restrictions
+checking formula logger... no
+checking for active Antivirus software... n/a
+checking for coredumpctl support... no
+checking whether to keep the system awake/prevent it from going into sleep/standby... no
+checking for jom (parallel nmake)... checking for jom.exe... no
+configure: jom can help accelerate your build, but is completely optional. Get it from https://wiki.qt.io/Jom
+configure: and put it in PATH or add JOM=/unix/style/path/to/jom.exe to your autogen.input to use it
+configure: setting up the build environment variables...
+configure: creating ./config.status
+config.status: creating config_host_lang.mk
+config.status: creating Makefile
+config.status: creating bin/bffvalidator.sh
+config.status: creating bin/odfvalidator.sh
+config.status: creating bin/officeotron.sh
+config.status: creating instsetoo_native/util/openoffice.lst
+config.status: creating sysui/desktop/macosx/Info.plist
+config.status: creating sysui/desktop/macosx/LaunchConstraint.plist
+config.status: creating hardened_runtime.xcent
+config.status: creating lo.xcent
+config.status: creating extensions/source/macosx/quicklookpreview/appex/Info.plist
+config.status: creating extensions/source/macosx/quicklookthumbnail/appex/Info.plist
+config.status: creating config_host.mk
+config.status: creating vs-code.code-workspace.template
+config.status: creating config_host/config_probes.h
+config.status: creating config_host/config_atspi.h
+config.status: creating config_host/config_buildconfig.h
+config.status: creating config_host/config_buildid.h
+config.status: creating config_host/config_box2d.h
+config.status: creating config_host/config_clang.h
+config.status: creating config_host/config_cpdb.h
+config.status: creating config_host/config_crypto.h
+config.status: creating config_host/config_cups.h
+config.status: creating config_host/config_dconf.h
+config.status: creating config_host/config_eot.h
+config.status: creating config_host/config_extensions.h
+config.status: creating config_host/config_cairo_canvas.h
+config.status: creating config_host/config_cairo_rgba.h
+config.status: creating config_host/config_cxxabi.h
+config.status: creating config_host/config_dbus.h
+config.status: creating config_host/config_emscripten.h
+config.status: creating config_host/config_features.h
+config.status: creating config_host/config_feature_desktop.h
+config.status: creating config_host/config_feature_opencl.h
+config.status: creating config_host/config_firebird.h
+config.status: creating config_host/config_folders.h
+config.status: creating config_host/config_fonts.h
+config.status: creating config_host/config_fuzzers.h
+config.status: creating config_host/config_gio.h
+config.status: creating config_host/config_global.h
+config.status: creating config_host/config_gpgme.h
+config.status: creating config_host/config_java.h
+config.status: creating config_host/config_langs.h
+config.status: creating config_host/config_lgpl.h
+config.status: creating config_host/config_libcxx.h
+config.status: creating config_host/config_liblangtag.h
+config.status: creating config_host/config_locales.h
+config.status: creating config_host/config_mpl.h
+config.status: creating config_host/config_oox.h
+config.status: creating config_host/config_options.h
+config.status: creating config_host/config_options_calc.h
+config.status: creating config_host/config_zxing.h
+config.status: creating config_host/config_skia.h
+config.status: creating config_host/config_typesizes.h
+config.status: creating config_host/config_validation.h
+config.status: creating config_host/config_vendor.h
+config.status: creating config_host/config_vclplug.h
+config.status: creating config_host/config_version.h
+config.status: creating config_host/config_oauth2.h
+config.status: creating config_host/config_poppler.h
+config.status: creating config_host/config_python.h
+config.status: creating config_host/config_writerperfect.h
+config.status: creating config_host/config_wasm_strip.h
+config.status: creating solenv/lockfile/autoconf.h
+****************************************************************************
+
+To show information on various make targets and make flags, run:
+C:/cygwin/opt/lo/bin/make help
+
+To just build, run:
+C:/cygwin/opt/lo/bin/make
+

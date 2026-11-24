@@ -1,0 +1,2 @@
+Checkpoint không có tệp kê khai SHA-256 (lượt cũ): chỉ dựa vào checksum nội bộ của ccache
+Checkpoint:  tệp, 855M
