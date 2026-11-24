@@ -15,20 +15,24 @@ jobs:
           Invoke-WebRequest $url -OutFile coda.zip
           "{0:N0} MB" -f ((Get-Item coda.zip).Length / 1MB)
           Expand-Archive coda.zip -DestinationPath coda
-      - name: Liệt kê nội dung và tìm LibreOfficeKit
+      - name: Kiểm tra hàm xuất khẩu của lõi (có kiểm tra dumpbin)
         shell: pwsh
         run: |
-          Write-Host "=== Thư mục cấp 1-2 ==="
-          Get-ChildItem coda -Directory | ForEach-Object { $_.Name; Get-ChildItem $_.FullName -Directory | Select-Object -First 15 | ForEach-Object { "  " + $_.Name } }
-          Write-Host "=== Tệp liên quan LOK / lõi ==="
-          Get-ChildItem coda -Recurse -File | Where-Object { $_.Name -match "libreofficekit|lokit|sofficeapp|mergedlo|vclplug|svp|coda|cool|soffice|^sal3|^uno_" } |
-            ForEach-Object { "{0,10:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName.Substring((Get-Location).Path.Length) } | Select-Object -First 80
-          Write-Host "=== DLL lớn nhất ==="
-          Get-ChildItem coda -Recurse -Filter *.dll | Sort-Object Length -Descending | Select-Object -First 15 |
-            ForEach-Object { "{0,10:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName.Substring((Get-Location).Path.Length) }
-          Write-Host "=== Xuất khẩu lok_init_2 / libreofficekit_hook? ==="
-          $dumpbin = Get-ChildItem "${env:ProgramFiles}\Microsoft Visual Studio\2022\*\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1
-          Get-ChildItem coda -Recurse -Filter *.dll | Where-Object { $_.Length -gt 5MB } | ForEach-Object {
-            $out = & $dumpbin.FullName /exports $_.FullName 2>$null | Select-String "lok_init|libreofficekit_hook|lok_preinit"
-            if ($out) { $_.Name; $out | ForEach-Object { "   " + $_.Line.Trim() } }
+          Write-Host "=== Tệp ở thư mục gốc ==="
+          Get-ChildItem coda -File | ForEach-Object { "{0,10:N1} MB  {1}" -f ($_.Length/1MB), $_.Name }
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1
+          if (-not $dumpbin) { throw "Không tìm thấy dumpbin" }
+          Write-Host "dumpbin: $($dumpbin.FullName)"
+          foreach ($name in "program\mergedlo.dll","program\sclo.dll","program\swlo.dll") {
+            Write-Host "=== $name ==="
+            $all = & $dumpbin.FullName /exports "coda\$name" 2>&1
+            Write-Host ("tổng số dòng: " + $all.Count)
+            $all | Select-String -Pattern "lok_|libreofficekit|lo_|hook" | Select-Object -First 25 | ForEach-Object { "   " + $_.Line.Trim() }
+          }
+          Write-Host "=== Chuỗi libreofficekit trong mergedlo.dll ==="
+          $bytes = [IO.File]::ReadAllBytes("coda\program\mergedlo.dll")
+          $text = [Text.Encoding]::ASCII.GetString($bytes)
+          foreach ($k in "lok_init_2","libreofficekit_hook","lok_preinit","SAL_USE_VCLPLUGIN","vclplug_svp","LibreOfficeKit") {
+            "{0}: {1}" -f $k, ([regex]::Matches($text, [regex]::Escape($k)).Count)
           }
