@@ -27,6 +27,7 @@ include(src/vntext/vntext.cmake)
 include(src/keymap.cmake)
 include(src/print/print.cmake)
 include(src/update/update.cmake)
+include(src/tools/filetools/filetools.cmake)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/src/pdf/pdf.cmake)
 target_link_libraries(DungOffice PRIVATE dungengine Qt6::Widgets)
