@@ -178,7 +178,10 @@ jobs:
           printf 'Engine %s (Collabora CODA, kho LibreOffice core), build --enable-headless cho Dũng Office\nNguồn: https://github.com/LibreOffice/core/tree/%s\nCấu hình: xem autogen.input\n' "$LO_TAG" "$LO_TAG" > instdir/dung-engine-headless.txt
           cp autogen.input instdir/dung-autogen.input
           mv instdir engine
-          7z a -t7z -mx=7 /cygdrive/c/lo/dung-engine-headless-win64.7z engine > /dev/null
+          # 7z.exe là chương trình Windows gốc: phải đưa đường dẫn kiểu Windows, nếu không nó ghi nhầm chỗ
+          out7z="$(cygpath -w /cygdrive/c/lo/dung-engine-headless-win64.7z)"
+          7z a -t7z -mx=7 "$out7z" engine | tail -6
+          test -s /cygdrive/c/lo/dung-engine-headless-win64.7z || { echo "::error::7z không tạo ra tệp nén"; exit 1; }
           ls -la /cygdrive/c/lo/dung-engine-headless-win64.7z
           gh release create "$ENGINE_RELEASE" /cygdrive/c/lo/dung-engine-headless-win64.7z \
             --repo "$GITHUB_REPOSITORY" --title "Engine $LO_TAG (headless, Windows x64)" \
