@@ -282,6 +282,7 @@ jobs:
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-mailmergetest.exe | Select-Object -First 1
           if (-not $exe) { Write-Host "::error::Không thấy dung-mailmergetest.exe"; exit 1 }
+          python -m pip install --quiet openpyxl python-pptx
           python tests/fixtures/mailmerge/make_mailmerge_fixtures.py mm-fixtures
           & $exe.FullName mm-fixtures *>&1 | Tee-Object report/windows-mailmergetest.log
           if ($LASTEXITCODE) { exit 1 }

@@ -677,7 +677,8 @@ QString previewText(const QString &srcDocx, const Values &values, int maxChars, 
     OpResult r; RenderCtx ctx; ctx.norm = normalizeValues(values);
     int n = 0;
     if (!transformParts(pkg, placeholderRe(), makeRenderRepl(ctx), [](const QString &name) { return isPreviewPart(name); }, r, &n)) {
-        if (error) *error = r.error; return QString();
+        if (error) { *error = r.error; }
+        return QString();
     }
     QStringList parts;
     for (const auto &e : pkg.entries) if (isTextPart(e.first) && isPreviewPart(e.first)) parts << e.first;

@@ -3,6 +3,7 @@
 #include "MailMergeCore.h"
 
 #include <QCheckBox>
+#include <QCoreApplication>
 #include <QComboBox>
 #include <QDateTime>
 #include <QDesktopServices>
