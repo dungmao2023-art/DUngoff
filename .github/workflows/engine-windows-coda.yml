@@ -204,8 +204,14 @@ jobs:
         run: |
           $round = [int]("${{ inputs.round }}" -replace '^$', '1')
           if ($round -ge [int]$env:MAX_ROUNDS) { Write-Host "Đã đạt số lượt tối đa"; exit 1 }
-          gh workflow run engine-windows-coda.yml --repo $env:GITHUB_REPOSITORY --ref main -f round=$($round + 1)
-          Write-Host "Đã kích hoạt lượt $($round + 1)"
+          $next = $round + 1
+          $ok = $false
+          for ($try = 1; $try -le 6 -and -not $ok; $try++) {
+            gh workflow run engine-windows-coda.yml --repo $env:GITHUB_REPOSITORY --ref main -f round=$next
+            if ($LASTEXITCODE -eq 0) { $ok = $true } else { Write-Host "Lần thử $try thất bại (mã $LASTEXITCODE), chờ 30 giây"; Start-Sleep 30 }
+          }
+          if (-not $ok) { Write-Host "::error::Không kích hoạt được lượt $next sau 6 lần thử. Chạy tay: gh workflow run engine-windows-coda.yml -f round=$next"; exit 1 }
+          Write-Host "Đã kích hoạt lượt $next"
       - name: Kết luận lượt build
         if: always() && steps.exists.outputs.done == '0'
         shell: pwsh
