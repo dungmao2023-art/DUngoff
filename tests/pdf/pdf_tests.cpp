@@ -155,6 +155,14 @@ int main(int argc, char** argv) {
     const QString bad = P(QStringLiteral("hong.pdf"));
     writeFile(bad, cut);
     Info ib = info(bad);
+    {   // chẩn đoán: qpdf trả gì với tệp cắt cụt
+        QProcess dp;
+        dp.start(findQpdf(), {QStringLiteral("--show-npages"), bad});
+        dp.waitForFinished(60000);
+        std::printf("CHẨN ĐOÁN tệp cắt cụt: mã=%d trang=%s lỗi=%s\n", dp.exitCode(),
+                    dp.readAllStandardOutput().trimmed().constData(),
+                    dp.readAllStandardError().left(200).constData());
+    }
     CHECK(!ib.ok && !ib.error.isEmpty(), "tệp bị cắt cụt: báo lỗi");
     writeFile(P(QStringLiteral("khong-phai-pdf.pdf")), "khong phai pdf");
     CHECK(!info(P(QStringLiteral("khong-phai-pdf.pdf"))).ok, "tệp không phải PDF: báo lỗi");

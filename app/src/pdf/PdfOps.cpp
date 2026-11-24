@@ -84,10 +84,15 @@ public:
         if (m_file.open()) {
             m_file.write(password.toUtf8());
             m_file.close();
-            m_args << QStringLiteral("--password-file=") + m_file.fileName() << QStringLiteral("--decrypt");
+            m_args << QStringLiteral("--password-file=") + m_file.fileName();
         }
     }
-    const QStringList& args() const { return m_args; }
+    // Khi chỉ đọc thông tin thì không thêm --decrypt (qpdf bản mới từ chối tuỳ chọn biến đổi đi kèm tuỳ chọn kiểm tra).
+    QStringList args(bool decrypt = true) const {
+        QStringList a = m_args;
+        if (decrypt && !a.isEmpty()) a << QStringLiteral("--decrypt");
+        return a;
+    }
 
 private:
     QTemporaryFile m_file;
@@ -283,7 +288,7 @@ Info info(const QString& path, const QString& password) {
     }
     inf.bytes = fi.size();
     PasswordFile pw(password);
-    QStringList args = pw.args();
+    QStringList args = pw.args(false);
     args << QStringLiteral("--show-npages") << path;
     Result tmp;
     const Run r = runQpdf(args);
@@ -293,7 +298,7 @@ Info info(const QString& path, const QString& password) {
         return inf;
     }
     inf.pages = r.out.trimmed().toInt();
-    QStringList enc = pw.args();
+    QStringList enc = pw.args(false);
     enc << QStringLiteral("--is-encrypted") << path;
     inf.encrypted = runQpdf(enc).code == 0;
     inf.ok = inf.pages > 0;
