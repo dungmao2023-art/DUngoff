@@ -185,9 +185,18 @@ jobs:
           7z a -t7z -mx=7 "$out7z" engine | tail -6
           test -s /cygdrive/c/lo/dung-engine-headless-win64.7z || { echo "::error::7z không tạo ra tệp nén"; exit 1; }
           ls -la /cygdrive/c/lo/dung-engine-headless-win64.7z
-          gh release create "$ENGINE_RELEASE" /cygdrive/c/lo/dung-engine-headless-win64.7z \
+          # gh cũng là chương trình Windows gốc: dùng đường dẫn Windows ($out7z)
+          gh release create "$ENGINE_RELEASE" "$out7z" \
             --repo "$GITHUB_REPOSITORY" --title "Engine $LO_TAG (headless, Windows x64)" \
             --notes "Engine LibreOffice $LO_TAG build từ mã nguồn chính thức với --enable-headless, dùng cho Dũng Office. Mã nguồn: https://github.com/LibreOffice/core/tree/$LO_TAG . Giấy phép MPL-2.0."
+      - name: Lưu engine làm artifact (dự phòng nếu bước Release lỗi)
+        if: always() && steps.make.outputs.result == 'done'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dung-engine-headless-win64
+          path: C:\lo\dung-engine-headless-win64.7z
+          retention-days: 14
+          if-no-files-found: warn
       - name: Báo cáo (nhánh ci-report-engine)
         if: always() && steps.exists.outputs.done == '0'
         env:
