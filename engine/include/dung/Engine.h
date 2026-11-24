@@ -27,6 +27,8 @@ std::string toUtf8(const fs::path& p);
 fs::path fromUtf8(const std::string& s);
 // Đường dẫn hệ thống -> URL file:/// đã mã hoá phần trăm (định dạng LibreOffice yêu cầu).
 std::string toFileUrl(const fs::path& p);
+// Đường dẫn dài trên Windows: thêm tiền tố \\?\ khi đường dẫn tuyệt đối từ 240 ký tự trở lên (hệ khác: giữ nguyên).
+fs::path longPath(const fs::path& p);
 
 // Sự kiện từ engine (đến từ luồng của LibreOffice, KHÔNG phải luồng giao diện).
 struct EngineEvent {
@@ -156,6 +158,17 @@ public:
     fs::path suggestSaveAsPath(const std::string& ext = std::string()) const;
     SaveResult saveAs(const fs::path& target, const SaveOptions& opts = SaveOptions());
 
+    // --- Bản phục hồi (tự lưu) ---
+    // Ghi một bản sao của trạng thái hiện tại vào `dest` (định dạng theo đuôi tệp) để khôi phục sau sự cố.
+    // KHÔNG đổi cờ "đã sửa", KHÔNG coi là lần lưu của người dùng, KHÔNG đụng tệp gốc. Ghi ra tệp tạm rồi đổi tên.
+    bool saveRecoveryCopy(const fs::path& dest, std::string* error = nullptr);
+    // Đuôi tệp dùng cho bản phục hồi của tài liệu này (docx/xlsx/pptx theo loại).
+    std::string recoveryExt() const;
+    // Tài liệu này được mở từ một bản phục hồi: nhớ tệp gốc và tên hiển thị thật; đánh dấu "chưa lưu".
+    void setRecoveredOrigin(const fs::path& originalPath, const std::string& displayName);
+    bool isRecovered() const { return !m_recoveredName.empty(); }
+    void markModified() { m_modified = true; }
+
 private:
     Document() = default;
     static void lokCallback(int type, const char* payload, void* data);
@@ -176,6 +189,8 @@ private:
     fs::path m_working;
     fs::path m_workDir;   // thư mục tạm riêng của tài liệu này
     std::string m_newName;
+    fs::path m_recoveredOrigin;   // tệp gốc của bản phục hồi (có thể rỗng nếu là tài liệu mới)
+    std::string m_recoveredName;  // tên hiển thị thật của bản phục hồi
     std::vector<std::string> m_warnings;
     std::vector<fs::path> m_sessionOutputs; // tệp do chính phiên này ghi ra (Ctrl+S lặp lại không cần sao lưu)
 

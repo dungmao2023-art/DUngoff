@@ -31,6 +31,7 @@ private:
     DocumentTab* current() const;
     void openDialog(const QString& filter = QString());
     void openPath(const QString& path);
+    void offerRecovery();  // hộp thoại "Khôi phục phiên trước" nếu còn bản mồ côi
     void newDoc(dung::DocKind kind);
     void addTab(DocumentTab* tab);
     bool closeTab(int index);

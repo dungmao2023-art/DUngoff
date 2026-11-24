@@ -8,6 +8,7 @@
 #include "Theme.h"
 #include "TileView.h"
 #include "ppt/SlideThumbs.h"
+#include "recovery/RecoveryStore.h"
 
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
@@ -146,10 +147,50 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         }, Qt::QueuedConnection);
     });
     QTimer::singleShot(0, m_view, qOverload<>(&QWidget::setFocus));
+
+    // Tự lưu bản phục hồi mỗi ~2 phút, chỉ khi có thay đổi. Không bao giờ ghi vào tệp gốc.
+    m_autosave = new QTimer(this);
+    m_autosave->setInterval(2 * 60 * 1000);
+    connect(m_autosave, &QTimer::timeout, this, &DocumentTab::autosaveTick);
+    m_autosave->start();
 }
 
 DocumentTab::~DocumentTab() {
     if (m_doc) m_doc->setEventSink(nullptr);
+    dropRecovery();
+}
+
+void DocumentTab::adoptRecovered(const recovery::Entry& e) {
+    m_adopted = e;
+    m_hasAdopted = true;
+    m_recOrigin = e.originalPath;
+    m_recOriginSet = true;
+    m_dirtySinceAutosave = true;  // bản này chưa nằm trong phiên mới: tự lưu ngay ở nhịp tới
+}
+
+void DocumentTab::dropRecovery() {
+    if (!m_recId.isEmpty()) recovery::Session::instance().discard(m_recId);
+    m_recId.clear();
+    if (m_hasAdopted) { recovery::discardEntry(m_adopted); m_hasAdopted = false; }
+}
+
+void DocumentTab::autosaveTick() {
+    auto& rs = recovery::Session::instance();
+    if (!rs.active() || !m_doc || m_doc->readOnly()) return;
+    if (!m_doc->modified() || !m_dirtySinceAutosave) return;
+    if (!rs.hasRoom()) return;  // thư mục phục hồi đã đầy: bỏ qua, không làm gì khác
+    const std::string ext = m_doc->recoveryExt();
+    if (ext.empty()) return;
+    if (m_recId.isEmpty()) m_recId = rs.newDocId();
+    const QString e = qs(ext);
+    std::string err;
+    if (!m_doc->saveRecoveryCopy(toPath(rs.dataPath(m_recId, e)), &err)) return;  // lỗi tự lưu không làm phiền người dùng
+    const QString orig = m_doc->isNew() ? QString() : fromPath(m_doc->originalPath());
+    const QString original = m_recOriginSet ? m_recOrigin : orig;
+    if (rs.commit(m_recId, e, qs(m_doc->displayName()), original, original.isEmpty())) {
+        m_dirtySinceAutosave = false;
+        if (m_hasAdopted) { recovery::discardEntry(m_adopted); m_hasAdopted = false; }  // đã có bản mới trong phiên này
+    }
 }
 
 QString DocumentTab::title() const {
@@ -199,6 +240,7 @@ void DocumentTab::rebuildParts() {
 
 void DocumentTab::onEngineEvent(int type, const QString& payload) {
     m_view->handleEvent(type, payload);
+    if (type == LOK_CALLBACK_INVALIDATE_TILES && m_doc->modified()) m_dirtySinceAutosave = true;
     if (m_doc->modified() != m_lastMod) { m_lastMod = m_doc->modified(); emit statusChanged(); } // đổi trạng thái "chưa lưu"
     switch (type) {
     case LOK_CALLBACK_CELL_ADDRESS:
@@ -334,7 +376,11 @@ bool DocumentTab::doSave(const QString& path, bool confirmedReplace) {
         QMessageBox::warning(this, tr("Chưa lưu được"), qs(r.message));
         return false;
     }
-    if (!isPdf) m_savedPath = path;
+    if (!isPdf) {
+        m_savedPath = path;
+        m_dirtySinceAutosave = false;
+        dropRecovery();  // đã lưu: bản phục hồi không còn cần
+    }
     emit titleChanged();
     emit statusChanged();
     emit savedTo(path);
@@ -422,5 +468,6 @@ bool DocumentTab::maybeClose() {
     box.addButton(tr("Huỷ"), QMessageBox::RejectRole);
     box.exec();
     if (box.clickedButton() == saveBtn) return save();
-    return box.clickedButton() == discard;
+    if (box.clickedButton() == discard) { dropRecovery(); return true; }
+    return false;
 }
