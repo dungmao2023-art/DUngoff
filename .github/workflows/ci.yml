@@ -43,6 +43,10 @@ jobs:
           set -o pipefail
           qpdf --version | head -1
           QT_QPA_PLATFORM=offscreen ./build/app/dung-pdftest 2>&1 | tee report/linux-pdftest.log
+      - name: Kiểm thử tiện ích bảng tính (dòng trùng, so sánh, làm sạch)
+        run: |
+          set -o pipefail
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-tabletest 2>&1 | tee report/linux-tabletest.log
       - name: Kiểm thử thư viện mẫu (thay gói cũ bằng gói mới)
         run: |
           set -o pipefail
@@ -212,6 +216,12 @@ jobs:
           $exe = Get-ChildItem build/out -Recurse -Filter dung-pdftest.exe | Select-Object -First 1
           if (-not $exe) { Write-Host "::error::Không thấy dung-pdftest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-pdftest.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm thử tiện ích bảng tính trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-tabletest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-tabletest.exe"; exit 1 }
+          & $exe.FullName *>&1 | Tee-Object report/windows-tabletest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử thư viện mẫu trên Windows
         run: |
