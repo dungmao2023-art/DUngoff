@@ -128,6 +128,18 @@ jobs:
             --stress fixtures/stress-5000-dong.xlsx --excel 1 --out smoke-excel 2>&1 | tee report/linux-excel.log
           python3 -W ignore tests/excel/verify_excel.py smoke-excel/excel-ket-qua.xlsx \
             fixtures/stress-5000-dong.xlsx smoke-excel/stress-ket-qua.xlsx 2>&1 | tee report/linux-excel-verify.log
+      - name: Kiểm kê hiệu năng + an toàn dữ liệu (tham khảo, không chặn)
+        continue-on-error: true
+        timeout-minutes: 40
+        run: |
+          pip install --quiet openpyxl python-docx python-pptx || true
+          python3 tests/inventory/make_big.py inv-fixtures
+          P=/usr/lib/libreoffice/program
+          { for f in inv-fixtures/*; do timeout 600 ./build/dung-inventory perf $P "$f" "inv-out/perf-$(basename "$f")" || echo "INV loi=perf $f thoat=$?"; done
+            timeout 300 ./build/dung-inventory safety $P fixtures/mau-doanh-thu.xlsx inv-out/safety || echo "INV loi=safety thoat=$?"
+            timeout 300 ./build/dung-inventory longpath $P fixtures/mau-doanh-thu.xlsx inv-out/longpath || echo "INV loi=longpath thoat=$?"
+            python3 tests/inventory/kill_mid_save.py ./build/dung-inventory $P inv-fixtures/xlsx-100k-dong.xlsx inv-out/kill 4
+          } 2>&1 | tee report/linux-inventory.log
       - name: Ảnh chụp giao diện thật (Xvfb)
         if: always() && hashFiles('build/app/DungOffice') != ''
         run: |
@@ -291,6 +303,29 @@ jobs:
           if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-basic.log; exit 1 }
           Get-Content report/windows-basic.log
           if ($p.ExitCode) { exit 1 }
+      - name: Kiểm kê hiệu năng + an toàn dữ liệu (tham khảo, không chặn)
+        continue-on-error: true
+        timeout-minutes: 45
+        run: |
+          $env:PYTHONUTF8 = "1"
+          python tests/inventory/make_big.py inv-fixtures
+          $exe = (Get-ChildItem build/out -Recurse -Filter dung-inventory.exe | Select-Object -First 1).FullName
+          $prog = "$PWD/build/lo/engine/program"
+          function Run-Inv($argList, $secs) {
+            $o = [IO.Path]::GetTempFileName()
+            $p = Start-Process $exe -ArgumentList $argList -PassThru -NoNewWindow -RedirectStandardOutput $o -RedirectStandardError "$o.err"
+            if (-not $p.WaitForExit($secs * 1000)) { Stop-Process $p -Force; "INV loi=quá $secs giây: $($argList -join ' ')" }
+            else { Get-Content $o; if ($p.ExitCode -ne 0 -and $p.ExitCode -ne $null) { "INV thoat=$($p.ExitCode): $($argList[0])" } }
+            Get-Content "$o.err" -ErrorAction SilentlyContinue | Select-Object -First 5
+          }
+          $log = @()
+          foreach ($f in Get-ChildItem inv-fixtures) {
+            $log += Run-Inv @("perf", "`"$prog`"", "`"$($f.FullName)`"", "`"$PWD/inv-out/perf-$($f.Name)`"") 600
+          }
+          $log += Run-Inv @("safety", "`"$prog`"", "`"$PWD/fixtures/mau-doanh-thu.xlsx`"", "`"$PWD/inv-out/safety`"") 300
+          $log += Run-Inv @("longpath", "`"$prog`"", "`"$PWD/fixtures/mau-doanh-thu.xlsx`"", "`"$PWD/inv-out/longpath`"") 300
+          $log += python tests/inventory/kill_mid_save.py $exe $prog "$PWD/inv-fixtures/xlsx-100k-dong.xlsx" "$PWD/inv-out/kill" 4
+          $log | Tee-Object report/windows-inventory.log
       - name: Thăm dò vẽ lại sau khi gõ chữ (Writer, Calc, Impress) — engine headless
         continue-on-error: true
         timeout-minutes: 8
