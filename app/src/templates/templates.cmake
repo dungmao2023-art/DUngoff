@@ -13,7 +13,7 @@ target_include_directories(dung-templatetest PRIVATE ${DUNG_TPL_DIR} ${PROJECT_S
 target_link_libraries(dung-templatetest PRIVATE Qt6::Core)
 if(WIN32)
   # Giải nén zip bằng QZipReader (Qt, API riêng) — chỉ dùng trên Windows
-  find_package(Qt6 6.4 REQUIRED COMPONENTS Gui GuiPrivate)
+  find_package(Qt6 6.4 REQUIRED COMPONENTS Gui)
   target_link_libraries(dung-templatetest PRIVATE Qt6::Gui Qt6::GuiPrivate)
   target_link_libraries(DungOffice PRIVATE Qt6::GuiPrivate)
 endif()
