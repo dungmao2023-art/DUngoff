@@ -132,7 +132,7 @@ static void testVerify() {
     check(update::verifyFile(path, QString::fromLatin1(hexOf(data)), &err), "SHA-256 khớp -> chấp nhận");
     check(update::verifyFile(path, QString::fromLatin1(hexOf(data).toUpper()), &err), "mã chữ hoa vẫn khớp");
     err.clear();
-    check(!update::verifyFile(path, QString::fromLatin1(hexOf("khác")), &err) && err.contains(QLatin1String("KHÔNG khớp")), "SHA-256 sai -> từ chối", err);
+    check(!update::verifyFile(path, QString::fromLatin1(hexOf("khác")), &err) && err.contains(QStringLiteral("KHÔNG khớp")), "SHA-256 sai -> từ chối", err);
     check(!update::verifyFile(path, QString(), &err), "mã rỗng -> từ chối");
     check(!update::verifyFile(path, QStringLiteral("abc"), &err), "mã sai độ dài -> từ chối");
     check(!update::verifyFile(path, QString(64, QLatin1Char('z')), &err), "mã không phải hex -> từ chối");
