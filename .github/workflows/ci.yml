@@ -48,6 +48,13 @@ jobs:
           set -o pipefail
           (cd templates && python3 -c "import shutil; shutil.make_archive('../mau-thu', 'zip', '.')")
           DUNG_TEST_ZIP="$PWD/mau-thu.zip" QT_QPA_PLATFORM=offscreen ./build/app/dung-templatetest 2>&1 | tee report/linux-templatetest.log
+      - name: Toàn vẹn hiển thị/in trên thư viện mẫu thật (158 mẫu, xuất PDF)
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pip install --quiet pypdf python-docx python-pptx || true
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --templates templates --out smoke-tpl 2>&1 | tee report/linux-template-fidelity.log
+          python3 tests/templates/verify_fidelity.py templates smoke-tpl 2>&1 | tee report/linux-template-fidelity-verify.log
       - name: Báo lỗi biên dịch
         if: failure()
         run: grep -E "error|Error" report/linux-build.log | head -10 | sed 's/^/::error::/' || true

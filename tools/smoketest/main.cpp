@@ -100,6 +100,7 @@ static bool waitAddress(Document& d, const std::string& addr, int ms = 15000) {
 }
 
 // Kiểm thử PowerPoint (tools/smoketest/ppt_tests.cpp), bật bằng --ppt <mau.pptx>.
+int dungRunTemplateFidelity(const fs::path& program, const fs::path& dir, const fs::path& out); // template_fidelity.cpp
 int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::path& out);
 
 int main(int argc, char** argv) {
@@ -119,6 +120,7 @@ int main(int argc, char** argv) {
     fs::path roundtrip;                // --roundtrip <tệp>: chỉ mở, render mọi sheet, lưu bản sao (không sửa)
     bool wordMode = false;             // --word 1: kiểm thử các lệnh Word (word_tests.cpp)
     fs::path pptTests;                 // --ppt <tệp.pptx>: kiểm thử lệnh PowerPoint (ppt_tests.cpp)
+    fs::path templatesDir;             // --templates <thư mục>: toàn vẹn hiển thị/in trên thư viện mẫu
     bool excelMode = false; fs::path stressFile; // --excel 1 [--stress <tệp>]: kiểm thử Excel cơ bản (excel_tests.cpp)
     bool basicOnly = false;            // --chi-mo 1: dừng sau bước hiển thị (engine chưa hỗ trợ nhập liệu)
     for (size_t i = 1; i + 1 < args.size(); i += 2) {
@@ -132,12 +134,14 @@ int main(int argc, char** argv) {
         else if (args[i] == "--roundtrip") roundtrip = fromUtf8(args[i + 1]);
         else if (args[i] == "--word") wordMode = (args[i + 1] == "1");
         else if (args[i] == "--ppt") pptTests = fromUtf8(args[i + 1]);
+        else if (args[i] == "--templates") templatesDir = fromUtf8(args[i + 1]);
         else if (args[i] == "--excel") excelMode = (args[i + 1] == "1");
         else if (args[i] == "--stress") stressFile = fromUtf8(args[i + 1]);
         else if (args[i] == "--chi-mo") basicOnly = (args[i + 1] == "1"); // chỉ mở + hiển thị, bỏ nhập liệu/lưu
     }
     if (wordMode && !program.empty() && !out.empty()) return runWordTests(program, out);
     if (!pptTests.empty() && !program.empty() && !out.empty()) return dungRunPptTests(program, pptTests, out);
+    if (!templatesDir.empty() && !program.empty() && !out.empty()) return dungRunTemplateFidelity(program, templatesDir, out);
     if (excelMode && !program.empty() && !xlsx.empty() && !out.empty()) return runExcelTests(program, xlsx, stressFile, out);
     if (!roundtrip.empty() && !program.empty() && !out.empty()) {
         std::error_code e2;
