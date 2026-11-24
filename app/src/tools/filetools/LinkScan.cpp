@@ -257,10 +257,12 @@ ScanLinksResult scanLinks(const QStringList& paths, const ScanLinksOptions& o, c
     QStringList files;
     for (const QString& p : paths) {
         const QFileInfo fi(p);
-        if (fi.isDir()) {
-            QDirIterator it(p, QDir::Files | QDir::NoDotAndDotDot, o.recursive ? QDirIterator::Subdirectories : QDirIterator::NoIteratorFlags);
+        const bool isLnk = fi.suffix().compare(QLatin1String("lnk"), Qt::CaseInsensitive) == 0;   // Windows coi .lnk là liên kết tượng trưng
+        if (fi.isDir() && !isLnk) {
+            // QDir::System: để thấy cả .lnk đang trỏ vào chỗ không còn (Windows xếp chúng vào loại "hệ thống")
+            QDirIterator it(p, QDir::Files | QDir::System | QDir::NoDotAndDotDot, o.recursive ? QDirIterator::Subdirectories : QDirIterator::NoIteratorFlags);
             while (it.hasNext()) files << it.next();
-        } else if (fi.isFile()) files << fi.absoluteFilePath();
+        } else if (fi.isFile() || fi.isSymLink() || isLnk) { if (fi.isSymLink() || fi.exists() || isLnk) files << fi.absoluteFilePath(); else res.skipped << QObject::tr("%1: không tồn tại").arg(p); }
         else res.skipped << QObject::tr("%1: không tồn tại").arg(p);
     }
     std::sort(files.begin(), files.end());

@@ -100,14 +100,34 @@ OpResult undoJournal(const QString& journalPath)
     QVector<JournalEntry> es;
     for (const auto& v : doc.object().value("entries").toArray()) es.push_back({v.toObject().value("from").toString(), v.toObject().value("to").toString()});
     if (es.isEmpty()) { r.error = QObject::tr("Nhật ký không có mục nào."); return r; }
+    // Hoàn tác 2 pha (giống lúc áp dụng) để hoán đổi/chuỗi đổi tên vẫn đúng: đưa tất cả `to` ra tên tạm,
+    // rồi đặt về `from`. Mục nào `to` không còn hoặc `from` đã bị tệp khác chiếm thì bỏ qua và BÁO, không ghi đè.
     int skipped = 0;
-    for (int i = es.size() - 1; i >= 0; --i) {
+    struct Step { int idx; QString tmp; };
+    QVector<Step> held;
+    for (int i = int(es.size()) - 1; i >= 0; --i) {
         const auto& e = es[i];
         if (!QFileInfo::exists(e.to)) { r.warnings << QObject::tr("Không thấy '%1' — bỏ qua.").arg(e.to); ++skipped; continue; }
+        const QString tmp = join(QFileInfo(e.to).absolutePath(), QStringLiteral(".dung-tmp-") + QUuid::createUuid().toString(QUuid::Id128));
         QString err;
-        if (!safeRename(e.to, e.from, err)) {
+        if (!safeRename(e.to, tmp, err)) { r.warnings << QObject::tr("Không đưa '%1' về '%2' (%3) — bỏ qua.").arg(e.to, e.from, err); ++skipped; continue; }
+        held.push_back({i, tmp});
+    }
+    for (const Step& st : held) {
+        const auto& e = es[st.idx];
+        QString err;
+        if (QFileInfo::exists(e.from)) {
+            r.warnings << QObject::tr("Không đưa '%1' về '%2' (đã có mục khác ở đó) — giữ nguyên tên mới.").arg(e.to, e.from);
+            ++skipped;
+            if (!safeRename(st.tmp, e.to, err)) r.warnings << QObject::tr("Không đặt lại được '%1': %2 (tệp đang nằm ở '%3')").arg(e.to, err, st.tmp);
+            continue;
+        }
+        QDir().mkpath(QFileInfo(e.from).absolutePath());
+        if (!safeRename(st.tmp, e.from, err)) {
             r.warnings << QObject::tr("Không đưa '%1' về '%2' (%3) — bỏ qua.").arg(e.to, e.from, err);
-            ++skipped; continue;
+            ++skipped;
+            if (!safeRename(st.tmp, e.to, err)) r.warnings << QObject::tr("Không đặt lại được '%1': %2 (tệp đang nằm ở '%3')").arg(e.to, err, st.tmp);
+            continue;
         }
         ++r.done;
     }

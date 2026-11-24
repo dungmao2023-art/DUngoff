@@ -358,7 +358,7 @@ int main(int argc, char** argv)
     {
         const QString d = R + "/org";
         for (const char* n : {"Báo cáo.docx", "Bảng lương.xlsx", "ảnh 1.JPG", "a.xyz", "Bài thuyết trình.pptx", ".an.txt", "~$tam.docx"}) put(d + "/" + QString::fromUtf8(n), "x");
-        put(d + "/con/Báo cáo.docx", "khác"); put(d + "/con/ghi chú.txt", "t");
+        put(d + "/thu-muc-con/Báo cáo.docx", "khác"); put(d + "/thu-muc-con/ghi chú.txt", "t");
         CHECK(fileCategory("DOCX") == QString::fromUtf8("Tài liệu") && fileCategory("jpeg") == QString::fromUtf8("Ảnh") && fileCategory("zzz") == "Khác", "phân loại theo đuôi (không phân biệt hoa/thường)");
         auto plan = planOrganize(d, false, OrganizeMode::ByCategory, QString());
         CHECK(plan.items.size() == 5 && plan.skipped.size() == 2, "chỉ tệp trực tiếp; tệp ẩn và ~$ bị bỏ qua có ghi lý do");
@@ -367,7 +367,7 @@ int main(int argc, char** argv)
         CHECK(ok && QFileInfo::exists(d + "/Báo cáo.docx"), "xem trước không đụng tới đĩa");
         auto r = applyOrganize(plan, J);
         CHECK(r.ok && r.done == 5 && QFileInfo::exists(d + QString::fromUtf8("/Tài liệu/Báo cáo.docx")) && QFileInfo::exists(d + QString::fromUtf8("/Ảnh/ảnh 1.JPG")) && QFileInfo::exists(d + "/Khác/a.xyz"), "chuyển vào thư mục theo loại, tên Unicode");
-        CHECK(QFileInfo::exists(d + "/.an.txt") && QFileInfo::exists(d + "/con/Báo cáo.docx"), "không đụng tới tệp ẩn và thư mục con");
+        CHECK(QFileInfo::exists(d + "/.an.txt") && QFileInfo::exists(d + "/thu-muc-con/Báo cáo.docx"), "không đụng tới tệp ẩn và thư mục con");
         // chạy lại: tệp đã đúng chỗ → không có gì để chuyển
         CHECK(planOrganize(d, true, OrganizeMode::ByCategory, QString()).items.size() == 2, "chạy lại với 'cả thư mục con': chỉ 2 tệp trong 'con' cần chuyển, tệp đã đúng chỗ giữ nguyên");
         // trùng tên ở đích → thêm số, không ghi đè
@@ -377,7 +377,7 @@ int main(int argc, char** argv)
         CHECK(renamed && plan2.renamedForConflict == 1, "trùng tên ở thư mục đích → thêm ' (2)'");
         auto r2 = applyOrganize(plan2, J);
         CHECK(r2.ok && get(d + QString::fromUtf8("/Tài liệu/Báo cáo.docx")) == "x" && get(d + QString::fromUtf8("/Tài liệu/Báo cáo (2).docx")) == QString::fromUtf8("khác").toUtf8(), "không ghi đè tệp gốc có sẵn ở đích");
-        CHECK(undoJournal(r2.journalPath).ok && QFileInfo::exists(d + "/con/Báo cáo.docx") && !QFileInfo::exists(d + QString::fromUtf8("/Tài liệu/Báo cáo (2).docx")), "hoàn tác lần chuyển thứ hai");
+        CHECK(undoJournal(r2.journalPath).ok && QFileInfo::exists(d + "/thu-muc-con/Báo cáo.docx") && !QFileInfo::exists(d + QString::fromUtf8("/Tài liệu/Báo cáo (2).docx")), "hoàn tác lần chuyển thứ hai");
         CHECK(undoJournal(r.journalPath).ok && QFileInfo::exists(d + "/Báo cáo.docx") && QFileInfo::exists(d + "/a.xyz") && QFileInfo::exists(d + QString::fromUtf8("/ảnh 1.JPG")), "hoàn tác lần chuyển đầu: tệp về chỗ cũ");
         // đích đổi sau khi xem trước → từ chối, không đổi gì
         auto plan3 = planOrganize(d, false, OrganizeMode::ByExtension, R + "/org-dich");
@@ -487,7 +487,7 @@ int main(int argc, char** argv)
         }
         // xlsx: liên kết sổ tính ngoài
         {
-            QFile f(d + "/con/Tổng hợp.xlsx"); QDir().mkpath(d + "/con"); f.open(QIODevice::WriteOnly);
+            QFile f(d + "/thu-muc-con/Tổng hợp.xlsx"); QDir().mkpath(d + "/thu-muc-con"); f.open(QIODevice::WriteOnly);
             f.write(makeZip({{"xl/externalLinks/_rels/externalLink1.xml.rels", relsXml({{"rId1", "externalLinkPath", "../co-san.xlsx", "ext"}, {"rId2", "externalLinkPath", "Gia.xlsx", "ext"}}), 0, 0},
                 {"xl/worksheets/_rels/sheet1.xml.rels", relsXml({{"rId1", "hyperlink", "https://example.com/b", "ext"}}), 8, 9}}));
         }
