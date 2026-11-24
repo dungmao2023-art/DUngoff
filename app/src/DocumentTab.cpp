@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 #define LOK_USE_UNSTABLE_API
 #include "DocumentTab.h"
+#include "print/PrintDialog.h"
+#include <QTemporaryDir>
 
 #include "EngineHost.h"
 #include "Theme.h"
@@ -376,6 +378,35 @@ bool DocumentTab::exportPdf() {
     if (path.isEmpty()) return false;
     if (!path.endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive)) path += QStringLiteral(".pdf");
     return doSave(path, true);
+}
+
+bool DocumentTab::printDocument() {
+    // Xem trước và in dùng CÙNG MỘT tệp PDF → không lệch giữa xem trước và bản in.
+    QTemporaryDir tmp;
+    QString pdfPath;
+    const QString original = m_doc->isNew() ? QString() : fromPath(m_doc->originalPath());
+    if (m_doc->kind() == DocKind::Drawing && original.endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive) && QFileInfo::exists(original)) {
+        pdfPath = original;  // PDF đang mở: in đúng tệp gốc, không xuất lại
+    } else {
+        if (!tmp.isValid()) {
+            QMessageBox::warning(this, tr("In"), tr("Không tạo được thư mục tạm để chuẩn bị bản in."));
+            return false;
+        }
+        pdfPath = tmp.filePath(QStringLiteral("ban-in.pdf"));
+        dung::SaveOptions opts;
+        opts.allowLossyExport = true;  // PDF tạm chỉ để in, không thay thế tài liệu
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        const dung::SaveResult r = m_doc->saveAs(toPath(pdfPath), opts);
+        QApplication::restoreOverrideCursor();
+        if (!r.ok) {
+            QMessageBox::warning(this, tr("In"), tr("Không chuẩn bị được bản in: %1").arg(qs(r.message)));
+            return false;
+        }
+    }
+    // Chỉ so số trang với Word/PowerPoint (Excel: phần là sheet, không tương ứng số trang in).
+    const int display = (m_doc->kind() == DocKind::Text || m_doc->kind() == DocKind::Presentation) ? m_doc->partCount() : -1;
+    PrintDialog::run(this, pdfPath, display, qs(m_doc->displayName()));
+    return true;
 }
 
 bool DocumentTab::maybeClose() {

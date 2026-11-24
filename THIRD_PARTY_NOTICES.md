@@ -42,3 +42,6 @@ Engine v2 kèm từ điển Hunspell tiếng Việt lấy từ phần "dictionar
 **Giấy phép chính xác của từ điển này cần xác minh** theo tệp README/LICENSE đi kèm (được sao vào `LICENSES-dung/` trong gói engine
 khi build). Chưa kiểm được ở thời điểm ghi mục này; không phát hành công khai bộ cài chứa từ điển cho đến khi xác minh xong.
 Từ điển là dữ liệu tách biệt, không liên kết vào mã của ứng dụng.
+## Qt PDF (xem trước in và in)
+- Mô-đun Qt PDF của Qt Project / The Qt Company, giấy phép GNU LGPL phiên bản 3 (hoặc GPL phiên bản 2, hoặc giấy phép thương mại) — theo trang giấy phép chính thức https://doc.qt.io/qt-6/qtpdf-index.html. Dũng Office dùng bản LGPL, liên kết động (DLL kèm theo bộ cài), không sửa mã Qt.
+- Mô-đun này đi kèm bộ vẽ PDF PDFium cùng các thành phần bên thứ ba của nó; văn bản giấy phép của các thành phần đó nằm trong tài liệu giấy phép của Qt (https://doc.qt.io/qt-6/qtpdf-attribution.html). Mình chưa đối chiếu từng thành phần: cần rà lại trước khi phát hành chính thức.

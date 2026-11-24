@@ -33,6 +33,9 @@ jobs:
             xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils qpdf
           pip3 install --break-system-packages python-docx python-pptx
           mkdir -p report
+          # Qt PDF cho xem trước/in: thử cài, ghi lại kết quả (không làm hỏng cả job nếu gói không có)
+          if sudo apt-get install -y --no-install-recommends qt6-pdf-dev 2>&1 | tee report/linux-qtpdf-install.log | tail -2; then :; fi
+          dpkg -s qt6-pdf-dev >/dev/null 2>&1 && echo "QTPDF=có" | tee -a report/linux-qtpdf-install.log || echo "QTPDF=không" | tee -a report/linux-qtpdf-install.log
       - name: Build
         run: |
           set -o pipefail
@@ -47,6 +50,11 @@ jobs:
         run: |
           set -o pipefail
           QT_QPA_PLATFORM=offscreen ./build/app/dung-tabletest 2>&1 | tee report/linux-tabletest.log
+      - name: Kiểm thử in / xem trước (khoảng trang, vẽ PDF, in ra tệp PDF)
+        run: |
+          set -o pipefail
+          if dpkg -s qt6-pdf-dev >/dev/null 2>&1; then export DUNG_REQUIRE_PDF=1; fi
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-printtest 2>&1 | tee report/linux-printtest.log
       - name: Kiểm thử tiện ích văn bản tiếng Việt (số tiền, ngày, bảng mã cũ)
         run: |
           set -o pipefail
@@ -176,6 +184,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           arch: win64_msvc2022_64
+          modules: qtpdf
           cache: true
       - name: Cache engine headless
         uses: actions/cache@v4
@@ -230,6 +239,14 @@ jobs:
           $exe = Get-ChildItem build/out -Recurse -Filter dung-tabletest.exe | Select-Object -First 1
           if (-not $exe) { Write-Host "::error::Không thấy dung-tabletest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-tabletest.log
+      - name: Kiểm thử in / xem trước trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-printtest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-printtest.exe"; exit 1 }
+          $env:DUNG_REQUIRE_PDF = "1"
+          $env:QT_QPA_PLATFORM = "offscreen"
+          & $exe.FullName *>&1 | Tee-Object report/windows-printtest.log
+          if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử tiện ích văn bản tiếng Việt trên Windows
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-vntexttest.exe | Select-Object -First 1
