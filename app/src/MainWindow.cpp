@@ -66,6 +66,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_tabs->setTabsClosable(true);
     m_tabs->setMovable(true);
     m_tabs->setDocumentMode(true);
+    m_tabs->tabBar()->setElideMode(Qt::ElideRight); // tên dài cắt phần cuối, giữ phần đầu
+    m_tabs->tabBar()->setUsesScrollButtons(true);
     dv->addWidget(m_ribbon);
     dv->addWidget(m_tabs, 1);
     m_stack->addWidget(m_home);

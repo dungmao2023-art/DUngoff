@@ -291,6 +291,7 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             tb->setText(b.label);
             tb->setToolTip(b.label);
             tb->setMinimumHeight(56);
+            tb->setMinimumWidth(qMax(44, tb->fontMetrics().horizontalAdvance(b.label) + 14)); // không cắt nhãn dài
             const QString id = b.id;
             connect(tb, &QToolButton::clicked, this, [this, id, tb] {
                 if (id.startsWith(QLatin1String(".uno:"))) {
