@@ -106,6 +106,15 @@ public:
 
     // Vẽ một vùng tài liệu vào bộ đệm BGRA 32-bit (premultiplied), pxW x pxH điểm ảnh.
     void paintTile(uint8_t* buffer, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH);
+    // Vẽ MỘT TRANG/SLIDE bất kỳ (không đổi trang hiện tại) vào bộ đệm BGRA premultiplied.
+    // Dùng cho hình thu nhỏ và trình chiếu. mode: 0 = bình thường.
+    void paintPartTile(uint8_t* buffer, int part, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH);
+    // Chế độ hiển thị của trang chiếu: 0 = trang chiếu, 1 = trang ghi chú (chỉ Impress).
+    void setPartMode(int mode);
+    // Thông tin trang dạng JSON của engine (vd. {"visible":"1","mode":0,...}); rỗng nếu engine không hỗ trợ.
+    std::string partInfo(int part);
+    // Băm nội dung trang (đổi khi nội dung trang đổi); rỗng nếu engine không hỗ trợ.
+    std::string partHash(int part);
     // Báo engine vùng đang hiển thị và tỉ lệ zoom (giúp Calc tính đúng con trỏ, tiêu đề hàng/cột).
     void setClientView(int pxTileW, int pxTileH, int twipTileW, int twipTileH,
                        int visX, int visY, int visW, int visH);

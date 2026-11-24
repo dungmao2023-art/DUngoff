@@ -157,9 +157,46 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     {QStringLiteral(".uno:InsertPage"), tr("Trang mới"), 0xE710, QStringLiteral("+"), false},
                     {QStringLiteral(".uno:DuplicatePage"), tr("Nhân bản"), 0xE8C8, QStringLiteral("⧉"), false},
                     {QStringLiteral(".uno:DeletePage"), tr("Xoá trang"), 0xE74D, QStringLiteral("−"), false},
+                    {QStringLiteral(".uno:MovePageUp"), tr("Dời lên"), 0xE74A, QStringLiteral("↑"), false},
+                    {QStringLiteral(".uno:MovePageDown"), tr("Dời xuống"), 0xE74B, QStringLiteral("↓"), false},
+                    {QStringLiteral(".uno:HideSlide"), tr("Ẩn trang"), 0xED1A, QStringLiteral("⊘"), false},
+                    {QStringLiteral(".uno:ShowSlide"), tr("Hiện trang"), 0xE7B3, QStringLiteral("◉"), false},
+                }},
+                {tr("Bố cục"), {
+                    {QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"0\"}}"), tr("Tiêu đề"), 0xE8A1, QStringLiteral("T"), false},
+                    {QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"20\"}}"), tr("Trống"), 0xE7C3, QStringLiteral("□"), false},
                 }},
                 font,
+                {tr("Cỡ chữ"), {
+                    {QStringLiteral(".uno:FontHeight#{\"FontHeight.Height\":{\"type\":\"float\",\"value\":\"18\"}}"), tr("Cỡ 18"), 0xE8E9, QStringLiteral("18"), false},
+                    {QStringLiteral(".uno:FontHeight#{\"FontHeight.Height\":{\"type\":\"float\",\"value\":\"24\"}}"), tr("Cỡ 24"), 0xE8E9, QStringLiteral("24"), false},
+                    {QStringLiteral(".uno:FontHeight#{\"FontHeight.Height\":{\"type\":\"float\",\"value\":\"32\"}}"), tr("Cỡ 32"), 0xE8E9, QStringLiteral("32"), false},
+                    {QStringLiteral(".uno:FontHeight#{\"FontHeight.Height\":{\"type\":\"float\",\"value\":\"44\"}}"), tr("Cỡ 44"), 0xE8E9, QStringLiteral("44"), false},
+                }},
+                {tr("Màu chữ"), {
+                    {QStringLiteral(".uno:Color#{\"Color\":{\"type\":\"long\",\"value\":\"0\"}}"), tr("Đen"), 0xE790, QStringLiteral("A"), false},
+                    {QStringLiteral(".uno:Color#{\"Color\":{\"type\":\"long\",\"value\":\"16711680\"}}"), tr("Đỏ"), 0xE790, QStringLiteral("A"), false},
+                    {QStringLiteral(".uno:Color#{\"Color\":{\"type\":\"long\",\"value\":\"2051007\"}}"), tr("Xanh"), 0xE790, QStringLiteral("A"), false},
+                }},
+                {tr("Đoạn văn"), {
+                    {QStringLiteral(".uno:LeftPara"), tr("Trái"), 0xE8E4, QStringLiteral("⇤"), true},
+                    {QStringLiteral(".uno:CenterPara"), tr("Giữa"), 0xE8E3, QStringLiteral("≡"), true},
+                    {QStringLiteral(".uno:RightPara"), tr("Phải"), 0xE8E2, QStringLiteral("⇥"), true},
+                    {QStringLiteral(".uno:DefaultBullet"), tr("Gạch đầu dòng"), 0xE8FD, QStringLiteral("•"), true},
+                    {QStringLiteral(".uno:DefaultNumbering"), tr("Đánh số"), 0xE9D5, QStringLiteral("1."), true},
+                }},
             }},
+            {tr("Chèn"), {{tr("Đối tượng"), {
+                    {QStringLiteral("ppt.textbox"), tr("Hộp văn bản"), 0xE8D2, QStringLiteral("T"), false},
+                    {QStringLiteral("ppt.rect"), tr("Hình chữ nhật"), 0xE739, QStringLiteral("▭"), false},
+                    {QStringLiteral("ppt.image"), tr("Ảnh"), 0xEB9F, QStringLiteral("🖼"), false},
+                    {QStringLiteral(".uno:InsertTable#{\"Columns\":{\"type\":\"long\",\"value\":\"3\"},\"Rows\":{\"type\":\"long\",\"value\":\"2\"}}"), tr("Bảng 3×2"), 0xE80A, QStringLiteral("▦"), false},
+                }}}},
+            {tr("Trình chiếu"), {{tr("Trình chiếu"), {
+                    {QStringLiteral("ppt.show"), tr("Từ đầu"), 0xE768, QStringLiteral("▶"), false},
+                    {QStringLiteral("ppt.showHere"), tr("Từ trang này"), 0xE768, QStringLiteral("▷"), false},
+                    {QStringLiteral("ppt.transitionNote"), tr("Hiệu ứng"), 0xE7B8, QStringLiteral("ⓘ"), false},
+                }}}},
             {tr("Xem"), {view}},
         };
     default: // PDF / bản vẽ

@@ -5,6 +5,7 @@
 #include "EngineHost.h"
 #include "Theme.h"
 #include "TileView.h"
+#include "ppt/SlideThumbs.h"
 
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
@@ -93,6 +94,7 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
     if (m_doc->kind() == DocKind::Presentation || m_doc->kind() == DocKind::Drawing) {
         m_slides = new QListWidget(this);
         m_slides->setFixedWidth(150);
+        m_slides->setIconSize(QSize(128, 96));
         m_slides->setStyleSheet(QStringLiteral("QListWidget{background:#EEF2F7;border:none;border-right:1px solid #D9E1EC;}"
                                                "QListWidget::item{padding:10px;margin:4px;background:white;border-radius:6px;}"
                                                "QListWidget::item:selected{border:2px solid #1F5FBF;color:#1F5FBF;}"));
@@ -181,9 +183,11 @@ void DocumentTab::rebuildParts() {
     }
     if (m_slides) {
         m_slides->clear();
-        for (int i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i) {
             m_slides->addItem(m_doc->kind() == DocKind::Presentation ? tr("Trang chiếu %1").arg(i + 1)
                                                                     : tr("Trang %1").arg(i + 1));
+            if (m_doc->kind() == DocKind::Presentation) pptSetThumbnail(m_slides->item(i), m_doc.get(), i);
+        }
         m_slides->setCurrentRow(cur);
     }
     m_rebuildingParts = false;
@@ -235,7 +239,10 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
 }
 
 void DocumentTab::runCommand(const QString& uno) {
-    m_doc->command(ss(uno));
+    // Dạng ".uno:Lệnh#{json}" mang đối số UNO (dùng cho ribbon PowerPoint)
+    const int hash = uno.indexOf(QLatin1Char('#'));
+    if (hash > 0) m_doc->command(ss(uno.left(hash)), ss(uno.mid(hash + 1)));
+    else m_doc->command(ss(uno));
     m_view->setFocus();
 }
 
