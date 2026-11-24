@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "ProjectsPage.h"
+#include "../update/UpdateDialog.h"
 
 #include "WorkspaceStore.h"
 
@@ -23,7 +24,6 @@
 #include <QVBoxLayout>
 
 namespace {
-const char* kReleases = "https://github.com/dungmao2023-art/DUngoff/releases";
 const char* kRepo = "https://github.com/dungmao2023-art/DUngoff";
 
 QString escapeHtml(const QString& s) { return s.toHtmlEscaped(); }
@@ -91,9 +91,9 @@ QWidget* ProjectsPage::buildHeader() {
     name->setTextFormat(Qt::RichText);
     row->addWidget(name, 1);
     auto* upd = new QPushButton(tr("⟳ Update"), card);
-    upd->setToolTip(tr("Mở trang tải bản mới nhất trong trình duyệt. Ứng dụng không tự kết nối mạng."));
+    upd->setToolTip(tr("Kiểm tra bản mới. Ứng dụng chỉ kết nối mạng khi bạn bấm; không tự cài."));
     upd->setStyleSheet(QStringLiteral("QPushButton{background:#275DD6;color:white;border:0;border-radius:8px;padding:9px 18px;font-weight:700;}QPushButton:hover{background:#1A4CBE;}"));
-    connect(upd, &QPushButton::clicked, this, [] { QDesktopServices::openUrl(QUrl(QString::fromLatin1(kReleases))); });
+    connect(upd, &QPushButton::clicked, this, [this] { UpdateDialog dlg(this); dlg.exec(); });
     auto* repo = new QPushButton(tr("Mã nguồn"), card);
     connect(repo, &QPushButton::clicked, this, [] { QDesktopServices::openUrl(QUrl(QString::fromLatin1(kRepo))); });
     row->addWidget(upd);

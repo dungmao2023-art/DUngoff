@@ -130,6 +130,10 @@ jobs:
         run: |
           set -o pipefail
           QT_QPA_PLATFORM=offscreen ./build/app/dung-keymaptest 2>&1 | tee report/linux-keymaptest.log
+      - name: Kiểm thử cập nhật (SHA-256, phiên bản, URL) và một phiên duy nhất
+        run: |
+          set -o pipefail
+          ./build/app/dung-updatetest 2>&1 | tee report/linux-updatetest.log
       - name: PowerPoint — lệnh UNO Impress trên engine thật + kiểm tệp PPTX đã lưu
         run: |
           set -o pipefail
@@ -376,6 +380,12 @@ jobs:
           if (-not $exe) { Write-Host "::error::Không thấy dung-keymaptest.exe"; exit 1 }
           $env:QT_QPA_PLATFORM = "offscreen"
           & $exe.FullName *>&1 | Tee-Object report/windows-keymaptest.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm thử cập nhật (SHA-256, phiên bản, URL) và một phiên duy nhất trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-updatetest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-updatetest.exe"; exit 1 }
+          & $exe.FullName *>&1 | Tee-Object report/windows-updatetest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm tra round-trip XLSX
         if: steps.full.outcome == 'success'
