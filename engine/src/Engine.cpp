@@ -351,7 +351,8 @@ template <class F> static auto onEngine(F&& f) -> decltype(f()) {
 // engine rơi về phông hệ thống (vd PMingLiU) và chữ tiếng Việt có dấu bị vỡ khi xuất PDF/in.
 // Ta ghi vào hồ sơ engine một bảng thay thế sang phông có sẵn trong engine và đủ chữ Việt (Carlito, Liberation Sans).
 // SubstituteFont chỉ ghi MỘT phông (dạng "A;B" làm engine bỏ qua bảng — đã đo trên CI Windows, biến thể v1/v2).
-// "Always=false": chỉ thay khi máy KHÔNG có phông gốc — máy có Aptos thật vẫn dùng Aptos.
+// "Always=true": CI Windows vòng 3 cho thấy Always=false KHÔNG áp dụng (phủ chữ 46,8%), Always=true áp dụng (100%).
+// Hệ quả: máy có Aptos thật cũng sẽ hiển thị/in bằng Carlito (số đo gần tương đương). Cần người dùng cân nhắc.
 // Chỉ thêm, không ghi đè mục khác của hồ sơ; chạy lặp lại không thêm trùng.
 static void seedFontSubstitution(const fs::path& profileDir) {
     static const char* kMarker = "dung-aptos-0";
@@ -361,7 +362,7 @@ static void seedFontSubstitution(const fs::path& profileDir) {
     int i = 0;
     for (const char* f : fromFonts) {
         items += std::string("<item oor:path=\"/org.openoffice.Office.Common/Font/Substitution/FontPairs\"><node oor:name=\"dung-aptos-") +
-                 std::to_string(i++) + "\" oor:op=\"replace\"><prop oor:name=\"Always\" oor:op=\"fuse\"><value>false</value></prop>"
+                 std::to_string(i++) + "\" oor:op=\"replace\"><prop oor:name=\"Always\" oor:op=\"fuse\"><value>true</value></prop>"
                  "<prop oor:name=\"OnScreenOnly\" oor:op=\"fuse\"><value>false</value></prop>"
                  "<prop oor:name=\"ReplaceFont\" oor:op=\"fuse\"><value>" + f + "</value></prop>"
                  "<prop oor:name=\"SubstituteFont\" oor:op=\"fuse\"><value>Carlito</value></prop></node></item>\n";
