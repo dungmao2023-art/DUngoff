@@ -607,6 +607,29 @@ void Document::paintTile(uint8_t* buffer, int pxW, int pxH, int twipX, int twipY
     onEngine([&] { m_doc->paintTile(buffer, pxW, pxH, twipX, twipY, twipW, twipH); });
 }
 
+void Document::paintPartTile(uint8_t* buffer, int part, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH) {
+    onEngine([&] { m_doc->paintPartTile(buffer, part, 0, pxW, pxH, twipX, twipY, twipW, twipH); });
+}
+
+void Document::setPartMode(int mode) { onEngine([&] { m_doc->setPartMode(mode); }); }
+
+std::string Document::partInfo(int part) {
+    char* s = onEngine([&]() -> char* {
+        LibreOfficeKitDocument* d = m_doc->get();
+        return d->pClass->getPartInfo ? d->pClass->getPartInfo(d, part) : nullptr;
+    });
+    std::string r = s ? s : "";
+    free(s);
+    return r;
+}
+
+std::string Document::partHash(int part) {
+    char* s = onEngine([&] { return m_doc->getPartHash(part); });
+    std::string r = s ? s : "";
+    free(s);
+    return r;
+}
+
 void Document::setClientView(int pxTileW, int pxTileH, int twipTileW, int twipTileH, int visX,
                              int visY, int visW, int visH) {
     onEngine([&] {
