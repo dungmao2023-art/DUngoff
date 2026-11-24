@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "MainWindow.h"
+#include "ppt/PptActions.h"
 
 #include "DocumentTab.h"
 #include "EngineHost.h"
@@ -323,6 +324,7 @@ void MainWindow::onAppAction(const QString& id) {
     if (id == QLatin1String("open")) openDialog();
     else if (id == QLatin1String("newWorkbook")) newDoc(DocKind::Spreadsheet);
     else if (!docVisible) return;
+    else if (handlePptAction(t, id)) {}
     else if (id == QLatin1String("save")) t->save();
     else if (id == QLatin1String("saveAs")) t->saveAs();
     else if (id == QLatin1String("exportPdf")) t->exportPdf();

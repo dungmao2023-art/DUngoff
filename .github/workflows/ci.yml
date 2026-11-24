@@ -73,6 +73,12 @@ jobs:
             --out smoke-stress 2>&1 | tee report/linux-stress.log
           python3 tests/verify_roundtrip.py fixtures/stress-5000-dong.xlsx "$(cat smoke-stress/saved-path.txt)" \
             --known tests/known_differences.txt 2>&1 | tee report/linux-stress-roundtrip.log
+      - name: PowerPoint — lệnh UNO Impress trên engine thật + kiểm tệp PPTX đã lưu
+        run: |
+          set -o pipefail
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --ppt fixtures/mau-trinh-chieu.pptx \
+            --out smoke-ppt 2>&1 | tee report/linux-ppt.log
+          python3 -I tests/ppt/verify_pptx.py "$(cat smoke-ppt/saved-path.txt)" 2>&1 | tee report/linux-ppt-verify.log
       - name: Ảnh chụp giao diện thật (Xvfb)
         if: always() && hashFiles('build/app/DungOffice') != ''
         run: |
