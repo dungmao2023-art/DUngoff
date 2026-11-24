@@ -43,7 +43,7 @@ def docx_parts(path):
     images = 0
     doc = ET.fromstring(z.read("word/document.xml"))
     for tbl in doc.iter(W + "tbl"):
-        tbl_txt.append("".join(t.text or "" for t in tbl.iter(W + "t")))
+        tbl_txt.append(" ".join(t.text or "" for t in tbl.iter(W + "t")))
     tbl_ids = {id(t) for tbl in doc.iter(W + "tbl") for t in tbl.iter(W + "t")}
     for t in doc.iter(W + "t"):
         if id(t) not in tbl_ids:
@@ -146,7 +146,9 @@ for r in rows:
     for label, txt in (("thân bài", body), ("bảng", tbl), ("đầu/cuối trang", hf)):
         c = coverage(txt, have)
         if c is not None and c < 0.97:
-            problems.append(("thiếu chữ " + label, "%.1f%%" % (c * 100)))
+            miss_t = [x for x in toks(txt) if x not in have]
+            problems.append(("thiếu chữ " + label, "%.1f%% | thiếu mẫu: %s | font PDF: %s | trích PDF: %r" % (
+                c * 100, miss_t[:8], sorted(pfonts)[:4], " ".join(ptext.split())[:90])))
     if simgs and pimgs < simgs:
         problems.append(("thiếu ảnh trong PDF", "gốc %d, PDF %d" % (simgs, pimgs)))
     pf = {fnorm(f) for f in pfonts}
