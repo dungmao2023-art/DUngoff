@@ -28,7 +28,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libreoffice-calc libreoffice-writer libreoffice-impress libreoffice-draw \
+            libreoffice-calc libreoffice-writer libreoffice-impress libreoffice-draw libreoffice-math \
             qt6-base-dev libgl-dev cmake ninja-build python3-openpyxl python3-pip \
             xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils qpdf
           pip3 install --break-system-packages python-docx python-pptx
@@ -63,6 +63,13 @@ jobs:
           pip install --quiet pypdf python-docx python-pptx || true
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --templates templates --out smoke-tpl 2>&1 | tee report/linux-template-fidelity.log
           python3 tests/templates/verify_fidelity.py templates smoke-tpl 2>&1 | tee report/linux-template-fidelity-verify.log
+      - name: Thí nghiệm giữ nguyên tính năng Office (mở→sửa→lưu bản sao, Linux)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          set -o pipefail
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --features tests/fixtures/features --out smoke-feat 2>&1 | tee report/linux-features.log
+          python3 tests/features/verify_features.py tests/fixtures/features smoke-feat/saved report/linux-features.md 2>&1 | grep -vE "Warn|warn\(" | tee report/linux-features-verify.log
       - name: Báo lỗi biên dịch
         if: failure()
         run: grep -E "error|Error" report/linux-build.log | head -10 | sed 's/^/::error::/' || true
@@ -244,6 +251,18 @@ jobs:
           $env:DUNG_TEST_ZIP = "$PWD/mau-thu.zip"
           & $exe.FullName *>&1 | Tee-Object report/windows-templatetest.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: Thí nghiệm giữ nguyên tính năng Office (mở→sửa→lưu bản sao, engine Windows)
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          $env:PYTHONUTF8 = "1"
+          python -m pip install --quiet python-docx python-pptx openpyxl lxml
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--features", "tests/fixtures/features", "--out", "$PWD/smoke-feat") -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-features.log -RedirectStandardError report/windows-features.err.log
+          if (-not $p.WaitForExit(10 * 60 * 1000)) { $p.Kill(); "TREO quá 10 phút" | Add-Content report/windows-features.log }
+          Get-Content report/windows-features.log
+          Get-Content report/windows-features.err.log -ErrorAction SilentlyContinue | Select-Object -Last 5
+          python tests/features/verify_features.py tests/fixtures/features smoke-feat/saved report/windows-features.md 2>&1 | Where-Object { $_ -notmatch "Warn|warn\(" } | Tee-Object report/windows-features-verify.log
       - name: Kiểm chứng thay phông Aptos (2 mẫu PPT) trên engine Windows
         continue-on-error: true
         timeout-minutes: 15
