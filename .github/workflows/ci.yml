@@ -38,6 +38,12 @@ jobs:
           set -o pipefail
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee report/linux-configure.log
           cmake --build build 2>&1 | tee report/linux-build.log
+      - name: Ma trận lệnh UNO (thử nghiệm, không chặn job)
+        continue-on-error: true
+        timeout-minutes: 40
+        run: |
+          python3 tests/cmdmatrix/run_matrix.py --exe ./build/dung-smoketest --program /usr/lib/libreoffice/program --out cmdmatrix-linux --platform linux 2>&1 | tail -n 120
+          python3 tests/cmdmatrix/summarize.py cmdmatrix-linux linux 2>&1 | tee report/linux-cmdmatrix.log
       - name: Kiểm thử công cụ PDF (qpdf)
         run: |
           set -o pipefail
@@ -218,6 +224,15 @@ jobs:
             Select-String -Path report/windows-build.log -Pattern "error" | Select-Object -First 10 | ForEach-Object { Write-Host "::error::$($_.Line)" }
             exit 1
           }
+      - name: Ma trận lệnh UNO trên engine Windows (thử nghiệm, không chặn job)
+        continue-on-error: true
+        timeout-minutes: 45
+        run: |
+          $env:PYTHONUTF8 = "1"
+          python -m pip install --quiet python-docx openpyxl python-pptx
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-smoketest.exe | Select-Object -First 1
+          python tests/cmdmatrix/run_matrix.py --exe $exe.FullName --program "$PWD/build/lo/engine/program" --out cmdmatrix-windows --platform windows 2>&1 | Select-Object -Last 120
+          python tests/cmdmatrix/summarize.py cmdmatrix-windows windows 2>&1 | Tee-Object report/windows-cmdmatrix.log
       - name: Kiểm thử công cụ PDF (qpdf) trên Windows
         run: |
           $env:DUNG_QPDF = "$PWD/build/qpdf/qpdf.exe"

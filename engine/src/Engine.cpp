@@ -713,6 +713,16 @@ void Document::typeText(const std::u16string& text) {
     }
 }
 
+void Document::postExtTextInput(int type, const std::string& utf8Text) {
+    m_lastInputMs = steadyMs();
+    onEngine([&] { m_doc->postWindowExtTextInputEvent(0, type, utf8Text.c_str()); });
+    emitSynthetic();
+}
+
+void Document::setViewLanguage(const std::string& lang) {
+    onEngine([&] { m_doc->setViewLanguage(m_doc->getView(), lang.c_str()); });
+}
+
 void Document::command(const std::string& cmd, const std::string& args, bool notify) {
     if (m_readOnly && !isReadOnlySafeCommand(cmd)) return;
     m_lastInputMs = steadyMs();

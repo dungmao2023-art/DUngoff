@@ -102,6 +102,8 @@ static bool waitAddress(Document& d, const std::string& addr, int ms = 15000) {
 // Kiểm thử PowerPoint (tools/smoketest/ppt_tests.cpp), bật bằng --ppt <mau.pptx>.
 int dungRunTemplateFidelity(const fs::path& program, const fs::path& dir, const fs::path& out); // template_fidelity.cpp
 int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::path& out);
+int dungRunCommandMatrixList();                                                                                // command_matrix.cpp
+int dungRunCommandCase(const fs::path& program, const std::string& id, const fs::path& fixtures, const fs::path& out);
 
 int main(int argc, char** argv) {
 #ifdef _WIN32
@@ -122,6 +124,7 @@ int main(int argc, char** argv) {
     fs::path pptTests;                 // --ppt <tệp.pptx>: kiểm thử lệnh PowerPoint (ppt_tests.cpp)
     fs::path templatesDir;             // --templates <thư mục>: toàn vẹn hiển thị/in trên thư viện mẫu
     bool excelMode = false; fs::path stressFile; // --excel 1 [--stress <tệp>]: kiểm thử Excel cơ bản (excel_tests.cpp)
+    std::string cmdCase; fs::path cmdFixtures; bool cmdList = false; // --cmdcase <id> --fixtures <thư mục> | --cmdlist 1: ma trận lệnh UNO
     bool basicOnly = false;            // --chi-mo 1: dừng sau bước hiển thị (engine chưa hỗ trợ nhập liệu)
     for (size_t i = 1; i + 1 < args.size(); i += 2) {
         if (args[i] == "--program") program = fromUtf8(args[i + 1]);
@@ -137,8 +140,13 @@ int main(int argc, char** argv) {
         else if (args[i] == "--templates") templatesDir = fromUtf8(args[i + 1]);
         else if (args[i] == "--excel") excelMode = (args[i + 1] == "1");
         else if (args[i] == "--stress") stressFile = fromUtf8(args[i + 1]);
+        else if (args[i] == "--cmdcase") cmdCase = args[i + 1];
+        else if (args[i] == "--fixtures") cmdFixtures = fromUtf8(args[i + 1]);
+        else if (args[i] == "--cmdlist") cmdList = (args[i + 1] == "1");
         else if (args[i] == "--chi-mo") basicOnly = (args[i + 1] == "1"); // chỉ mở + hiển thị, bỏ nhập liệu/lưu
     }
+    if (cmdList) return dungRunCommandMatrixList();
+    if (!cmdCase.empty() && !program.empty() && !out.empty() && !cmdFixtures.empty()) return dungRunCommandCase(program, cmdCase, cmdFixtures, out);
     if (wordMode && !program.empty() && !out.empty()) return runWordTests(program, out);
     if (!pptTests.empty() && !program.empty() && !out.empty()) return dungRunPptTests(program, pptTests, out);
     if (!templatesDir.empty() && !program.empty() && !out.empty()) return dungRunTemplateFidelity(program, templatesDir, out);
