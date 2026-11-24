@@ -188,7 +188,7 @@ InstallResult installFromZip(const QString& zipPath, bool allowOlder) {
             if (fi.filePath.contains(QStringLiteral(".."))) continue; // chặn zip-slip
             const QString dest = root + QLatin1Char('/') + fi.filePath;
             const QString lp = QStringLiteral("\\\\?\\") + QDir::toNativeSeparators(dest); // tiền tố đường dẫn dài
-            if (fi.isDir) { QDir().mkpath(lp); continue; }
+            if (fi.isDir || !fi.isFile) { QDir().mkpath(lp); continue; }
             QDir().mkpath(QStringLiteral("\\\\?\\") + QDir::toNativeSeparators(QFileInfo(dest).absolutePath()));
             QFile f(lp);
             if (!f.open(QIODevice::WriteOnly) || f.write(zr.fileData(fi.filePath)) < 0) {
