@@ -35,6 +35,6 @@ int main(int argc, char** argv) {
     // 8. Thay ở chỗ không làm được bằng phím: báo unsupported, vẫn chốt chuỗi, không xoá bậy
     { bool un = false; auto ops = imeToOps(QString("a"), 2, 3, &un);
       check(un && ops.size() == 1 && ops[0].kind == ImeOp::Char, "thay phần sau con trỏ xa: báo không hỗ trợ, không xoá"); }
-    std::cout << (g_fail ? "\nKẾT QUẢ: CÓ LỖI\\n" : "\nKẾT QUẢ: TẤT CẢ ĐẠT\\n");
+    std::cout << (g_fail ? "\nKẾT QUẢ: CÓ LỖI\n" : "\nKẾT QUẢ: TẤT CẢ ĐẠT\n");
     return g_fail ? 1 : 0;
 }

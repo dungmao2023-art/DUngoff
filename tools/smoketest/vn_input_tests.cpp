@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: MPL-2.0
 #define LOK_USE_UNSTABLE_API
 #include "dung/Engine.h"
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
 #include <chrono>
 #include <functional>
