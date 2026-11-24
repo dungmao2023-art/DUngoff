@@ -63,6 +63,7 @@ jobs:
           pip install --quiet pypdf python-docx python-pptx || true
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --templates templates --out smoke-tpl 2>&1 | tee report/linux-template-fidelity.log
           python3 tests/templates/verify_fidelity.py templates smoke-tpl 2>&1 | tee report/linux-template-fidelity-verify.log
+          python3 tests/templates/inventory_fidelity.py templates smoke-tpl linux 2>&1 | tee report/linux-template-inventory.log
       - name: Báo lỗi biên dịch
         if: failure()
         run: grep -E "error|Error" report/linux-build.log | head -10 | sed 's/^/::error::/' || true
@@ -240,6 +241,20 @@ jobs:
           $env:DUNG_TEST_ZIP = "$PWD/mau-thu.zip"
           & $exe.FullName *>&1 | Tee-Object report/windows-templatetest.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm kê toàn vẹn hiển thị/in trên engine Windows (158 mẫu) — không chặn
+        continue-on-error: true
+        timeout-minutes: 40
+        run: |
+          $env:PYTHONUTF8 = "1"
+          python -m pip install --quiet pypdf python-docx python-pptx
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--templates", "templates", "--out", "$PWD/smoke-tpl") -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-template-fidelity.log -RedirectStandardError report/windows-template-fidelity.err.log
+          if (-not $p.WaitForExit(35 * 60 * 1000)) { $p.Kill(); "TREO quá 35 phút" | Add-Content report/windows-template-fidelity.log }
+          Get-Content report/windows-template-fidelity.log | Select-Object -Last 15
+          if (Test-Path smoke-tpl/fidelity.csv) {
+            python tests/templates/inventory_fidelity.py templates smoke-tpl windows *>&1 | Tee-Object report/windows-template-inventory.log
+            python tests/templates/verify_fidelity.py templates smoke-tpl *>&1 | Tee-Object report/windows-template-fidelity-verify.log
+          }
       - name: Kiểm thử đầy đủ engine trên Windows (nhập liệu, lưu) — chặn job
         id: full
         # Engine headless của dự án (engine-26.8.3.1-headless) đã đạt toàn bộ bước này
