@@ -1,3 +1,4 @@
+#define LOK_USE_UNSTABLE_API
 #include "PptActions.h"
 #include "../DocumentTab.h"
 #include "../EngineHost.h"
