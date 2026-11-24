@@ -55,6 +55,54 @@ Result splitEach(const Input& in, const QString& outDir);
 Result rotate(const Input& in, const QString& pagesSpec, int degrees, const QString& dest, bool allowReplace = false);
 Result compress(const Input& in, const QString& dest, bool allowReplace = false);
 
+// ---- Đánh số trang, đóng dấu, ảnh -> PDF, trang trắng (luôn ghi ra bản sao, không sửa tệp gốc) ----
+
+enum class Position { TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight, Center, Diagonal };
+
+struct NumberOptions {
+    // {n} = số trang hiện tại, {total} = số cuối cùng được đánh. Chỉ nhận ký tự ASCII (chữ không dấu): font
+    // chuẩn của PDF không có chữ có dấu tiếng Việt và chưa nhúng font; gặp ký tự khác thì từ chối, không đánh sai.
+    QString format = QStringLiteral("{n}");
+    Position pos = Position::BottomCenter;
+    double fontSize = 11;
+    int start = 1;                       // số gán cho trang đầu tiên trong phần được chọn
+    QString pages = QStringLiteral("1-"); // các trang được đánh số (cú pháp như parsePages)
+    double gray = 0.0;                   // 0 = đen, 1 = trắng
+};
+Result addPageNumbers(const Input& in, const NumberOptions& opt, const QString& dest, bool allowReplace = false);
+
+struct StampOptions {
+    QString text;       // chữ ASCII; rỗng thì phải có imagePath
+    QString imagePath;  // ảnh JPEG/PNG (PNG trong suốt được giữ độ trong)
+    Position pos = Position::Diagonal;
+    double fontSize = 48;
+    double gray = 0.5;
+    double opacity = 0.3;        // 0..1
+    double widthPercent = 30;    // chỉ cho ảnh: bề rộng ảnh theo % bề rộng trang
+    QString pages = QStringLiteral("1-");
+};
+Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool allowReplace = false);
+
+struct ImageOptions {
+    bool fitA4 = false;  // true: mỗi ảnh vào một trang A4 (giữ tỉ lệ); false: trang đúng cỡ ảnh theo `dpi`
+    int dpi = 150;
+};
+// JPEG được nhúng nguyên bản (không nén lại, không mất chất lượng); PNG được nhúng không mất dữ liệu.
+Result imagesToPdf(const QStringList& images, const ImageOptions& opt, const QString& dest, bool allowReplace = false);
+
+struct BlankReport {
+    bool ok = false;
+    QString error;
+    bool needPassword = false;
+    int pages = 0;
+    QList<int> blank;  // chỉ số 0-based của trang không có nội dung
+    QStringList notes; // giới hạn của phép kiểm tra
+};
+// Trang "trắng" = không có lệnh vẽ nào và không có chú thích. KHÔNG phát hiện trang trắng nhìn bằng mắt nhưng
+// có ảnh quét hoặc ô tô nền trắng.
+BlankReport findBlankPages(const Input& in);
+Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace = false);
+
 // Tên đề xuất cho tệp kết quả: "<tên> - Dũng Office.pdf" cạnh tệp nguồn; thêm số nếu đã tồn tại.
 QString suggestOutputPath(const QString& sourcePath, const QString& label = QString());
 
