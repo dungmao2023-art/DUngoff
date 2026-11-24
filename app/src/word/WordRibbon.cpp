@@ -10,6 +10,9 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
         {QStringLiteral(".uno:Italic"), tr("Nghiêng"), 0xE8DB, QStringLiteral("I"), true},
         {QStringLiteral(".uno:Underline"), tr("Gạch chân"), 0xE8DC, QStringLiteral("U"), true},
         {QStringLiteral(".uno:Strikeout"), tr("Gạch ngang"), 0xEDE0, QStringLiteral("S̶"), true},
+        {QStringLiteral(".uno:SuperScript"), tr("Chỉ số trên"), 0xE8BC, QStringLiteral("x²"), true},
+        {QStringLiteral(".uno:SubScript"), tr("Chỉ số dưới"), 0xE8BC, QStringLiteral("x₂"), true},
+        {QStringLiteral(".uno:ResetAttributes"), tr("Xoá định dạng"), 0xE894, QStringLiteral("Aₓ"), false},
         {QStringLiteral("word:color"), tr("Màu chữ"), 0xE8D3, QStringLiteral("A"), false},
         {QStringLiteral("word:back"), tr("Tô nền"), 0xE7E6, QStringLiteral("▮"), false},
     }};
@@ -44,6 +47,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral("word:image"), tr("Ảnh"), 0xEB9F, QStringLiteral("🖼"), false},
                 {QStringLiteral("word:link"), tr("Liên kết"), 0xE71B, QStringLiteral("🔗"), false},
                 {QStringLiteral(".uno:InsertPagebreak"), tr("Ngắt trang"), 0xE7C3, QStringLiteral("⤓"), false},
+                {QStringLiteral(".uno:InsertPageNumberField"), tr("Số trang"), 0xE8A5, QStringLiteral("#"), false},
             }},
         }},
         {tr("Bố cục"), {

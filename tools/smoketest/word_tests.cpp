@@ -215,6 +215,22 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     html = selHtml(d);
     check(has(html, "ffff00"), "Tô nền vàng (.uno:BackColor)", snippet(html, 200));
 
+    // ---------------- chỉ số trên/dưới, xoá định dạng ----------------
+    step("chỉ số trên");
+    run(d, ".uno:SuperScript");
+    html = selHtml(d);
+    check(has(html, "<sup") || has(html, "vertical-align: super"), "Chỉ số trên (.uno:SuperScript)", snippet(html, 200));
+    run(d, ".uno:SuperScript"); // tắt
+    step("chỉ số dưới");
+    run(d, ".uno:SubScript");
+    html = selHtml(d);
+    check(has(html, "<sub") || has(html, "vertical-align: sub"), "Chỉ số dưới (.uno:SubScript)", snippet(html, 200));
+    run(d, ".uno:SubScript"); // tắt
+    step("xoá định dạng");
+    run(d, ".uno:ResetAttributes");
+    html = selHtml(d);
+    check(!has(html, "ffff00") && !has(html, "ff0000"), "Xoá định dạng bỏ màu chữ và màu nền", snippet(html, 200));
+
     // ---------------- căn lề ----------------
     struct Align { const char* uno; const char* html1; const char* html2; };
     const Align aligns[] = {{".uno:CenterPara", "text-align: center", "align=\"center\""},
