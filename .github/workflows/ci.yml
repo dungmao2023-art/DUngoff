@@ -29,7 +29,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libreoffice-calc libreoffice-writer libreoffice-impress libreoffice-draw \
-            qt6-base-dev libgl-dev cmake ninja-build python3-openpyxl python3-pip \
+            qt6-base-dev qt6-base-private-dev libgl-dev cmake ninja-build python3-openpyxl python3-pip \
             xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils qpdf
           pip3 install --break-system-packages python-docx python-pptx
           mkdir -p report
@@ -50,6 +50,17 @@ jobs:
         run: |
           set -o pipefail
           QT_QPA_PLATFORM=offscreen ./build/app/dung-tabletest 2>&1 | tee report/linux-tabletest.log
+      - name: Kiểm thử điền tên hàng loạt (docx/pptx/xlsx, CSV, tên tệp)
+        run: |
+          set -o pipefail
+          python3 tests/fixtures/mailmerge/make_mailmerge_fixtures.py mm-fixtures
+          mkdir -p mm-out
+          DUNG_MM_OUT="$PWD/mm-out" QT_QPA_PLATFORM=offscreen ./build/app/dung-mailmergetest mm-fixtures 2>&1 | tee report/linux-mailmergetest.log
+          ls -la mm-out | tee -a report/linux-mailmergetest.log
+      - name: Xác minh độc lập tệp điền tên bằng LibreOffice
+        run: |
+          set -o pipefail
+          bash tests/mailmerge/verify_with_lo.sh "$PWD/mm-out" "$PWD/mm-fixtures" 2>&1 | tee report/linux-mailmerge-lo.log
       - name: Kiểm thử quét tính năng sẽ mất (font nhúng, macro, SmartArt...)
         run: |
           set -o pipefail
@@ -266,6 +277,13 @@ jobs:
           $env:DUNG_REQUIRE_PDF = "1"
           $env:QT_QPA_PLATFORM = "offscreen"
           & $exe.FullName *>&1 | Tee-Object report/windows-printtest.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm thử điền tên hàng loạt trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-mailmergetest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-mailmergetest.exe"; exit 1 }
+          python tests/fixtures/mailmerge/make_mailmerge_fixtures.py mm-fixtures
+          & $exe.FullName mm-fixtures *>&1 | Tee-Object report/windows-mailmergetest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử tiện ích văn bản tiếng Việt trên Windows
         run: |
