@@ -30,6 +30,7 @@ private:
     struct Tab { QString title; QList<Group> groups; };
     QList<Tab> tabsFor(dung::DocKind kind, bool readOnly) const;
     QWidget* buildPage(const Tab& t);
+    QList<Tab> wordTabs(const Group& file, const Group& undo, const Group& clip, const Group& view) const;  // app/src/word/WordRibbon.cpp
 
     QTabBar* m_tabs;
     QStackedWidget* m_pages;

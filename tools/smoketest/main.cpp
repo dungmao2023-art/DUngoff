@@ -30,6 +30,8 @@
 
 using namespace dung;
 
+int runWordTests(const std::filesystem::path& program, const std::filesystem::path& out);   // word_tests.cpp
+
 static int g_fail = 0;
 static std::mutex g_stepMutex;
 static std::string g_step = "khởi động";
@@ -111,6 +113,7 @@ int main(int argc, char** argv) {
     fs::path program, xlsx, csv, out, docx, pptx;
     std::vector<fs::path> extraSheets; // --sheet <tệp>: định dạng bảng tính khác (xls, ods, xlsm...)
     fs::path roundtrip;                // --roundtrip <tệp>: chỉ mở, render mọi sheet, lưu bản sao (không sửa)
+    bool wordMode = false;             // --word 1: kiểm thử các lệnh Word (word_tests.cpp)
     bool basicOnly = false;            // --chi-mo 1: dừng sau bước hiển thị (engine chưa hỗ trợ nhập liệu)
     for (size_t i = 1; i + 1 < args.size(); i += 2) {
         if (args[i] == "--program") program = fromUtf8(args[i + 1]);
@@ -121,8 +124,10 @@ int main(int argc, char** argv) {
         else if (args[i] == "--pptx") pptx = fromUtf8(args[i + 1]);
         else if (args[i] == "--sheet") extraSheets.push_back(fromUtf8(args[i + 1]));
         else if (args[i] == "--roundtrip") roundtrip = fromUtf8(args[i + 1]);
+        else if (args[i] == "--word") wordMode = (args[i + 1] == "1");
         else if (args[i] == "--chi-mo") basicOnly = (args[i + 1] == "1"); // chỉ mở + hiển thị, bỏ nhập liệu/lưu
     }
+    if (wordMode && !program.empty() && !out.empty()) return runWordTests(program, out);
     if (!roundtrip.empty() && !program.empty() && !out.empty()) {
         std::error_code e2;
         fs::create_directories(out, e2);

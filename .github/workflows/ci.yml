@@ -73,6 +73,13 @@ jobs:
             --out smoke-stress 2>&1 | tee report/linux-stress.log
           python3 tests/verify_roundtrip.py fixtures/stress-5000-dong.xlsx "$(cat smoke-stress/saved-path.txt)" \
             --known tests/known_differences.txt 2>&1 | tee report/linux-stress-roundtrip.log
+      - name: Word - kiểm thử lệnh UNO thật và định dạng DOCX sau khi lưu
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pip install --quiet python-docx || true
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-word --word 1 2>&1 | tee report/linux-word.log
+          python3 tests/word/verify_docx.py smoke-word/word-dinh-dang.docx 2>&1 | tee report/linux-word-docx.log
       - name: Ảnh chụp giao diện thật (Xvfb)
         if: always() && hashFiles('build/app/DungOffice') != ''
         run: |

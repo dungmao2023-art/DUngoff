@@ -145,22 +145,11 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
             }}}},
         };
     case DocKind::Text:
-        return {fileTab,
-            {tr("Trang đầu"), {file, undo, clip, font,
-                {tr("Đoạn văn"), {
-                    {QStringLiteral(".uno:LeftPara"), tr("Trái"), 0xE8E4, QStringLiteral("⇤"), true},
-                    {QStringLiteral(".uno:CenterPara"), tr("Giữa"), 0xE8E3, QStringLiteral("↔"), true},
-                    {QStringLiteral(".uno:RightPara"), tr("Phải"), 0xE8E2, QStringLiteral("⇥"), true},
-                    {QStringLiteral(".uno:JustifyPara"), tr("Đều"), 0xE8E1, QStringLiteral("≡"), true},
-                    {QStringLiteral(".uno:DefaultBullet"), tr("Gạch đầu dòng"), 0xE8FD, QStringLiteral("•"), true},
-                    {QStringLiteral(".uno:DefaultNumbering"), tr("Đánh số"), 0xE9D5, QStringLiteral("1."), true},
-                }},
-            }},
-            {tr("Chèn"), {{tr("Trang"), {
-                {QStringLiteral(".uno:InsertPagebreak"), tr("Ngắt trang"), 0xE7C3, QStringLiteral("⤓"), false},
-            }}}},
-            {tr("Xem"), {view}},
-        };
+    {
+        QList<Tab> r{fileTab};
+        r += wordTabs(file, undo, clip, view);
+        return r;
+    }
     case DocKind::Presentation:
         return {fileTab,
             {tr("Trang đầu"), {file, undo, clip,
