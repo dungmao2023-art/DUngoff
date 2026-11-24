@@ -954,7 +954,7 @@ Output search(const Query &q, const Index *index, std::atomic_bool *extCancel,
 
     QThreadPool pool;
     pool.setMaxThreadCount(threads);
-    QSemaphore slots(threads * 4);
+    QSemaphore slotSem(threads * 4);
 
     auto consider = [&](const QString &path, const QString &foldedName, qint64 size, const QDateTime &mtime, const QString &ext) {
         out.stats.filesSeen++;
@@ -980,8 +980,8 @@ Output search(const Query &q, const Index *index, std::atomic_bool *extCancel,
             if (exe.isEmpty()) { out.stats.pdfUnavailable = true; pdfWarned = true; }
         }
         if (kind == Kind::Pdf && out.stats.pdfUnavailable) { out.stats.unsupportedByExt[QStringLiteral("pdf")]++; return; }
-        slots.acquire();
-        if (cancelled()) { slots.release(); return; }
+        slotSem.acquire();
+        if (cancelled()) { slotSem.release(); return; }
         pool.start(QRunnable::create([&, path, size, mtime]() {
             if (!cancelled()) {
                 const ContentOutcome oc = matchContent(path, qq, contF, cancelled);
@@ -998,7 +998,7 @@ Output search(const Query &q, const Index *index, std::atomic_bool *extCancel,
                     addSkip(path, oc.error);
                 }
             }
-            slots.release();
+            slotSem.release();
         }));
     };
 
