@@ -32,6 +32,7 @@ public:
     bool save();            // Ctrl+S: lưu vào tệp mới đã chọn trước đó, hoặc hỏi Lưu thành
     bool saveAs();          // luôn hỏi đường dẫn
     bool exportPdf();
+    bool printDocument();   // Ctrl+P: xuất bản in (PDF tạm) → xem trước → in
     bool maybeClose();      // hỏi lưu nếu có thay đổi; false = huỷ đóng
     void excelAction(const QString& id);  // xl:* — cài đặt trong excel/ExcelUi.cpp
     void setZoom(int percent);

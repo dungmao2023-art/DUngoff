@@ -34,3 +34,7 @@
   - Nguồn: bản phân phối LibreOffice (https://www.libreoffice.org/) — danh sách và văn bản giấy phép nằm trong `engine\license` của bộ cài.
 - Bảng thay thế (Aptos, Aptos Display, Aptos Narrow, Aptos SemiBold, Aptos Light, Aptos Black → Carlito; Liberation Sans không được dùng làm phông dự phòng vì engine bỏ qua bảng khi ghi danh sách "A;B") được ghi vào hồ sơ engine khi chạy và áp dụng cho mọi máy (kể cả máy có Aptos): CI Windows cho thấy chế độ "chỉ khi thiếu phông" không có tác dụng trên engine này.
 - "Aptos" là tên phông của Microsoft; Dũng Office không phân phối phông Aptos.
+
+## Qt PDF (xem trước in và in)
+- Mô-đun Qt PDF của Qt Project / The Qt Company, giấy phép GNU LGPL phiên bản 3 (hoặc GPL phiên bản 2, hoặc giấy phép thương mại) — theo trang giấy phép chính thức https://doc.qt.io/qt-6/qtpdf-index.html. Dũng Office dùng bản LGPL, liên kết động (DLL kèm theo bộ cài), không sửa mã Qt.
+- Mô-đun này đi kèm bộ vẽ PDF PDFium cùng các thành phần bên thứ ba của nó; văn bản giấy phép của các thành phần đó nằm trong tài liệu giấy phép của Qt (https://doc.qt.io/qt-6/qtpdf-attribution.html). Mình chưa đối chiếu từng thành phần: cần rà lại trước khi phát hành chính thức.

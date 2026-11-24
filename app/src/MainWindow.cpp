@@ -138,6 +138,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     };
     addShortcut(QKeySequence::Open, QStringLiteral("open"));
     addShortcut(QKeySequence::Save, QStringLiteral("save"));
+    addShortcut(QKeySequence::Print, QStringLiteral("print"));
     addShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+S")), QStringLiteral("saveAs"));
     addShortcut(QKeySequence(QStringLiteral("Ctrl+W")), QStringLiteral("close"));
     addShortcut(QKeySequence(QStringLiteral("Ctrl+N")), QStringLiteral("newWorkbook"));
@@ -444,6 +445,7 @@ void MainWindow::onAppAction(const QString& id) {
     else if (id == QLatin1String("save")) t->save();
     else if (id == QLatin1String("saveAs")) t->saveAs();
     else if (id == QLatin1String("exportPdf")) t->exportPdf();
+    else if (id == QLatin1String("print")) t->printDocument();
     else if (id == QLatin1String("close")) closeTab(m_tabs->currentIndex());
     else if (id == QLatin1String("copy")) t->copy();
     else if (id == QLatin1String("cut")) t->cut();

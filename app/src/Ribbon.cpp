@@ -74,6 +74,9 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
             {QStringLiteral("saveAs"), tr("Lưu thành"), 0xE792, QStringLiteral("⇩"), false},
             {QStringLiteral("exportPdf"), tr("Xuất PDF"), 0xEA90, QStringLiteral("PDF"), false},
         }},
+        {tr("In"), {
+            {QStringLiteral("print"), tr("In / Xem trước"), 0xE749, QStringLiteral("🖨"), false},
+        }},
         {tr("Tệp"), {
             {QStringLiteral("open"), tr("Mở"), 0xE8E5, QStringLiteral("📂"), false},
             {QStringLiteral("close"), tr("Đóng"), 0xE711, QStringLiteral("✕"), false},
