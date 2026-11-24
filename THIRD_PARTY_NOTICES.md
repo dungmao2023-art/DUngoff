@@ -36,12 +36,23 @@
 - "Aptos" là tên phông của Microsoft; Dũng Office không phân phối phông Aptos.
 
 
-## Từ điển chính tả tiếng Việt (engine v2)
+## Từ điển chính tả tiếng Việt (thành phần tuỳ chọn, GPL)
 
-Engine v2 kèm từ điển Hunspell tiếng Việt lấy từ phần "dictionaries" của LibreOffice 26.8.3.1 (cài dạng tiện ích dữ liệu `dict-vi`).
-**Giấy phép chính xác của từ điển này cần xác minh** theo tệp README/LICENSE đi kèm (được sao vào `LICENSES-dung/` trong gói engine
-khi build). Chưa kiểm được ở thời điểm ghi mục này; không phát hành công khai bộ cài chứa từ điển cho đến khi xác minh xong.
-Từ điển là dữ liệu tách biệt, không liên kết vào mã của ứng dụng.
+**Đã xác minh giấy phép** (thay cho ghi chú "chưa xác minh" trước đây). Từ điển KHÔNG phải mã của Dũng Office và KHÔNG nằm trong tệp chạy hay engine.
+
+- **Là gì:** từ điển Hunspell tiếng Việt `vi-DauMoi` (đặt dấu kiểu mới: hoà, thuỷ) và `vi-DauCu` (kiểu cũ: hòa, thủy) — các tệp `.dic` + `.aff`, gồm các âm tiết đơn (tiếng Việt viết tách từng âm tiết).
+- **Tác giả:** danh sách từ gốc của Hồ Ngọc Đức ("Dự án Từ điển tiếng Việt miễn phí", gói GNU Aspell 0.60 Vietnamese Dictionary Package 0.01.1-1, 2004); chuyển sang Hunspell bởi László Németh; sửa luật và đóng gói bởi Ivan Garcia (2007) và Minh Nguyen / Nguyễn Xuân Minh (kho hunspell-vi).
+- **Nguồn:** https://github.com/1ec5/hunspell-vi, commit `39cc647f0cf3bdfc579980a2c3aac3f6f4203fe6`. Các tệp được tải về lúc đóng gói bằng `scripts/fetch-dict-vi.ps1`, kiểm SHA-256 từng tệp, **không sửa đổi**.
+- **Giấy phép:** GNU GPL. README của kho gốc ghi danh sách từ gốc theo "GPLv2" (không ghi "hoặc bản mới hơn"); phần đóng gói của hunspell-vi ghi GPL phiên bản 3 hoặc mới hơn (tệp `firefox_thunderbird/LICENSE`) hoặc GPLv3 (`openoffice/3.x/LICENSES-en.txt`). Các nguồn công bố khác nhau về phiên bản; mình chưa đọc được tệp `Copyright` gốc của gói Aspell (máy build không truy cập được ftp.gnu.org). Vì vậy bộ cài giữ nguyên văn cả hai giấy phép (`GPL-2.0.txt`, `GPL-3.0.txt`) và các tệp thông báo gốc, và chỉ phân phối từ điển như dữ liệu riêng.
+- **Cách phân phối (để tuân thủ GPL):** thành phần riêng "Từ điển chính tả tiếng Việt (GPL v2)" trong bộ cài, chọn sẵn nhưng bỏ chọn được; cài vào `dictionaries\vi` (thư mục riêng cạnh ứng dụng); có trang giấy phép + liên kết nguồn khi cài; chính các tệp `.dic/.aff` là mã nguồn kèm theo; văn bản GPL và `NOTICE-vi.txt` nằm cùng thư mục. Dũng Office (MPL-2.0) không liên kết vào từ điển này — chỉ được phân phối chung trong một bộ cài ("tập hợp đơn thuần").
+- **Thay hoặc gỡ:** bỏ chọn khi cài, hoặc xoá thư mục `dictionaries\vi`; ứng dụng vẫn chạy.
+- **Engine:** bản dựng engine có thể kèm sẵn từ điển tiếng Việt của LibreOffice (cấu hình `--with-myspell-dicts`, mục `dict-vi`); bước đóng gói `scripts/package-windows.ps1` **gỡ nó khỏi thư mục engine** trước khi tạo bộ cài (ghi danh sách trong `dict-vi-removed-from-engine.txt`), để dữ liệu GPL chỉ có mặt ở thành phần riêng nói trên.
+- **Hiện trạng:** từ điển chưa được nối vào giao diện kiểm tra chính tả. Mozilla đã gỡ từ điển tiếng Việt khỏi cây mã của họ vì giấy phép không tương thích với chính sách giấy phép của họ; không tìm thấy từ điển tiếng Việt nào có giấy phép dễ dãi hơn.
+
+## Kiểm tra chính tả theo âm tiết (mã của dự án)
+
+`app/src/vntext/SyllableCheck.*` do dự án tự viết (MPL-2.0), dùng luật âm vị tiếng Việt, **không** dùng từ điển hay bảng từ của bên thứ ba. Chỉ bắt âm tiết không tồn tại (ví dụ "tòan", "ngĩa", "viêc"); **không** bắt sai từ (ví dụ "xử dụng" khác "sử dụng", vì cả hai đều gồm âm tiết hợp lệ).
+
 ## Qt PDF (xem trước in và in)
 - Mô-đun Qt PDF của Qt Project / The Qt Company, giấy phép GNU LGPL phiên bản 3 (hoặc GPL phiên bản 2, hoặc giấy phép thương mại) — theo trang giấy phép chính thức https://doc.qt.io/qt-6/qtpdf-index.html. Dũng Office dùng bản LGPL, liên kết động (DLL kèm theo bộ cài), không sửa mã Qt.
 - Mô-đun này đi kèm bộ vẽ PDF PDFium cùng các thành phần bên thứ ba của nó; văn bản giấy phép của các thành phần đó nằm trong tài liệu giấy phép của Qt (https://doc.qt.io/qt-6/qtpdf-attribution.html). Mình chưa đối chiếu từng thành phần: cần rà lại trước khi phát hành chính thức.

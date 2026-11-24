@@ -1,9 +1,13 @@
-; Bộ cài OneClick ngoại tuyến cho Dũng Office (Inno Setup 6)
+﻿; Bộ cài OneClick ngoại tuyến cho Dũng Office (Inno Setup 6)
 ; Build: iscc /DSourceDir=<dist\DungOffice> /DAppVersion=0.1.0 installer\DungOffice.iss
 ; Cài cho người dùng hiện tại, KHÔNG cần quyền quản trị, không cần mạng.
 
 #ifndef SourceDir
   #define SourceDir "..\build\dist\DungOffice"
+#endif
+#ifndef DictDir
+  ; Thư mục từ điển tiếng Việt do scripts\package-windows.ps1 dựng NGOÀI thư mục ứng dụng (xem -DictViDir)
+  #define DictDir "..\build\dist\dict-vi"
 #endif
 #ifndef AppVersion
   #define AppVersion "0.1.0"
@@ -38,6 +42,17 @@ MinVersion=10.0
 ; Báo cho Explorer biết liên kết tệp đã đổi
 ChangesAssociations=yes
 
+[Types]
+; Mặc định "Cài đầy đủ" = mọi thành phần được chọn sẵn; chọn "Tuỳ chọn" để bỏ từng thành phần.
+Name: "full"; Description: "Cài đầy đủ (khuyến nghị, gồm từ điển chính tả tiếng Việt)"
+Name: "compact"; Description: "Cài tối thiểu (không có từ điển)"
+Name: "custom"; Description: "Tuỳ chọn"; Flags: iscustom
+
+[Components]
+Name: "main"; Description: "Dũng Office"; Types: full compact custom; Flags: fixed
+; Dữ liệu GPL tách riêng: cài vào {app}\dictionaries\vi, không nằm trong tệp chạy hay engine; bỏ chọn được, gỡ được.
+Name: "dict_vi"; Description: "Từ điển chính tả tiếng Việt (GPL v2)"; Types: full custom
+
 [Languages]
 ; Vietnamese.isl là bản dịch không chính thức của Inno Setup (CI tải từ jrsoftware/issrc).
 #ifexist "Vietnamese.isl"
@@ -57,7 +72,9 @@ Name: "assoc_pptx"; Description: "Cho phép mở tệp PowerPoint (.pptx) bằng
 Name: "assoc_pdf"; Description: "Cho phép mở tệp PDF (.pdf) bằng Dũng Office"; GroupDescription: "Liên kết tệp (Windows vẫn do bạn chọn phần mềm mặc định):"; Flags: unchecked
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\*"; DestDir: "{app}"; Components: main; Flags: ignoreversion recursesubdirs createallsubdirs
+; Từ điển tiếng Việt (GPL): thành phần riêng, thư mục riêng. Nếu bản dựng không có từ điển thì thành phần này rỗng.
+Source: "{#DictDir}\*"; DestDir: "{app}\dictionaries\vi"; Components: dict_vi; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\Dũng Office"; Filename: "{app}\DungOffice.exe"; Tasks: startmenu
@@ -138,6 +155,34 @@ begin
     else
       WizardSelectTasks('assoc_' + Exts[I]);
   end;
+end;
+
+var
+  DictPage: TOutputMsgMemoWizardPage;
+
+procedure InitializeWizard;
+begin
+  DictPage := CreateOutputMsgMemoPage(wpSelectComponents,
+    'Từ điển chính tả tiếng Việt',
+    'Giấy phép và nguồn của thành phần tuỳ chọn này',
+    'Vui lòng đọc thông tin dưới đây. Nếu không muốn cài từ điển, bấm "Quay lại" và bỏ chọn thành phần này.',
+    'Đây là DỮ LIỆU RIÊNG (tệp .dic và .aff), không phải mã chương trình của Dũng Office.' + #13#10 +
+    'Nó được cài vào thư mục riêng "dictionaries\vi" cạnh ứng dụng; có thể xoá bất cứ lúc nào, ứng dụng vẫn chạy bình thường.' + #13#10 + #13#10 +
+    'Tác giả và nguồn:' + #13#10 +
+    '- Danh sách từ gốc: Hồ Ngọc Đức, Dự án Từ điển tiếng Việt miễn phí (gói GNU Aspell 0.60 Vietnamese, bản 0.01.1-1, 2004).' + #13#10 +
+    '- Chuyển sang Hunspell: László Németh. Sửa luật và đóng gói: Ivan Garcia, Nguyễn Xuân Minh (hunspell-vi).' + #13#10 +
+    '- Kho gốc: https://github.com/1ec5/hunspell-vi (commit 39cc647f0cf3bdfc579980a2c3aac3f6f4203fe6).' + #13#10 + #13#10 +
+    'Giấy phép: GNU General Public License. Theo tệp README gốc, danh sách từ có điều khoản GPL phiên bản 2; phần đóng gói của hunspell-vi theo GPL phiên bản 3 (hoặc mới hơn).' + #13#10 +
+    'Bạn có quyền dùng, sao chép, sửa và phân phối lại theo các giấy phép đó; không có bảo hành. Mã nguồn chính là các tệp .dic/.aff được cài kèm, bản gốc ở liên kết trên.' + #13#10 +
+    'Văn bản đầy đủ: tệp GPL-2.0.txt và GPL-3.0.txt trong thư mục dictionaries\vi sau khi cài.' + #13#10 + #13#10 +
+    'Từ điển này không được liên kết vào chương trình Dũng Office (giấy phép MPL-2.0); hai bên chỉ được phân phối chung trong một bộ cài.');
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if PageID = DictPage.ID then
+    Result := not WizardIsComponentSelected('dict_vi');
 end;
 
 procedure CurrentPageChanged(CurPageID: Integer);

@@ -7,3 +7,11 @@ add_executable(dung-vntexttest
 target_include_directories(dung-vntexttest PRIVATE ${DUNG_VNTEXT_DIR} ${PROJECT_SOURCE_DIR}/app/src)
 target_link_libraries(dung-vntexttest PRIVATE Qt6::Core)
 set_target_properties(dung-vntexttest PROPERTIES AUTOMOC OFF)
+
+# Kiểm tra chính tả theo âm tiết (luật âm vị; không dùng từ điển bên thứ ba)
+add_executable(dung-syllabletest
+  ${PROJECT_SOURCE_DIR}/tests/vntext/syllable_tests.cpp
+  ${DUNG_VNTEXT_DIR}/SyllableCheck.cpp ${DUNG_VNTEXT_DIR}/SyllableCheck.h)
+target_include_directories(dung-syllabletest PRIVATE ${DUNG_VNTEXT_DIR} ${PROJECT_SOURCE_DIR}/app/src)
+target_link_libraries(dung-syllabletest PRIVATE Qt6::Core)
+set_target_properties(dung-syllabletest PROPERTIES AUTOMOC OFF)
