@@ -417,7 +417,9 @@ void MainWindow::onAppAction(const QString& id) {
         static const QHash<QString, PdfToolsDialog::Tab> tabs{
             {QStringLiteral("merge"), PdfToolsDialog::Merge}, {QStringLiteral("split"), PdfToolsDialog::Split},
             {QStringLiteral("rotate"), PdfToolsDialog::Rotate}, {QStringLiteral("compress"), PdfToolsDialog::Compress},
-            {QStringLiteral("info"), PdfToolsDialog::Info}};
+            {QStringLiteral("info"), PdfToolsDialog::Info},
+            {QStringLiteral("number"), PdfToolsDialog::Number}, {QStringLiteral("stamp"), PdfToolsDialog::Stamp},
+            {QStringLiteral("images"), PdfToolsDialog::Images}, {QStringLiteral("blank"), PdfToolsDialog::Blank}};
         QString path;
         if (docVisible && t->document() && !t->document()->isNew()) path = QString::fromStdU16String(t->document()->originalPath().u16string());
         PdfToolsDialog::run(this, tabs.value(id.mid(9), PdfToolsDialog::Merge), path);

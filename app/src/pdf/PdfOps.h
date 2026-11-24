@@ -103,6 +103,9 @@ struct BlankReport {
 BlankReport findBlankPages(const Input& in);
 Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace = false);
 
+// Chuỗi chỉ gồm ký tự ASCII in được (32..126)? Dùng để báo trước cho người dùng khi nhập chữ đánh số/đóng dấu.
+bool isAsciiText(const QString& s);
+
 // Tên đề xuất cho tệp kết quả: "<tên> - Dũng Office.pdf" cạnh tệp nguồn; thêm số nếu đã tồn tại.
 QString suggestOutputPath(const QString& sourcePath, const QString& label = QString());
 
