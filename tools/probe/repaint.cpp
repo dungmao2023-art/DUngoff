@@ -10,6 +10,7 @@
 #include <windows.h>
 #endif
 #include "dung/Engine.h"
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 namespace fs = std::filesystem;
 using namespace dung;
 
