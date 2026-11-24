@@ -392,8 +392,8 @@ int runWordTests(const fs::path& program, const fs::path& out) {
         run(e, ".uno:GoToEndOfDoc");
         run(e, w::hyperlink("Liên kết", "https://example.com/"));
         // Lề chuẩn VN: trái 30, phải 15, trên 20, dưới 20 mm (kiểm trong verify_docx.py qua w:pgMar)
-        run(e, ".uno:AttributePageLRSpace", w::join({w::argLong("AttributePageLRSpace.Left", 3000), w::argLong("AttributePageLRSpace.Right", 1500)}));
-        run(e, ".uno:AttributePageULSpace", w::join({w::argLong("AttributePageULSpace.Upper", 2000), w::argLong("AttributePageULSpace.Lower", 2000)}));
+        run(e, ".uno:PageLRMargin", w::join({w::argLong("PageLRMargin.Left", 3000), w::argLong("PageLRMargin.Right", 1500)}));
+        run(e, ".uno:PageULMargin", w::join({w::argLong("PageULMargin.Upper", 2000), w::argLong("PageULMargin.Lower", 2000)}));
         const fs::path docx = out / "word-dinh-dang.docx";
         fs::remove(docx, ec);
         auto r = e.saveAs(docx);

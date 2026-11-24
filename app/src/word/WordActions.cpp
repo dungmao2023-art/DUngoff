@@ -84,13 +84,13 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
                      join({argLong("AttributePageSize.Width", land ? 29700 : 21000),
                            argLong("AttributePageSize.Height", land ? 21000 : 29700)}));
     } else if (name.startsWith(QLatin1String("margin"))) {
-        // Lề trang, đơn vị 1/100 mm. "marginVN": thể thức văn bản hành chính (Nghị định 30/2020/NĐ-CP):
+        // Lề trang, đơn vị 1/100 mm. Lệnh PageLRMargin/PageULMargin đã kiểm chứng trên LibreOffice 24.2 (AttributePageLRSpace/ULSpace KHÔNG có tác dụng). "marginVN": thể thức văn bản hành chính (Nghị định 30/2020/NĐ-CP):
         // trên 20, dưới 20, trái 30, phải 15 mm. Các lề khác: thường 25,4 mm; hẹp 12,7 mm.
         long l = 3000, r = 1500, t = 2000, b = 2000;
         if (name == QLatin1String("marginNormal")) l = r = t = b = 2540;
         else if (name == QLatin1String("marginNarrow")) l = r = t = b = 1270;
-        doc->command(".uno:AttributePageLRSpace", join({argLong("AttributePageLRSpace.Left", l), argLong("AttributePageLRSpace.Right", r)}));
-        doc->command(".uno:AttributePageULSpace", join({argLong("AttributePageULSpace.Upper", t), argLong("AttributePageULSpace.Lower", b)}));
+        doc->command(".uno:PageLRMargin", join({argLong("PageLRMargin.Left", l), argLong("PageLRMargin.Right", r)}));
+        doc->command(".uno:PageULMargin", join({argLong("PageULMargin.Upper", t), argLong("PageULMargin.Lower", b)}));
     } else if (name == QLatin1String("count")) {
         std::string text = doc->selectionAs("text/plain;charset=utf-8");
         const bool sel = !text.empty();
