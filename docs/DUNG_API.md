@@ -19,8 +19,10 @@ Data Validity…) không dùng được. Thay vào đó, ứng dụng đóng gó
 `runMacro` không truyền đối số và không trả giá trị, nên dùng hai tệp trong `<hồ sơ>/user/dung-api/`:
 
 1. C++ ghi `args.json` (nguyên tử): `{"nonce","fn","args":{...},"expect_url"}`.
-2. C++ gọi `runMacro("vnd.sun.star.script:dung_api.py$call_api?language=Python&location=user")` trên luồng engine,
-   sau `setView(getView())`.
+2. C++ gọi `runMacro("macro:///Standard.DungApi.Run")` trên luồng engine, sau `setView(getView())`.
+   (Đã đo trên engine thật: `runMacro` với URL `vnd.sun.star.script:` trả false; chỉ macro Basic chạy được. Mô-đun Basic
+   `DungApi.Run` do ứng dụng sinh ra chỉ gọi script Python qua `MasterScriptProviderFactory`; lỗi khởi chạy ghi ra `basic-error.txt`.
+   LibreOffice bỏ qua thư viện Basic ghi trước lần khởi động đầu, nên ứng dụng ghi lại thư viện sau khi engine khởi động.)
 3. `call_api()` đọc rồi xoá `args.json`, kiểm tra, chạy, ghi `result.json` (nguyên tử):
    `{"nonce","ok","message","data","mutated"}`.
 4. C++ kiểm tra `nonce` khớp rồi trả `ScriptResult{ok, mutated, message, json}`.

@@ -390,7 +390,52 @@ void writeFileAtomic(const fs::path& p, const std::string& data) {
     if (ec) { fs::remove(p, ec); fs::rename(tmp, p, ec); }
 }
 
+// LOK::runMacro chỉ chạy được macro Basic (macro:///Thư_viện.Mô_đun.Hàm) — đã đo trên engine thật: URL
+// vnd.sun.star.script: trả false. Nên có một mô-đun Basic mỏng gọi script Python qua MasterScriptProviderFactory.
+// Mô-đun này do ứng dụng sinh ra, không nhận đối số (đối số đi qua args.json) và ghi lỗi (nếu có) ra basic-error.txt.
+const char kBasicModule[] =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+    "<!DOCTYPE script:module PUBLIC \"-//OpenOffice.org//DTD OfficeDocument 1.0//EN\" \"module.dtd\">\n"
+    "<script:module xmlns:script=\"http://openoffice.org/2000/script\" script:name=\"DungApi\" script:language=\"StarBasic\">"
+    "Sub Run\n"
+    "  On Error GoTo Fail\n"
+    "  Dim f As Object, p As Object, s As Object\n"
+    "  f = CreateUnoService(\"com.sun.star.script.provider.MasterScriptProviderFactory\")\n"
+    "  p = f.createScriptProvider(\"\")\n"
+    "  s = p.getScript(\"vnd.sun.star.script:dung_api.py$call_api?language=Python&amp;location=user\")\n"
+    "  s.invoke(Array(), Array(), Array())\n"
+    "  Exit Sub\n"
+    "Fail:\n"
+    "  Dim sub1 As Object, u As String, n As Integer\n"
+    "  sub1 = CreateUnoService(\"com.sun.star.util.PathSubstitution\")\n"
+    "  u = sub1.substituteVariables(\"$(user)/dung-api/basic-error.txt\", True)\n"
+    "  n = FreeFile\n"
+    "  Open u For Output As #n\n"
+    "  Print #n, CStr(Err) + \": \" + Error$\n"
+    "  Close #n\n"
+    "End Sub\n"
+    "</script:module>\n";
+
+void installBasicLibrary(const fs::path& profileDir) {
+    const fs::path b = profileDir / "user" / "basic";
+    const char* hdr = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    const std::string xlc = std::string(hdr) +
+        "<!DOCTYPE library:libraries PUBLIC \"-//OpenOffice.org//DTD OfficeDocument 1.0//EN\" \"libraries.dtd\">\n"
+        "<library:libraries xmlns:library=\"http://openoffice.org/2000/library\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n"
+        " <library:library library:name=\"Standard\" library:link=\"false\"/>\n</library:libraries>\n";
+    const std::string xlbHead = std::string(hdr) +
+        "<!DOCTYPE library:library PUBLIC \"-//OpenOffice.org//DTD OfficeDocument 1.0//EN\" \"library.dtd\">\n"
+        "<library:library xmlns:library=\"http://openoffice.org/2000/library\" library:name=\"Standard\" "
+        "library:readonly=\"false\" library:passwordprotected=\"false\"";
+    writeFileAtomic(b / "script.xlc", xlc);
+    writeFileAtomic(b / "dialog.xlc", xlc);
+    writeFileAtomic(b / "Standard" / "script.xlb", xlbHead + ">\n <library:element library:name=\"DungApi\"/>\n</library:library>\n");
+    writeFileAtomic(b / "Standard" / "dialog.xlb", xlbHead + "/>\n");
+    writeFileAtomic(b / "Standard" / "DungApi.xba", kBasicModule);
+}
+
 void installDungScripts(const fs::path& profileDir) {
+    installBasicLibrary(profileDir);
     writeFileAtomic(profileDir / "user" / "Scripts" / "python" / "dung_api.py",
                     std::string((const char*)kDungApiPy, sizeof(kDungApiPy) - 1));
     // MacroSecurityLevel=3 (rất cao): chỉ macro đã ký/trong thư mục tin cậy. Thêm một lần, có marker.
@@ -655,6 +700,8 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
         return nullptr;
     }
     created = true;
+    // LibreOffice tự dựng thư viện Basic mặc định ở lần chạy đầu và bỏ qua thư viện ta ghi trước đó (đã đo) -> ghi lại sau khi khởi động.
+    installBasicLibrary(profileDir);
     std::unique_ptr<Engine> e(new Engine());
     e->m_office.reset(new lok::Office(kit));
     e->m_workDir = workDir;
@@ -1222,6 +1269,7 @@ ScriptResult Document::callScript(const std::string& fn, const std::string& args
     std::error_code ec;
     fs::create_directories(dir, ec);
     fs::remove(dir / "result.json", ec);
+    fs::remove(dir / "basic-error.txt", ec);
     const std::string nonce = randomToken() + std::to_string(steadyMs());
     std::string req = "{\"nonce\":\"" + nonce + "\",\"fn\":\"" + fn + "\",\"args\":" + argsJson;
     if (!m_working.empty()) req += ",\"expect_url\":\"" + jsonEscape(toFileUrl(m_working)) + "\"";
@@ -1238,7 +1286,7 @@ ScriptResult Document::callScript(const std::string& fn, const std::string& args
         try {
             ok = onEngine([&] {
                 doc->setView(doc->getView()); // chọn lại chế độ xem hiện hành để script thấy đúng tài liệu
-                return office->runMacro("vnd.sun.star.script:dung_api.py$call_api?language=Python&location=user");
+                return office->runMacro("macro:///Standard.DungApi.Run");
             });
         } catch (...) {}
         sh->p.set_value(ok);
@@ -1253,6 +1301,10 @@ ScriptResult Document::callScript(const std::string& fn, const std::string& args
     std::string j((std::istreambuf_iterator<char>(f)), {});
     if (j.empty()) {
         fs::remove(dir / "args.json", ec);
+        std::string be;
+        { std::ifstream bf(dir / "basic-error.txt", std::ios::binary); be.assign(std::istreambuf_iterator<char>(bf), {}); }
+        while (!be.empty() && (be.back() == '\n' || be.back() == '\r')) be.pop_back();
+        if (!be.empty()) { fs::remove(dir / "basic-error.txt", ec); return fail("Script lỗi khi khởi chạy: " + be); }
         return fail(launched ? "Script không trả kết quả." : "Engine không chạy được script (runMacro thất bại).");
     }
     if (jsonString(j, "nonce") != nonce) return fail("Kết quả script không khớp yêu cầu (nonce).");
