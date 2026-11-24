@@ -101,6 +101,81 @@ p = os.path.join(out, "sang-xlsx-xlsm.xlsx")
 if os.path.exists(p):
     has = any("vbaProject" in n for n in zipfile.ZipFile(p).namelist())
     print(f"[TIN]  xlsm  bản .xlsx sinh ra {'CÒN' if has else 'KHÔNG còn'} vbaProject.bin (vbaProject.bin trong tệp mẫu là GIẢ; chưa thử macro VBA thật)")
+
+# ===================== Mẫu .xlsm THẬT (Mau_Thu_Chi.xlsm: macro VBA + 4 nút form control) =====================
+K = "thuchi"
+ORIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "fixtures", "formats", "Mau_Thu_Chi.xlsm")
+if inv.get(K):
+    rep(g(K, "mở") == "ok", K, "mở được .xlsm thật trên engine", g(K, "mở"))
+    rep(g(K, "chỉ_đọc") == "có", K, "mở ở chế độ chỉ đọc")
+    rep(g(K, "có_macro") == "có", K, "app nhận ra có macro VBA")
+    rep(g(K, "số_nút") == "4", K, "app nhận ra đủ 4 nút/điều khiển biểu mẫu", "số_nút=" + g(K, "số_nút"))
+    rep(g(K, "tên_sheet") == "NhapLieu|GiaoDich|BaoCao", K, "đủ 3 sheet đúng thứ tự", g(K, "tên_sheet"))
+    rep(int(g(K, "điểm_ảnh_tối", "0") or 0) > 200, K, "vẽ ra nội dung", "điểm tối=" + g(K, "điểm_ảnh_tối"))
+    w = " ".join(inv.get(K, {}).get("cảnh_báo", []))
+    rep("macro" in w.lower() and "nút" in w.lower() and "MẤT" in w and "KHÔNG chạy" in w, K, "cảnh báo khi mở nói rõ: macro/nút không chạy và MẤT khi Lưu thành .xlsx", w[:160] or "KHÔNG CÓ")
+    rep(g(K, "đã_sửa") == "không", K, "chặn được việc sửa ô")
+    rep(g(K, "lưu_xlsm_theo_app").startswith("bị_chặn"), K, "app CHẶN lưu .xlsm", g(K, "lưu_xlsm_theo_app")[:120])
+    m = g(K, "xlsx_không_xác_nhận")
+    rep(m.startswith("bị_chặn") and "KHÔNG có" in m and "macro" in m.lower() and "nút" in m.lower(), K, "Lưu thành .xlsx: app nói rõ macro/nút sẽ mất và đòi xác nhận TRƯỚC khi ghi", m[:200])
+    rep(not os.path.exists(os.path.join(out, "thuchi-khong-xac-nhan.xlsx")), K, "chưa xác nhận thì CHƯA ghi tệp nào")
+    rep(g(K, "xlsx_có_xác_nhận").startswith("ok"), K, "Lưu thành .xlsx sau xác nhận thành công")
+    rep(g(K, "gốc_không_đổi_byte") == "có", K, "tệp gốc KHÔNG đổi byte nào sau mọi thao tác")
+    # --- đối chiếu nội dung: tệp gốc (openpyxl) và bản .xlsx ---
+    outx = os.path.join(out, "thuchi-sang-xlsx.xlsx")
+    if os.path.exists(outx) and os.path.exists(ORIG):
+        a = openpyxl.load_workbook(ORIG, keep_vba=True); b = openpyxl.load_workbook(outx)
+        rep(a.sheetnames == b.sheetnames, K, "bản .xlsx giữ tên và thứ tự sheet", str(b.sheetnames))
+        diffs, fmt_diffs, n = [], [], 0
+        norm = lambda v: v.replace(" ", "").replace("FALSE()", "FALSE").upper() if isinstance(v, str) else v
+        for ws in a:
+            if ws.title not in b.sheetnames: continue
+            wb2 = b[ws.title]
+            for row in ws.iter_rows():
+                for c in row:
+                    if c.value is None: continue
+                    n += 1
+                    v2 = wb2[c.coordinate].value
+                    if norm(c.value) != norm(v2) and not (isinstance(c.value, dt.datetime) and isinstance(v2, dt.datetime) and c.value == v2):
+                        diffs.append(f"{ws.title}!{c.coordinate}: {c.value!r} -> {v2!r}")
+                    f1, f2 = c.number_format, wb2[c.coordinate].number_format
+                    dateish = lambda f: "d" in f.lower() and "y" in f.lower()
+                    if f1 != f2 and not (dateish(f1) and dateish(f2)):
+                        fmt_diffs.append(f"{ws.title}!{c.coordinate}: {f1} -> {f2}")
+        rep(not diffs, K, f"mọi ô có dữ liệu giữ nguyên giá trị/công thức ({n} ô)", "; ".join(diffs[:4]))
+        rep(not fmt_diffs, K, "định dạng số của các ô giữ nguyên", "; ".join(fmt_diffs[:4]))
+        rep(b["BaoCao"]["B3"].value and "SUMIF" in str(b["BaoCao"]["B3"].value).upper(), K, "công thức SUMIF ở BaoCao giữ (không thành giá trị)", repr(b["BaoCao"]["B3"].value))
+        rep(isinstance(b["NhapLieu"]["B3"].value, str) and "TODAY" in b["NhapLieu"]["B3"].value.upper(), K, "công thức =TODAY() giữ", repr(b["NhapLieu"]["B3"].value))
+        names = zipfile.ZipFile(outx).namelist()
+        lost_vba = not any("vbaProject" in x for x in names)
+        lost_ctrl = not any("ctrlProps" in x for x in names)
+        print(f"[TIN]  {K} bản .xlsx: macro {'MẤT' if lost_vba else 'CÒN'}, nút/ctrlProps {'MẤT' if lost_ctrl else 'CÒN'} (ứng dụng đã cảnh báo trước khi ghi)")
+    # --- engine ghi .xlsm (bỏ qua chính sách, chỉ để đo) ---
+    if os.path.exists(ORIG):
+        zo = zipfile.ZipFile(ORIG); ovba = zo.read("xl/vbaProject.bin")
+        octrl = sorted(x for x in zo.namelist() if x.startswith("xl/ctrlProps/") and x.endswith(".xml"))
+        for tag in ("a", "b"):
+            pth = os.path.join(out, f"raw-{tag}.xlsm"); st = g(K, f"engine_ghi_{tag}")
+            if not os.path.exists(pth):
+                print(f"[TIN]  {K} engine ghi .xlsm cách '{tag}': {st or 'không có dòng INV'} (không tạo được tệp)"); continue
+            z = zipfile.ZipFile(pth); nm = z.namelist()
+            has = "xl/vbaProject.bin" in nm
+            same = has and z.read("xl/vbaProject.bin") == ovba
+            ctrl = sorted(x for x in nm if x.startswith("xl/ctrlProps/") and x.endswith(".xml"))
+            print(f"[TIN]  {K} engine ghi .xlsm '{tag}' ({st}): vbaProject.bin {'CÓ' if has else 'MẤT'}"
+                  f"{', GIỐNG byte' if same else (', KHÁC byte' if has else '')}; ctrlProps {len(ctrl)}/{len(octrl)}")
+            try:
+                wbk = openpyxl.load_workbook(pth, keep_vba=True)
+                ok = wbk.vba_archive is not None and "xl/vbaProject.bin" in wbk.vba_archive.namelist()
+                print(f"[TIN]  {K} openpyxl(keep_vba=True) mở lại bản '{tag}': {'thấy vbaProject.bin' if ok else 'KHÔNG thấy vbaProject.bin'}")
+            except Exception as e:
+                print(f"[TIN]  {K} openpyxl(keep_vba=True) KHÔNG mở được bản '{tag}': {e}")
+    try:
+        wbo = openpyxl.load_workbook(ORIG, keep_vba=True)
+        print(f"[TIN]  {K} tệp gốc mở bằng openpyxl(keep_vba=True): vba_archive={'có' if wbo.vba_archive else 'KHÔNG'}")
+    except Exception as e:
+        print(f"[TIN]  {K} tệp gốc openpyxl lỗi: {e}")
+
 bad = res.count(False)
 print(f"\nTỔNG: {len(res) - bad} đạt / {bad} lệch (cần phân loại)")
 print("KẾT QUẢ ĐỐI CHIẾU: " + ("CÓ LỆCH" if bad else "KHÔNG LỆCH"))

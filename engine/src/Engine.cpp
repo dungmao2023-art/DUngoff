@@ -493,6 +493,44 @@ std::string Engine::versionInfo() const {
     return s;
 }
 
+
+namespace {
+// Đọc danh mục (central directory) của gói zip/OOXML, đếm macro VBA và điều khiển biểu mẫu. Không giải nén gì.
+struct PackageScan { bool vba = false; int controls = 0; };
+PackageScan scanOoxml(const fs::path& p) {
+    PackageScan r;
+    std::ifstream f(p, std::ios::binary);
+    if (!f) return r;
+    f.seekg(0, std::ios::end);
+    const std::streamoff size = f.tellg();
+    if (size < 22) return r;
+    const std::streamoff tail = std::min<std::streamoff>(size, 70000);
+    std::vector<unsigned char> t((size_t)tail);
+    f.seekg(size - tail);
+    f.read((char*)t.data(), tail);
+    auto u16 = [&](const std::vector<unsigned char>& b, size_t o) { return (unsigned)(b[o] | (b[o + 1] << 8)); };
+    auto u32 = [&](const std::vector<unsigned char>& b, size_t o) { return (unsigned long long)(b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | ((unsigned long long)b[o + 3] << 24)); };
+    long eocd = -1;
+    for (long i = (long)tail - 22; i >= 0; --i)
+        if (t[i] == 0x50 && t[i + 1] == 0x4b && t[i + 2] == 5 && t[i + 3] == 6) { eocd = i; break; }
+    if (eocd < 0) return r;
+    const unsigned long long cdSize = u32(t, eocd + 12), cdOff = u32(t, eocd + 16);
+    if (cdOff + cdSize > (unsigned long long)size || cdSize > 64ull * 1024 * 1024) return r;
+    std::vector<unsigned char> cd((size_t)cdSize);
+    f.seekg((std::streamoff)cdOff);
+    f.read((char*)cd.data(), (std::streamsize)cdSize);
+    size_t o = 0;
+    while (o + 46 <= cd.size() && cd[o] == 0x50 && cd[o + 1] == 0x4b && cd[o + 2] == 1 && cd[o + 3] == 2) {
+        const size_t n = u16(cd, o + 28), x = u16(cd, o + 30), c = u16(cd, o + 32);
+        if (o + 46 + n > cd.size()) break;
+        const std::string name((const char*)&cd[o + 46], n);
+        if (name == "xl/vbaProject.bin") r.vba = true;
+        if (name.rfind("xl/ctrlProps/", 0) == 0 && name.size() > 13) ++r.controls;
+        o += 46 + n + x + c;
+    }
+    return r;
+}
+}
 std::unique_ptr<Document> Engine::open(const fs::path& original, std::string* error) {
     auto fail = [&](const std::string& m) { if (error) *error = m; return std::unique_ptr<Document>(); };
     std::error_code ec;
@@ -532,6 +570,20 @@ std::unique_ptr<Document> Engine::open(const fs::path& original, std::string* er
     doc->m_workDir = dir;
     if (info->fidelity != Fidelity::Native) doc->m_readOnly = true;
     if (!info->warning.empty()) doc->m_warnings.push_back(info->warning);
+    if (info->ext == "xlsm") {
+        const PackageScan ps = scanOoxml(working);
+        doc->m_hasMacro = ps.vba;
+        doc->m_formControls = ps.controls;
+        if (ps.vba || ps.controls > 0) {
+            std::string w = "Tệp này có";
+            if (ps.vba) w += " macro VBA";
+            if (ps.vba && ps.controls > 0) w += " và";
+            if (ps.controls > 0) w += " " + std::to_string(ps.controls) + " nút/điều khiển biểu mẫu";
+            w += ". Dũng Office KHÔNG chạy macro và các nút sẽ không hoạt động. Nếu bạn Lưu thành .xlsx, macro và nút sẽ MẤT trong bản mới "
+                 "(tệp gốc không bị thay đổi). Muốn dùng macro/nút, hãy tiếp tục mở tệp gốc bằng Microsoft Excel.";
+            doc->m_warnings.push_back(w);
+        }
+    }
     Document* raw = doc.get();
     onEngine([&] {
         raw->m_kind = kindFromLok(d->getDocumentType());
@@ -843,8 +895,16 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
             return r;
         }
         if (m_readOnly && !opts.allowLossyExport) {
-            r.message = "Tài liệu đang ở chế độ chỉ đọc. Lưu sang định dạng mới có thể làm mất một phần "
-                        "nội dung của tệp gốc (vd. macro). Cần xác nhận trước khi lưu.";
+            if (m_hasMacro || m_formControls > 0) {
+                r.message = "Bản mới sẽ KHÔNG có";
+                if (m_hasMacro) r.message += " macro VBA";
+                if (m_hasMacro && m_formControls > 0) r.message += " và";
+                if (m_formControls > 0) r.message += " " + std::to_string(m_formControls) + " nút/điều khiển biểu mẫu";
+                r.message += " của tệp gốc (công thức, giá trị và định dạng vẫn được giữ). Tệp gốc không bị thay đổi. Cần xác nhận trước khi lưu.";
+            } else {
+                r.message = "Tài liệu đang ở chế độ chỉ đọc. Lưu sang định dạng mới có thể làm mất một phần "
+                            "nội dung của tệp gốc (vd. macro). Cần xác nhận trước khi lưu.";
+            }
             return r;
         }
     }
@@ -904,6 +964,14 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
     if (!isPdf) m_modified = false;
     if (!ownOutput) m_sessionOutputs.push_back(target);
     return r;
+}
+
+bool Document::saveRawForDiagnostics(const fs::path& target, const std::string& format) {
+    // Chỉ ghi ra tệp mới do người gọi chọn; từ chối ghi đè bản gốc hoặc bản làm việc.
+    std::error_code ec;
+    if (fs::exists(target, ec) || samePath(target, m_original) || samePath(target, m_working)) return false;
+    const std::string url = toFileUrl(target);
+    return onEngine([&] { return m_doc->saveAs(url.c_str(), format.c_str(), nullptr); });
 }
 
 } // namespace dung

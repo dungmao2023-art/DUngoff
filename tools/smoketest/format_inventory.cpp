@@ -8,6 +8,11 @@
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
 #include <atomic>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <iterator>
 #include <chrono>
 #include <iostream>
 #include <mutex>
@@ -46,6 +51,79 @@ void watchdog(int seconds) {
     }).detach();
 }
 } // namespace
+
+
+namespace {
+std::string fnv(const fs::path& p) {
+    std::ifstream f(p, std::ios::binary);
+    std::uint64_t h = 1469598103934665603ull; std::uint64_t n = 0;
+    char c;
+    while (f.get(c)) { h ^= (unsigned char)c; h *= 1099511628211ull; ++n; }
+    char buf[64]; std::snprintf(buf, sizeof buf, "%016llx:%llu", (unsigned long long)h, (unsigned long long)n);
+    return buf;
+}
+} // namespace
+
+// Mẫu .xlsm THẬT do Excel tạo (có macro VBA + nút form control): chính sách app, mất mát khi lưu .xlsx, và đo engine ghi .xlsm.
+static void realXlsm(Engine& engine, const fs::path& src, const fs::path& out) {
+    const std::string K = "thuchi";
+    std::error_code ec;
+    const std::string before = fnv(src);
+    const fs::path work = out / "goc-thuchi.xlsm";
+    fs::copy_file(src, work, fs::copy_options::overwrite_existing, ec);
+    std::string err;
+    step("mở Mau_Thu_Chi.xlsm thật");
+    auto doc = engine.open(work, &err);
+    if (!doc) { inv(K, "mở", "LỖI " + oneLine(err)); return; }
+    inv(K, "mở", "ok");
+    inv(K, "chỉ_đọc", doc->readOnly() ? "có" : "không");
+    inv(K, "có_macro", doc->hasMacro() ? "có" : "không");
+    inv(K, "số_nút", std::to_string(doc->formControlCount()));
+    inv(K, "số_sheet", std::to_string(doc->partCount()));
+    std::string names;
+    for (int i = 0; i < doc->partCount(); ++i) names += (i ? "|" : "") + doc->partName(i);
+    inv(K, "tên_sheet", names);
+    for (const auto& w : doc->warnings()) inv(K, "cảnh_báo", oneLine(w).substr(0, 500));
+    const int n = 512;
+    std::vector<uint8_t> b(n * n * 4, 0);
+    doc->setClientView(n, n, n * 15, n * 15, 0, 0, n * 15, n * 15);
+    doc->paintTile(b.data(), n, n, 0, 0, n * 15, n * 15);
+    size_t dark = 0;
+    for (size_t k = 0; k < b.size(); k += 4) if (b[k] < 200 || b[k + 1] < 200 || b[k + 2] < 200) ++dark;
+    inv(K, "điểm_ảnh_tối", std::to_string(dark));
+    step("sửa ô trên .xlsm thật");
+    doc->command(".uno:GoToCell", "{\"ToPoint\":{\"type\":\"string\",\"value\":\"H2\"}}");
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    doc->typeText(u"SUA");
+    doc->postKey(LOK_KEYEVENT_KEYINPUT, 13, 1280);
+    doc->postKey(LOK_KEYEVENT_KEYUP, 13, 1280);
+    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    inv(K, "đã_sửa", doc->modified() ? "có" : "không");
+    step("lưu .xlsm thật theo chính sách app");
+    {
+        auto r = doc->saveAs(out / "chinh-sach-cung-duoi.xlsm");
+        inv(K, "lưu_xlsm_theo_app", std::string(r.ok ? "ok" : "bị_chặn") + ": " + oneLine(r.message).substr(0, 300));
+        auto r1 = doc->saveAs(out / "thuchi-khong-xac-nhan.xlsx");
+        inv(K, "xlsx_không_xác_nhận", std::string(r1.ok ? "ok" : "bị_chặn") + ": " + oneLine(r1.message).substr(0, 400));
+        SaveOptions so; so.allowLossyExport = true;
+        auto r2 = doc->saveAs(out / "thuchi-sang-xlsx.xlsx", so);
+        inv(K, "xlsx_có_xác_nhận", std::string(r2.ok ? "ok" : "lỗi") + ": " + oneLine(r2.message).substr(0, 200));
+    }
+    // Đo thẳng engine (BỎ QUA chính sách của app): ghi .xlsm có giữ macro/nút không?
+    step("đo engine ghi .xlsm (bỏ qua chính sách, chỉ để kiểm kê)");
+    struct Try { const char* tag; const char* format; } tries[] = {
+        {"a", "xlsm"}, {"b", "Calc MS Excel 2007 VBA XML"}, {"c", "xlsx"}};
+    const char* skip = std::getenv("DUNG_INV_SKIP_RAW"); // chẩn đoán lỗi thoát: bỏ ghi thô (a,b,c)
+    for (const auto& t : tries) {
+        if (skip && std::string(skip).find(t.tag) != std::string::npos) continue;
+        const fs::path o = out / (std::string("raw-") + t.tag + (std::string(t.tag) == "c" ? ".xlsx" : ".xlsm"));
+        const bool ok = doc->saveRawForDiagnostics(o, t.format);
+        inv(K, std::string("engine_ghi_") + t.tag, std::string(ok ? "ok" : "thất_bại") + " định_dạng=" + t.format);
+    }
+    const std::string afterSrc = fnv(src), afterWork = fnv(work);
+    inv(K, "gốc_không_đổi_byte", (before == afterSrc) ? "có" : "KHÔNG");
+    (void)afterWork;
+}
 
 int dungRunFormatInventory(const fs::path& program, const fs::path& dir, const fs::path& out) {
     std::error_code ec;
@@ -108,6 +186,10 @@ int dungRunFormatInventory(const fs::path& program, const fs::path& dir, const f
             auto r2 = doc->saveAs(out / (std::string("sang-xlsx-") + ext + ".xlsx"), so);
             inv(ext, "xlsx_có_xác_nhận", std::string(r2.ok ? "ok" : "lỗi") + ": " + oneLine(r2.message).substr(0, 160));
         }
+    }
+    {
+        const fs::path real = dir / "Mau_Thu_Chi.xlsm";
+        if (fs::exists(real)) realXlsm(*engine, real, out); else inv("thuchi", "tệp", "không có");
     }
     std::cout << "KẾT QUẢ KIỂM KÊ: XONG\n";
     return 0;

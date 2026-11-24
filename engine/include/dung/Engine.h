@@ -151,6 +151,13 @@ public:
     // không trùng tệp đã có. Không bao giờ trả về chính tệp gốc.
     fs::path suggestSaveAsPath(const std::string& ext = std::string()) const;
     SaveResult saveAs(const fs::path& target, const SaveOptions& opts = SaveOptions());
+    // Macro VBA / điều khiển biểu mẫu (nút...) phát hiện trong gói OOXML khi mở (xlsm). Dùng để cảnh báo rõ
+    // trước khi "Lưu thành" định dạng không giữ được chúng.
+    bool hasMacro() const { return m_hasMacro; }
+    int formControlCount() const { return m_formControls; }
+    // CHỈ DÙNG CHO KIỂM KÊ (tools/smoketest): ghi thẳng bằng engine, BỎ QUA chính sách định dạng, để đo xem engine
+    // có làm hỏng macro/nút không. Ứng dụng KHÔNG được gọi hàm này. Không bao giờ ghi vào tệp gốc/bản làm việc.
+    bool saveRawForDiagnostics(const fs::path& target, const std::string& format);
 
 private:
     Document() = default;
@@ -170,6 +177,8 @@ private:
     fs::path m_working;
     fs::path m_workDir;   // thư mục tạm riêng của tài liệu này
     std::string m_newName;
+    bool m_hasMacro = false;
+    int m_formControls = 0;
     std::vector<std::string> m_warnings;
     std::vector<fs::path> m_sessionOutputs; // tệp do chính phiên này ghi ra (Ctrl+S lặp lại không cần sao lưu)
 
