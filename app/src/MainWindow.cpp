@@ -18,6 +18,7 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCloseEvent>
+#include <QColor>
 #include <QDir>
 #include <QDragEnterEvent>
 #include <QFileDialog>
@@ -314,8 +315,37 @@ void MainWindow::newDoc(DocKind kind) {
     addTab(new DocumentTab(std::move(doc)));
 }
 
+namespace {
+// Thứ tự nhóm tab: Word, Excel, PowerPoint, PDF, khác. Tab mới chèn vào cuối nhóm cùng loại.
+int kindRank(dung::DocKind k) {
+    switch (k) {
+    case DocKind::Text: return 0;
+    case DocKind::Spreadsheet: return 1;
+    case DocKind::Presentation: return 2;
+    case DocKind::Drawing: return 3;
+    default: return 4;
+    }
+}
+QColor kindColor(dung::DocKind k) {
+    switch (k) {
+    case DocKind::Text: return QColor(0x1F, 0x50, 0xBB);
+    case DocKind::Spreadsheet: return QColor(0x21, 0x86, 0x6E);
+    case DocKind::Presentation: return QColor(0xC2, 0x5B, 0x1A);
+    case DocKind::Drawing: return QColor(0xBE, 0x49, 0x49);
+    default: return QColor(0x44, 0x44, 0x44);
+    }
+}
+}  // namespace
+
 void MainWindow::addTab(DocumentTab* tab) {
-    const int idx = m_tabs->addTab(tab, tab->title());
+    const int rank = kindRank(tab->document()->kind());
+    int pos = 0;
+    for (int i = 0; i < m_tabs->count(); ++i) {
+        auto* t = qobject_cast<DocumentTab*>(m_tabs->widget(i));
+        if (t && kindRank(t->document()->kind()) <= rank) pos = i + 1;
+    }
+    const int idx = m_tabs->insertTab(pos, tab, tab->title());
+    m_tabs->tabBar()->setTabTextColor(idx, kindColor(tab->document()->kind()));
     m_tabs->setTabToolTip(idx, tab->document()->isNew() ? tab->title()
                                                         : QDir::toNativeSeparators(fromPath(tab->document()->originalPath())));
     connect(tab, &DocumentTab::titleChanged, this, [this, tab] {
