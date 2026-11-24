@@ -59,6 +59,13 @@ int main(int argc, char** argv) {
     (void)gotBefore;
     doc->clearEvents();
     doc->typeText(u"Dung Office xin chao");
+    {   // Con trỏ nhập liệu: engine có gửi vị trí/hiện-ẩn con trỏ không?
+        std::string cr, cv;
+        const bool gotRect = doc->waitFor(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR, [&](const std::string& pl) { cr = pl; return true; }, 1500);
+        const bool gotVis = doc->waitFor(LOK_CALLBACK_CURSOR_VISIBLE, [&](const std::string& pl) { cv = pl; return true; }, 500);
+        printf("REPAINT %s: sự kiện vị trí con trỏ: %s %s\n", mode.c_str(), gotRect ? "có" : "KHÔNG", cr.substr(0, 60).c_str());
+        printf("REPAINT %s: sự kiện hiện/ẩn con trỏ: %s %s\n", mode.c_str(), gotVis ? "có" : "KHÔNG", cv.substr(0, 40).c_str());
+    }
     // Phân biệt: sự kiện làm mới do engine LibreOffice tự báo, và sự kiện "SYNTH" do tầng engine của Dũng Office bù thêm.
     const bool nativeInval = doc->waitFor(0, [](const std::string& pl) { return pl != "SYNTH"; }, 3000);
     const bool synthInval = doc->waitFor(0, [](const std::string& pl) { return pl == "SYNTH"; }, 100)

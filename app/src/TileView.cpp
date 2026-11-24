@@ -31,6 +31,9 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
     m_synthTimer.setSingleShot(true);
     m_synthTimer.setInterval(60);
     connect(&m_synthTimer, &QTimer::timeout, this, [this] { refreshAllTiles(); m_synthLate.start(); });
+    m_blink.setInterval(530);
+    connect(&m_blink, &QTimer::timeout, this, [this] { m_blinkOn = !m_blinkOn; if (!m_caret.isEmpty()) viewport()->update(); });
+    m_blink.start();
     m_synthLate.setSingleShot(true);
     m_synthLate.setInterval(250);
     connect(&m_synthLate, &QTimer::timeout, this, &TileView::refreshAllTiles);
@@ -201,9 +204,9 @@ void TileView::paintEvent(QPaintEvent* ev) {
         const QRect v = toView(m_cellCursor);
         p.fillRect(QRect(v.right() - 3, v.bottom() - 3, 6, 6), theme::kExcel); // tay nắm
     }
-    if (m_caretVisible && !m_caret.isEmpty() && hasFocus()) {
+    if (m_caretVisible && m_blinkOn && !m_caret.isEmpty() && hasFocus()) {
         QRect c = toView(m_caret);
-        c.setWidth(2);
+        c.setWidth(qMax(2, int(devicePixelRatioF() + 1.0)));
         p.fillRect(c, Qt::black);
     }
     p.restore();
@@ -334,10 +337,14 @@ void TileView::handleEvent(int type, const QString& payload) {
         if (payload.startsWith(QLatin1Char('{')))
             rect = QJsonDocument::fromJson(payload.toUtf8()).object().value(QStringLiteral("rectangle")).toString();
         m_caret = rect.startsWith(QLatin1String("EMPTY")) ? QRect() : parseRect(rect);
+        // Engine headless có thể không gửi CURSOR_VISIBLE: khi chưa từng thấy thì coi con trỏ là hiện.
+        if (!m_caretVisSeen) m_caretVisible = !m_caret.isEmpty();
+        m_blinkOn = true;
         viewport()->update();
         break;
     }
     case LOK_CALLBACK_CURSOR_VISIBLE:
+        m_caretVisSeen = true;
         m_caretVisible = payload.contains(QLatin1String("true"));
         viewport()->update();
         break;

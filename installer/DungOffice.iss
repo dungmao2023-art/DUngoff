@@ -13,7 +13,6 @@
 AppId={{6C1E7B53-2F7B-4C4B-9C59-0D0A1B2C3D4E}
 AppName=Dũng Office
 AppVersion={#AppVersion}
-AppPublisher=Dũng Office
 DefaultDirName={localappdata}\Programs\DungOffice
 DefaultGroupName=Dũng Office
 DisableProgramGroupPage=yes
@@ -32,6 +31,9 @@ SolidCompression=yes
 LZMANumBlockThreads=1
 WizardStyle=modern
 LicenseFile=..\LICENSE
+InfoBeforeFile=thong-tin.rtf
+AppPublisher=Trần Văn Dũng
+AppPublisherURL=https://github.com/dungmao2023-art/DUngoff
 MinVersion=10.0
 
 [Languages]
@@ -43,13 +45,14 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 #endif
 
 [Tasks]
-Name: "desktopicon"; Description: "Tạo biểu tượng trên màn hình nền"; GroupDescription: "Tuỳ chọn:"
+Name: "desktopicon"; Description: "Tạo biểu tượng trên màn hình nền"; GroupDescription: "Tuỳ chọn (đã chọn sẵn):"
+Name: "startmenu"; Description: "Tạo lối tắt trong Start Menu"; GroupDescription: "Tuỳ chọn (đã chọn sẵn):"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\Dũng Office"; Filename: "{app}\DungOffice.exe"
+Name: "{group}\Dũng Office"; Filename: "{app}\DungOffice.exe"; Tasks: startmenu
 Name: "{userdesktop}\Dũng Office"; Filename: "{app}\DungOffice.exe"; Tasks: desktopicon
 
 [Registry]
@@ -63,3 +66,4 @@ Root: HKCU; Subkey: "Software\Classes\.pdf\OpenWithList\DungOffice.exe"; Flags: 
 
 [Run]
 Filename: "{app}\DungOffice.exe"; Description: "Mở Dũng Office"; Flags: nowait postinstall skipifsilent
+

@@ -62,6 +62,9 @@ private:
     QHash<quint64, QImage> m_tiles;
     QRect m_cellCursor, m_caret;
     bool m_caretVisible = false;
+    bool m_caretVisSeen = false;   // engine đã từng gửi CURSOR_VISIBLE chưa
+    bool m_blinkOn = true;
+    QTimer m_blink;                // nhấp nháy con trỏ phía ứng dụng
     QVector<QRect> m_selection;
     // Tiêu đề hàng/cột (Excel): vị trí kết thúc tính theo pixel ở zoom hiện tại
     struct Header { QString text; int endPx; };
