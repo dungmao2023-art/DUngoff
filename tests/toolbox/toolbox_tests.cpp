@@ -11,6 +11,7 @@
 #include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -122,6 +123,20 @@ int main(int argc, char** argv) {
     CHECK(foldVn(QStringLiteral("Đồng hồ đếm giờ")) == QStringLiteral("dong ho dem gio"), "foldVn bỏ dấu và chữ đ");
     clearForTest();
     CHECK(tools().isEmpty(), "xoá sổ để thử lại");
+
+    // ===== Ghim =====
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings().remove(QStringLiteral("toolbox/pinned"));
+    CHECK(pinnedIds().isEmpty() && !isPinned(QStringLiteral("tim_tep")), "chưa ghim gì");
+    setPinned(QStringLiteral("tim_tep"), true);
+    setPinned(QStringLiteral("ngoai:xin-chao"), true);
+    setPinned(QStringLiteral("tim_tep"), true);
+    CHECK(pinnedIds() == QStringList({QStringLiteral("ngoai:xin-chao"), QStringLiteral("tim_tep")}), "ghim hai lần không tạo bản sao, giữ thứ tự");
+    setPinned(QStringLiteral("ngoai:xin-chao"), false);
+    CHECK(pinnedIds() == QStringList({QStringLiteral("tim_tep")}), "bỏ ghim");
+    setPinned(QString(), true);
+    CHECK(pinnedIds().size() == 1, "mã rỗng không được ghim");
+    QSettings().remove(QStringLiteral("toolbox/pinned"));
 
     // ===== Đồng hồ =====
     CHECK(formatDuration(3725000) == QStringLiteral("01:02:05"), "định dạng 3725 giây = 01:02:05");

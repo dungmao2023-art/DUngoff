@@ -2,6 +2,7 @@
 #include "ToolRegistry.h"
 
 #include <QMutex>
+#include <QSettings>
 #include <QMutexLocker>
 #include <QRegularExpression>
 #include <algorithm>
@@ -97,6 +98,20 @@ QList<ToolInfo> search(const QString& query) {
         if (all) out << t;
     }
     return out;
+}
+
+QStringList pinnedIds() {
+    QSettings st;
+    return st.value(QStringLiteral("toolbox/pinned")).toStringList();
+}
+bool isPinned(const QString& id) { return pinnedIds().contains(id); }
+void setPinned(const QString& id, bool pinned) {
+    if (id.trimmed().isEmpty()) return;
+    QStringList l = pinnedIds();
+    l.removeAll(id);
+    if (pinned) l << id;
+    QSettings st;
+    st.setValue(QStringLiteral("toolbox/pinned"), l);
 }
 
 void clearForTest() {

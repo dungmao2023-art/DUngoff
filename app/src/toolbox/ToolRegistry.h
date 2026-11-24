@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 // Sổ đăng ký công cụ của "Hộp công cụ". Thêm một công cụ mới = 1 dòng DUNG_REGISTER_TOOL
-// trong tệp .cpp của công cụ + 1 dòng trong toolbox.cmake (xem docs/THEM_TOOL_MOI.md).
+// trong tệp .cpp của công cụ + 1 dòng trong toolbox.cmake (xem docs/TOOLBOX.md).
 // Chỉ cần QtCore (QWidget chỉ khai báo trước) nên kiểm thử được không cần giao diện.
 #pragma once
 #include <QList>
@@ -37,6 +37,12 @@ bool find(const QString& id, ToolInfo* out = nullptr);
 QList<ToolInfo> search(const QString& query);
 QString foldVn(const QString& s); // bỏ dấu + hạ chữ thường (dùng cho tìm kiếm)
 
+// Ghim công cụ (hiện ở hàng "Đã ghim" đầu trang Công cụ). Lưu bằng QSettings, khoá "toolbox/pinned".
+// Mã tool ngoài có tiền tố "ngoai:". Thứ tự ghim được giữ nguyên; ghim hai lần không tạo bản sao.
+QStringList pinnedIds();
+bool isPinned(const QString& id);
+void setPinned(const QString& id, bool pinned);
+
 void clearForTest();
 
 } // namespace toolbox
@@ -49,3 +55,6 @@ void clearForTest();
         {QStringLiteral(#ID), QStringLiteral(NAME), QStringLiteral(DESC), QStringLiteral(CATEGORY),       \
          QStringLiteral(ICON), toolbox::CreateFn(CREATE_FN), false});                                      \
     }
+
+// Tên chính thức của API cho các nhánh công cụ: dung::toolbox::registerTool(ToolInfo)
+namespace dung { namespace toolbox = ::toolbox; }

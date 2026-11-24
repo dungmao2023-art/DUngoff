@@ -125,6 +125,47 @@ void ToolboxPage::rebuild() {
         none->setStyleSheet(QStringLiteral("color:#697992;"));
         bv->addWidget(none);
     }
+    auto addCard = [&](QGridLayout* grid, int i, const toolbox::ToolInfo& t) {
+        auto* wrap = new QWidget(body);
+        auto* wl = new QGridLayout(wrap);
+        wl->setContentsMargins(0, 0, 0, 0);
+        auto* card = new QToolButton(wrap);
+        card->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        card->setText(t.iconText + QStringLiteral("  ") + t.name + (t.description.isEmpty() ? QString() : QStringLiteral("\n") + t.description));
+        card->setCursor(Qt::PointingHandCursor);
+        card->setMinimumSize(210, 74);
+        card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        card->setStyleSheet(QStringLiteral("QToolButton{background:white;border:1px solid #D9E1EC;border-radius:10px;padding:10px 30px 10px 10px;text-align:left;color:#1E293B;}"
+                                           "QToolButton:hover{border-color:#275DD6;background:#F3F7FF;}"));
+        const QString id = t.id;
+        connect(card, &QToolButton::clicked, this, [this, id] { openTool(id); });
+        wl->addWidget(card, 0, 0);
+        auto* pin = new QToolButton(wrap);
+        const bool pinned = toolbox::isPinned(id);
+        pin->setText(pinned ? QStringLiteral("★") : QStringLiteral("☆"));
+        pin->setToolTip(pinned ? tr("Bỏ ghim") : tr("Ghim lên đầu trang Công cụ"));
+        pin->setCursor(Qt::PointingHandCursor);
+        pin->setAutoRaise(true);
+        pin->setStyleSheet(QStringLiteral("QToolButton{border:none;font-size:16px;color:#275DD6;background:transparent;}"));
+        connect(pin, &QToolButton::clicked, this, [this, id, pinned] { toolbox::setPinned(id, !pinned); rebuild(); });
+        wl->addWidget(pin, 0, 0, Qt::AlignTop | Qt::AlignRight);
+        grid->addWidget(wrap, i / 3, i % 3);
+    };
+    QList<toolbox::ToolInfo> pinnedList;
+    for (const QString& pid : toolbox::pinnedIds())
+        for (const auto& t : list)
+            if (t.id == pid) pinnedList << t;
+    if (!pinnedList.isEmpty()) {
+        auto* h = new QLabel(tr("★ Đã ghim"), body);
+        h->setStyleSheet(QStringLiteral("font-size:14px;font-weight:700;color:#275DD6;margin-top:10px;"));
+        bv->addWidget(h);
+        auto* grid = new QGridLayout();
+        grid->setHorizontalSpacing(10);
+        grid->setVerticalSpacing(10);
+        int i = 0;
+        for (const auto& t : pinnedList) addCard(grid, i++, t);
+        bv->addLayout(grid);
+    }
     for (const QString& c : cats) {
         auto* h = new QLabel(c, body);
         h->setStyleSheet(QStringLiteral("font-size:14px;font-weight:700;color:#275DD6;margin-top:10px;"));
@@ -135,18 +176,7 @@ void ToolboxPage::rebuild() {
         int i = 0;
         for (const auto& t : list) {
             if (t.category != c) continue;
-            auto* card = new QToolButton(body);
-            card->setToolButtonStyle(Qt::ToolButtonTextOnly);
-            card->setText(t.iconText + QStringLiteral("  ") + t.name + (t.description.isEmpty() ? QString() : QStringLiteral("\n") + t.description));
-            card->setCursor(Qt::PointingHandCursor);
-            card->setMinimumSize(210, 74);
-            card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-            card->setStyleSheet(QStringLiteral("QToolButton{background:white;border:1px solid #D9E1EC;border-radius:10px;padding:10px;text-align:left;color:#1E293B;}"
-                                               "QToolButton:hover{border-color:#275DD6;background:#F3F7FF;}"));
-            const QString id = t.id;
-            connect(card, &QToolButton::clicked, this, [this, id] { openTool(id); });
-            grid->addWidget(card, i / 3, i % 3);
-            ++i;
+            addCard(grid, i++, t);
         }
         bv->addLayout(grid);
     }
