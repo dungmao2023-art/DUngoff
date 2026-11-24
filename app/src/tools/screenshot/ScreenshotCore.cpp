@@ -131,7 +131,7 @@ QImage Document::render() const {
         switch (o.type) {
         case OpType::Arrow: drawArrow(p, o); break;
         case OpType::Rect:
-            p.setPen(QPen(o.color, o.width, Qt::SolidLine, Qt::MiterJoin)); p.setBrush(Qt::NoBrush);
+            p.setPen(QPen(o.color, o.width, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin)); p.setBrush(Qt::NoBrush);
             p.drawRect(QRectF(o.a, o.b).normalized()); break;
         case OpType::Highlight: {
             QColor c = o.color.isValid() ? o.color : QColor(255, 235, 0);
