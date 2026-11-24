@@ -121,7 +121,7 @@ Result PdfToolsDialog::runWithPasswords(const QStringList& paths, const std::fun
         // Hỏi mật khẩu cho tệp đầu tiên chưa có mật khẩu đúng.
         bool asked = false;
         for (const QString& p : paths) {
-            const Info i = info(p, m_passwords.value(p));
+            const dungpdf::Info i = info(p, m_passwords.value(p));
             if (i.needPassword) {
                 if (!askPassword(p)) { r.error = tr("Đã hủy: chưa nhập mật khẩu."); r.needPassword = false; return r; }
                 asked = true;
@@ -147,7 +147,7 @@ void PdfToolsDialog::showResult(const Result& r, const QString& okTitle) {
 
 void PdfToolsDialog::refreshPageCount(const QString& path, QLabel* label) {
     if (!label) return;
-    Info i = info(path, m_passwords.value(path));
+    dungpdf::Info i = info(path, m_passwords.value(path));
     if (i.needPassword && askPassword(path)) i = info(path, m_passwords.value(path));
     label->setText(i.ok ? tr("%1 trang, %2").arg(i.pages).arg(human(i.bytes)) : i.error);
 }
@@ -308,7 +308,7 @@ QWidget* PdfToolsDialog::buildInfo() {
     auto* f = new QFormLayout(w);
     f->addRow(tr("Tệp PDF:"), fileRow(&m_infoFile, [this] {
         const QString p = m_infoFile->text();
-        Info i = info(p, m_passwords.value(p));
+        dungpdf::Info i = info(p, m_passwords.value(p));
         if (i.needPassword && askPassword(p)) i = info(p, m_passwords.value(p));
         m_infoText->setText(i.ok ? tr("Số trang: %1\nDung lượng: %2\nĐặt mật khẩu: %3")
                                        .arg(i.pages).arg(human(i.bytes)).arg(i.encrypted ? tr("có") : tr("không"))
