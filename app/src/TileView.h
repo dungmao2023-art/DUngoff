@@ -36,6 +36,7 @@ protected:
     void keyReleaseEvent(QKeyEvent*) override;
     void inputMethodEvent(QInputMethodEvent*) override;
     QVariant inputMethodQuery(Qt::InputMethodQuery q) const override;
+    void focusOutEvent(QFocusEvent*) override;
     bool focusNextPrevChild(bool) override { return false; } // Tab dành cho tài liệu
 
 private:
@@ -61,6 +62,8 @@ private:
     long m_docW = 0, m_docH = 0;               // twip
     QHash<quint64, QImage> m_tiles;
     QRect m_cellCursor, m_caret;
+    void cancelComposition();       // huỷ chữ đang soạn (mất focus / Escape / bấm chuột)
+    bool m_composing = false;       // engine đang giữ chữ đang soạn (preedit)
     bool m_caretVisible = false;
     bool m_caretVisSeen = false;   // engine đã từng gửi CURSOR_VISIBLE chưa
     bool m_blinkOn = true;

@@ -130,6 +130,10 @@ public:
     // --- Nhập liệu (toạ độ chuột theo twip) ---
     void postKey(int type, int charCode, int keyCode);
     void postMouse(int type, int twipX, int twipY, int count, int buttons, int modifier);
+    // Chữ đang soạn của bộ gõ (IME) qua LOK_EXT_TEXTINPUT: type = 0 (đặt chữ đang soạn), 1 (POS), 2 (END, chốt).
+    void postExtTextInput(int type, const std::string& utf8Text);
+    // Ngôn ngữ giao diện của view hiện tại (vd. "vi").
+    void setViewLanguage(const std::string& lang);
     void typeText(const std::u16string& text);   // gõ chuỗi ký tự (tiện cho kiểm thử/công thức)
 
     // --- Lệnh (UNO command, vd. ".uno:Bold") ---

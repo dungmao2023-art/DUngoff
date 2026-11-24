@@ -95,3 +95,35 @@ std::vector<ImeOp> imeToOps(const QString& commit, int replaceStart, int replace
     for (const QChar c : commit) ops.push_back({ImeOp::Char, int(c.unicode())});
     return ops;
 }
+
+std::vector<ImeStep> imePlan(const QString& preedit, const QString& commit, int replaceStart, int replaceLen,
+                             bool composing, bool* composingAfter, bool* unsupported) {
+    std::vector<ImeStep> steps;
+    if (unsupported) *unsupported = false;
+    auto preeditStep = [](const QString& t) { ImeStep s; s.kind = ImeStep::Preedit; s.text = t; return s; };
+    auto endStep = [] { ImeStep s; s.kind = ImeStep::EndPreedit; return s; };
+    if (composing) {
+        if (replaceLen > 0 && unsupported) *unsupported = true;      // đang soạn dở: không thay thêm phần khác
+        if (!commit.isEmpty()) {
+            steps.push_back(preeditStep(commit));                      // commit thay chữ đang soạn
+            steps.push_back(endStep());
+            if (!preedit.isEmpty()) steps.push_back(preeditStep(preedit));  // bắt đầu cụm soạn mới ngay sau đó
+        } else if (preedit.isEmpty()) {
+            steps.push_back(preeditStep(QString()));                   // huỷ: xoá chữ đang soạn rồi kết thúc
+            steps.push_back(endStep());
+        } else {
+            steps.push_back(preeditStep(preedit));                     // cập nhật chữ đang soạn
+        }
+        if (composingAfter) *composingAfter = commit.isEmpty() ? !preedit.isEmpty() : !preedit.isEmpty();
+        return steps;
+    }
+    for (const ImeOp& op : imeToOps(commit, replaceStart, replaceLen, unsupported)) {
+        ImeStep s;
+        s.kind = op.kind == ImeOp::Backspace ? ImeStep::Backspace : op.kind == ImeOp::Delete ? ImeStep::Delete : ImeStep::Char;
+        s.charCode = op.charCode;
+        steps.push_back(s);
+    }
+    if (!preedit.isEmpty()) steps.push_back(preeditStep(preedit));
+    if (composingAfter) *composingAfter = !preedit.isEmpty();
+    return steps;
+}

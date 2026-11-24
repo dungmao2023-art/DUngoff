@@ -794,6 +794,16 @@ void Document::postMouse(int type, int x, int y, int count, int buttons, int mod
     if (type != LOK_MOUSEEVENT_MOUSEMOVE) emitSynthetic();
 }
 
+void Document::postExtTextInput(int type, const std::string& utf8Text) {
+    m_lastInputMs = steadyMs();
+    onEngine([&] { m_doc->postWindowExtTextInputEvent(0, type, utf8Text.c_str()); });
+    emitSynthetic();
+}
+
+void Document::setViewLanguage(const std::string& lang) {
+    onEngine([&] { m_doc->setViewLanguage(m_doc->getView(), lang.c_str()); });
+}
+
 void Document::typeText(const std::u16string& text) {
     for (char16_t ch : text) {
         int keyCode = 0;
