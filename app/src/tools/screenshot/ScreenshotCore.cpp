@@ -10,6 +10,8 @@
 #include <QPageSize>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPen>
+#include <QBrush>
 #include <QPdfWriter>
 #include <QSaveFile>
 #include <QStandardPaths>
