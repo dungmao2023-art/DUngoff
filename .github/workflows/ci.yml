@@ -145,11 +145,10 @@ jobs:
             Select-String -Path report/windows-build.log -Pattern "error" | Select-Object -First 10 | ForEach-Object { Write-Host "::error::$($_.Line)" }
             exit 1
           }
-      - name: Kiểm thử đầy đủ engine trên Windows (nhập liệu, lưu) — chưa chặn job
+      - name: Kiểm thử đầy đủ engine trên Windows (nhập liệu, lưu) — chặn job
         id: full
-        # Engine chính thức (MSI) không hỗ trợ nhập liệu trên Windows: bước này sẽ treo ở F2.
-        # Bỏ dòng continue-on-error khi engine headless (--enable-headless) được dùng.
-        continue-on-error: true
+        # Engine headless của dự án (engine-26.8.3.1-headless) đã đạt toàn bộ bước này
+        # (run 45340092506), nên đây là bước chặn.
         timeout-minutes: 15
         run: |
           $env:PYTHONUTF8 = "1"
