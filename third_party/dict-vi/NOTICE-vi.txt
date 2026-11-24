@@ -1,0 +1,25 @@
+TỪ ĐIỂN CHÍNH TẢ TIẾNG VIỆT (Hunspell) — thành phần tuỳ chọn của Dũng Office
+==========================================================================
+
+Đây là DỮ LIỆU RIÊNG (các tệp .dic và .aff), không phải mã chương trình của Dũng Office.
+Nó được cài vào thư mục riêng "dictionaries\vi" cạnh ứng dụng, nằm ngoài tệp chạy và ngoài engine,
+và có thể bỏ chọn khi cài hoặc xoá bất cứ lúc nào mà ứng dụng vẫn chạy bình thường.
+
+Nguồn và tác giả
+- Danh sách từ gốc: Hồ Ngọc Đức, "Dự án Từ điển tiếng Việt miễn phí" (gói GNU Aspell 0.60 Vietnamese Dictionary Package, phiên bản 0.01.1-1, 2004-08-24).
+- Chuyển sang định dạng Hunspell: László Németh.
+- Sửa luật và đóng gói: Ivan Garcia (2007), Minh Nguyen / Nguyễn Xuân Minh (hunspell-vi).
+- Kho gốc: https://github.com/1ec5/hunspell-vi — bản dùng: commit 39cc647f0cf3bdfc579980a2c3aac3f6f4203fe6.
+  Tệp lấy từ thư mục "dictionaries" của kho đó, kiểm tra SHA-256 khi đóng gói; không bị sửa đổi.
+
+Giấy phép
+- Theo tệp README của kho gốc, danh sách từ gốc có điều khoản "GPLv2" (GNU General Public License phiên bản 2).
+  Phần đóng gói của hunspell-vi được công bố theo GPL phiên bản 3 (hoặc mới hơn, tuỳ tệp). Văn bản đầy đủ của cả hai giấy phép
+  nằm cạnh các tệp từ điển (GPL-2.0.txt, GPL-3.0.txt) cùng các tệp thông báo bản quyền gốc.
+- Bạn có quyền dùng, sao chép, sửa và phân phối lại các tệp này theo đúng các giấy phép trên. Không có bảo hành.
+- MÃ NGUỒN: chính các tệp .dic/.aff đi kèm là dạng ưu tiên để chỉnh sửa; bản gốc có tại liên kết nêu trên.
+- Từ điển này KHÔNG được liên kết vào chương trình Dũng Office (giấy phép MPL-2.0); hai bên chỉ được phân phối chung trong một bộ cài.
+
+Lưu ý
+- Từ điển này gồm các âm tiết đơn, vì tiếng Việt viết tách từng âm tiết bằng dấu cách; nó không kiểm tra được từ ghép hay ngữ cảnh.
+- Hiện Dũng Office chưa dùng từ điển này trong giao diện kiểm tra chính tả.

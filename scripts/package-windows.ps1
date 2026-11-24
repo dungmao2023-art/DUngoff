@@ -6,7 +6,10 @@ param(
   [Parameter(Mandatory = $true)][string]$EngineDir,
   [Parameter(Mandatory = $true)][string]$QtDir,
   [Parameter(Mandatory = $true)][string]$OutDir,
-  [string]$QpdfDir = ""
+  [string]$QpdfDir = "",
+  # Thư mục chứa từ điển tiếng Việt đã tải (scripts\fetch-dict-vi.ps1). Từ điển là thành phần GPL RIÊNG:
+  # được dựng ở <OutDir>\dict-vi (ngoài thư mục ứng dụng) để bộ cài đóng thành thành phần tuỳ chọn.
+  [string]$DictViDir = ""
 )
 $ErrorActionPreference = "Stop"
 $app = Join-Path $OutDir "DungOffice"
@@ -43,6 +46,27 @@ if ($QpdfDir -and (Test-Path (Join-Path $QpdfDir "qpdf.exe"))) {
 } else { Write-Warning "Không có qpdf: Công cụ PDF sẽ báo thiếu thành phần." }
 
 $root = Resolve-Path "$PSScriptRoot\.."
+
+# --- Từ điển tiếng Việt (GPL): KHÔNG để lẫn trong engine/ứng dụng ---
+# 1) Gỡ mọi từ điển tiếng Việt nếu bản engine có sẵn (tránh phân phối dữ liệu GPL không tách bạch trong thư mục engine).
+$removed = @()
+$engineDir = Join-Path $app "engine"
+foreach ($d in @(Get-ChildItem $engineDir -Recurse -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "dict-vi*" })) {
+  $removed += $d.FullName.Substring($app.Length + 1); Remove-Item -Recurse -Force $d.FullName
+}
+foreach ($f in @(Get-ChildItem $engineDir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^(vi[_-][A-Za-z]*|vi)\.(dic|aff)$' })) {
+  $removed += $f.FullName.Substring($app.Length + 1); Remove-Item -Force $f.FullName
+}
+$dictOut = Join-Path $OutDir "dict-vi"
+if (Test-Path $dictOut) { Remove-Item -Recurse -Force $dictOut }
+if ($DictViDir -and (Test-Path (Join-Path $DictViDir "vi-DauMoi.dic"))) {
+  New-Item -ItemType Directory -Force -Path $dictOut | Out-Null
+  Copy-Item (Join-Path $DictViDir "*") $dictOut
+  Copy-Item (Join-Path $root "third_party\dict-vi\*") $dictOut   # GPL-2.0.txt, GPL-3.0.txt, NOTICE-vi.txt
+  Write-Host "Từ điển tiếng Việt (thành phần riêng): $dictOut"
+} else { Write-Warning "Không có từ điển tiếng Việt: bộ cài sẽ không có thành phần này." }
+$removed | Set-Content -Encoding UTF8 (Join-Path $OutDir "dict-vi-removed-from-engine.txt")
+Write-Host ("Từ điển tiếng Việt gỡ khỏi engine: {0} mục" -f $removed.Count)
 # Gói mẫu đi kèm: ứng dụng tự cài vào thư mục dữ liệu người dùng khi chạy lần đầu (hoặc khi gói mới hơn)
 if (Test-Path (Join-Path $root "templates")) { Copy-Item -Recurse (Join-Path $root "templates") (Join-Path $app "templates") }
 Copy-Item (Join-Path $root "LICENSE") $app

@@ -376,7 +376,6 @@ QStringList suggest(const Split &s, const QString &original) {
     };
     for (const QString &c : cands) {
         if (out.size() >= 5) break;
-        if (s.tone == 0) { push(c, 0); continue; }
         if (renderValid(c, s.tone, false).isEmpty()) { push(c, 4); push(c, 5); }   // thanh không hợp với vần p,t,c,ch -> thử sắc/nặng
         else push(c, s.tone);
     }

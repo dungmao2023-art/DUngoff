@@ -421,9 +421,28 @@ jobs:
             --expect "Doanh thu!F2=Dũng" --expect "Doanh thu!F3==D5*2" --expect 'Doanh thu!G2=="Tổng: "&D5' `
             --known tests/known_differences.txt *>&1 | Tee-Object report/windows-roundtrip.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: Tải từ điển tiếng Việt (GPL, thành phần riêng; kiểm SHA-256)
+        id: dictvi
+        continue-on-error: true
+        run: |
+          ./scripts/fetch-dict-vi.ps1 -OutDir build/dict-vi-src *>&1 | Tee-Object report/windows-fetch-dict-vi.log
       - name: Đóng gói thư mục chạy được
         run: |
-          ./scripts/package-windows.ps1 -BuildDir build/out -EngineDir build/lo/engine -QtDir $env:QT_ROOT_DIR -QpdfDir build/qpdf -OutDir build/dist *>&1 | Tee-Object report/windows-package.log
+          $dict = if ("${{ steps.dictvi.outcome }}" -eq "success") { "build/dict-vi-src" } else { "" }
+          ./scripts/package-windows.ps1 -BuildDir build/out -EngineDir build/lo/engine -QtDir $env:QT_ROOT_DIR -QpdfDir build/qpdf -OutDir build/dist -DictViDir $dict *>&1 | Tee-Object report/windows-package.log
+      - name: Kiểm tra từ điển tiếng Việt tách riêng khỏi ứng dụng và engine
+        run: |
+          $app = "build/dist/DungOffice"
+          $bad = @(Get-ChildItem $app -Recurse -File | Where-Object { $_.Name -match '^vi[_-].*\.(dic|aff)$|^vi\.(dic|aff)$' })
+          if ($bad.Count) { $bad | ForEach-Object { Write-Host "::error::Từ điển vi lẫn trong thư mục ứng dụng: $($_.FullName)" }; exit 1 }
+          Write-Host "Thư mục ứng dụng không chứa tệp từ điển tiếng Việt."
+          if ("${{ steps.dictvi.outcome }}" -eq "success") {
+            foreach ($n in "vi-DauMoi.dic","vi-DauMoi.aff","vi-DauCu.dic","GPL-2.0.txt","GPL-3.0.txt","NOTICE-vi.txt","README-en.txt") {
+              if (-not (Test-Path "build/dist/dict-vi/$n")) { Write-Host "::error::Thiếu build/dist/dict-vi/$n"; exit 1 }
+            }
+            Write-Host "Thành phần từ điển (thư mục riêng build/dist/dict-vi) đủ tệp và giấy phép."
+          } else { Write-Host "::warning::Không tải được từ điển; bộ cài sẽ không có thành phần này." }
+          Get-Content build/dist/dict-vi-removed-from-engine.txt -ErrorAction SilentlyContinue
       - name: Ảnh chụp giao diện thật trên Windows
         if: steps.full.outcome == 'success'
         run: |
@@ -451,7 +470,7 @@ jobs:
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
           try { Invoke-WebRequest https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/Vietnamese.isl -OutFile installer/Vietnamese.isl } catch { Write-Host "Không tải được Vietnamese.isl, dùng tiếng Anh" }
-          & $iscc /DSourceDir="$PWD\build\dist\DungOffice" /DAppVersion="0.1.0" installer/DungOffice.iss *>&1 | Tee-Object report/windows-installer.log
+          & $iscc /DSourceDir="$PWD\build\dist\DungOffice" /DDictDir="$PWD\build\dist\dict-vi" /DAppVersion="0.1.0" installer/DungOffice.iss *>&1 | Tee-Object report/windows-installer.log
           if ($LASTEXITCODE) { exit 1 }
           Get-ChildItem installer/Output/*.exe | ForEach-Object { "{0}  {1:N0} MB" -f $_.Name, ($_.Length / 1MB) } | Tee-Object -Append report/windows-installer.log
       - uses: actions/upload-artifact@v4

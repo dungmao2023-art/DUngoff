@@ -21,7 +21,11 @@ Không cắt module trong lượt này: chưa kiểm chứng được cờ `--di
 1. **Lấy submodule** `translations` và `dictionaries` nếu bản mã nguồn dùng submodule (kiểm `.gitmodules`; ghi log).
 2. **Sau build, trước đóng gói** (không chặn phát hành nếu lỗi — người dùng sẽ thấy trong báo cáo):
    - Lọc từ điển: chỉ giữ `dict-vi` và `dict-en` (tránh phình dung lượng), ghi danh sách đã bỏ.
-   - Sao chép README/LICENSE của từ điển tiếng Việt vào `LICENSES-dung/` (giấy phép từ điển cần xác minh theo tệp đó).
+   - Sao chép README/LICENSE của từ điển tiếng Việt vào `LICENSES-dung/`.
+   - **Ghi chú (feat/vi-dict):** giấy phép từ điển vi đã xác minh là GPL (xem THIRD_PARTY_NOTICES.md). Gói engine có `dict-vi` sẽ bị
+     `scripts/package-windows.ps1` GỠ khỏi thư mục engine khi đóng gói bộ cài; từ điển được phân phối như thành phần riêng
+     (`dictionaries\vi`, tải từ commit đã ghim, kiểm SHA-256). Bước "giữ dict-vi" trong workflow engine vì vậy không cần cho bộ cài;
+     có thể bỏ ở lần build engine sau (chưa sửa ở lượt này vì run đang chạy).
    - Cài `share/Scripts/python/dung_api.py` (đặt lề trang, bật/tắt đầu-chân trang, tiêu đề tài liệu qua API UNO).
    - Tự kiểm: chạy engine, kết nối UNO, gọi `dung_api` trực tiếp VÀ qua Python script provider theo URL
      `vnd.sun.star.script:dung_api.py$margins_vn?language=Python&location=share`, lưu .docx và đọc `w:pgMar`
@@ -33,6 +37,6 @@ Không cắt module trong lượt này: chưa kiểm chứng được cờ `--di
   log từng lượt (nhánh `ci-report-engine`), không chạy thêm lượt âm thầm.
 
 ## Chưa biết (sẽ rõ sau lượt build)
-- Từ điển tiếng Việt có trong bản `dictionaries` của LO 26.8.3.1 và giấy phép đúng của nó (xem `dict-vi-files.txt`, `LICENSES-dung/`).
+- Từ điển tiếng Việt có trong bản `dictionaries` của LO 26.8.3.1 hay không (xem `dict-vi-files.txt`). Giấy phép đã xác minh: GPL.
 - `--with-lang=vi` có buộc tải `translations` làm tăng thời gian build đáng kể không.
 - Script provider Python chạy được từ engine headless Windows không (bài tự kiểm trả lời).
