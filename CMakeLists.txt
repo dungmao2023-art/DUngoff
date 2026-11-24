@@ -42,3 +42,6 @@ endif()
 if(DUNG_BUILD_APP)
   add_subdirectory(app)
 endif()
+
+# Công cụ Word (nguồn thêm vào dung-smoketest và DungOffice)
+include(app/src/word/word.cmake)

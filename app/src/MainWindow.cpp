@@ -3,6 +3,7 @@
 
 #include "DocumentTab.h"
 #include "EngineHost.h"
+#include "word/WordActions.h"
 #include "HomePage.h"
 #include "Ribbon.h"
 #include "Theme.h"
@@ -333,6 +334,7 @@ void MainWindow::onAppAction(const QString& id) {
     else if (id == QLatin1String("zoomIn")) t->setZoom(t->zoom() + 10);
     else if (id == QLatin1String("zoomOut")) t->setZoom(t->zoom() - 10);
     else if (id == QLatin1String("zoom100")) t->setZoom(100);
+    else if (dung::word::handleAction(id, t, this)) {}
 }
 
 QStringList MainWindow::recent() const { return QSettings().value(QStringLiteral("recent")).toStringList(); }
