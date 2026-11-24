@@ -129,7 +129,7 @@ int main() {
     for (const char *s : {"ộtộ", "caộ", "bàt", "việtt", "xyz", "kkà"})
         check(!isPlausibleSyllable(QString::fromUtf8(s)), QStringLiteral("âm tiết không hợp lệ: %1").arg(QString::fromUtf8(s)));
 
-    { // toàn vẹn bảng mã: đúng 74 mã (67 chữ thường + 7 chữ hoa cơ sở), kết quả là ký tự dựng sẵn, không trùng nhau
+    { // toàn vẹn bảng mã: 74 mã (67 chữ thường + 7 chữ hoa cơ sở), trong đó ý trùng mã Latin-1, kết quả là ký tự dựng sẵn, không trùng nhau
         int mapped = 0; bool precomposed = true; QSet<QChar> seen; bool distinct = true;
         for (ushort c = 0xA1; c <= 0xFE; ++c) {
             const QString in = QString(1, QChar(c));
@@ -141,7 +141,7 @@ int main() {
                 seen.insert(r.text.at(0));
             }
         }
-        check(mapped == 74, "bảng TCVN3 có đúng 74 mã", QStringLiteral("số mã: %1").arg(mapped));
+        check(mapped == 73, "bảng TCVN3 có 74 mã, trong đó ý (0xFD) trùng chính nó nên đổi được 73 mã", QStringLiteral("số mã: %1").arg(mapped));
         check(precomposed, "mọi mã chuyển ra một ký tự Unicode dựng sẵn");
         check(distinct, "không có hai mã trùng ký tự đích");
     }
