@@ -62,8 +62,8 @@ int main(int argc, char** argv) {
     doc->typeText(u"Dung Office xin chao");
     {   // Con trỏ nhập liệu: engine có gửi vị trí/hiện-ẩn con trỏ không?
         std::string cr, cv;
-        const bool gotRect = doc->waitFor(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR, [&](const std::string& pl) { cr = pl; return true; }, 1500);
-        const bool gotVis = doc->waitFor(LOK_CALLBACK_CURSOR_VISIBLE, [&](const std::string& pl) { cv = pl; return true; }, 500);
+        const bool gotRect = doc->waitFor(1 /*INVALIDATE_VISIBLE_CURSOR*/, [&](const std::string& pl) { cr = pl; return true; }, 1500);
+        const bool gotVis = doc->waitFor(5 /*CURSOR_VISIBLE*/, [&](const std::string& pl) { cv = pl; return true; }, 500);
         printf("REPAINT %s: sự kiện vị trí con trỏ: %s %s\n", mode.c_str(), gotRect ? "có" : "KHÔNG", cr.substr(0, 60).c_str());
         printf("REPAINT %s: sự kiện hiện/ẩn con trỏ: %s %s\n", mode.c_str(), gotVis ? "có" : "KHÔNG", cv.substr(0, 40).c_str());
     }
