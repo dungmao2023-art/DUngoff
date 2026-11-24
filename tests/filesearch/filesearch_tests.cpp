@@ -212,6 +212,10 @@ static void testNames(const QString &root)
     writeFile(d + "/" + QStringLiteral("BAO CAO NHAP.txt"), "xx");
     writeFile(d + "/" + QStringLiteral("Hợp đồng lao động.pdf"), "xxxx");
     writeFile(d + "/.hidden/" + QStringLiteral("Báo cáo ẩn.txt"), "x");
+#ifdef _WIN32
+    // Windows: thư mục "ẩn" là thuộc tính hệ thống, không phải tên bắt đầu bằng dấu chấm
+    SetFileAttributesW(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(d + "/.hidden").utf16()), FILE_ATTRIBUTE_HIDDEN);
+#endif
     const QString longName = QString(190, QLatin1Char('a')) + QStringLiteral(" dài.txt");
     check(writeFile(d + "/" + longName, "x"), "tạo được tệp tên dài 190+ ký tự");
     QString deep = d;
