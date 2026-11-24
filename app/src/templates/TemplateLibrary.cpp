@@ -178,9 +178,23 @@ InstallResult installFromZip(const QString& zipPath, bool allowOlder) {
 #ifdef Q_OS_WIN
     {
         QZipReader zr(zipPath);
-        if (!zr.isReadable() || zr.count() == 0 || !zr.extractAll(tmp.path())) {
+        if (!zr.isReadable() || zr.count() == 0) {
             r.message = QObject::tr("Không giải nén được tệp zip (tệp hỏng hoặc không phải zip).");
             return r;
+        }
+        // Giải nén từng mục, báo rõ mục lỗi (đường dẫn dài/tên lạ), không báo chung chung.
+        const QString root = QDir(tmp.path()).absolutePath();
+        for (const auto &fi : zr.fileInfoList()) {
+            if (fi.filePath.contains(QStringLiteral(".."))) continue; // chặn zip-slip
+            const QString dest = root + QLatin1Char('/') + fi.filePath;
+            const QString lp = QStringLiteral("\\\\?\\") + QDir::toNativeSeparators(dest); // tiền tố đường dẫn dài
+            if (fi.isDir) { QDir().mkpath(lp); continue; }
+            QDir().mkpath(QStringLiteral("\\\\?\\") + QDir::toNativeSeparators(QFileInfo(dest).absolutePath()));
+            QFile f(lp);
+            if (!f.open(QIODevice::WriteOnly) || f.write(zr.fileData(fi.filePath)) < 0) {
+                r.message = QObject::tr("Không giải nén được: ") + fi.filePath.left(120) + QStringLiteral(" (") + f.errorString() + QLatin1Char(')');
+                return r;
+            }
         }
     }
 #else
