@@ -126,6 +126,7 @@ jobs:
           set -o pipefail
           QT_QPA_PLATFORM=offscreen ./build/app/dung-recoverytest 2>&1 | tee report/linux-recoverytest.log
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --recover 1 --out smoke-recover 2>&1 | tee report/linux-recover.log
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --preedit 1 --out smoke-preedit 2>&1 | tee report/linux-preedit.log
       - name: Kiểm thử ánh xạ phím/bộ gõ tiếng Việt (AltGr, thay ký tự IME)
         run: |
           set -o pipefail
@@ -373,6 +374,10 @@ jobs:
           & $rt.FullName *>&1 | Tee-Object report/windows-recoverytest.log
           if ($LASTEXITCODE) { exit 1 }
           & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --recover 1 --out "$PWD/smoke-recover" *>&1 | Tee-Object report/windows-recover.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Chữ đang soạn (preedit) của bộ gõ trên Windows
+        run: |
+          & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --preedit 1 --out "$PWD/smoke-preedit" *>&1 | Tee-Object report/windows-preedit.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử ánh xạ phím/bộ gõ trên Windows
         run: |

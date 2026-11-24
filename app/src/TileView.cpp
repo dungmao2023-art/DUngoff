@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 #define LOK_USE_UNSTABLE_API
 #include "TileView.h"
+#include <QGuiApplication>
+#include <QInputMethod>
 
 #include "KeyMap.h"
 #include "Theme.h"
@@ -364,6 +366,7 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 }
 
 void TileView::mousePressEvent(QMouseEvent* e) {
+    cancelComposition();
     setFocus();
     m_pressButtons = toLokButtons(e->buttons());
     sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, e, 1);
@@ -387,6 +390,7 @@ void TileView::wheelEvent(QWheelEvent* e) {
 }
 
 void TileView::keyPressEvent(QKeyEvent* e) {
+    if (m_composing && e->key() == Qt::Key_Escape) { cancelComposition(); e->accept(); return; }
     const LokKey k = toLokKey(e);
     if (!k.valid) { QAbstractScrollArea::keyPressEvent(e); return; }
     m_doc->postKey(LOK_KEYEVENT_KEYINPUT, k.charCode, k.keyCode);
@@ -401,22 +405,43 @@ void TileView::keyReleaseEvent(QKeyEvent* e) {
 }
 
 void TileView::inputMethodEvent(QInputMethodEvent* e) {
-    // Bộ gõ tiếng Việt kiểu IME (Telex/VNI của Windows): gửi chuỗi đã chốt, và thực hiện phần "thay thế"
-    // (bộ gõ yêu cầu xoá vài ký tự đã gõ trước đó rồi chốt ký tự có dấu) bằng Backspace/Delete.
-    // Phần đang soạn (preedit) chưa được hiển thị: chỉ khi bộ gõ chốt mới có chữ trong tài liệu.
-    bool unsupported = false;
-    const auto ops = imeToOps(e->commitString(), e->replacementStart(), e->replacementLength(), &unsupported);
-    for (const ImeOp& op : ops) {
-        const int keyCode = op.kind == ImeOp::Backspace ? 1283 : op.kind == ImeOp::Delete ? 1286 : 0;
-        const int ch = op.kind == ImeOp::Char ? op.charCode : 0;
-        m_doc->postKey(LOK_KEYEVENT_KEYINPUT, ch, keyCode);
-        m_doc->postKey(LOK_KEYEVENT_KEYUP, ch, keyCode);
+    // Chuẩn IME: preedit hiển thị ngay trong tài liệu (engine tự gạch chân), commit thay chữ đang soạn rồi chốt.
+    // Logic quyết định nằm ở imePlan (hàm thuần, có test đơn vị).
+    bool unsupported = false, after = false;
+    const auto steps = imePlan(e->preeditString(), e->commitString(), e->replacementStart(), e->replacementLength(),
+                               m_composing, &after, &unsupported);
+    for (const ImeStep& st : steps) {
+        switch (st.kind) {
+        case ImeStep::Preedit:    m_doc->postExtTextInput(0, st.text.toUtf8().toStdString()); break;
+        case ImeStep::EndPreedit: m_doc->postExtTextInput(2, std::string()); break;
+        default: {
+            const int keyCode = st.kind == ImeStep::Backspace ? 1283 : st.kind == ImeStep::Delete ? 1286 : 0;
+            const int ch = st.kind == ImeStep::Char ? st.charCode : 0;
+            m_doc->postKey(LOK_KEYEVENT_KEYINPUT, ch, keyCode);
+            m_doc->postKey(LOK_KEYEVENT_KEYUP, ch, keyCode);
+        }
+        }
     }
+    m_composing = after;
     e->accept();
+}
+
+void TileView::cancelComposition() {
+    if (!m_composing) return;
+    m_doc->postExtTextInput(0, std::string());   // xoá chữ đang soạn, trả về như trước khi soạn
+    m_doc->postExtTextInput(2, std::string());
+    m_composing = false;
+    if (QGuiApplication::inputMethod()) QGuiApplication::inputMethod()->reset();
+}
+
+void TileView::focusOutEvent(QFocusEvent* e) {
+    cancelComposition();
+    QAbstractScrollArea::focusOutEvent(e);
 }
 
 QVariant TileView::inputMethodQuery(Qt::InputMethodQuery q) const {
     if (q == Qt::ImCursorRectangle) return toView(m_caret.isEmpty() ? m_cellCursor : m_caret);
     if (q == Qt::ImEnabled) return true;
+    if (q == Qt::ImHints) return int(Qt::ImhNone);
     return QAbstractScrollArea::inputMethodQuery(q);
 }

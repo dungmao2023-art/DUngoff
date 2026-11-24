@@ -35,6 +35,34 @@ int main(int argc, char** argv) {
     // 8. Thay ở chỗ không làm được bằng phím: báo unsupported, vẫn chốt chuỗi, không xoá bậy
     { bool un = false; auto ops = imeToOps(QString("a"), 2, 3, &un);
       check(un && ops.size() == 1 && ops[0].kind == ImeOp::Char, "thay phần sau con trỏ xa: báo không hỗ trợ, không xoá"); }
+    // 9. imePlan: bắt đầu soạn (chưa composing) -> một bước Preedit
+    { bool ca = false; auto st = imePlan(QString::fromUtf8("d"), QString(), 0, 0, false, &ca);
+      check(st.size() == 1 && st[0].kind == ImeStep::Preedit && st[0].text == "d" && ca, "imePlan: bắt đầu soạn 'd' -> Preedit, đang soạn"); }
+    // 10. Cập nhật chữ đang soạn: chỉ Preedit mới, không End, không chèn thêm
+    { bool ca = false; auto st = imePlan(QString::fromUtf8("dư"), QString(), 0, 0, true, &ca);
+      check(st.size() == 1 && st[0].kind == ImeStep::Preedit && st[0].text == QString::fromUtf8("dư") && ca, "imePlan: cập nhật 'dư' -> chỉ Preedit"); }
+    // 11. Chốt: commit thay chữ đang soạn rồi End; không gõ ký tự lần hai (không double-insert)
+    { bool ca = true; auto st = imePlan(QString(), QString::fromUtf8("dư"), 0, 0, true, &ca);
+      check(st.size() == 2 && st[0].kind == ImeStep::Preedit && st[0].text == QString::fromUtf8("dư") && st[1].kind == ImeStep::EndPreedit && !ca,
+            "imePlan: chốt khi đang soạn -> Preedit(commit)+End, không Char"); }
+    // 12. Chốt và mở cụm mới trong cùng sự kiện
+    { bool ca = false; auto st = imePlan(QString("n"), QString::fromUtf8("á"), 0, 0, true, &ca);
+      check(st.size() == 3 && st[1].kind == ImeStep::EndPreedit && st[2].kind == ImeStep::Preedit && st[2].text == "n" && ca, "imePlan: chốt rồi soạn cụm mới"); }
+    // 13. Huỷ: preedit rỗng, không commit, đang soạn -> xoá chữ đang soạn rồi End
+    { bool ca = true; auto st = imePlan(QString(), QString(), 0, 0, true, &ca);
+      check(st.size() == 2 && st[0].kind == ImeStep::Preedit && st[0].text.isEmpty() && st[1].kind == ImeStep::EndPreedit && !ca, "imePlan: huỷ khi đang soạn"); }
+    // 14. Không soạn, sự kiện rỗng: không làm gì
+    { auto st = imePlan(QString(), QString(), 0, 0, false);
+      check(st.empty(), "imePlan: sự kiện rỗng khi không soạn -> không làm gì"); }
+    // 15. Không soạn, commit thường: ký tự trực tiếp như cũ (tương thích đường phím)
+    { auto st = imePlan(QString(), QString::fromUtf8("Việt"), 0, 0, false);
+      check(st.size() == 4 && st[0].kind == ImeStep::Char && st[2].charCode == 0x1EC7, "imePlan: commit khi không soạn -> Char như imeToOps"); }
+    // 16. Không soạn, thay 3 ký tự trước con trỏ rồi soạn tiếp
+    { auto st = imePlan(QString("o"), QString::fromUtf8("yễn"), -3, 3, false);
+      check(st.size() == 7 && st[0].kind == ImeStep::Backspace && st[3].kind == ImeStep::Char && st[6].kind == ImeStep::Preedit, "imePlan: thay + chốt + soạn tiếp"); }
+    // 17. Đang soạn mà đòi thay thế: bỏ phần thay, báo unsupported, không xoá bậy
+    { bool un = false; auto st = imePlan(QString("a"), QString(), -2, 2, true, nullptr, &un);
+      check(un && st.size() == 1 && st[0].kind == ImeStep::Preedit, "imePlan: đang soạn mà thay thế -> bỏ phần thay, báo unsupported"); }
     std::cout << (g_fail ? "\nKẾT QUẢ: CÓ LỖI\\n" : "\nKẾT QUẢ: TẤT CẢ ĐẠT\\n");
     return g_fail ? 1 : 0;
 }
