@@ -119,6 +119,12 @@ jobs:
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --ppt fixtures/mau-trinh-chieu.pptx \
             --out smoke-ppt 2>&1 | tee report/linux-ppt.log
           python3 tests/ppt/verify_pptx.py "$(cat smoke-ppt/saved-path.txt)" 2>&1 | tee report/linux-ppt-verify.log
+      - name: Kiểm kê định dạng Excel (.xlsx/.xls/.xlsm/.xlsb/.csv) trên engine Linux
+        continue-on-error: true
+        run: |
+          set +e
+          timeout 300 ./build/dung-smoketest --program /usr/lib/libreoffice/program --formats tests/fixtures/formats --out smoke-formats 2>&1 | tee report/linux-formats.log
+          python3 -W ignore -I tests/excel/verify_formats.py smoke-formats report/linux-formats.log 2>&1 | tee report/linux-formats-verify.log
       - name: Kiểm thử Excel cơ bản (lệnh UNO thật) + xác minh không mất dữ liệu
         run: |
           set -o pipefail
@@ -291,6 +297,19 @@ jobs:
           if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-basic.log; exit 1 }
           Get-Content report/windows-basic.log
           if ($p.ExitCode) { exit 1 }
+      - name: Kiểm kê định dạng Excel trên engine Windows (.xlsx/.xls/.xlsm/.xlsb/.csv)
+        continue-on-error: true
+        timeout-minutes: 8
+        run: |
+          $env:PYTHONUTF8 = "1"
+          python -m pip install --quiet openpyxl
+          $p = Start-Process build/out/dung-smoketest.exe -PassThru -NoNewWindow `
+                 -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--formats", "tests/fixtures/formats", "--out", "$PWD/smoke-formats") `
+                 -RedirectStandardOutput report/windows-formats.log -RedirectStandardError report/windows-formats.err.log
+          if (-not $p.WaitForExit(240000)) { Stop-Process $p -Force; "INV ? treo=quá thời gian" | Add-Content report/windows-formats.log }
+          Get-Content report/windows-formats.log | Select-String "^INV|KẾT QUẢ" | ForEach-Object { $_.Line }
+          Get-Content report/windows-formats.err.log -ErrorAction SilentlyContinue | Select-Object -First 20
+          python -I tests/excel/verify_formats.py smoke-formats report/windows-formats.log *>&1 | Tee-Object report/windows-formats-verify.log
       - name: Thăm dò vẽ lại sau khi gõ chữ (Writer, Calc, Impress) — engine headless
         continue-on-error: true
         timeout-minutes: 8
