@@ -394,6 +394,34 @@ int runWordTests(const fs::path& program, const fs::path& out) {
         // Lề chuẩn VN: trái 30, phải 15, trên 20, dưới 20 mm (kiểm trong verify_docx.py qua w:pgMar)
         run(e, ".uno:PageLRMargin", w::join({w::argLong("PageLRMargin.Left", 3000), w::argLong("PageLRMargin.Right", 1500)}));
         run(e, ".uno:PageULMargin", w::join({w::argLong("PageULMargin.Upper", 2000), w::argLong("PageULMargin.Lower", 2000)}));
+        // Thăm dò: ứng viên lệnh lề trang. Mỗi ứng viên đặt lề trái = 21 mm + i mm; sau đó lưu một bản
+        // để tests/word/margin_probe.py đọc w:pgMar và cho biết ứng viên NÀO thật sự có tác dụng.
+        {
+            struct Cand { const char* cmd; const char* l; const char* r; const char* u; const char* b; };
+            const Cand cands[] = {
+                {".uno:PageLRMargin", "PageLRMargin.Left", "PageLRMargin.Right", "PageULMargin.Upper", "PageULMargin.Lower"},
+                {".uno:AttributePageLRSpace", "AttributePageLRSpace.Left", "AttributePageLRSpace.Right", "AttributePageULSpace.Upper", "AttributePageULSpace.Lower"},
+                {".uno:AttributePageLRSpace", "AttributePageLRSpace.LeftMargin", "AttributePageLRSpace.RightMargin", "AttributePageULSpace.Upper", "AttributePageULSpace.Lower"},
+                {".uno:AttributePageLRSpace", "LRSpace.LeftMargin", "LRSpace.RightMargin", "ULSpace.Upper", "ULSpace.Lower"},
+                {".uno:LeftRightMargin", "LeftRightMargin.LeftMargin", "LeftRightMargin.RightMargin", "UpperLowerMargin.Upper", "UpperLowerMargin.Lower"},
+                {".uno:PageLRMargin", "PageLRMargin.LeftMargin", "PageLRMargin.RightMargin", "PageULMargin.UpperMargin", "PageULMargin.LowerMargin"},
+            };
+            int i = 0;
+            for (const auto& c : cands) {
+                const long lv = 2100 + 100 * (i + 1);
+                const std::string ulcmd = std::string(c.cmd).find("LR") != std::string::npos ? std::string(c.cmd).replace(std::string(c.cmd).find("LR"), 2, "UL") : ".uno:PageULMargin";
+                run(e, c.cmd, w::join({w::argLong(c.l, lv), w::argLong(c.r, 1500)}));
+                run(e, ulcmd.c_str(), w::join({w::argLong(c.u, 2000), w::argLong(c.b, 2000)}));
+                fs::path pf = out / ("ung-vien-le-" + std::to_string(i) + ".docx");
+                fs::remove(pf, ec);
+                e.saveAs(pf);
+                std::cout << "       ứng viên lề " << i << ": " << c.cmd << " " << c.l << " (đặt trái " << lv / 100.0 << " mm)" << std::endl;
+                ++i;
+            }
+            // Đặt lại lề chuẩn VN cho tệp kiểm tra chính
+            run(e, ".uno:PageLRMargin", w::join({w::argLong("PageLRMargin.Left", 3000), w::argLong("PageLRMargin.Right", 1500)}));
+            run(e, ".uno:PageULMargin", w::join({w::argLong("PageULMargin.Upper", 2000), w::argLong("PageULMargin.Lower", 2000)}));
+        }
         const fs::path docx = out / "word-dinh-dang.docx";
         fs::remove(docx, ec);
         auto r = e.saveAs(docx);
