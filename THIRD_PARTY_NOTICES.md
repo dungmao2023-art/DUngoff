@@ -32,5 +32,5 @@
   - **Carlito** (tương thích số đo với Calibri) — giấy phép SIL Open Font License 1.1, Bản quyền Łukasz Dziedzic / Google (dựa trên Lato).
   - **Liberation Sans** — giấy phép SIL Open Font License 1.1, Bản quyền Red Hat, Inc.
   - Nguồn: bản phân phối LibreOffice (https://www.libreoffice.org/) — danh sách và văn bản giấy phép nằm trong `engine\license` của bộ cài.
-- Bảng thay thế (Aptos, Aptos Display, Aptos Narrow, Aptos SemiBold, Aptos Light, Aptos Black → Carlito) được ghi vào hồ sơ engine khi chạy và chỉ có tác dụng nếu máy KHÔNG có phông Aptos gốc.
+- Bảng thay thế (Aptos, Aptos Display, Aptos Narrow, Aptos SemiBold, Aptos Light, Aptos Black → Carlito; Liberation Sans không được dùng làm phông dự phòng vì engine bỏ qua bảng khi ghi danh sách "A;B") được ghi vào hồ sơ engine khi chạy và chỉ có tác dụng nếu máy KHÔNG có phông Aptos gốc.
 - "Aptos" là tên phông của Microsoft; Dũng Office không phân phối phông Aptos.

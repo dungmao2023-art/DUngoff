@@ -350,6 +350,7 @@ template <class F> static auto onEngine(F&& f) -> decltype(f()) {
 // Các phông hiện đại của Microsoft 365 (Aptos...) không có trong engine. Nếu không có bảng thay thế,
 // engine rơi về phông hệ thống (vd PMingLiU) và chữ tiếng Việt có dấu bị vỡ khi xuất PDF/in.
 // Ta ghi vào hồ sơ engine một bảng thay thế sang phông có sẵn trong engine và đủ chữ Việt (Carlito, Liberation Sans).
+// SubstituteFont chỉ ghi MỘT phông (dạng "A;B" làm engine bỏ qua bảng — đã đo trên CI Windows, biến thể v1/v2).
 // "Always=false": chỉ thay khi máy KHÔNG có phông gốc — máy có Aptos thật vẫn dùng Aptos.
 // Chỉ thêm, không ghi đè mục khác của hồ sơ; chạy lặp lại không thêm trùng.
 static void seedFontSubstitution(const fs::path& profileDir) {
@@ -363,7 +364,7 @@ static void seedFontSubstitution(const fs::path& profileDir) {
                  std::to_string(i++) + "\" oor:op=\"replace\"><prop oor:name=\"Always\" oor:op=\"fuse\"><value>false</value></prop>"
                  "<prop oor:name=\"OnScreenOnly\" oor:op=\"fuse\"><value>false</value></prop>"
                  "<prop oor:name=\"ReplaceFont\" oor:op=\"fuse\"><value>" + f + "</value></prop>"
-                 "<prop oor:name=\"SubstituteFont\" oor:op=\"fuse\"><value>Carlito;Liberation Sans</value></prop></node></item>\n";
+                 "<prop oor:name=\"SubstituteFont\" oor:op=\"fuse\"><value>Carlito</value></prop></node></item>\n";
     }
     std::error_code ec;
     const fs::path dir = profileDir / "user";

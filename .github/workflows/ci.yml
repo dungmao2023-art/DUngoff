@@ -262,7 +262,7 @@ jobs:
           python tests/templates/check_aptos.py aptos-tpl smoke-aptos *>&1 | Tee-Object report/windows-aptos-check.log
           # So sánh các biến thể bảng thay thế phông (mỗi biến thể một hồ sơ riêng, hồ sơ đã có mốc nên engine không ghi đè)
           python tests/templates/make_fontvariants.py fontvar
-          foreach ($v in "v1","v2","v3","v4") {
+          foreach ($v in "v3","v5") {
             "== BIẾN THỂ $v ==" | Tee-Object -Append report/windows-aptos-variants.log
             $q = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--templates", "aptos-tpl", "--out", "$PWD/fontvar/$v") -PassThru -NoNewWindow `
                    -RedirectStandardOutput "report/windows-aptos-$v.log" -RedirectStandardError "report/windows-aptos-$v.err.log"

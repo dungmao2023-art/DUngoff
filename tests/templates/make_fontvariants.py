@@ -22,6 +22,7 @@ V = {
   "v2": build(True,  "Carlito;Liberation Sans"),        # Always = true
   "v3": build(True,  "Carlito"),                         # một phông duy nhất
   "v4": build(True,  "Liberation Sans"),                 # đối chứng: có áp dụng bảng không
+  "v5": build(False, "Carlito"),                         # Always=false + một phông (cấu hình đề xuất)
 }
 root = Path(sys.argv[1])
 for k, v in V.items():
