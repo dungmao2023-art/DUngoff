@@ -92,6 +92,7 @@ int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     if (QCoreApplication::arguments().size() >= 3 && QCoreApplication::arguments().at(1) == QLatin1String("--child"))
         return childMain(QCoreApplication::arguments());
+    QCoreApplication::setOrganizationName(QStringLiteral("DungOfficeTest"));
     QCoreApplication::setApplicationName(QStringLiteral("DungOfficeToolboxTest"));
     QStandardPaths::setTestModeEnabled(true);
     QDir(toolsRoot()).removeRecursively();
