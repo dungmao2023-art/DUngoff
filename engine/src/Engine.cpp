@@ -638,8 +638,13 @@ void Document::setClientView(int pxTileW, int pxTileH, int twipTileW, int twipTi
     });
 }
 
+namespace {
+long long steadyMs() { return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+}
+
 void Document::postKey(int type, int charCode, int keyCode) {
     if (m_readOnly && !isNavigationKey(charCode, keyCode)) return; // chặn chỉnh sửa ở chế độ chỉ đọc
+    m_lastInputMs = steadyMs();
     onEngine([&] { m_doc->postKeyEvent(type, charCode, keyCode); });
     if (type == LOK_KEYEVENT_KEYINPUT) emitSynthetic();
 }
@@ -662,6 +667,7 @@ void Document::typeText(const std::u16string& text) {
 
 void Document::command(const std::string& cmd, const std::string& args, bool notify) {
     if (m_readOnly && !isReadOnlySafeCommand(cmd)) return;
+    m_lastInputMs = steadyMs();
     onEngine([&] { m_doc->postUnoCommand(cmd.c_str(), args.empty() ? nullptr : args.c_str(), notify); });
     emitSynthetic();
 }
@@ -701,9 +707,20 @@ std::string Document::selectionAs(const std::string& mime) {
 
 bool Document::paste(const std::string& mime, const std::string& data) {
     if (m_readOnly) return false;
+    waitInputIdle(); // phím vừa gõ có thể còn nằm trong hàng đợi engine: đợi xử lý xong rồi mới dán để không lẫn thứ tự
     const bool ok = onEngine([&] { return m_doc->paste(mime.c_str(), data.c_str(), data.size()); });
     emitSynthetic();
     return ok;
+}
+
+void Document::waitInputIdle(int quietMs, int maxMs) {
+    const long long start = steadyMs();
+    for (;;) {
+        const long long now = steadyMs();
+        const long long last = std::max(m_lastInputMs.load(), m_lastEventMs.load());
+        if (last == 0 || now - last >= quietMs || now - start >= maxMs) return;
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
 }
 
 void Document::emitSynthetic() { onEvent(LOK_CALLBACK_INVALIDATE_TILES, "SYNTH"); }
@@ -732,6 +749,7 @@ void Document::lokCallback(int type, const char* payload, void* data) {
 
 void Document::onEvent(int type, const char* payload) {
     EngineEvent ev{type, payload ? payload : ""};
+    if (!(type == LOK_CALLBACK_INVALIDATE_TILES && ev.payload == "SYNTH")) m_lastEventMs = steadyMs();
     EventSink sink;
     {
         std::lock_guard<std::mutex> g(m_mutex);
