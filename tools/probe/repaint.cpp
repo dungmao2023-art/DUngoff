@@ -51,17 +51,20 @@ int main(int argc, char** argv) {
     if (mode == "calc") {
         doc->command(".uno:GoToCell", "{\"ToPoint\":{\"type\":\"string\",\"value\":\"F2\"}}");
     } else if (mode == "impress") {
-        // Nhấp đúp vào vùng giữa phía trên của trang chiếu (khung tiêu đề) để vào chế độ soạn chữ.
-        long w = 0, h = 0; doc->documentSize(w, h);
-        int cx = int(w / 2), cy = int(h / 6);
-        doc->postMouse(0, cx, cy, 2, 1, 0); doc->postMouse(1, cx, cy, 2, 1, 0);
+        // Tab chọn khung đầu tiên của trang chiếu, Enter vào chế độ soạn chữ (không phụ thuộc toạ độ).
+        doc->postKey(0, 0, 1282); doc->postKey(1, 0, 1282);
+        doc->postKey(0, 0, 1280); doc->postKey(1, 0, 1280);
     }
     const bool gotBefore = doc->waitFor(0, [](const std::string&) { return true; }, 500);
     (void)gotBefore;
     doc->clearEvents();
     doc->typeText(u"Dung Office xin chao");
-    const bool inval = doc->waitFor(0, [](const std::string&) { return true; }, 3000); // LOK_CALLBACK_INVALIDATE_TILES
-    printf("REPAINT %s: sự kiện làm mới tile sau khi gõ: %s\n", mode.c_str(), inval ? "có" : "KHÔNG");
+    // Phân biệt: sự kiện làm mới do engine LibreOffice tự báo, và sự kiện "SYNTH" do tầng engine của Dũng Office bù thêm.
+    const bool nativeInval = doc->waitFor(0, [](const std::string& pl) { return pl != "SYNTH"; }, 3000);
+    const bool synthInval = doc->waitFor(0, [](const std::string& pl) { return pl == "SYNTH"; }, 100)
+                         || doc->lastPayload(0) == "SYNTH";
+    printf("REPAINT %s: engine tự báo làm mới tile sau khi gõ: %s\n", mode.c_str(), nativeInval ? "có" : "KHÔNG");
+    printf("REPAINT %s: tầng engine bù sự kiện làm mới (SYNTH): %s\n", mode.c_str(), synthInval ? "có" : "KHÔNG");
     auto typed = tile(*doc, tw, th);
     Box b1 = diff(before, typed, 512);
     report((mode + " (đang gõ)").c_str(), b1);
@@ -73,7 +76,7 @@ int main(int argc, char** argv) {
         report("calc (sau Enter)", b2);
         total += b2.n;
     }
-    const bool ok = total > 0;
+    const bool ok = total > 0 && synthInval;
     printf("REPAINT %s: %s\n", mode.c_str(), ok ? "ĐẠT (giao diện thay đổi sau khi gõ)" : "LỖI (gõ xong mà hình không đổi)");
     fflush(stdout);
     std::_Exit(ok ? 0 : 1);

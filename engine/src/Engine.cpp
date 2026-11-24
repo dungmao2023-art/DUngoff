@@ -618,11 +618,13 @@ void Document::setClientView(int pxTileW, int pxTileH, int twipTileW, int twipTi
 void Document::postKey(int type, int charCode, int keyCode) {
     if (m_readOnly && !isNavigationKey(charCode, keyCode)) return; // chặn chỉnh sửa ở chế độ chỉ đọc
     onEngine([&] { m_doc->postKeyEvent(type, charCode, keyCode); });
+    if (type == LOK_KEYEVENT_KEYINPUT) emitSynthetic();
 }
 
 void Document::postMouse(int type, int x, int y, int count, int buttons, int modifier) {
     if (m_readOnly && count >= 2) count = 1; // không cho nhấp đúp để vào chế độ sửa ô
     onEngine([&] { m_doc->postMouseEvent(type, x, y, count, buttons, modifier); });
+    if (type != LOK_MOUSEEVENT_MOUSEMOVE) emitSynthetic();
 }
 
 void Document::typeText(const std::u16string& text) {
@@ -638,6 +640,7 @@ void Document::typeText(const std::u16string& text) {
 void Document::command(const std::string& cmd, const std::string& args, bool notify) {
     if (m_readOnly && !isReadOnlySafeCommand(cmd)) return;
     onEngine([&] { m_doc->postUnoCommand(cmd.c_str(), args.empty() ? nullptr : args.c_str(), notify); });
+    emitSynthetic();
 }
 
 std::string Document::commandValues(const std::string& q) {
@@ -675,8 +678,12 @@ std::string Document::selectionAs(const std::string& mime) {
 
 bool Document::paste(const std::string& mime, const std::string& data) {
     if (m_readOnly) return false;
-    return onEngine([&] { return m_doc->paste(mime.c_str(), data.c_str(), data.size()); });
+    const bool ok = onEngine([&] { return m_doc->paste(mime.c_str(), data.c_str(), data.size()); });
+    emitSynthetic();
+    return ok;
 }
+
+void Document::emitSynthetic() { onEvent(LOK_CALLBACK_INVALIDATE_TILES, "SYNTH"); }
 
 void Document::setEventSink(EventSink sink) {
     std::vector<std::pair<int, std::string>> replay;

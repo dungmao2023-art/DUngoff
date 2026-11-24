@@ -28,6 +28,12 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
     m_headerTimer.setSingleShot(true);
     m_headerTimer.setInterval(40);
     connect(&m_headerTimer, &QTimer::timeout, this, &TileView::requestHeaders);
+    m_synthTimer.setSingleShot(true);
+    m_synthTimer.setInterval(60);
+    connect(&m_synthTimer, &QTimer::timeout, this, [this] { refreshAllTiles(); m_synthLate.start(); });
+    m_synthLate.setSingleShot(true);
+    m_synthLate.setInterval(250);
+    connect(&m_synthLate, &QTimer::timeout, this, &TileView::refreshAllTiles);
     m_areaTimer.setSingleShot(true);
     m_areaTimer.setInterval(60);
     connect(&m_areaTimer, &QTimer::timeout, this, &TileView::sendVisibleArea);
@@ -267,6 +273,12 @@ QVector<QRect> TileView::parseRects(const QString& s) {
     return out;
 }
 
+void TileView::refreshAllTiles() {
+    m_tiles.clear();
+    viewport()->update();
+    if (m_isCalc) m_headerTimer.start();
+}
+
 void TileView::invalidateTwips(const QRect& r) {
     const int tt = tileTwips();
     for (auto it = m_tiles.begin(); it != m_tiles.end();) {
@@ -281,6 +293,8 @@ void TileView::invalidateTwips(const QRect& r) {
 void TileView::handleEvent(int type, const QString& payload) {
     switch (type) {
     case LOK_CALLBACK_INVALIDATE_TILES: {
+        // Engine Windows không tự báo làm mới sau khi gõ/ra lệnh: tầng engine phát "SYNTH".
+        if (payload == QLatin1String("SYNTH")) { if (!m_synthTimer.isActive()) m_synthTimer.start(); break; }
         if (payload.startsWith(QLatin1String("EMPTY"))) { m_tiles.clear(); viewport()->update(); break; }
         bool ok = false;
         QRect r = parseRect(payload, &ok);

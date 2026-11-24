@@ -48,3 +48,22 @@ Cấu hình dự kiến (chưa chạy thử): `--enable-headless --disable-java 
 --disable-extension-integration --without-help --without-myspell-dicts --disable-firebird-sdbc
 --enable-release-build --enable-mergelibs` trên Cygwin + Visual Studio 2022, theo hướng dẫn chính thức
 https://wiki.documentfoundation.org/Development/BuildingOnWindows .
+
+## Engine headless Windows không tự báo "tile đã cũ" (24/11/2026)
+
+Bản cài 0.1.0 chạy được nhưng gõ vào ô Excel chỉ hiện ở thanh công thức, Word và PowerPoint
+không thấy chữ. Phép thử `dung-repaintprobe` (tools/probe/repaint.cpp) trên CI Windows với engine
+`engine-26.8.3.1-headless` cho thấy:
+
+- Khi ứng dụng xin vẽ lại, **engine vẽ đúng chữ vừa gõ** (Writer ~1.100 điểm ảnh đổi, Calc ~500).
+- **Engine không gửi `LOK_CALLBACK_INVALIDATE_TILES`** sau khi gõ (Linux thì có gửi).
+- Ứng dụng chỉ xoá bộ nhớ đệm tile khi nhận sự kiện đó, nên giữ ảnh cũ; thanh công thức vẫn cập nhật
+  vì đi qua loại sự kiện khác (`CELL_FORMULA`).
+
+Cách sửa: `Document` (tầng engine) phát thêm sự kiện làm mới có payload `SYNTH` sau mỗi thao tác có thể
+làm đổi tài liệu (phím, nhấp chuột không phải di chuyển, lệnh UNO, dán). `TileView` gộp các sự kiện này,
+vẽ lại sau 60 ms và một lần nữa sau 250 ms (lệnh UNO được engine xử lý hơi trễ sau khi gửi).
+Vì sửa ở `Document`, các nút ribbon của Word, Excel, PowerPoint và PDF được hưởng lợi mà không cần sửa riêng.
+
+Chưa biết: vì sao engine headless Windows không gửi sự kiện. Chưa kiểm chứng trên máy Windows thật với
+giao diện đầy đủ; kiểm chứng ở mức engine trên CI.

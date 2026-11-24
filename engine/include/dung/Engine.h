@@ -152,6 +152,10 @@ private:
     std::unique_ptr<lok::Document> m_doc;
     DocKind m_kind = DocKind::Other;
     bool m_readOnly = false;
+    // Engine Windows (headless) không tự báo LOK_CALLBACK_INVALIDATE_TILES sau khi gõ/ra lệnh.
+    // Sau mỗi thao tác có thể làm đổi tài liệu, phát một sự kiện làm mới có payload "SYNTH"
+    // để giao diện vẽ lại (xem docs/WINDOWS_ENGINE.md).
+    void emitSynthetic();
     std::atomic<bool> m_modified{false};
     fs::path m_original;
     fs::path m_working;
