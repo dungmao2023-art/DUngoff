@@ -15,19 +15,27 @@ else()
   add_compile_options(-Wall -Wextra -Wno-unused-parameter)
 endif()
 
+# ---- dung_api.py nhúng vào engine dưới dạng bảng byte (tránh giới hạn độ dài chuỗi của MSVC) ----
+set(DUNG_API_PY ${CMAKE_CURRENT_SOURCE_DIR}/engine-build/dung-scripts/dung_api.py)
+set(DUNG_API_INC ${CMAKE_CURRENT_BINARY_DIR}/gen/dung_api_py.inc)
+file(READ ${DUNG_API_PY} DUNG_API_HEX HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," DUNG_API_HEX "${DUNG_API_HEX}")
+file(WRITE ${DUNG_API_INC} "${DUNG_API_HEX}\n")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${DUNG_API_PY})
+
 # ---- engine: bọc LibreOfficeKit, không phụ thuộc giao diện ----
 add_library(dungengine STATIC
   engine/src/Engine.cpp
   engine/src/FormatPolicy.cpp)
 target_include_directories(dungengine
   PUBLIC engine/include
-  PRIVATE third_party/libreofficekit/include)
+  PRIVATE third_party/libreofficekit/include ${CMAKE_CURRENT_BINARY_DIR}/gen)
 if(UNIX)
   target_link_libraries(dungengine PUBLIC ${CMAKE_DL_LIBS})
 endif()
 
 if(DUNG_BUILD_TESTS)
-  add_executable(dung-smoketest tools/smoketest/main.cpp tools/smoketest/ppt_tests.cpp tools/smoketest/excel_tests.cpp tools/smoketest/template_fidelity.cpp tools/smoketest/recover_tests.cpp)
+  add_executable(dung-smoketest tools/smoketest/main.cpp tools/smoketest/ppt_tests.cpp tools/smoketest/excel_tests.cpp tools/smoketest/template_fidelity.cpp tools/smoketest/recover_tests.cpp tools/smoketest/api_tests.cpp)
   target_link_libraries(dung-smoketest PRIVATE dungengine)
   target_include_directories(dung-smoketest PRIVATE third_party/libreofficekit/include app/src/excel)
   if(WIN32)

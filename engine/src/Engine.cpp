@@ -368,6 +368,112 @@ template <class F> static auto onEngine(F&& f) -> decltype(f()) {
     if constexpr (!std::is_void_v<R>) return std::move(*result);
 }
 
+
+// ---------------------------------------------------------------- Script do ứng dụng đóng gói (dung_api.py)
+// Nhúng nguyên văn dung_api.py vào chương trình (bảng byte do CMake sinh), ghi vào hồ sơ engine mỗi lần khởi động
+// để luôn khớp phiên bản ứng dụng, và đặt mức bảo mật macro cao nhất (chỉ cho chạy script trong thư mục tin cậy
+// của hồ sơ; macro nằm trong tệp của người dùng không bao giờ được chạy).
+namespace {
+const unsigned char kDungApiPy[] = {
+#include "dung_api_py.inc"
+    0};
+
+void writeFileAtomic(const fs::path& p, const std::string& data) {
+    std::error_code ec;
+    fs::create_directories(p.parent_path(), ec);
+    const fs::path tmp = p.string() + ".tmp";
+    {
+        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+        f.write(data.data(), (std::streamsize)data.size());
+    }
+    fs::rename(tmp, p, ec);
+    if (ec) { fs::remove(p, ec); fs::rename(tmp, p, ec); }
+}
+
+void installDungScripts(const fs::path& profileDir) {
+    writeFileAtomic(profileDir / "user" / "Scripts" / "python" / "dung_api.py",
+                    std::string((const char*)kDungApiPy, sizeof(kDungApiPy) - 1));
+    // MacroSecurityLevel=3 (rất cao): chỉ macro đã ký/trong thư mục tin cậy. Thêm một lần, có marker.
+    const fs::path xcu = profileDir / "user" / "registrymodifications.xcu";
+    std::string cur;
+    { std::ifstream f(xcu, std::ios::binary); cur.assign(std::istreambuf_iterator<char>(f), {}); }
+    const std::string marker = "DUNG-MACRO-SECURITY";
+    if (cur.find(marker) != std::string::npos) return;
+    const std::string item =
+        "<!-- " + marker + " --><item oor:path=\"/org.openoffice.Office.Common/Security/Scripting\" "
+        "oor:name=\"MacroSecurityLevel\" oor:op=\"fuse\"><value>3</value></item>\n";
+    const size_t at = cur.rfind("</oor:items>");
+    if (cur.empty() || at == std::string::npos) {
+        cur = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<oor:items xmlns:oor=\"http://openoffice.org/2001/registry\" "
+              "xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n" +
+              item + "</oor:items>\n";
+    } else {
+        cur.insert(at, item);
+    }
+    writeFileAtomic(xcu, cur);
+}
+
+std::string jsonEscape(const std::string& s) {
+    std::string o;
+    for (unsigned char c : s) {
+        switch (c) {
+        case '"': o += "\\\""; break;
+        case '\\': o += "\\\\"; break;
+        case '\n': o += "\\n"; break;
+        case '\r': o += "\\r"; break;
+        case '\t': o += "\\t"; break;
+        default:
+            if (c < 0x20) { char b[8]; std::snprintf(b, sizeof b, "\\u%04x", c); o += b; }
+            else o += (char)c;
+        }
+    }
+    return o;
+}
+
+// Đọc giá trị chuỗi/bool của khoá cấp cao nhất trong result.json (định dạng do Python json.dump sinh ra).
+bool jsonBool(const std::string& j, const std::string& key) {
+    const auto k = j.find("\"" + key + "\"");
+    if (k == std::string::npos) return false;
+    const auto c = j.find(':', k);
+    if (c == std::string::npos) return false;
+    size_t i = c + 1;
+    while (i < j.size() && j[i] == ' ') ++i;
+    return j.compare(i, 4, "true") == 0;
+}
+std::string jsonString(const std::string& j, const std::string& key) {
+    const auto k = j.find("\"" + key + "\"");
+    if (k == std::string::npos) return {};
+    auto c = j.find(':', k);
+    if (c == std::string::npos) return {};
+    auto q = j.find('"', c);
+    if (q == std::string::npos) return {};
+    std::string o;
+    for (size_t i = q + 1; i < j.size(); ++i) {
+        const char ch = j[i];
+        if (ch == '"') return o;
+        if (ch != '\\' || i + 1 >= j.size()) { o += ch; continue; }
+        const char n = j[++i];
+        switch (n) {
+        case 'n': o += '\n'; break;
+        case 't': o += '\t'; break;
+        case 'r': o += '\r'; break;
+        case 'u':
+            if (i + 4 < j.size()) {
+                unsigned cp = (unsigned)std::strtoul(j.substr(i + 1, 4).c_str(), nullptr, 16);
+                i += 4;
+                if (cp < 0x80) o += (char)cp;
+                else if (cp < 0x800) { o += (char)(0xC0 | (cp >> 6)); o += (char)(0x80 | (cp & 0x3F)); }
+                else { o += (char)(0xE0 | (cp >> 12)); o += (char)(0x80 | ((cp >> 6) & 0x3F)); o += (char)(0x80 | (cp & 0x3F)); }
+            }
+            break;
+        default: o += n;
+        }
+    }
+    return o;
+}
+} // namespace
+
+
 // ---------------------------------------------------------------- Bảng thay thế phông
 // Các phông hiện đại của Microsoft 365 (Aptos...) không có trong engine. Nếu không có bảng thay thế,
 // engine rơi về phông hệ thống (vd PMingLiU) và chữ tiếng Việt có dấu bị vỡ khi xuất PDF/in.
@@ -426,6 +532,7 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
     fs::create_directories(profileDir, ec);
     fs::create_directories(workDir, ec);
     seedFontSubstitution(profileDir);
+    installDungScripts(profileDir);
 #ifndef _WIN32
     // Trên Linux/macOS, LibreOffice đổi URL -> đường dẫn theo bảng mã của locale. Với locale
     // POSIX/ASCII, tên tệp tiếng Việt sẽ không mở được -> ép LC_CTYPE sang UTF-8.
@@ -551,6 +658,7 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
     std::unique_ptr<Engine> e(new Engine());
     e->m_office.reset(new lok::Office(kit));
     e->m_workDir = workDir;
+    e->m_profileDir = profileDir;
     return e;
 }
 
@@ -1083,6 +1191,80 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
     r.message = "Đã lưu: " + toUtf8(target.filename());
     if (!isPdf) m_modified = false;
     if (!ownOutput) m_sessionOutputs.push_back(target);
+    return r;
+}
+
+const std::vector<ScriptFn>& Engine::scriptFunctions() {
+    static const std::vector<ScriptFn> v = {
+        {"ping", true},           {"read_page_margins", true}, {"read_doc_properties", true},
+        {"page_margins", false},  {"page_setup", false},       {"header_footer", false},
+        {"toc_insert", false},    {"toc_update", false},       {"paragraph_format", false},
+        {"outline_numbering", false}, {"list_apply", false},   {"cell_format", false},
+        {"data_validation", false},   {"conditional_format", false}, {"protect_sheet", false},
+        {"sort_range", false},    {"text_to_columns", false},  {"doc_properties", false},
+    };
+    return v;
+}
+
+ScriptResult Document::callScript(const std::string& fn, const std::string& argsJson, int timeoutMs) {
+    ScriptResult r;
+    std::lock_guard<std::mutex> lock(m_scriptMutex);
+    auto fail = [&](const std::string& m) { r.message = m; return r; };
+    if (m_scriptWedged) return fail("Engine đang kẹt sau một lần gọi script quá giờ; hãy lưu bản sao và mở lại ứng dụng.");
+    const ScriptFn* entry = nullptr;
+    for (const auto& f : Engine::scriptFunctions()) if (fn == f.name) { entry = &f; break; }
+    if (!entry) return fail("Hàm '" + fn + "' không có trong danh sách cho phép.");
+    if (m_readOnly && !entry->readOnlySafe)
+        return fail("Tài liệu đang ở chế độ chỉ đọc nên không áp dụng thay đổi này.");
+    if (argsJson.empty() || argsJson[0] != '{') return fail("Đối số phải là một đối tượng JSON.");
+
+    const fs::path dir = m_engine->profileDir() / "user" / "dung-api";
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    fs::remove(dir / "result.json", ec);
+    const std::string nonce = randomToken() + std::to_string(steadyMs());
+    std::string req = "{\"nonce\":\"" + nonce + "\",\"fn\":\"" + fn + "\",\"args\":" + argsJson;
+    if (!m_working.empty()) req += ",\"expect_url\":\"" + jsonEscape(toFileUrl(m_working)) + "\"";
+    req += "}";
+    writeFileAtomic(dir / "args.json", req);
+
+    struct Shared { std::promise<bool> p; };
+    auto sh = std::make_shared<Shared>();
+    auto fut = sh->p.get_future();
+    lok::Office* office = m_engine->m_office.get();
+    lok::Document* doc = m_doc.get();
+    std::thread([sh, office, doc] {
+        bool ok = false;
+        try {
+            ok = onEngine([&] {
+                doc->setView(doc->getView()); // chọn lại chế độ xem hiện hành để script thấy đúng tài liệu
+                return office->runMacro("vnd.sun.star.script:dung_api.py$call_api?language=Python&location=user");
+            });
+        } catch (...) {}
+        sh->p.set_value(ok);
+    }).detach();
+    if (fut.wait_for(std::chrono::milliseconds(timeoutMs)) != std::future_status::ready) {
+        m_scriptWedged = true;
+        fs::remove(dir / "args.json", ec);
+        return fail("Script chạy quá giờ.");
+    }
+    const bool launched = fut.get();
+    std::ifstream f(dir / "result.json", std::ios::binary);
+    std::string j((std::istreambuf_iterator<char>(f)), {});
+    if (j.empty()) {
+        fs::remove(dir / "args.json", ec);
+        return fail(launched ? "Script không trả kết quả." : "Engine không chạy được script (runMacro thất bại).");
+    }
+    if (jsonString(j, "nonce") != nonce) return fail("Kết quả script không khớp yêu cầu (nonce).");
+    r.json = j;
+    r.ok = jsonBool(j, "ok");
+    r.mutated = jsonBool(j, "mutated");
+    r.message = jsonString(j, "message");
+    if (r.mutated) {
+        m_modified = true;
+        m_lastInputMs = steadyMs();
+        emitSynthetic();
+    }
     return r;
 }
 
