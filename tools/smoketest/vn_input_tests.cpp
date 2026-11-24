@@ -36,9 +36,9 @@ void key(Document& d, int charCode, int keyCode = 0) {
     d.postKey(LOK_KEYEVENT_KEYUP, charCode, keyCode);
 }
 // Đường "đã chốt chuỗi" của TileView::inputMethodEvent: từng ký tự UTF-16 → KEYINPUT/KEYUP, keyCode 0.
-void commit(Document& d, const std::u16string& s) { for (char16_t c : s) key(d, c); }
+void commit(Document& d, const std::u16string& s) { for (char16_t c : s) { key(d, c); d.waitInputIdle(120, 2000); } }
 void enter(Document& d) { key(d, 0, KEY_RETURN); d.waitInputIdle(); }
-void backspace(Document& d, int n) { for (int i = 0; i < n; ++i) key(d, 0, KEY_BACKSPACE); }
+void backspace(Document& d, int n) { for (int i = 0; i < n; ++i) { key(d, 0, KEY_BACKSPACE); d.waitInputIdle(120, 2000); } }
 
 std::string u8(const std::u16string& s) {
     std::string r;
