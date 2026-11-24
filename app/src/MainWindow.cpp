@@ -12,6 +12,7 @@
 #include "extras/SidePanel.h"
 #include "templates/TemplateLibrary.h"
 #include "templates/TemplatesPage.h"
+#include "toolbox/ToolboxPage.h"
 #include "Ribbon.h"
 #include "Theme.h"
 #include "TileView.h"
@@ -86,6 +87,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_templates = new TemplatesPage(m_stack);
     m_stack->addWidget(m_templates);
     connect(m_templates, &TemplatesPage::openPath, this, &MainWindow::openPath);
+    m_toolbox = new ToolboxPage(m_stack);
+    m_stack->addWidget(m_toolbox);
     h->addWidget(m_stack, 1);
     m_side = new SidePanel(central);
     h->addWidget(m_side);
@@ -224,6 +227,7 @@ QWidget* MainWindow::buildSidebar() {
     auto* docs = make(tr("Tài liệu"), 0xE8A5, QStringLiteral("▤"), true);
     auto* tmpl = make(tr("Mẫu"), 0xE8A5, QStringLiteral("▤"), true);
     auto* proj = make(tr("Dự án"), 0xE8F1, QStringLiteral("▦"), true);
+    auto* tools = make(tr("Công cụ"), 0xE90F, QStringLiteral("🧰"), true);
     v->addSpacing(8);
     auto* word = make(tr("Word"), 0xE8A5, QStringLiteral("W"), false);
     auto* excel = make(tr("Excel"), 0xE80A, QStringLiteral("X"), false);
@@ -246,6 +250,7 @@ QWidget* MainWindow::buildSidebar() {
     connect(docs, &QToolButton::clicked, this, &MainWindow::showDocuments);
     connect(proj, &QToolButton::clicked, this, &MainWindow::showProjects);
     connect(tmpl, &QToolButton::clicked, this, &MainWindow::showTemplates);
+    connect(tools, &QToolButton::clicked, this, &MainWindow::showToolbox);
     connect(word, &QToolButton::clicked, this, [this] { newDoc(DocKind::Text); });
     connect(excel, &QToolButton::clicked, this, [this] { newDoc(DocKind::Spreadsheet); });
     connect(ppt, &QToolButton::clicked, this, [this] { newDoc(DocKind::Presentation); });
@@ -256,6 +261,7 @@ QWidget* MainWindow::buildSidebar() {
     side->setProperty("docsBtn", QVariant::fromValue<QObject*>(docs));
     side->setProperty("projBtn", QVariant::fromValue<QObject*>(proj));
     side->setProperty("tmplBtn", QVariant::fromValue<QObject*>(tmpl));
+    side->setProperty("toolBtn", QVariant::fromValue<QObject*>(tools));
     setProperty("sidebar", QVariant::fromValue<QObject*>(side));
     return side;
 }
@@ -275,6 +281,14 @@ void MainWindow::showTemplates() {
     m_stack->setCurrentWidget(m_templates);
     if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
         if (auto* b = qobject_cast<QToolButton*>(side->property("tmplBtn").value<QObject*>())) b->setChecked(true);
+    refreshStatus();
+}
+
+void MainWindow::showToolbox() {
+    m_toolbox->reload();
+    m_stack->setCurrentWidget(m_toolbox);
+    if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
+        if (auto* b = qobject_cast<QToolButton*>(side->property("toolBtn").value<QObject*>())) b->setChecked(true);
     refreshStatus();
 }
 
@@ -417,7 +431,7 @@ void MainWindow::onCurrentTabChanged() {
 void MainWindow::refreshStatus() {
     auto* t = current();
     const bool docs = m_stack->currentWidget() == m_docArea && t;
-    m_status->setText(docs ? t->statusText() : (m_stack->currentWidget() == m_projects ? tr("Dự án") : m_stack->currentWidget() == m_templates ? tr("Thư viện mẫu") : tr("Trang chủ")));
+    m_status->setText(docs ? t->statusText() : (m_stack->currentWidget() == m_projects ? tr("Dự án") : m_stack->currentWidget() == m_templates ? tr("Thư viện mẫu") : m_stack->currentWidget() == m_toolbox ? tr("Công cụ") : tr("Trang chủ")));
     m_toolLabel->setVisible(docs);
     m_saveLabel->setVisible(docs);
     if (docs) {

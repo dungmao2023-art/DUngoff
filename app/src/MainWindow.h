@@ -14,6 +14,7 @@ class DocumentTab;
 class SidePanel;
 class ProjectsPage;
 class TemplatesPage;
+class ToolboxPage;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -39,6 +40,7 @@ private:
     void showDocuments();
     void showProjects();
     void showTemplates();
+    void showToolbox();
     void onCurrentTabChanged();
     void onAppAction(const QString& id);
     void addRecent(const QString& path);
@@ -58,6 +60,7 @@ private:
     SidePanel* m_side;
     ProjectsPage* m_projects;
     TemplatesPage* m_templates;
+    ToolboxPage* m_toolbox;
     QLabel* m_zoomLabel;
     QSlider* m_zoom;
 };
