@@ -6,7 +6,10 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QColor>
 #include <QFileInfo>
+#include <QImage>
+#include <QStandardPaths>
 #include <QProcess>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
@@ -64,6 +67,60 @@ static QByteArray readFile(const QString& path) {
     QFile f(path);
     return f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray();
 }
+
+// JPEG 16x8 thật (không cần plugin ảnh của Qt), và bản có EXIF hướng 6 (xoay 90 độ).
+static const char kJpeg[] = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAIABADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDkKKKK8U/TD//Z";
+static const char kJpegExif6[] = "/9j/4AAQSkZJRgABAQAAAQABAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAIABADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDkKKKK8U/TD//Z";
+
+// PDF tùy ý: mỗi trang một nội dung; nullptr = không có /Contents; extra = thêm khóa vào từ điển trang.
+struct PageSpec { const char* content; const char* extra; };
+static QByteArray makeCustomPdf(const QList<PageSpec>& specs) {
+    QByteArray out = "%PDF-1.4\n";
+    QList<int> offs;
+    auto obj = [&](const QByteArray& body) {
+        offs << out.size();
+        out += QByteArray::number(offs.size()) + " 0 obj\n" + body + "\nendobj\n";
+    };
+    obj("<< /Type /Catalog /Pages 2 0 R >>");
+    QByteArray kids;
+    int next = 4;
+    QList<int> pageIds;
+    for (const PageSpec& sp : specs) { pageIds << next; next += sp.content ? 2 : 1; }
+    for (int id : pageIds) kids += QByteArray::number(id) + " 0 R ";
+    obj("<< /Type /Pages /Count " + QByteArray::number(specs.size()) + " /Kids [ " + kids + "] >>");
+    obj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+    for (const PageSpec& sp : specs) {
+        QByteArray page = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> ";
+        if (sp.extra) page += sp.extra;
+        if (sp.content) page += " /Contents " + QByteArray::number(offs.size() + 2) + " 0 R";
+        obj(page + " >>");
+        if (sp.content) {
+            const QByteArray c = sp.content;
+            obj("<< /Length " + QByteArray::number(c.size()) + " >>\nstream\n" + c + "\nendstream");
+        }
+    }
+    const int xrefPos = out.size();
+    out += "xref\n0 " + QByteArray::number(offs.size() + 1) + "\n0000000000 65535 f \n";
+    for (int o : offs) {
+        char line[32];
+        std::snprintf(line, sizeof line, "%010d 00000 n \n", o);
+        out += line;
+    }
+    out += "trailer\n<< /Size " + QByteArray::number(offs.size() + 1) + " /Root 1 0 R >>\nstartxref\n" + QByteArray::number(xrefPos) + "\n%%EOF\n";
+    return out;
+}
+
+// Bản qpdf --qdf: luồng không nén, tìm được chuỗi trong lớp phủ/ảnh.
+static QByteArray qdfOf(const QString& path) {
+    const QString out = path + QStringLiteral(".qdf");
+    QProcess p;
+    p.start(findQpdf(), {QStringLiteral("--qdf"), QStringLiteral("--object-streams=disable"), path, out});
+    p.waitForFinished(60000);
+    const QByteArray b = readFile(out);
+    QFile::remove(out);
+    return b;
+}
+
 static int tempLeftovers(const QString& dir) {
     return QDir(dir).entryList({QStringLiteral("~dung-*")}, QDir::AllEntries | QDir::NoDotAndDotDot).size();
 }
@@ -210,6 +267,175 @@ int main(int argc, char** argv) {
           "tách tệp mật khẩu: kết quả mở không cần mật khẩu");
     CHECK(!r.warnings.isEmpty(), "tách tệp mật khẩu: có cảnh báo kết quả không còn mật khẩu");
     CHECK(readFile(enc) == encBytes, "tệp mật khẩu nguồn giữ nguyên từng byte");
+
+
+    // ======== Đánh số trang ========
+    {
+        NumberOptions no;
+        no.format = QStringLiteral("Trang {n}/{total}");
+        r = addPageNumbers({a, {}}, no, P(QStringLiteral("so.pdf")));
+        const QByteArray q = r.ok ? qdfOf(P(QStringLiteral("so.pdf"))) : QByteArray();
+        CHECK(r.ok && info(P(QStringLiteral("so.pdf"))).pages == 3, "đánh số trang: kết quả 3 trang");
+        CHECK(q.contains("(Trang 1/3) Tj") && q.contains("(Trang 2/3) Tj") && q.contains("(Trang 3/3) Tj"), "đánh số trang: có 'Trang 1/3'..'Trang 3/3' trong nội dung");
+        CHECK(readFile(a) == aBytes, "đánh số trang: tệp nguồn giữ nguyên từng byte");
+        r = addPageNumbers({a, {}}, no, P(QStringLiteral("so.pdf")));
+        CHECK(!r.ok && !r.error.isEmpty(), "đánh số trang: từ chối khi đích đã tồn tại");
+        r = addPageNumbers({a, {}}, no, a, true);
+        CHECK(!r.ok && readFile(a) == aBytes, "đánh số trang: không được ghi đè lên tệp nguồn");
+        NumberOptions part;
+        part.pages = QStringLiteral("2-");
+        part.start = 1;
+        part.pos = Position::TopRight;
+        r = addPageNumbers({a, {}}, part, P(QStringLiteral("so2.pdf")));
+        const QByteArray q2 = r.ok ? qdfOf(P(QStringLiteral("so2.pdf"))) : QByteArray();
+        CHECK(r.ok && q2.contains("(1) Tj") && q2.contains("(2) Tj") && !q2.contains("(3) Tj"), "đánh số trang '2-': trang 2 là số 1, trang 3 là số 2, không có số 3");
+        NumberOptions vn;
+        vn.format = QString::fromUtf8("Trang số {n}");
+        r = addPageNumbers({a, {}}, vn, P(QStringLiteral("so-vn.pdf")));
+        CHECK(!r.ok && !QFileInfo::exists(P(QStringLiteral("so-vn.pdf"))), "đánh số trang: chữ có dấu bị từ chối, không tạo tệp");
+        NumberOptions diag;
+        diag.pos = Position::Diagonal;
+        CHECK(!addPageNumbers({a, {}}, diag, P(QStringLiteral("so-cheo.pdf"))).ok, "đánh số trang: vị trí đường chéo bị từ chối");
+        NumberOptions badp;
+        badp.pages = QStringLiteral("9");
+        CHECK(!addPageNumbers({a, {}}, badp, P(QStringLiteral("so9.pdf"))).ok, "đánh số trang: khoảng trang sai bị từ chối");
+        // trang đã xoay 90 độ vẫn đánh số được (đã tạo xoay.pdf ở trên)
+        r = addPageNumbers({P(QStringLiteral("xoay.pdf")), {}}, no, P(QStringLiteral("so-xoay.pdf")));
+        CHECK(r.ok && info(P(QStringLiteral("so-xoay.pdf"))).pages == 3 && readFile(P(QStringLiteral("so-xoay.pdf"))).contains("/Rotate 90"),
+              "đánh số trang: trang xoay 90 độ vẫn giữ xoay và có số");
+        const QString ptt = QStandardPaths::findExecutable(QStringLiteral("pdftotext"));
+        if (!ptt.isEmpty()) {  // chẩn đoán thêm, không dùng để kết luận
+            QProcess pp;
+            pp.start(ptt, {P(QStringLiteral("so.pdf")), QStringLiteral("-")});
+            pp.waitForFinished(30000);
+            std::printf("CHẨN ĐOÁN pdftotext so.pdf: %s\n", pp.readAllStandardOutput().simplified().left(160).constData());
+        }
+        // tệp mật khẩu
+        r = addPageNumbers({enc, {}}, no, P(QStringLiteral("so-mk.pdf")));
+        CHECK(!r.ok && r.needPassword, "đánh số trang: tệp mật khẩu thiếu mật khẩu bị từ chối");
+        r = addPageNumbers({enc, QStringLiteral("1234")}, no, P(QStringLiteral("so-mk.pdf")));
+        CHECK(r.ok && !r.warnings.isEmpty() && !info(P(QStringLiteral("so-mk.pdf"))).encrypted, "đánh số trang: tệp mật khẩu đúng mật khẩu, kèm cảnh báo mất mật khẩu");
+    }
+
+    // ======== Ảnh thử ========
+    const QString png = P(QStringLiteral("anh rgb.png")), pngA = P(QStringLiteral("anh trong suot.png")), pngP = P(QStringLiteral("anh doc.png"));
+    const QString jpg = P(QStringLiteral("anh.jpg")), jpg6 = P(QStringLiteral("anh-exif6.jpg"));
+    {
+        QImage i1(40, 30, QImage::Format_RGB32);
+        i1.fill(QColor(10, 120, 200));
+        QImage i2(20, 20, QImage::Format_ARGB32);
+        i2.fill(QColor(0, 0, 255, 128));
+        QImage i3(30, 40, QImage::Format_RGB32);
+        i3.fill(QColor(0, 160, 0));
+        CHECK(i1.save(png, "PNG") && i2.save(pngA, "PNG") && i3.save(pngP, "PNG"), "tạo ảnh PNG thử");
+        CHECK(writeFile(jpg, QByteArray::fromBase64(kJpeg)) && writeFile(jpg6, QByteArray::fromBase64(kJpegExif6)), "tạo ảnh JPEG thử");
+    }
+    const QByteArray jpgBytes = readFile(jpg), pngBytes = readFile(png);
+
+    // ======== Đóng dấu ========
+    {
+        StampOptions st;
+        st.text = QStringLiteral("BAN NHAP");
+        r = stamp({a, {}}, st, P(QStringLiteral("dau.pdf")));
+        const QByteArray q = r.ok ? qdfOf(P(QStringLiteral("dau.pdf"))) : QByteArray();
+        CHECK(r.ok && info(P(QStringLiteral("dau.pdf"))).pages == 3, "đóng dấu chữ: kết quả 3 trang");
+        CHECK(q.contains("(BAN NHAP) Tj") && q.contains("/ca 0.3"), "đóng dấu chữ: có chữ và độ đậm 0.3 trong nội dung");
+        CHECK(readFile(a) == aBytes, "đóng dấu: tệp nguồn giữ nguyên từng byte");
+        StampOptions sv;
+        sv.text = QString::fromUtf8("BẢN NHÁP");
+        CHECK(!stamp({a, {}}, sv, P(QStringLiteral("dau-vn.pdf"))).ok && !QFileInfo::exists(P(QStringLiteral("dau-vn.pdf"))), "đóng dấu: chữ có dấu bị từ chối, không tạo tệp");
+        CHECK(!stamp({a, {}}, StampOptions(), P(QStringLiteral("dau-rong.pdf"))).ok, "đóng dấu: thiếu chữ và ảnh bị từ chối");
+        StampOptions one;
+        one.text = QStringLiteral("CHI TRANG 2");
+        one.pages = QStringLiteral("2");
+        one.pos = Position::TopLeft;
+        r = stamp({a, {}}, one, P(QStringLiteral("dau-t2.pdf")));
+        CHECK(r.ok && qdfOf(P(QStringLiteral("dau-t2.pdf"))).count("(CHI TRANG 2) Tj") == 1, "đóng dấu trang '2': chữ xuất hiện đúng một lần");
+        StampOptions si;
+        si.imagePath = pngA;
+        si.pos = Position::BottomRight;
+        si.widthPercent = 20;
+        r = stamp({a, {}}, si, P(QStringLiteral("dau-anh.pdf")));
+        const QByteArray qi = r.ok ? qdfOf(P(QStringLiteral("dau-anh.pdf"))) : QByteArray();
+        CHECK(r.ok && info(P(QStringLiteral("dau-anh.pdf"))).pages == 3 && qi.contains("/SMask"), "đóng dấu ảnh PNG trong suốt: giữ kênh trong suốt (SMask)");
+        si.imagePath = jpg;
+        r = stamp({a, {}}, si, P(QStringLiteral("dau-jpg.pdf")));
+        CHECK(r.ok && readFile(P(QStringLiteral("dau-jpg.pdf"))).contains(jpgBytes), "đóng dấu ảnh JPEG: nhúng nguyên bản từng byte");
+        si.imagePath = P(QStringLiteral("khong-co.png"));
+        CHECK(!stamp({a, {}}, si, P(QStringLiteral("dau-x.pdf"))).ok, "đóng dấu: ảnh không tồn tại bị từ chối");
+        si.imagePath = a;
+        CHECK(!stamp({a, {}}, si, P(QStringLiteral("dau-y.pdf"))).ok, "đóng dấu: tệp không phải ảnh bị từ chối");
+    }
+
+    // ======== Ảnh -> PDF ========
+    {
+        ImageOptions io;
+        r = imagesToPdf({png, pngA, jpg}, io, P(QStringLiteral("tu-anh.pdf")));
+        CHECK(r.ok && info(P(QStringLiteral("tu-anh.pdf"))).pages == 3, "ảnh -> PDF: 3 ảnh thành 3 trang");
+        const QByteArray out = readFile(P(QStringLiteral("tu-anh.pdf")));
+        CHECK(out.contains(jpgBytes), "ảnh -> PDF: JPEG được nhúng nguyên bản từng byte");
+        const QByteArray qd = qdfOf(P(QStringLiteral("tu-anh.pdf")));
+        CHECK(qd.contains("/DCTDecode") && qd.contains("/SMask"), "ảnh -> PDF: có DCTDecode (JPEG) và SMask (PNG trong suốt)");
+        CHECK(qd.contains("19.2") && qd.contains("14.4"), "ảnh -> PDF: PNG 40x30 ở 150 dpi cho trang 19.2 x 14.4 pt");
+        CHECK(readFile(png) == pngBytes && readFile(jpg) == jpgBytes, "ảnh -> PDF: ảnh nguồn giữ nguyên từng byte");
+        r = imagesToPdf({png}, io, P(QStringLiteral("tu-anh.pdf")));
+        CHECK(!r.ok, "ảnh -> PDF: từ chối khi đích đã tồn tại");
+        r = imagesToPdf({png}, io, png, true);
+        CHECK(!r.ok && readFile(png) == pngBytes, "ảnh -> PDF: không được ghi đè lên chính ảnh nguồn");
+        CHECK(!imagesToPdf({}, io, P(QStringLiteral("trong.pdf"))).ok, "ảnh -> PDF: danh sách rỗng bị từ chối");
+        CHECK(!imagesToPdf({a}, io, P(QStringLiteral("khong-phai-anh.pdf"))).ok && !QFileInfo::exists(P(QStringLiteral("khong-phai-anh.pdf"))),
+              "ảnh -> PDF: tệp không phải ảnh bị từ chối, không tạo tệp");
+        CHECK(!imagesToPdf({png, P(QStringLiteral("khong-co.png"))}, io, P(QStringLiteral("mot-hong.pdf"))).ok && !QFileInfo::exists(P(QStringLiteral("mot-hong.pdf"))),
+              "ảnh -> PDF: một ảnh lỗi thì hủy cả lô, không tạo tệp dở");
+        r = imagesToPdf({jpg6}, io, P(QStringLiteral("exif6.pdf")));
+        CHECK(r.ok && readFile(P(QStringLiteral("exif6.pdf"))).contains("/Rotate 90"), "ảnh -> PDF: EXIF hướng 6 thành trang xoay 90 độ");
+        ImageOptions a4;
+        a4.fitA4 = true;
+        r = imagesToPdf({pngP, png}, a4, P(QStringLiteral("a4.pdf")));
+        const QByteArray q4 = r.ok ? qdfOf(P(QStringLiteral("a4.pdf"))) : QByteArray();
+        CHECK(r.ok && info(P(QStringLiteral("a4.pdf"))).pages == 2 && q4.contains("595.276") && q4.contains("841.89"), "ảnh -> PDF A4: trang A4 (ảnh dọc và ảnh ngang)");
+        ImageOptions bad;
+        bad.dpi = 5;
+        CHECK(!imagesToPdf({png}, bad, P(QStringLiteral("dpi.pdf"))).ok, "ảnh -> PDF: dpi ngoài khoảng bị từ chối");
+        // PDF tạo ra phải đọc lại được bằng các công cụ khác của chương trình
+        r = extract({P(QStringLiteral("tu-anh.pdf")), {}}, QStringLiteral("1-2"), P(QStringLiteral("tu-anh-tach.pdf")));
+        CHECK(r.ok && info(P(QStringLiteral("tu-anh-tach.pdf"))).pages == 2, "ảnh -> PDF: kết quả tách trang được bằng công cụ khác");
+    }
+
+    // ======== Trang trắng ========
+    {
+        const QString bl = P(QStringLiteral("trang-trang.pdf"));
+        const QList<PageSpec> specs = {
+            {"BT /F1 12 Tf 72 720 Td (Co chu) Tj ET", nullptr},  // 0: có chữ
+            {" ", nullptr},                                        // 1: nội dung rỗng
+            {"q Q", nullptr},                                      // 2: chỉ trạng thái đồ họa
+            {"1 1 1 rg 0 0 100 100 re f", nullptr},                // 3: ô tô nền trắng (KHÔNG phát hiện, đúng như ghi chú)
+            {" ", "/Annots [ << /Type /Annot /Subtype /Text /Rect [10 10 20 20] /Contents (ghi chu) >> ]"},  // 4: chỉ có chú thích
+            {nullptr, nullptr},                                    // 5: không có /Contents
+            {"% chu thich (khong ve) \n BT /F1 12 Tf (Bo qua) ET", nullptr},  // 6: chỉ có BT/ET và chú thích: không vẽ gì
+        };
+        writeFile(bl, makeCustomPdf(specs));
+        const QByteArray blBytes = readFile(bl);
+        CHECK(info(bl).ok && info(bl).pages == 7, "tạo PDF thử có trang trắng (7 trang)");
+        const BlankReport br = findBlankPages({bl, {}});
+        CHECK(br.ok && br.blank == (QList<int>{1, 2, 5, 6}), "trang trắng: nhận ra trang 2, 3, 6, 7 (không nhận trang có chữ, ô tô nền, chú thích)");
+        CHECK(!br.notes.isEmpty(), "trang trắng: báo kèm giới hạn của phép kiểm tra");
+        const BlankReport none = findBlankPages({a, {}});
+        CHECK(none.ok && none.blank.isEmpty(), "trang trắng: tệp không có trang trắng cho danh sách rỗng");
+        r = removeBlankPages({bl, {}}, P(QStringLiteral("het-trang-trang.pdf")));
+        CHECK(r.ok && info(P(QStringLiteral("het-trang-trang.pdf"))).pages == 3, "bỏ trang trắng: còn 3 trang (7 trừ 4)");
+        CHECK(readFile(bl) == blBytes, "bỏ trang trắng: tệp nguồn giữ nguyên từng byte");
+        r = removeBlankPages({a, {}}, P(QStringLiteral("khong-bo.pdf")));
+        CHECK(!r.ok && !QFileInfo::exists(P(QStringLiteral("khong-bo.pdf"))), "bỏ trang trắng: không có trang trắng thì không tạo tệp");
+        const QString allBlank = P(QStringLiteral("toan-trang.pdf"));
+        writeFile(allBlank, makeCustomPdf({{" ", nullptr}, {nullptr, nullptr}}));
+        CHECK(!removeBlankPages({allBlank, {}}, P(QStringLiteral("rong.pdf"))).ok && !QFileInfo::exists(P(QStringLiteral("rong.pdf"))),
+              "bỏ trang trắng: mọi trang đều trắng thì từ chối, không tạo tệp rỗng");
+        const BlankReport be = findBlankPages({enc, {}});
+        CHECK(!be.ok && be.needPassword, "trang trắng: tệp mật khẩu thiếu mật khẩu báo cần mật khẩu");
+        const BlankReport be2 = findBlankPages({enc, QStringLiteral("1234")});
+        CHECK(be2.ok && be2.blank.isEmpty(), "trang trắng: tệp mật khẩu với mật khẩu đúng đọc được");
+    }
 
     // --- dọn dẹp
     CHECK(tempLeftovers(d) == 0, "không còn tệp tạm ~dung-* trong thư mục làm việc");
