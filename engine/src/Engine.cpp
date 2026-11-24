@@ -589,6 +589,10 @@ std::unique_ptr<Document> Engine::open(const fs::path& original, std::string* er
     return doc;
 }
 
+bool Engine::runMacro(const std::string& url) {
+    return onEngine([&] { return m_office->runMacro(url.c_str()); });
+}
+
 std::unique_ptr<Document> Engine::createNew(DocKind kind, std::string* error) {
     const char* factory = nullptr;
     const char* name = nullptr;

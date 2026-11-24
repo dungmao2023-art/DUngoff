@@ -72,6 +72,11 @@ public:
     // Tạo tài liệu trống mới ("Sổ làm việc mới", "Tài liệu mới", ...).
     std::unique_ptr<Document> createNew(DocKind kind, std::string* error);
 
+    // Chạy macro theo URL (vd macro:///Standard.Mod.Sub hoặc vnd.sun.star.script:...) qua LOK runMacro.
+    // CHỈ dành cho thư viện Basic do chính ứng dụng đóng gói trong hồ sơ engine; không bao giờ truyền URL
+    // lấy từ tệp của người dùng. Trả về kết quả engine báo (true = đã gửi lệnh chạy).
+    bool runMacro(const std::string& url);
+
     std::string versionInfo() const;
     const fs::path& workDir() const { return m_workDir; }
 

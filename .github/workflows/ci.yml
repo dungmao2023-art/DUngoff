@@ -106,6 +106,12 @@ jobs:
             --out smoke-stress 2>&1 | tee report/linux-stress.log
           python3 tests/verify_roundtrip.py fixtures/stress-5000-dong.xlsx "$(cat smoke-stress/saved-path.txt)" \
             --known tests/known_differences.txt 2>&1 | tee report/linux-stress-roundtrip.log
+      - name: THÍ NGHIỆM — cầu nối macro Basic (Linux)
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-basic --basic 1 2>&1 | tee report/linux-basic-bridge.log
+          if [ -f smoke-basic/basic-bridge.docx ]; then python3 tests/word/verify_basic_bridge.py smoke-basic/basic-bridge.docx 2>&1 | tee report/linux-basic-bridge-docx.log; fi
       - name: Word - kiểm thử lệnh UNO thật và định dạng DOCX sau khi lưu
         continue-on-error: true
         run: |
@@ -244,6 +250,17 @@ jobs:
           $env:DUNG_TEST_ZIP = "$PWD/mau-thu.zip"
           & $exe.FullName *>&1 | Tee-Object report/windows-templatetest.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: THÍ NGHIỆM — cầu nối macro Basic (engine Windows 26.8.3)
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--basic", "1", "--out", "$PWD/smoke-basic") -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-basic-bridge.log -RedirectStandardError report/windows-basic-bridge.err.log
+          if (-not $p.WaitForExit(4 * 60 * 1000)) { $p.Kill(); "TREO quá 4 phút" | Add-Content report/windows-basic-bridge.log }
+          Get-Content report/windows-basic-bridge.log
+          Get-Content report/windows-basic-bridge.err.log -ErrorAction SilentlyContinue | Select-Object -First 20
+          python -m pip install --quiet python-docx 2>$null
+          if (Test-Path smoke-basic/basic-bridge.docx) { $env:PYTHONUTF8 = "1"; python tests/word/verify_basic_bridge.py smoke-basic/basic-bridge.docx *>&1 | Tee-Object report/windows-basic-bridge-docx.log }
       - name: Kiểm chứng thay phông Aptos (2 mẫu PPT) trên engine Windows
         continue-on-error: true
         timeout-minutes: 15
