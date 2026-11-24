@@ -21,8 +21,19 @@ $OutDir = (Resolve-Path $OutDir).Path
 $archive = Join-Path $OutDir "dung-engine-headless-win64.7z"
 $url = "https://github.com/$Repo/releases/download/$Tag/dung-engine-headless-win64.7z"
 
-Write-Host "Tải $url"
-Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
+if ($env:GH_TOKEN) {
+  # Kho riêng tư: phải tải qua API có xác thực (tải theo URL công khai sẽ bị từ chối)
+  $hdr = @{ Authorization = "Bearer $($env:GH_TOKEN)"; "X-GitHub-Api-Version" = "2022-11-28" }
+  $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/tags/$Tag" -Headers $hdr
+  $asset = $rel.assets | Where-Object { $_.name -eq "dung-engine-headless-win64.7z" } | Select-Object -First 1
+  if (-not $asset) { throw "Release $Tag không có dung-engine-headless-win64.7z" }
+  Write-Host "Tải asset $($asset.id) ($([math]::Round($asset.size/1MB,1)) MB) qua API"
+  $hdr["Accept"] = "application/octet-stream"
+  Invoke-WebRequest -Uri "https://api.github.com/repos/$Repo/releases/assets/$($asset.id)" -Headers $hdr -OutFile $archive -UseBasicParsing
+} else {
+  Write-Host "Tải $url"
+  Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
+}
 $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower()
 if ($actual -ne $Sha256.ToLower()) {
   Remove-Item $archive

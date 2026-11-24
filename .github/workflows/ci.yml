@@ -124,6 +124,8 @@ jobs:
           path: build/lo/engine
           key: engine-${{ env.ENGINE_TAG }}-${{ env.ENGINE_SHA256 }}
       - name: Tải engine headless của dự án (kiểm tra SHA-256 đã ghim)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Force report | Out-Null
           if (-not (Test-Path build/lo/engine/dung-engine-headless.txt)) {
