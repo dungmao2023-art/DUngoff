@@ -25,3 +25,12 @@
 - Giấy phép: Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0)
 - Nguồn: https://github.com/qpdf/qpdf — Dũng Office chỉ gọi chương trình qpdf nguyên bản qua dòng lệnh,
   đặt trong thư mục `qpdf\` cạnh DungOffice.exe.
+
+## Phông chữ đi kèm engine (thay thế Aptos và các phông Microsoft không có trong engine)
+- Dũng Office KHÔNG tự phân phối thêm phông nào ngoài các phông đã nằm trong bản phát hành chính thức của LibreOffice
+  (thư mục `engine\share\fonts\truetype`). Hai phông được dùng để thay thế khi máy không có phông gốc:
+  - **Carlito** (tương thích số đo với Calibri) — giấy phép SIL Open Font License 1.1, Bản quyền Łukasz Dziedzic / Google (dựa trên Lato).
+  - **Liberation Sans** — giấy phép SIL Open Font License 1.1, Bản quyền Red Hat, Inc.
+  - Nguồn: bản phân phối LibreOffice (https://www.libreoffice.org/) — danh sách và văn bản giấy phép nằm trong `engine\license` của bộ cài.
+- Bảng thay thế (Aptos, Aptos Display, Aptos Narrow, Aptos SemiBold, Aptos Light, Aptos Black → Carlito; Liberation Sans không được dùng làm phông dự phòng vì engine bỏ qua bảng khi ghi danh sách "A;B") được ghi vào hồ sơ engine khi chạy và áp dụng cho mọi máy (kể cả máy có Aptos): CI Windows cho thấy chế độ "chỉ khi thiếu phông" không có tác dụng trên engine này.
+- "Aptos" là tên phông của Microsoft; Dũng Office không phân phối phông Aptos.
