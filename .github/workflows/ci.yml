@@ -59,6 +59,10 @@ jobs:
           set -o pipefail
           if dpkg -s qt6-pdf-dev >/dev/null 2>&1; then export DUNG_REQUIRE_PDF=1; fi
           QT_QPA_PLATFORM=offscreen ./build/app/dung-printtest 2>&1 | tee report/linux-printtest.log
+      - name: Kiểm thử công cụ tìm tệp (tên, nội dung, chỉ mục, đo thời gian và RAM)
+        run: |
+          set -o pipefail
+          DUNG_FS_TEMPLATES="$PWD/templates" ./build/app/dung-filesearchtest 2>&1 | tee report/linux-filesearchtest.log
       - name: Kiểm thử tiện ích văn bản tiếng Việt (số tiền, ngày, bảng mã cũ)
         run: |
           set -o pipefail
@@ -266,6 +270,12 @@ jobs:
           $env:DUNG_REQUIRE_PDF = "1"
           $env:QT_QPA_PLATFORM = "offscreen"
           & $exe.FullName *>&1 | Tee-Object report/windows-printtest.log
+      - name: Kiểm thử công cụ tìm tệp trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-filesearchtest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-filesearchtest.exe"; exit 1 }
+          $env:DUNG_FS_TEMPLATES = "$PWD/templates"
+          & $exe.FullName *>&1 | Tee-Object report/windows-filesearchtest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử tiện ích văn bản tiếng Việt trên Windows
         run: |
