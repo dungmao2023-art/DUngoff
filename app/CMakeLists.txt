@@ -19,6 +19,7 @@ if(WIN32)
 endif()
 
 include(src/ppt/ppt.cmake)
+include(src/extras/extras.cmake)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/src/pdf/pdf.cmake)
 target_link_libraries(DungOffice PRIVATE dungengine Qt6::Widgets)

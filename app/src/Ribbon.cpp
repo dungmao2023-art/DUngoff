@@ -83,6 +83,8 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
         {QStringLiteral("paste"), tr("Dán"), 0xE77F, QStringLiteral("📋"), false},
         {QStringLiteral("cut"), tr("Cắt"), 0xE8C6, QStringLiteral("✂"), false},
         {QStringLiteral("copy"), tr("Sao chép"), 0xE8C8, QStringLiteral("⧉"), false},
+        {QStringLiteral(".uno:SelectAll"), tr("Chọn tất cả"), 0xE8B3, QStringLiteral("☐"), false},
+        {QStringLiteral(".uno:FormatPaintbrush"), tr("Chép định dạng"), 0xE790, QStringLiteral("🖌"), false},
     }};
     const Group undo{tr("Hoàn tác"), {
         {QStringLiteral(".uno:Undo"), tr("Hoàn tác"), 0xE7A7, QStringLiteral("↶"), false},

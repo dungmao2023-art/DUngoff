@@ -11,6 +11,8 @@ class QSlider;
 class Ribbon;
 class HomePage;
 class DocumentTab;
+class SidePanel;
+class ProjectsPage;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -33,6 +35,7 @@ private:
     bool closeTab(int index);
     void showHome();
     void showDocuments();
+    void showProjects();
     void onCurrentTabChanged();
     void onAppAction(const QString& id);
     void addRecent(const QString& path);
@@ -47,6 +50,10 @@ private:
     QTabWidget* m_tabs;
     QLabel* m_status;
     QLabel* m_roLabel;
+    QLabel* m_toolLabel;
+    QLabel* m_saveLabel;
+    SidePanel* m_side;
+    ProjectsPage* m_projects;
     QLabel* m_zoomLabel;
     QSlider* m_zoom;
 };

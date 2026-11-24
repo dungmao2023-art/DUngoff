@@ -6,6 +6,8 @@
 #include "EngineHost.h"
 #include "word/WordActions.h"
 #include "HomePage.h"
+#include "extras/ProjectsPage.h"
+#include "extras/SidePanel.h"
 #include "Ribbon.h"
 #include "Theme.h"
 #include "TileView.h"
@@ -72,7 +74,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     dv->addWidget(m_tabs, 1);
     m_stack->addWidget(m_home);
     m_stack->addWidget(m_docArea);
+    m_projects = new ProjectsPage(m_stack);
+    m_stack->addWidget(m_projects);
     h->addWidget(m_stack, 1);
+    m_side = new SidePanel(central);
+    h->addWidget(m_side);
     setCentralWidget(central);
 
     // ---- Thanh trạng thái ----
@@ -80,13 +86,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_roLabel = new QLabel(tr("CHỈ ĐỌC"), this);
     m_roLabel->setStyleSheet(QStringLiteral("color:#7A5B00;background:#FFF3C4;border-radius:4px;font-weight:600;"));
     m_roLabel->hide();
+    m_toolLabel = new QLabel(this);
+    m_toolLabel->setStyleSheet(QStringLiteral("color:#1F50BB;background:#EAF0FF;border-radius:4px;padding:1px 8px;font-weight:700;"));
+    m_toolLabel->hide();
+    m_saveLabel = new QLabel(this);
+    m_saveLabel->hide();
     m_zoom = new QSlider(Qt::Horizontal, this);
     m_zoom->setRange(25, 400);
     m_zoom->setValue(100);
     m_zoom->setFixedWidth(130);
     m_zoomLabel = new QLabel(QStringLiteral("100%"), this);
     m_zoomLabel->setMinimumWidth(48);
+    statusBar()->addWidget(m_toolLabel);
     statusBar()->addWidget(m_status, 1);
+    statusBar()->addPermanentWidget(m_saveLabel);
     statusBar()->addPermanentWidget(m_roLabel);
     statusBar()->addPermanentWidget(m_zoom);
     statusBar()->addPermanentWidget(m_zoomLabel);
@@ -174,12 +187,18 @@ QWidget* MainWindow::buildSidebar() {
     };
     auto* home = make(tr("Trang chủ"), 0xE80F, QStringLiteral("⌂"), true);
     auto* docs = make(tr("Tài liệu"), 0xE8A5, QStringLiteral("▤"), true);
+    auto* proj = make(tr("Dự án"), 0xE8F1, QStringLiteral("▦"), true);
     v->addSpacing(8);
     auto* word = make(tr("Word"), 0xE8A5, QStringLiteral("W"), false);
     auto* excel = make(tr("Excel"), 0xE80A, QStringLiteral("X"), false);
     auto* ppt = make(tr("PowerPoint"), 0xE786, QStringLiteral("P"), false);
     auto* pdf = make(tr("PDF"), 0xEA90, QStringLiteral("PDF"), false);
     v->addStretch(1);
+    auto* work = make(tr("Công việc"), 0xE787, QStringLiteral("📅"), false);
+    work->setCheckable(true);
+    work->setChecked(true);
+    work->setToolTip(tr("Hiện/ẩn bảng Ghi chú · Lịch · Liên hệ bên phải"));
+    connect(work, &QToolButton::toggled, this, [this](bool on) { m_side->setVisible(on); });
     auto* open = make(tr("Mở tệp"), 0xE8E5, QStringLiteral("📂"), false);
     auto* about = make(tr("Giới thiệu"), 0xE946, QStringLiteral("i"), false);
     home->setChecked(true);
@@ -189,6 +208,7 @@ QWidget* MainWindow::buildSidebar() {
     pdf->setToolTip(tr("Mở tệp PDF để xem"));
     connect(home, &QToolButton::clicked, this, &MainWindow::showHome);
     connect(docs, &QToolButton::clicked, this, &MainWindow::showDocuments);
+    connect(proj, &QToolButton::clicked, this, &MainWindow::showProjects);
     connect(word, &QToolButton::clicked, this, [this] { newDoc(DocKind::Text); });
     connect(excel, &QToolButton::clicked, this, [this] { newDoc(DocKind::Spreadsheet); });
     connect(ppt, &QToolButton::clicked, this, [this] { newDoc(DocKind::Presentation); });
@@ -197,6 +217,7 @@ QWidget* MainWindow::buildSidebar() {
     connect(about, &QToolButton::clicked, this, &MainWindow::showAbout);
     side->setProperty("homeBtn", QVariant::fromValue<QObject*>(home));
     side->setProperty("docsBtn", QVariant::fromValue<QObject*>(docs));
+    side->setProperty("projBtn", QVariant::fromValue<QObject*>(proj));
     setProperty("sidebar", QVariant::fromValue<QObject*>(side));
     return side;
 }
@@ -208,6 +229,13 @@ void MainWindow::showHome() {
     m_stack->setCurrentWidget(m_home);
     if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
         if (auto* b = qobject_cast<QToolButton*>(side->property("homeBtn").value<QObject*>())) b->setChecked(true);
+    refreshStatus();
+}
+
+void MainWindow::showProjects() {
+    m_stack->setCurrentWidget(m_projects);
+    if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
+        if (auto* b = qobject_cast<QToolButton*>(side->property("projBtn").value<QObject*>())) b->setChecked(true);
     refreshStatus();
 }
 
@@ -314,7 +342,16 @@ void MainWindow::onCurrentTabChanged() {
 void MainWindow::refreshStatus() {
     auto* t = current();
     const bool docs = m_stack->currentWidget() == m_docArea && t;
-    m_status->setText(docs ? t->statusText() : tr("Trang chủ"));
+    m_status->setText(docs ? t->statusText() : (m_stack->currentWidget() == m_projects ? tr("Dự án") : tr("Trang chủ")));
+    m_toolLabel->setVisible(docs);
+    m_saveLabel->setVisible(docs);
+    if (docs) {
+        m_toolLabel->setText(QString::fromUtf8(dung::kindName(t->document()->kind())));
+        if (t->readOnly()) m_saveLabel->setText(tr("Chỉ đọc"));
+        else if (t->document()->modified()) m_saveLabel->setText(tr("<span style='color:#AF791D'>● Chưa lưu</span>"));
+        else m_saveLabel->setText(tr("<span style='color:#21866E'>✓ Đã lưu</span>"));
+        m_saveLabel->setTextFormat(Qt::RichText);
+    }
     m_roLabel->setVisible(docs && t->readOnly());
     m_zoom->setVisible(docs);
     m_zoomLabel->setVisible(docs);
@@ -381,6 +418,8 @@ void MainWindow::showAbout() {
 }
 
 void MainWindow::closeEvent(QCloseEvent* e) {
+    m_side->flush();
+    m_projects->flush();
     while (m_tabs->count() > 0) {
         m_tabs->setCurrentIndex(0);
         showDocuments();

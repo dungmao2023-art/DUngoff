@@ -55,6 +55,11 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral("word:a4"), tr("Khổ A4 dọc"), 0xE7C3, QStringLiteral("A4"), false},
                 {QStringLiteral("word:landscape"), tr("A4 ngang"), 0xE7C3, QStringLiteral("A4↔"), false},
             }},
+            {tr("Lề trang"), {
+                {QStringLiteral("word:marginVN"), tr("Lề chuẩn VN"), 0xE7C3, QStringLiteral("VN"), false},
+                {QStringLiteral("word:marginNormal"), tr("Lề thường"), 0xE7C3, QStringLiteral("▭"), false},
+                {QStringLiteral("word:marginNarrow"), tr("Lề hẹp"), 0xE7C3, QStringLiteral("▯"), false},
+            }},
         }},
         {tr("Xem"), {view}},
     };

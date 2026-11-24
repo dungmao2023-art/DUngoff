@@ -197,6 +197,7 @@ void DocumentTab::rebuildParts() {
 
 void DocumentTab::onEngineEvent(int type, const QString& payload) {
     m_view->handleEvent(type, payload);
+    if (m_doc->modified() != m_lastMod) { m_lastMod = m_doc->modified(); emit statusChanged(); } // đổi trạng thái "chưa lưu"
     switch (type) {
     case LOK_CALLBACK_CELL_ADDRESS:
         m_cellAddress = payload;

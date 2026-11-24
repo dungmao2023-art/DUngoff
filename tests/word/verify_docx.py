@@ -30,5 +30,11 @@ check(xml.count("<w:numPr>") >= 2, "Hai đoạn có danh sách (w:numPr)")
 check("<w:hyperlink" in xml, "Liên kết được lưu (w:hyperlink)")
 rels = zipfile.ZipFile(path).read("word/_rels/document.xml.rels").decode("utf-8")
 check("https://example.com/" in rels, "Đích liên kết https://example.com/ còn nguyên")
+sec = d.sections[0]
+def mm(x): return round(x / 36000.0, 1) if x is not None else None
+print("       lề thực tế (mm): trái", mm(sec.left_margin), "phải", mm(sec.right_margin), "trên", mm(sec.top_margin), "dưới", mm(sec.bottom_margin))
+check(all(v is not None for v in (mm(sec.left_margin), mm(sec.right_margin), mm(sec.top_margin), mm(sec.bottom_margin))) and
+      abs(mm(sec.left_margin) - 30) < 1 and abs(mm(sec.right_margin) - 15) < 1 and abs(mm(sec.top_margin) - 20) < 1 and abs(mm(sec.bottom_margin) - 20) < 1,
+      "Lề chuẩn VN (trái 30, phải 15, trên 20, dưới 20 mm) được lưu vào DOCX")
 print("\nKẾT QUẢ DOCX:", "CÓ LỖI" if fails else "TẤT CẢ ĐẠT")
 sys.exit(1 if fails else 0)

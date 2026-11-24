@@ -58,6 +58,7 @@ private:
     QListWidget* m_slides = nullptr;
     QString m_savedPath;    // tệp mới mà người dùng đã "Lưu thành" trong phiên này
     QString m_cellAddress;
+    bool m_lastMod = false;
     QHash<QString, QString> m_states;
     bool m_rebuildingParts = false;
 };
