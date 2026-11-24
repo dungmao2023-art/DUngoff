@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "xin-chao",
+  "name": "Lời chào (tool mẫu)",
+  "description": "Ví dụ tool ngoài: nhập tên và số lần, script Python in lời chào. Cần tự cài Python.",
+  "category": "Tool ngoài - mẫu",
+  "version": "1.0",
+  "command": "python",
+  "args": ["xin_chao.py", "--ten", "{ten}", "--lap", "{lap}", "--kieu", "{kieu}", "{ghichu}"],
+  "workingDir": ".",
+  "timeoutSec": 30,
+  "fields": [
+    { "id": "ten", "label": "Tên", "type": "text", "required": true, "hint": "Ví dụ: Nguyễn Văn A" },
+    { "id": "lap", "label": "Số lần", "type": "number", "default": "1", "min": 1, "max": 20 },
+    { "id": "kieu", "label": "Kiểu chào", "type": "choice", "choices": ["Trang trọng", "Thân mật"], "default": "Trang trọng" },
+    { "id": "ghichu", "label": "Ghi chú (không bắt buộc)", "type": "text" }
+  ]
+}
