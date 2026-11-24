@@ -76,17 +76,12 @@ QString firstLine(const QString& s) {
 
 bool mentionsPassword(const QString& err) { return err.contains(QLatin1String("password"), Qt::CaseInsensitive); }
 
-// Mật khẩu đưa cho qpdf qua tệp tạm (không hiện trên dòng lệnh); tệp bị xóa khi đối tượng hủy.
+// Mật khẩu đưa cho qpdf bằng --password=. Đã thử --password-file và @tệp: qpdf 12.3.2 trên Windows không
+// nhận được (thoát mã 2). Hạn chế: tiến trình cùng người dùng có thể thấy mật khẩu trên dòng lệnh trong lúc qpdf chạy.
 class PasswordFile {
 public:
     explicit PasswordFile(const QString& password) {
-        if (password.isEmpty()) return;
-        if (m_file.open()) {
-            // Tệp tham số của qpdf (@tệp): mỗi dòng một tham số. qpdf 12 trên Windows không nhận --password-file.
-            m_file.write("--password=" + password.toUtf8() + "\n");
-            m_file.close();
-            m_args << QStringLiteral("@") + m_file.fileName();
-        }
+        if (!password.isEmpty()) m_args << QStringLiteral("--password=") + password;
     }
     // Khi chỉ đọc thông tin thì không thêm --decrypt (qpdf bản mới từ chối tuỳ chọn biến đổi đi kèm tuỳ chọn kiểm tra).
     QStringList args(bool decrypt = true) const {
@@ -96,7 +91,6 @@ public:
     }
 
 private:
-    QTemporaryFile m_file;
     QStringList m_args;
 };
 
