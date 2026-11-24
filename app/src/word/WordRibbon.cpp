@@ -61,6 +61,13 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral("word:marginNarrow"), tr("Lề hẹp"), 0xE7C3, QStringLiteral("▯"), false},
             }},
         }},
+        {tr("Tiện ích Việt"), {
+            {tr("Văn bản tiếng Việt"), {
+                {QStringLiteral("word:vnMoney"), tr("Số tiền → chữ"), 0xE8EF, QStringLiteral("đ"), false},
+                {QStringLiteral("word:vnDate"), tr("Chèn ngày Việt"), 0xE787, QStringLiteral("📅"), false},
+                {QStringLiteral("word:vnTcvn3"), tr("TCVN3 → Unicode"), 0xE8D2, QStringLiteral("Ư"), false},
+            }},
+        }},
         {tr("Xem"), {view}},
     };
 }

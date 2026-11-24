@@ -9,5 +9,6 @@ if(TARGET DungOffice)
   target_sources(DungOffice PRIVATE
     ${_DUNG_WORD_DIR}/WordCommands.h ${_DUNG_WORD_DIR}/WordCommands.cpp
     ${_DUNG_WORD_DIR}/WordRibbon.cpp
-    ${_DUNG_WORD_DIR}/WordActions.h ${_DUNG_WORD_DIR}/WordActions.cpp)
+    ${_DUNG_WORD_DIR}/WordActions.h ${_DUNG_WORD_DIR}/WordActions.cpp
+    ${_DUNG_WORD_DIR}/../vntext/VnText.h ${_DUNG_WORD_DIR}/../vntext/VnText.cpp)
 endif()

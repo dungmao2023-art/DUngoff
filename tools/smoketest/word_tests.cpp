@@ -308,6 +308,15 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     const std::string afterReplace = selText(d);
     check(has(afterReplace, "baz bar baz") && !has(afterReplace, "foo"), "Thay tất cả 'foo' bằng 'baz'", snippet(afterReplace, 80));
 
+    // ---------------- chèn chữ Việt qua paste (cơ chế dùng cho nhóm "Tiện ích Việt") ----------------
+    step("dán chữ Việt");
+    run(d, ".uno:GoToEndOfDoc");
+    const std::string vn = "Một triệu đồng chẵn ngày 05 tháng 02 năm 2026";
+    const bool pasted = d.paste("text/plain;charset=utf-8", vn);
+    settle();
+    selectAll(d);
+    check(pasted && has(selText(d), vn), "Dán chuỗi tiếng Việt có dấu vào vị trí con trỏ", snippet(selText(d), 80));
+
     // ---------------- chèn: bảng, ảnh, ngắt trang, liên kết ----------------
     step("chèn bảng");
     run(d, ".uno:GoToEndOfDoc");

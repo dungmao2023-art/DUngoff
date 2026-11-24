@@ -5,8 +5,11 @@
 #include "WordCommands.h"
 
 #include "dung/Engine.h"
+#include "../vntext/VnText.h"
 
+#include <QCheckBox>
 #include <QColorDialog>
+#include <QDate>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QLineEdit>
@@ -91,6 +94,49 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         else if (name == QLatin1String("marginNarrow")) l = r = t = b = 1270;
         doc->command(".uno:PageLRMargin", join({argLong("PageLRMargin.Left", l), argLong("PageLRMargin.Right", r)}));
         doc->command(".uno:PageULMargin", join({argLong("PageULMargin.Upper", t), argLong("PageULMargin.Lower", b)}));
+    } else if (name == QLatin1String("vnMoney")) {
+        bool ok = false;
+        const QString in = QInputDialog::getText(parent, QObject::tr("Số tiền → chữ"),
+            QObject::tr("Nhập số tiền (vd 1.500.000 hoặc 1500000):"), QLineEdit::Normal, QString(), &ok);
+        if (!ok || in.trimmed().isEmpty()) return true;
+        const auto r = vntext::moneyToWords(in.trimmed());
+        if (!r.ok) {
+            QMessageBox::warning(parent, QObject::tr("Số tiền → chữ"), QObject::tr("Không đổi được: %1\nKhông có gì được chèn vào văn bản.").arg(r.error));
+            return true;
+        }
+        QString msg = QObject::tr("Xem trước:\n\n%1\n\nChèn vào vị trí con trỏ?").arg(r.text);
+        if (!r.warnings.isEmpty()) msg += QObject::tr("\n\nLưu ý: ") + r.warnings.join(QStringLiteral("; "));
+        if (QMessageBox::question(parent, QObject::tr("Số tiền → chữ"), msg) == QMessageBox::Yes)
+            doc->paste("text/plain;charset=utf-8", ss(r.text));
+    } else if (name == QLatin1String("vnDate")) {
+        const QString t = vntext::formatDateVn(QDate::currentDate(), vntext::DateStyle::Admin);
+        if (QMessageBox::question(parent, QObject::tr("Chèn ngày Việt"),
+                QObject::tr("Xem trước:\n\n%1\n\nChèn vào vị trí con trỏ?").arg(t)) == QMessageBox::Yes)
+            doc->paste("text/plain;charset=utf-8", ss(t));
+    } else if (name == QLatin1String("vnTcvn3")) {
+        const QString sel = QString::fromUtf8(doc->selectionAs("text/plain;charset=utf-8").c_str());
+        if (sel.isEmpty()) {
+            QMessageBox::information(parent, QObject::tr("TCVN3 → Unicode"), QObject::tr("Hãy chọn đoạn văn bản cần đổi trước."));
+            return true;
+        }
+        const auto r = vntext::legacyToUnicode(sel, vntext::LegacyEncoding::TCVN3);
+        if (r.verdict != vntext::Verdict::Converted) {
+            QString why;
+            switch (r.verdict) {
+            case vntext::Verdict::AlreadyUnicode: why = QObject::tr("Văn bản đã là Unicode."); break;
+            case vntext::Verdict::NothingToConvert: why = QObject::tr("Không có ký tự thuộc bảng mã TCVN3."); break;
+            case vntext::Verdict::Unsupported: why = QObject::tr("Bảng mã này chưa được hỗ trợ."); break;
+            default: why = QObject::tr("Không đủ độ tin cậy (%1%) để tự đổi.").arg(int(r.confidence * 100)); break;
+            }
+            QMessageBox::warning(parent, QObject::tr("TCVN3 → Unicode"),
+                QObject::tr("Không đổi gì. %1\n%2").arg(why, r.warnings.join(QStringLiteral("\n"))));
+            return true;
+        }
+        QString msg = QObject::tr("Độ tin cậy %1%. Xem trước:\n\n%2\n\nÁp dụng thay phần đã chọn? (Hoàn tác được bằng Ctrl+Z)")
+                          .arg(int(r.confidence * 100)).arg(r.text.left(400));
+        if (!r.warnings.isEmpty()) msg += QObject::tr("\n\nLưu ý: ") + r.warnings.join(QStringLiteral("; "));
+        if (QMessageBox::question(parent, QObject::tr("TCVN3 → Unicode"), msg) == QMessageBox::Yes)
+            doc->paste("text/plain;charset=utf-8", ss(r.text));
     } else if (name == QLatin1String("count")) {
         std::string text = doc->selectionAs("text/plain;charset=utf-8");
         const bool sel = !text.empty();
