@@ -73,6 +73,15 @@ jobs:
             --out smoke-stress 2>&1 | tee report/linux-stress.log
           python3 tests/verify_roundtrip.py fixtures/stress-5000-dong.xlsx "$(cat smoke-stress/saved-path.txt)" \
             --known tests/known_differences.txt 2>&1 | tee report/linux-stress-roundtrip.log
+      - name: Kiểm thử Excel cơ bản (lệnh UNO thật) + xác minh không mất dữ liệu
+        run: |
+          set -o pipefail
+          python3 tests/excel/make_excel_fixture.py fixtures
+          python3 tests/fixtures/make_stress.py fixtures
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/excel-co-ban.xlsx \
+            --stress fixtures/stress-5000-dong.xlsx --excel 1 --out smoke-excel 2>&1 | tee report/linux-excel.log
+          python3 -W ignore tests/excel/verify_excel.py smoke-excel/excel-ket-qua.xlsx \
+            fixtures/stress-5000-dong.xlsx smoke-excel/stress-ket-qua.xlsx 2>&1 | tee report/linux-excel-verify.log
       - name: Ảnh chụp giao diện thật (Xvfb)
         if: always() && hashFiles('build/app/DungOffice') != ''
         run: |

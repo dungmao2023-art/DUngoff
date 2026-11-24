@@ -105,45 +105,76 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
     }
 
     switch (kind) {
-    case DocKind::Spreadsheet:
+    case DocKind::Spreadsheet: {
+        const auto B = [](const char* id, const QString& label, char16_t g, const char* fb, bool chk) {
+            return Btn{QString::fromUtf8(id), label, g, QString::fromUtf8(fb), chk};
+        };
         return {fileTab,
             {tr("Trang đầu"), {file, undo, clip, font,
+                {tr("Phông & màu"), {
+                    B("xl:fontName", tr("Phông"), 0xE8D2, "Aa", false),
+                    B("xl:fontSize", tr("Cỡ chữ"), 0xE8E8, "pt", false),
+                    B(".uno:Strikeout", tr("Gạch ngang"), 0xE8DD, "S̶", true),
+                    B("xl:textColor", tr("Màu chữ"), 0xE8D3, "A", false),
+                    B("xl:fillColor", tr("Màu nền"), 0xE790, "▧", false),
+                }},
                 {tr("Căn lề"), {
-                    {QStringLiteral(".uno:AlignLeft"), tr("Trái"), 0xE8E4, QStringLiteral("⇤"), true},
-                    {QStringLiteral(".uno:AlignHorizontalCenter"), tr("Giữa"), 0xE8E3, QStringLiteral("↔"), true},
-                    {QStringLiteral(".uno:AlignRight"), tr("Phải"), 0xE8E2, QStringLiteral("⇥"), true},
-                    {QStringLiteral(".uno:ToggleMergeCells"), tr("Gộp ô"), 0xE8B9, QStringLiteral("⊞"), true},
-                    {QStringLiteral(".uno:WrapText"), tr("Xuống dòng"), 0xE751, QStringLiteral("↩"), true},
+                    B(".uno:AlignLeft", tr("Trái"), 0xE8E4, "⇤", true),
+                    B(".uno:AlignHorizontalCenter", tr("Giữa"), 0xE8E3, "↔", true),
+                    B(".uno:AlignRight", tr("Phải"), 0xE8E2, "⇥", true),
+                    B(".uno:AlignTop", tr("Trên"), 0xE74A, "⤒", true),
+                    B(".uno:AlignVCenter", tr("Giữa dọc"), 0xE8E3, "↕", true),
+                    B(".uno:AlignBottom", tr("Dưới"), 0xE74B, "⤓", true),
+                    B(".uno:ToggleMergeCells", tr("Gộp ô"), 0xE8B9, "⊞", true),
+                    B(".uno:WrapText", tr("Xuống dòng"), 0xE751, "↩", true),
                 }},
                 {tr("Số"), {
-                    {QStringLiteral(".uno:NumberFormatCurrency"), tr("Tiền tệ"), 0xE8C7, QStringLiteral("₫"), true},
-                    {QStringLiteral(".uno:NumberFormatPercent"), tr("Phần trăm"), 0xE94C, QStringLiteral("%"), true},
-                    {QStringLiteral(".uno:NumberFormatIncDecimals"), tr("Thêm số lẻ"), 0xE948, QStringLiteral(".0+"), false},
-                    {QStringLiteral(".uno:NumberFormatDecDecimals"), tr("Bớt số lẻ"), 0xE949, QStringLiteral(".0−"), false},
+                    B(".uno:NumberFormatStandard", tr("Chung"), 0xE8EF, "123", false),
+                    B(".uno:NumberFormatThousands", tr("Dấu phân cách"), 0xE8C7, "1,0", true),
+                    B(".uno:NumberFormatPercent", tr("Phần trăm"), 0xE94C, "%", true),
+                    B(".uno:NumberFormatDate", tr("Ngày"), 0xE787, "📅", true),
+                    B(".uno:NumberFormatIncDecimals", tr("Thêm số lẻ"), 0xE948, ".0+", false),
+                    B(".uno:NumberFormatDecDecimals", tr("Bớt số lẻ"), 0xE949, ".0−", false),
                 }},
             }},
             {tr("Chèn"), {
                 {tr("Hàng & cột"), {
-                    {QStringLiteral(".uno:InsertRowsBefore"), tr("Chèn hàng"), 0xE710, QStringLiteral("+≡"), false},
-                    {QStringLiteral(".uno:InsertColumnsBefore"), tr("Chèn cột"), 0xE710, QStringLiteral("+‖"), false},
-                    {QStringLiteral(".uno:DeleteRows"), tr("Xoá hàng"), 0xE74D, QStringLiteral("−≡"), false},
-                    {QStringLiteral(".uno:DeleteColumns"), tr("Xoá cột"), 0xE74D, QStringLiteral("−‖"), false},
+                    B(".uno:InsertRowsBefore", tr("Chèn hàng"), 0xE710, "+≡", false),
+                    B(".uno:InsertColumnsBefore", tr("Chèn cột"), 0xE710, "+‖", false),
+                    B(".uno:DeleteRows", tr("Xoá hàng"), 0xE74D, "−≡", false),
+                    B(".uno:DeleteColumns", tr("Xoá cột"), 0xE74D, "−‖", false),
+                    B("xl:colWidth", tr("Rộng cột"), 0xE746, "↔|", false),
+                    B("xl:rowHeight", tr("Cao hàng"), 0xE745, "↕|", false),
+                    B(".uno:SetOptimalColumnWidth", tr("Vừa cột"), 0xE746, "⇔", false),
+                }},
+                {tr("Sheet"), {
+                    B("xl:sheetAdd", tr("Thêm sheet"), 0xE710, "+▭", false),
+                    B("xl:sheetRename", tr("Đổi tên"), 0xE8AC, "Ab", false),
+                    B("xl:sheetDup", tr("Nhân đôi"), 0xE8C8, "⧉", false),
+                    B("xl:sheetDelete", tr("Xoá sheet"), 0xE74D, "−▭", false),
                 }},
             }},
             {tr("Dữ liệu"), {
                 {tr("Tính toán"), {
-                    {QStringLiteral(".uno:AutoSum"), tr("Tổng"), 0xE8EF, QStringLiteral("Σ"), false},
+                    B(".uno:AutoSum", tr("Tổng"), 0xE8EF, "Σ", false),
                 }},
                 {tr("Sắp xếp & lọc"), {
-                    {QStringLiteral(".uno:SortAscending"), tr("Tăng dần"), 0xE8CB, QStringLiteral("A↓"), false},
-                    {QStringLiteral(".uno:SortDescending"), tr("Giảm dần"), 0xE8CB, QStringLiteral("Z↓"), false},
-                    {QStringLiteral(".uno:DataFilterAutoFilter"), tr("Bộ lọc"), 0xE71C, QStringLiteral("⏷"), true},
+                    B(".uno:SortAscending", tr("Tăng dần"), 0xE8CB, "A↓", false),
+                    B(".uno:SortDescending", tr("Giảm dần"), 0xE8CB, "Z↓", false),
+                    B(".uno:DataFilterAutoFilter", tr("Bộ lọc"), 0xE71C, "⏷", true),
+                }},
+                {tr("Tìm kiếm"), {
+                    B("xl:find", tr("Tìm"), 0xE721, "🔍", false),
+                    B("xl:replace", tr("Thay thế"), 0xE8AC, "⇄", false),
                 }},
             }},
-            {tr("Xem"), {view, {tr("Cửa sổ"), {
-                {QStringLiteral(".uno:FreezePanes"), tr("Cố định ô"), 0xE840, QStringLiteral("❄"), true},
+            {tr("Xem"), {view, {tr("Cố định ô"), {
+                B(".uno:FreezePanes", tr("Cố định ô"), 0xE840, "❄", true),
+                B(".uno:FreezePanesRow", tr("Hàng đầu"), 0xE840, "❄≡", false),
+                B(".uno:FreezePanesColumn", tr("Cột đầu"), 0xE840, "❄‖", false),
             }}}},
         };
+    }
     case DocKind::Text:
         return {fileTab,
             {tr("Trang đầu"), {file, undo, clip, font,

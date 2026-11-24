@@ -33,6 +33,7 @@ public:
     bool saveAs();          // luôn hỏi đường dẫn
     bool exportPdf();
     bool maybeClose();      // hỏi lưu nếu có thay đổi; false = huỷ đóng
+    void excelAction(const QString& id);  // xl:* — cài đặt trong excel/ExcelUi.cpp
     void setZoom(int percent);
     int zoom() const;
 
@@ -45,6 +46,7 @@ signals:
 private:
     void onEngineEvent(int type, const QString& payload);
     void rebuildParts();
+    void excelSheetMenu(const QPoint& pos);  // excel/ExcelUi.cpp
     bool doSave(const QString& path, bool confirmedReplace);
 
     std::unique_ptr<dung::Document> m_doc;

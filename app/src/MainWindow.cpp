@@ -323,6 +323,7 @@ void MainWindow::onAppAction(const QString& id) {
     if (id == QLatin1String("open")) openDialog();
     else if (id == QLatin1String("newWorkbook")) newDoc(DocKind::Spreadsheet);
     else if (!docVisible) return;
+    else if (id.startsWith(QLatin1String("xl:"))) t->excelAction(id); // khối Excel: app/src/excel/
     else if (id == QLatin1String("save")) t->save();
     else if (id == QLatin1String("saveAs")) t->saveAs();
     else if (id == QLatin1String("exportPdf")) t->exportPdf();

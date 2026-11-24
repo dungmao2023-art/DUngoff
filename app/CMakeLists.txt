@@ -13,6 +13,7 @@ qt_add_executable(DungOffice WIN32
   src/MainWindow.h src/MainWindow.cpp
   resources/app.qrc
 )
+include(src/excel/excel.cmake)  # khối Excel
 if(WIN32)
   target_sources(DungOffice PRIVATE resources/app.rc)
 endif()
