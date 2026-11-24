@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QTemporaryDir>
+#include <QTemporaryFile>
 
 #include <cstdio>
 #include <iostream>
@@ -179,6 +180,22 @@ int main(int argc, char** argv) {
         CHECK(p.exitCode() == 0 && QFileInfo::exists(enc), "tạo PDF mã hóa để thử");
     }
     const QByteArray encBytes = readFile(enc);
+    {   // chẩn đoán: cách đưa mật khẩu cho qpdf
+        QTemporaryFile pf;
+        if (pf.open()) { pf.write("1234"); pf.close(); }
+        const QStringList variants[] = {
+            {QStringLiteral("--password-file=") + pf.fileName(), QStringLiteral("--show-npages"), enc},
+            {QStringLiteral("--password=1234"), QStringLiteral("--show-npages"), enc},
+            {QStringLiteral("--password-file=") + QDir::toNativeSeparators(pf.fileName()), QStringLiteral("--show-npages"), enc}};
+        for (const QStringList& v : variants) {
+            QProcess dp;
+            dp.start(findQpdf(), v);
+            dp.waitForFinished(60000);
+            std::printf("CHẨN ĐOÁN mật khẩu [%s]: mã=%d ra=%s lỗi=%s\n", v.value(0).left(24).toUtf8().constData(),
+                        dp.exitCode(), dp.readAllStandardOutput().trimmed().constData(),
+                        dp.readAllStandardError().left(200).constData());
+        }
+    }
     Info ie = info(enc);
     CHECK(!ie.ok && ie.needPassword, "tệp mật khẩu: báo cần mật khẩu");
     CHECK(info(enc, QStringLiteral("sai")).needPassword, "tệp mật khẩu: mật khẩu sai vẫn báo cần mật khẩu");
