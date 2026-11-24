@@ -4,6 +4,7 @@
 #include "../extras/WorkspaceStore.h"
 
 #include <QDir>
+#include <QSet>
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
@@ -184,12 +185,19 @@ InstallResult installFromZip(const QString& zipPath, bool allowOlder) {
         }
         // Giải nén từng mục, báo rõ mục lỗi (đường dẫn dài/tên lạ), không báo chung chung.
         const QString root = QDir(tmp.path()).absolutePath();
-        for (const auto &fi : zr.fileInfoList()) {
+        const auto entries = zr.fileInfoList();
+        QSet<QString> dirNames; // thư mục có thể bị ghi không kèm dấu "/"
+        for (const auto &e : entries) {
+            const int k = e.filePath.lastIndexOf(QLatin1Char('/'));
+            for (int i = e.filePath.indexOf(QLatin1Char('/')); i >= 0; i = e.filePath.indexOf(QLatin1Char('/'), i + 1)) dirNames.insert(e.filePath.left(i));
+            Q_UNUSED(k)
+        }
+        for (const auto &fi : entries) {
             if (fi.filePath.contains(QStringLiteral(".."))) continue; // chặn zip-slip
             const QString dest = root + QLatin1Char('/') + fi.filePath;
-            const QString lp = QStringLiteral("\\\\?\\") + QDir::toNativeSeparators(dest); // tiền tố đường dẫn dài
-            if (fi.isDir || !fi.isFile) { QDir().mkpath(lp); continue; }
-            QDir().mkpath(QStringLiteral("\\\\?\\") + QDir::toNativeSeparators(QFileInfo(dest).absolutePath()));
+            const QString lp = dest;
+            if (fi.isDir || !fi.isFile || dirNames.contains(fi.filePath)) { QDir().mkpath(lp); continue; }
+            QDir().mkpath(QFileInfo(dest).absolutePath());
             QFile f(lp);
             if (!f.open(QIODevice::WriteOnly) || f.write(zr.fileData(fi.filePath)) < 0) {
                 r.message = QObject::tr("Không giải nén được: ") + fi.filePath.left(120) + QStringLiteral(" (") + f.errorString() + QLatin1Char(')');
