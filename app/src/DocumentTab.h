@@ -70,6 +70,7 @@ private:
     QTimer* m_autosave = nullptr;
     QString m_recId;                  // mã bản phục hồi của tài liệu này trong phiên
     bool m_dirtySinceAutosave = false;
+    bool m_featureLossConfirmed = false;  // đã xác nhận mất tính năng của tệp gốc trong phiên này
     bool m_hasAdopted = false;
     QString m_recOrigin;              // tệp gốc thật của bản đã khôi phục (không phải đường dẫn trong thư mục phục hồi)
     bool m_recOriginSet = false;

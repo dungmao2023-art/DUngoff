@@ -617,6 +617,16 @@ std::unique_ptr<Document> Engine::open(const fs::path& original, std::string* er
     doc->m_workDir = dir;
     if (info->fidelity != Fidelity::Native) doc->m_readOnly = true;
     if (!info->warning.empty()) doc->m_warnings.push_back(info->warning);
+    // Quét tệp GỐC (không phải bản tạm) để biết trước tính năng nào sẽ không được giữ khi lưu.
+    if (info->ext == "docx" || info->ext == "xlsx" || info->ext == "pptx" || info->ext == "xlsm" ||
+        info->ext == "docm" || info->ext == "pptm" || info->ext == "dotx" || info->ext == "xltx" || info->ext == "potx") {
+        const FeatureScanResult sc = scanFeatureLoss(longPath(original));
+        if (sc.scanned) {
+            doc->m_featureLoss = sc.items;
+            for (const auto& it : sc.items)
+                doc->m_warnings.push_back("Khi lưu bản sao sẽ mất: " + it.title + (it.certain ? "" : " (có thể)") + ". " + it.effect);
+        }
+    }
     Document* raw = doc.get();
     onEngine([&] {
         raw->m_kind = kindFromLok(d->getDocumentType());
@@ -1012,6 +1022,11 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
                         "nội dung của tệp gốc (vd. macro). Cần xác nhận trước khi lưu.";
             return r;
         }
+    }
+    if (!isPdf && !m_featureLoss.empty() && !opts.allowFeatureLoss) {
+        r.message = "Bản lưu sẽ KHÔNG giữ các thành phần sau của tệp gốc:\n" + describeFeatureLoss(m_featureLoss) +
+                    "Cần xác nhận trước khi lưu. Tệp gốc sẽ không bị thay đổi.";
+        return r;
     }
     const bool targetIsOriginal = !isNew() && samePath(target, m_original);
     if (targetIsOriginal && !opts.allowOverwriteOriginal) {

@@ -425,6 +425,14 @@ void MainWindow::refreshStatus() {
         if (t->readOnly()) m_saveLabel->setText(tr("Chỉ đọc"));
         else if (t->document()->modified()) m_saveLabel->setText(tr("<span style='color:#AF791D'>● Chưa lưu</span>"));
         else m_saveLabel->setText(tr("<span style='color:#21866E'>✓ Đã lưu</span>"));
+        const auto& fl = t->document()->featureLoss();
+        if (!fl.empty()) {
+            m_saveLabel->setText(m_saveLabel->text() +
+                tr(" · <span style='color:#AF791D'>⚠ Lưu sẽ mất %1 loại thành phần</span>").arg(fl.size()));
+            m_saveLabel->setToolTip(QString::fromStdString(dung::describeFeatureLoss(fl)));
+        } else {
+            m_saveLabel->setToolTip(QString());
+        }
         m_saveLabel->setTextFormat(Qt::RichText);
     }
     m_roLabel->setVisible(docs && t->readOnly());

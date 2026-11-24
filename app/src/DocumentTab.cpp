@@ -358,6 +358,23 @@ bool DocumentTab::doSave(const QString& path, bool confirmedReplace) {
             return false;
         opts.allowLossyExport = true;
     }
+    if (!isPdf && !m_doc->featureLoss().empty()) {
+        if (!m_featureLossConfirmed) {
+            // Nêu CHÍNH XÁC từng thành phần sẽ mất; chưa ghi gì cho tới khi người dùng đồng ý.
+            QMessageBox box(QMessageBox::Warning, tr("Bản lưu sẽ mất một số thành phần"),
+                tr("Tệp gốc có những thành phần mà Dũng Office KHÔNG giữ được khi lưu:\n\n%1\n"
+                   "Tệp gốc sẽ KHÔNG bị thay đổi; chỉ bản sao mới thiếu các thành phần trên.")
+                    .arg(qs(dung::describeFeatureLoss(m_doc->featureLoss()))),
+                QMessageBox::NoButton, this);
+            auto* yes = box.addButton(tr("Vẫn lưu bản sao"), QMessageBox::AcceptRole);
+            box.addButton(tr("Không lưu"), QMessageBox::RejectRole);
+            box.setDefaultButton(qobject_cast<QPushButton*>(box.buttons().last()));
+            box.exec();
+            if (box.clickedButton() != yes) return false;
+            m_featureLossConfirmed = true;
+        }
+        opts.allowFeatureLoss = true;
+    }
     if (!original.isEmpty() && samePathUi(path, original)) {
         if (QMessageBox::warning(this, tr("Ghi đè tệp gốc?"),
                 tr("Bạn đang chọn ghi đè lên chính tệp gốc.\n\nDũng Office sẽ tạo một bản sao lưu của tệp gốc "

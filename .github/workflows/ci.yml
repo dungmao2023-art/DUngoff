@@ -50,6 +50,10 @@ jobs:
         run: |
           set -o pipefail
           QT_QPA_PLATFORM=offscreen ./build/app/dung-tabletest 2>&1 | tee report/linux-tabletest.log
+      - name: Kiểm thử quét tính năng sẽ mất (font nhúng, macro, SmartArt...)
+        run: |
+          set -o pipefail
+          ./build/dung-featurescan-test tests/fixtures/features 2>&1 | tee report/linux-featurescan.log
       - name: Kiểm thử in / xem trước (khoảng trang, vẽ PDF, in ra tệp PDF)
         run: |
           set -o pipefail
@@ -248,6 +252,12 @@ jobs:
           $exe = Get-ChildItem build/out -Recurse -Filter dung-tabletest.exe | Select-Object -First 1
           if (-not $exe) { Write-Host "::error::Không thấy dung-tabletest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-tabletest.log
+      - name: Kiểm thử quét tính năng sẽ mất trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-featurescan-test.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-featurescan-test.exe"; exit 1 }
+          & $exe.FullName tests/fixtures/features *>&1 | Tee-Object report/windows-featurescan.log
+          if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử in / xem trước trên Windows
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-printtest.exe | Select-Object -First 1

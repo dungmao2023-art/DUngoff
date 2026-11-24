@@ -1,0 +1,2 @@
+xlsx: sparkline, slicer, timeline, Power Query (không tạo được bằng openpyxl/không có tệp thật)
+pptx: SmartArt (python-pptx không tạo được SmartArt; không có tệp SmartArt thật để thử)

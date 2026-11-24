@@ -18,7 +18,8 @@ endif()
 # ---- engine: bọc LibreOfficeKit, không phụ thuộc giao diện ----
 add_library(dungengine STATIC
   engine/src/Engine.cpp
-  engine/src/FormatPolicy.cpp)
+  engine/src/FormatPolicy.cpp
+  engine/src/FeatureScan.cpp)
 target_include_directories(dungengine
   PUBLIC engine/include
   PRIVATE third_party/libreofficekit/include)
@@ -27,6 +28,9 @@ if(UNIX)
 endif()
 
 if(DUNG_BUILD_TESTS)
+  # Kiểm thử quét tính năng sẽ mất (không cần Qt/LibreOffice)
+  add_executable(dung-featurescan-test tests/featurescan/featurescan_tests.cpp engine/src/FeatureScan.cpp)
+  target_include_directories(dung-featurescan-test PRIVATE engine/include)
   add_executable(dung-smoketest tools/smoketest/main.cpp tools/smoketest/ppt_tests.cpp tools/smoketest/excel_tests.cpp tools/smoketest/template_fidelity.cpp tools/smoketest/recover_tests.cpp)
   target_link_libraries(dung-smoketest PRIVATE dungengine)
   target_include_directories(dung-smoketest PRIVATE third_party/libreofficekit/include app/src/excel)

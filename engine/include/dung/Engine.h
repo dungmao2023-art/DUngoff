@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: MPL-2.0
 #pragma once
 
+#include "dung/FeatureScan.h"
 #include "dung/FormatPolicy.h"
 
 #include <atomic>
@@ -46,6 +47,9 @@ struct SaveOptions {
     bool allowReplaceExisting = false;
     // Cho phép ghi ra định dạng có mất mát (xuất PDF...). Mặc định KHÔNG.
     bool allowLossyExport = false;
+    // Người dùng đã xem danh sách tính năng sẽ KHÔNG được giữ (font nhúng, macro, SmartArt...) và đồng ý.
+    // Mặc định KHÔNG: nếu tệp gốc có tính năng sẽ mất, saveAs từ chối và nêu chính xác từng mục.
+    bool allowFeatureLoss = false;
 };
 
 struct SaveResult {
@@ -95,6 +99,8 @@ public:
     const fs::path& originalPath() const { return m_original; }
     const fs::path& workingCopy() const { return m_working; }
     const std::vector<std::string>& warnings() const { return m_warnings; }
+    // Tính năng của tệp gốc mà bản lưu bằng engine sẽ không giữ (quét lúc mở; rỗng nếu tệp mới/không quét được).
+    const std::vector<FeatureLoss>& featureLoss() const { return m_featureLoss; }
     std::string displayName() const;
 
     // --- Trang / sheet / slide ---
@@ -192,6 +198,7 @@ private:
     fs::path m_recoveredOrigin;   // tệp gốc của bản phục hồi (có thể rỗng nếu là tài liệu mới)
     std::string m_recoveredName;  // tên hiển thị thật của bản phục hồi
     std::vector<std::string> m_warnings;
+    std::vector<FeatureLoss> m_featureLoss;
     std::vector<fs::path> m_sessionOutputs; // tệp do chính phiên này ghi ra (Ctrl+S lặp lại không cần sao lưu)
 
     std::mutex m_mutex;
