@@ -58,6 +58,14 @@ jobs:
           DUNG_LOK_UNIPOLL=1 ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/mau-doanh-thu.xlsx \
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
             --out smoke-unipoll 2>&1 | tee report/linux-smoketest-unipoll.log
+      - name: Thăm dò vẽ lại sau khi gõ chữ (Writer, Calc, Impress)
+        continue-on-error: true
+        run: |
+          set +e
+          for m in "writer fixtures/mau-van-ban.docx" "calc fixtures/mau-doanh-thu.xlsx" "impress fixtures/mau-trinh-chieu.pptx"; do
+            set -- $m
+            timeout 120 ./build/dung-repaintprobe /usr/lib/libreoffice/program "probe-$1" "$2" "$1" 2>&1 | grep -E "^REPAINT" | tee -a report/linux-repaint.log
+          done
       - name: Kiểm tra round-trip XLSX (không mất dữ liệu)
         run: |
           set -o pipefail
@@ -196,6 +204,19 @@ jobs:
           if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-basic.log; exit 1 }
           Get-Content report/windows-basic.log
           if ($p.ExitCode) { exit 1 }
+      - name: Thăm dò vẽ lại sau khi gõ chữ (Writer, Calc, Impress) — engine headless
+        continue-on-error: true
+        timeout-minutes: 8
+        run: |
+          $env:PYTHONUTF8 = "1"
+          foreach ($m in @(@("writer","fixtures/mau-van-ban.docx"), @("calc","fixtures/mau-doanh-thu.xlsx"), @("impress","fixtures/mau-trinh-chieu.pptx"))) {
+            $outf = "report/windows-repaint-$($m[0]).log"
+            $p = Start-Process build/out/dung-repaintprobe.exe -PassThru -NoNewWindow `
+                   -ArgumentList @("$PWD/build/lo/engine/program", "$PWD/probe-$($m[0])", "$PWD/$($m[1])", $m[0]) `
+                   -RedirectStandardOutput $outf -RedirectStandardError "$outf.err"
+            if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "REPAINT $($m[0]): LỖI quá thời gian" | Add-Content $outf }
+            Get-Content $outf | Select-String "^REPAINT" | ForEach-Object { $_.Line }
+          }
       - name: Kiểm tra round-trip XLSX
         if: steps.full.outcome == 'success'
         run: |
