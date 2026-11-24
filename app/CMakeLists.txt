@@ -22,6 +22,7 @@ include(src/ppt/ppt.cmake)
 include(src/extras/extras.cmake)
 include(src/templates/templates.cmake)
 include(src/tableutil/tableutil.cmake)
+include(src/recovery/recovery.cmake)
 include(src/vntext/vntext.cmake)
 include(src/keymap.cmake)
 

@@ -4,6 +4,8 @@
 
 #include "DocumentTab.h"
 #include "EngineHost.h"
+#include "recovery/RecoveryDialog.h"
+#include "recovery/RecoveryStore.h"
 #include "word/WordActions.h"
 #include "HomePage.h"
 #include "extras/ProjectsPage.h"
@@ -158,7 +160,31 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         QApplication::restoreOverrideCursor();
         m_home->setEngineStatus(ok ? EngineHost::instance().versionText() + tr(" — sẵn sàng")
                                    : tr("Lỗi engine: ") + EngineHost::instance().lastError());
+        if (ok) QTimer::singleShot(0, this, [this] { offerRecovery(); });
     });
+}
+
+void MainWindow::offerRecovery() {
+    recovery::pruneOld();
+    const QList<recovery::Entry> orphans = recovery::findOrphans();
+    if (orphans.isEmpty()) return;
+    RecoveryDialog dlg(orphans, this);
+    if (dlg.exec() != QDialog::Accepted) return;  // "Để sau": giữ nguyên, hỏi lại lần sau
+    for (const auto& e : dlg.toDiscard()) recovery::discardEntry(e);
+    for (const auto& e : dlg.toOpen()) {
+        QString err;
+        auto doc = EngineHost::instance().open(e.dataPath, &err);
+        if (!doc) {
+            QMessageBox::warning(this, tr("Không khôi phục được"),
+                tr("Không mở được bản phục hồi của \"%1\".\nBản này vẫn được giữ lại.\n\n%2").arg(e.displayName, err));
+            continue;
+        }
+        doc->setRecoveredOrigin(toPath(e.originalPath), ss(e.displayName));
+        doc->markModified();
+        auto* tab = new DocumentTab(std::move(doc));
+        tab->adoptRecovered(e);
+        addTab(tab);
+    }
 }
 
 QWidget* MainWindow::buildSidebar() {

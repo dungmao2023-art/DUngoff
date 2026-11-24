@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 #pragma once
 #include "dung/Engine.h"
+#include "recovery/RecoveryStore.h"
 
 #include <QHash>
 #include <QWidget>
 #include <memory>
 
 class QLineEdit;
+class QTimer;
 class QTabBar;
 class QListWidget;
 class TileView;
@@ -36,6 +38,7 @@ public:
     void excelAction(const QString& id);  // xl:* — cài đặt trong excel/ExcelUi.cpp
     void setZoom(int percent);
     int zoom() const;
+    void adoptRecovered(const recovery::Entry& e);  // bản mở từ phục hồi: xoá bản cũ sau khi đã có bản tự lưu mới / đã lưu
     void stepPart(int delta);  // chuyển trang/slide trước (-1) hoặc sau (+1)
 
 signals:
@@ -49,6 +52,8 @@ private:
     void rebuildParts();
     void excelSheetMenu(const QPoint& pos);  // excel/ExcelUi.cpp
     bool doSave(const QString& path, bool confirmedReplace);
+    void autosaveTick();
+    void dropRecovery();
 
     std::unique_ptr<dung::Document> m_doc;
     TileView* m_view = nullptr;
@@ -61,4 +66,11 @@ private:
     bool m_lastMod = false;
     QHash<QString, QString> m_states;
     bool m_rebuildingParts = false;
+    QTimer* m_autosave = nullptr;
+    QString m_recId;                  // mã bản phục hồi của tài liệu này trong phiên
+    bool m_dirtySinceAutosave = false;
+    bool m_hasAdopted = false;
+    QString m_recOrigin;              // tệp gốc thật của bản đã khôi phục (không phải đường dẫn trong thư mục phục hồi)
+    bool m_recOriginSet = false;
+    recovery::Entry m_adopted;        // bản mồ côi đã mở (xoá khi an toàn)
 };

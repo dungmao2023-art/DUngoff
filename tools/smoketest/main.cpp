@@ -102,6 +102,7 @@ static bool waitAddress(Document& d, const std::string& addr, int ms = 15000) {
 // Kiểm thử PowerPoint (tools/smoketest/ppt_tests.cpp), bật bằng --ppt <mau.pptx>.
 int dungRunTemplateFidelity(const fs::path& program, const fs::path& dir, const fs::path& out); // template_fidelity.cpp
 int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::path& out);
+int dungRunRecoverTests(const fs::path& program, const fs::path& out);   // recover_tests.cpp
 
 int main(int argc, char** argv) {
 #ifdef _WIN32
@@ -122,6 +123,7 @@ int main(int argc, char** argv) {
     fs::path pptTests;                 // --ppt <tệp.pptx>: kiểm thử lệnh PowerPoint (ppt_tests.cpp)
     fs::path templatesDir;             // --templates <thư mục>: toàn vẹn hiển thị/in trên thư viện mẫu
     bool excelMode = false; fs::path stressFile; // --excel 1 [--stress <tệp>]: kiểm thử Excel cơ bản (excel_tests.cpp)
+    bool recoverMode = false;          // --recover 1: bản phục hồi + đường dẫn dài (recover_tests.cpp)
     bool basicOnly = false;            // --chi-mo 1: dừng sau bước hiển thị (engine chưa hỗ trợ nhập liệu)
     for (size_t i = 1; i + 1 < args.size(); i += 2) {
         if (args[i] == "--program") program = fromUtf8(args[i + 1]);
@@ -135,10 +137,12 @@ int main(int argc, char** argv) {
         else if (args[i] == "--word") wordMode = (args[i + 1] == "1");
         else if (args[i] == "--ppt") pptTests = fromUtf8(args[i + 1]);
         else if (args[i] == "--templates") templatesDir = fromUtf8(args[i + 1]);
+        else if (args[i] == "--recover") recoverMode = (args[i + 1] == "1");
         else if (args[i] == "--excel") excelMode = (args[i + 1] == "1");
         else if (args[i] == "--stress") stressFile = fromUtf8(args[i + 1]);
         else if (args[i] == "--chi-mo") basicOnly = (args[i + 1] == "1"); // chỉ mở + hiển thị, bỏ nhập liệu/lưu
     }
+    if (recoverMode && !program.empty() && !out.empty()) return dungRunRecoverTests(program, out);
     if (wordMode && !program.empty() && !out.empty()) return runWordTests(program, out);
     if (!pptTests.empty() && !program.empty() && !out.empty()) return dungRunPptTests(program, pptTests, out);
     if (!templatesDir.empty() && !program.empty() && !out.empty()) return dungRunTemplateFidelity(program, templatesDir, out);
