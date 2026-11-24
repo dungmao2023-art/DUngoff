@@ -31,6 +31,7 @@
 using namespace dung;
 
 int runWordTests(const std::filesystem::path& program, const std::filesystem::path& out);   // word_tests.cpp
+int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path& stress, const fs::path& out); // excel_tests.cpp
 
 static int g_fail = 0;
 static std::mutex g_stepMutex;
@@ -118,6 +119,7 @@ int main(int argc, char** argv) {
     fs::path roundtrip;                // --roundtrip <tệp>: chỉ mở, render mọi sheet, lưu bản sao (không sửa)
     bool wordMode = false;             // --word 1: kiểm thử các lệnh Word (word_tests.cpp)
     fs::path pptTests;                 // --ppt <tệp.pptx>: kiểm thử lệnh PowerPoint (ppt_tests.cpp)
+    bool excelMode = false; fs::path stressFile; // --excel 1 [--stress <tệp>]: kiểm thử Excel cơ bản (excel_tests.cpp)
     bool basicOnly = false;            // --chi-mo 1: dừng sau bước hiển thị (engine chưa hỗ trợ nhập liệu)
     for (size_t i = 1; i + 1 < args.size(); i += 2) {
         if (args[i] == "--program") program = fromUtf8(args[i + 1]);
@@ -130,10 +132,13 @@ int main(int argc, char** argv) {
         else if (args[i] == "--roundtrip") roundtrip = fromUtf8(args[i + 1]);
         else if (args[i] == "--word") wordMode = (args[i + 1] == "1");
         else if (args[i] == "--ppt") pptTests = fromUtf8(args[i + 1]);
+        else if (args[i] == "--excel") excelMode = (args[i + 1] == "1");
+        else if (args[i] == "--stress") stressFile = fromUtf8(args[i + 1]);
         else if (args[i] == "--chi-mo") basicOnly = (args[i + 1] == "1"); // chỉ mở + hiển thị, bỏ nhập liệu/lưu
     }
     if (wordMode && !program.empty() && !out.empty()) return runWordTests(program, out);
     if (!pptTests.empty() && !program.empty() && !out.empty()) return dungRunPptTests(program, pptTests, out);
+    if (excelMode && !program.empty() && !xlsx.empty() && !out.empty()) return runExcelTests(program, xlsx, stressFile, out);
     if (!roundtrip.empty() && !program.empty() && !out.empty()) {
         std::error_code e2;
         fs::create_directories(out, e2);

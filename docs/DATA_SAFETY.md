@@ -56,3 +56,13 @@ xác thực dữ liệu, cố định ô, giá trị tính của công thức.
 Chưa kiểm (cần thêm trước khi gọi là "bảo toàn" cho các thành phần này): nội dung chi tiết biểu đồ, pivot,
 tên định nghĩa (defined names), ảnh, nhóm hàng/cột,
 bảo vệ sheet, công thức mảng/động (FILTER, XLOOKUP…), slicer, chú thích dạng thread (Excel 365).
+
+## Excel cơ bản — lệnh UNO đã kiểm chứng (tools/smoketest/excel_tests.cpp)
+
+- Định dạng ô (phông, cỡ, đậm/nghiêng, màu chữ/nền, căn lề, xuống dòng), định dạng số `%` / `#,##0`
+  chỉ đổi cách hiển thị: giá trị số và công thức giữ nguyên (xác minh bằng `tests/excel/verify_excel.py`).
+- Sắp xếp: công thức, ghi chú, liên kết đi theo dòng. Chèn hàng: công thức tham chiếu dịch theo.
+- Tìm & thay thế dùng `SearchItem.CellType=1` nên **không** sửa bên trong công thức.
+- Xoá sheet luôn hỏi xác nhận; thay đổi chỉ nằm trong bản làm việc cho tới khi "Lưu thành" tệp mới.
+- Chưa có: viền ô (không tìm được lệnh UNO hoạt động), tiền tệ VND (engine đang ở locale en-US),
+  sắp xếp lại thứ tự sheet bằng kéo thả, công thức thông dụng ngoài AutoSum.

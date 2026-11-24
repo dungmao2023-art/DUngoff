@@ -122,6 +122,8 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         sh->addWidget(m_sheets);
         sh->addStretch(1);
         v->addLayout(sh);
+        m_sheets->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(m_sheets, &QTabBar::customContextMenuRequested, this, [this](const QPoint& p) { excelSheetMenu(p); });
         connect(m_sheets, &QTabBar::currentChanged, this, [this](int idx) {
             if (m_rebuildingParts || idx < 0 || idx == m_doc->currentPart()) return;
             m_doc->setPart(idx);

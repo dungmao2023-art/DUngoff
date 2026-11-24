@@ -340,6 +340,7 @@ void MainWindow::onAppAction(const QString& id) {
     else if (handlePptAction(t, id)) {}
     else if (id == QLatin1String("pdfPrev")) t->stepPart(-1);
     else if (id == QLatin1String("pdfNext")) t->stepPart(1);
+    else if (id.startsWith(QLatin1String("xl:"))) t->excelAction(id); // khối Excel: app/src/excel/
     else if (id == QLatin1String("save")) t->save();
     else if (id == QLatin1String("saveAs")) t->saveAs();
     else if (id == QLatin1String("exportPdf")) t->exportPdf();
