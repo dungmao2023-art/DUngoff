@@ -1,6 +1,6 @@
 # Sinh installer/thong-tin.rtf (Inno Setup hiển thị RTF; ký tự tiếng Việt viết dạng \uN).
 # Chạy: python3 installer/make_info_rtf.py   (sửa EMAIL bên dưới trước khi phát hành)
-EMAIL = "[điền email liên hệ của tác giả]"
+EMAIL = "suvietdc@gmail.com"
 
 def esc(t):
     out = []
