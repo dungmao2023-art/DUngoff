@@ -213,6 +213,31 @@ def probe_xlsx(path):
 
 
 # ============================================================ PPTX
+REF_MEDIA = None
+NO_EDIT = False
+
+
+def media_md5s(path):
+    import hashlib
+    z = zipfile.ZipFile(path)
+    return {hashlib.md5(z.read(n)).hexdigest() for n in z.namelist() if n.startswith("ppt/media/")}
+
+
+def diag_pptx(orig, saved):
+    """Chẩn đoán: 'DŨNG'/'F4F8FF' của slide master nằm ở phần nào trước/sau khi lưu."""
+    for label, pth in (("gốc", orig), ("lưu", saved)):
+        z = zipfile.ZipFile(pth)
+        hits = {}
+        for n in z.namelist():
+            if n.endswith(".xml") and n.startswith("ppt/"):
+                t = z.read(n).decode("utf-8", "ignore")
+                for k in ("DŨNG", "F4F8FF", "LogoMaster"):
+                    if k.lower() in t.lower():
+                        hits.setdefault(k, []).append(n)
+        masters = [n for n in z.namelist() if re.match(r"ppt/slideMasters/slideMaster\d+\.xml$", n)]
+        print(f"   [CHẨN ĐOÁN] {label}: master={len(masters)}, nơi chứa {hits}")
+
+
 def probe_pptx(path):
     z = zipfile.ZipFile(path)
     names = z.namelist()
@@ -228,10 +253,10 @@ def probe_pptx(path):
     out["Chuyển cảnh"] = {"transition": tr, "fade": bool(s1 is not None and ("fade" in etree.tostring(s1).decode()))}
     # slide mới do bước sửa có thể chèn xen giữa, nên tìm trên mọi slide
     import hashlib
-    fix_md5 = hashlib.md5(png_bytes(80, 60)).hexdigest()
-    media_ok = [n for n in names if n.startswith("ppt/media/") and hashlib.md5(z.read(n)).hexdigest() == fix_md5]
-    out["Ảnh"] = {"ảnh mẫu còn nguyên byte": len(media_ok) >= 1, "pic trong slide": sum(1 for sl in allsl for pc in sl.iter(q(PML, "pic")))>=1}
-    strange = sum(1 for n in names if n.startswith("ppt/media/") and hashlib.md5(z.read(n)).hexdigest() != fix_md5)
+    md5s = {hashlib.md5(z.read(n)).hexdigest() for n in names if n.startswith("ppt/media/")}
+    ref = REF_MEDIA if REF_MEDIA is not None else md5s   # tham chiếu = ảnh trong TỆP GỐC (không so với zlib của máy khác)
+    out["Ảnh"] = {"ảnh gốc còn nguyên byte": len(md5s & ref) >= 1, "pic trong slide": sum(1 for sl in allsl for pc in sl.iter(q(PML, "pic")))>=1}
+    strange = len(md5s - ref)
     out["_extra_ảnh lạ trong tệp lưu"] = {"tệp ảnh không có trong gốc": strange}
     rl = "".join((zread(z, n) or b"").decode("utf-8", "ignore") for n in names if re.match(r"ppt/slides/_rels/.*\.rels$", n))
     out["Hyperlink trong chữ"] = {"đích": "example.com/dung-office" in rl}
@@ -274,8 +299,11 @@ def classify(orig, saved):
 
 
 def main():
-    src, dst = sys.argv[1], sys.argv[2]
-    rep = sys.argv[3] if len(sys.argv) > 3 else None
+    global NO_EDIT
+    args = [a for a in sys.argv[1:] if a != "--no-edit"]
+    NO_EDIT = "--no-edit" in sys.argv[1:]
+    src, dst = args[0], args[1]
+    rep = args[2] if len(args) > 2 else None
     rows = []
     for fn in sorted(os.listdir(src)):
         ext = os.path.splitext(fn)[1].lower()
@@ -283,14 +311,22 @@ def main():
             if ext in PROBES:
                 print(f"[LỖI]  không có bản đã lưu của {fn}")
             continue
+        global REF_MEDIA
+        REF_MEDIA = media_md5s(os.path.join(src, fn)) if ext == ".pptx" else None
         o = PROBES[ext](os.path.join(src, fn))
+        if ext == ".pptx":
+            REF_MEDIA = media_md5s(os.path.join(src, fn))
         try:
             s = PROBES[ext](os.path.join(dst, fn))
         except Exception as e:  # noqa
             print(f"[LỖI]  không đọc được bản đã lưu của {fn}: {e}")
             continue
         print(f"== {fn}")
+        if ext == ".pptx":
+            diag_pptx(os.path.join(src, fn), os.path.join(dst, fn))
         for feat in o:
+            if NO_EDIT and feat == "_edit":
+                continue
             if feat.startswith("_extra"):
                 ov, sv = o[feat], s.get(feat, {})
                 grew = any(sv.get(k, 0) > ov.get(k, 0) for k in sv)

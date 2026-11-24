@@ -60,21 +60,24 @@ int dungRunFeatureFidelity(const fs::path& program, const fs::path& dir, const f
     std::sort(files.begin(), files.end());
 
     int bad = 0;
+    // Hai lượt: "saved-noedit" (chỉ mở rồi lưu, không sửa) và "saved" (sửa một chỗ rồi lưu).
+    // Tách để biết mất tính năng là do việc LƯU lại hay do bước SỬA.
+    fs::create_directories(out / "saved-noedit", ec);
+    for (const bool doEdit : {false, true}) {
     for (const auto& f : files) {
         g_t = nowMs();
         const std::string name = f.filename().u8string();
-        g_cur = name;
+        g_cur = name + (doEdit ? " (sửa)" : " (không sửa)");
         std::string e2;
         auto d = engine->open(f, &e2);
         if (!d) { std::cout << "[LỖI]  mở " << name << ": " << e2 << "\n"; ++bad; continue; }
         std::cout << "[ĐẠT]  mở " << name << " (loại " << (int)d->kind() << ", chỉ đọc: " << (d->readOnly() ? "có" : "không")
-                  << ", số phần: " << d->partCount() << ")\n";
+                  << ", số phần: " << d->partCount() << ")" << (doEdit ? "" : " [lượt không sửa]") << "\n";
         d->setClientView(512, 512, 7680, 7680, 0, 0, 7680, 7680);
         settle();
 
-        // SỬA MỘT CHỖ
-        std::string edit;
-        switch (d->kind()) {
+        std::string edit = "không sửa";
+        if (doEdit) switch (d->kind()) {
         case DocKind::Text:
             d->command(".uno:GoToStartOfDoc"); settle();
             d->typeText(u"[SUA] "); settle();
@@ -89,16 +92,17 @@ int dungRunFeatureFidelity(const fs::path& program, const fs::path& dir, const f
             d->command(".uno:InsertPage"); settle(800);
             edit = "chèn thêm một slide";
             break;
-        default: edit = "không sửa"; break;
+        default: break;
         }
         std::cout << "       sửa: " << edit << "; engine báo đã sửa: " << (d->modified() ? "có" : "không") << "\n";
 
-        const fs::path target = out / "saved" / fs::u8path(f.filename().u8string());
+        const fs::path target = out / (doEdit ? "saved" : "saved-noedit") / fs::u8path(f.filename().u8string());
         fs::remove(target, ec);
         SaveOptions so; // lưu bản sao cùng định dạng; không ghi đè gốc
         auto r = d->saveAs(target, so);
         if (r.ok) std::cout << "[ĐẠT]  lưu bản sao " << name << " (" << fs::file_size(target, ec) << " byte)\n";
         else { std::cout << "[LỖI]  lưu bản sao " << name << ": " << r.message << "\n"; ++bad; }
+    }
     }
     std::cout << (bad ? "\nKẾT QUẢ TÍNH NĂNG: CÓ LỖI MỞ/LƯU\n" : "\nKẾT QUẢ TÍNH NĂNG: ĐÃ MỞ VÀ LƯU TẤT CẢ (đối chiếu tính năng bằng verify_features.py)\n");
     std::cout.flush();

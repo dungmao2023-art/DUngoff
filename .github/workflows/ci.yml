@@ -70,6 +70,8 @@ jobs:
           set -o pipefail
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --features tests/fixtures/features --out smoke-feat 2>&1 | tee report/linux-features.log
           python3 tests/features/verify_features.py tests/fixtures/features smoke-feat/saved report/linux-features.md 2>&1 | grep -vE "Warn|warn\(" | tee report/linux-features-verify.log
+          echo "##### LƯỢT KHÔNG SỬA (chỉ mở rồi lưu)"
+          python3 tests/features/verify_features.py tests/fixtures/features smoke-feat/saved-noedit report/linux-features-noedit.md --no-edit 2>&1 | grep -vE "Warn|warn\(" | tee report/linux-features-noedit-verify.log
       - name: Báo lỗi biên dịch
         if: failure()
         run: grep -E "error|Error" report/linux-build.log | head -10 | sed 's/^/::error::/' || true
@@ -263,6 +265,8 @@ jobs:
           Get-Content report/windows-features.log
           Get-Content report/windows-features.err.log -ErrorAction SilentlyContinue | Select-Object -Last 5
           python tests/features/verify_features.py tests/fixtures/features smoke-feat/saved report/windows-features.md 2>&1 | Where-Object { $_ -notmatch "Warn|warn\(" } | Tee-Object report/windows-features-verify.log
+          "##### LƯỢT KHÔNG SỬA (chỉ mở rồi lưu)"
+          python tests/features/verify_features.py tests/fixtures/features smoke-feat/saved-noedit report/windows-features-noedit.md --no-edit 2>&1 | Where-Object { $_ -notmatch "Warn|warn\(" } | Tee-Object report/windows-features-noedit-verify.log
       - name: Kiểm chứng thay phông Aptos (2 mẫu PPT) trên engine Windows
         continue-on-error: true
         timeout-minutes: 15
