@@ -17,7 +17,7 @@ target_sources(DungOffice PRIVATE
   ${DUNG_TB_DIR}/tools/MailMergeTool.cpp     # createMailMergeWidget   — điền tên hàng loạt vào giấy mời
   ${DUNG_TB_DIR}/tools/ScreenshotTool.cpp    # createScreenshotWidget  — chụp và chỉnh sửa màn hình
   ${DUNG_TB_DIR}/tools/FileSearchTool.cpp    # createFileSearchWidget  — tìm từ khoá trong thư mục
-  # ${DUNG_TB_DIR}/tools/FileToolsTool.cpp   # createFileToolsWidget   — công cụ làm việc với tệp/thư mục/liên kết
+  ${DUNG_TB_DIR}/tools/FileToolsTool.cpp     # createFileToolsWidget   — công cụ làm việc với tệp/thư mục/liên kết
 )
 target_include_directories(DungOffice PRIVATE ${DUNG_TB_DIR})
 

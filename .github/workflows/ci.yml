@@ -87,6 +87,10 @@ jobs:
         run: |
           set -o pipefail
           QT_QPA_PLATFORM=offscreen ./build/app/dung-toolboxtest 2>&1 | tee report/linux-toolboxtest.log
+      - name: Kiểm thử công cụ tệp/thư mục/liên kết
+        run: |
+          set -o pipefail
+          ./build/app/dung-filetest 2>&1 | tee report/linux-filetest.log
       - name: Kiểm thử thư viện mẫu (thay gói cũ bằng gói mới)
         run: |
           set -o pipefail
@@ -324,6 +328,11 @@ jobs:
           $exe = Get-ChildItem build/out -Recurse -Filter dung-toolboxtest.exe | Select-Object -First 1
           if (-not $exe) { Write-Host "::error::Không thấy dung-toolboxtest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-toolboxtest.log
+      - name: Kiểm thử công cụ tệp/thư mục/liên kết trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-filetest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-filetest.exe"; exit 1 }
+          & $exe.FullName *>&1 | Tee-Object report/windows-filetest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử thư viện mẫu trên Windows
         run: |
