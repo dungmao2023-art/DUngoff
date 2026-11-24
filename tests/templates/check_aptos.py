@@ -17,6 +17,15 @@ def toks(t):
 bad = 0
 rows = list(csv.DictReader(open(out / "fidelity.csv", encoding="utf-8", newline="")))
 print("Số mẫu:", len(rows))
+def fonts_of(pdf):
+    out=set()
+    for pg in PdfReader(str(pdf)).pages:
+        res=pg.get("/Resources") or {}
+        f=res.get("/Font") or {}
+        for k in f:
+            try: out.add(str(f[k].get_object().get("/BaseFont")))
+            except Exception: pass
+    return sorted(out)
 for r in rows:
     pdf = out / "pdf" / (r["index"] + ".pdf")
     if r["open_ok"] != "1" or r["pdf_ok"] != "1" or not pdf.exists():
@@ -29,6 +38,7 @@ for r in rows:
     have = set(toks("\n".join((p.extract_text() or "") for p in PdfReader(str(pdf)).pages)))
     t = toks(" ".join(src))
     cov = sum(1 for x in t if x in have) / max(1, len(t))
+    print("   phông trong PDF:", ", ".join(fonts_of(pdf)))
     ok = cov >= 0.97
     print("[%s] %s: phủ chữ %.1f%% (%d từ)" % ("ĐẠT" if ok else "LỖI", r["relpath"].split("/")[-1], cov * 100, len(t)))
     if not ok:
