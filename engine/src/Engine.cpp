@@ -868,7 +868,7 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
 
     // --- Ghi ra tệp tạm cùng thư mục, kiểm tra, rồi mới thay thế nguyên tử ---
     fs::path tmp = target.parent_path() /
-                   fs::u8path("~dung-" + randomToken() + "-" + target.stem().u8string() + "." + ext);
+                   fs::u8path("~dung-" + randomToken() + "." + ext); // tên tạm NGẮN: tên dài có thể vượt MAX_PATH trên Windows
     const std::string tmpUrl = toFileUrl(tmp);
     bool ok = onEngine([&] { return m_doc->saveAs(tmpUrl.c_str(), ext.c_str(), nullptr); });
     if (!ok) {
