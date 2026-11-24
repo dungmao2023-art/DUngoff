@@ -110,7 +110,7 @@ if inv.get(K):
     rep(g(K, "chỉ_đọc") == "có", K, "mở ở chế độ chỉ đọc")
     rep(g(K, "có_macro") == "có", K, "app nhận ra có macro VBA")
     rep(g(K, "số_nút") == "4", K, "app nhận ra đủ 4 nút/điều khiển biểu mẫu", "số_nút=" + g(K, "số_nút"))
-    rep(g(K, "tên_sheet") == "NhapLieu|GiaoDich|BaoCao", K, "đủ 3 sheet đúng thứ tự", g(K, "tên_sheet"))
+    rep(g(K, "tên_sheet") == "NhapLieu|BaoCao|GiaoDich", K, "đủ 3 sheet đúng thứ tự", g(K, "tên_sheet"))
     rep(int(g(K, "điểm_ảnh_tối", "0") or 0) > 200, K, "vẽ ra nội dung", "điểm tối=" + g(K, "điểm_ảnh_tối"))
     w = " ".join(inv.get(K, {}).get("cảnh_báo", []))
     rep("macro" in w.lower() and "nút" in w.lower() and "MẤT" in w and "KHÔNG chạy" in w, K, "cảnh báo khi mở nói rõ: macro/nút không chạy và MẤT khi Lưu thành .xlsx", w[:160] or "KHÔNG CÓ")

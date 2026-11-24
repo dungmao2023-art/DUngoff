@@ -900,7 +900,7 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
                 if (m_hasMacro) r.message += " macro VBA";
                 if (m_hasMacro && m_formControls > 0) r.message += " và";
                 if (m_formControls > 0) r.message += " " + std::to_string(m_formControls) + " nút/điều khiển biểu mẫu";
-                r.message += " của tệp gốc (công thức, giá trị và định dạng vẫn được giữ). Tệp gốc không bị thay đổi. Cần xác nhận trước khi lưu.";
+                r.message += " hoạt động của tệp gốc (công thức, giá trị và định dạng vẫn được giữ; nút có thể còn hiện nhưng không chạy). Tệp gốc không bị thay đổi. Cần xác nhận trước khi lưu.";
             } else {
                 r.message = "Tài liệu đang ở chế độ chỉ đọc. Lưu sang định dạng mới có thể làm mất một phần "
                             "nội dung của tệp gốc (vd. macro). Cần xác nhận trước khi lưu.";
