@@ -283,9 +283,7 @@ jobs:
                  -RedirectStandardOutput report/windows-word.log -RedirectStandardError report/windows-word.err.log
           if (-not $p.WaitForExit(240000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-word.log }
           Get-Content report/windows-word.log | Select-String "KẾT QUẢ|LỖI" | ForEach-Object { $_.Line }
-          "--- Lệnh trang/lề có trong registry engine 26.8:" | Tee-Object report/windows-word-registry.log
-          python -c "import re,glob; [print(f.split(chr(92))[-1], sorted(set(re.findall(r'oor:name=\"(\.uno:[A-Za-z]*(?:Margin|PageLR|PageUL|AttributePage|LRSpace|ULSpace|PageStyle|PageSetup)[A-Za-z]*)\"', open(f,encoding='utf-8',errors='ignore').read())))) for f in glob.glob('build/lo/engine/share/registry/*.xcd')]" *>&1 | Tee-Object -Append report/windows-word-registry.log
-          python -c "import re; d=open('build/lo/engine/program/mergedlo.dll','rb').read(); print('tên lệnh/tham số trong mergedlo.dll:', sorted(set(m.decode() for m in re.findall(rb'(?:PageLRMargin|PageULMargin|AttributePage[A-Za-z]*|LeftRightMargin|UpperLowerMargin)[A-Za-z.]*', d))))" *>&1 | Tee-Object -Append report/windows-word-registry.log
+          python tests/word/engine_diag.py build/lo/engine *>&1 | Tee-Object report/windows-word-registry.log
           python tests/word/margin_probe.py smoke-word *>&1 | Tee-Object report/windows-word-margin-probe.log
           python tests/word/verify_docx.py smoke-word/word-dinh-dang.docx *>&1 | Tee-Object report/windows-word-docx.log
           if ($LASTEXITCODE) { exit 1 }
