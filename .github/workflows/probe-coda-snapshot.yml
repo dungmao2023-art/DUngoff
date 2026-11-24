@@ -1,0 +1,34 @@
+name: Probe Collabora snapshot (thăm dò, không phát hành)
+on:
+  workflow_dispatch:
+  push:
+    paths: [".github/workflows/probe-coda-snapshot.yml"]
+jobs:
+  probe:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - name: Tải bản ZIP snapshot (chỉ để thăm dò trong CI)
+        shell: pwsh
+        run: |
+          $url = "https://www.collaboraoffice.com/downloads/Collabora-Office-Windows-Snapshot/CollaboraOffice-Winx64-26.04.6.2-138.zip"
+          Invoke-WebRequest $url -OutFile coda.zip
+          "{0:N0} MB" -f ((Get-Item coda.zip).Length / 1MB)
+          Expand-Archive coda.zip -DestinationPath coda
+      - name: Liệt kê nội dung và tìm LibreOfficeKit
+        shell: pwsh
+        run: |
+          Write-Host "=== Thư mục cấp 1-2 ==="
+          Get-ChildItem coda -Directory | ForEach-Object { $_.Name; Get-ChildItem $_.FullName -Directory | Select-Object -First 15 | ForEach-Object { "  " + $_.Name } }
+          Write-Host "=== Tệp liên quan LOK / lõi ==="
+          Get-ChildItem coda -Recurse -File | Where-Object { $_.Name -match "libreofficekit|lokit|sofficeapp|mergedlo|vclplug|svp|coda|cool|soffice|^sal3|^uno_" } |
+            ForEach-Object { "{0,10:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName.Substring((Get-Location).Path.Length) } | Select-Object -First 80
+          Write-Host "=== DLL lớn nhất ==="
+          Get-ChildItem coda -Recurse -Filter *.dll | Sort-Object Length -Descending | Select-Object -First 15 |
+            ForEach-Object { "{0,10:N1} MB  {1}" -f ($_.Length/1MB), $_.FullName.Substring((Get-Location).Path.Length) }
+          Write-Host "=== Xuất khẩu lok_init_2 / libreofficekit_hook? ==="
+          $dumpbin = Get-ChildItem "${env:ProgramFiles}\Microsoft Visual Studio\2022\*\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1
+          Get-ChildItem coda -Recurse -Filter *.dll | Where-Object { $_.Length -gt 5MB } | ForEach-Object {
+            $out = & $dumpbin.FullName /exports $_.FullName 2>$null | Select-String "lok_init|libreofficekit_hook|lok_preinit"
+            if ($out) { $_.Name; $out | ForEach-Object { "   " + $_.Line.Trim() } }
+          }
