@@ -152,6 +152,7 @@ EncodingGuess detectCsvEncoding(const QByteArray &raw)
 
 bool decodeText(const QByteArray &raw, Encoding enc, QString &text, QString &error)
 {
+    error.clear();
     QByteArray b = raw;
     bool ok = false;
     switch (enc) {
@@ -191,6 +192,7 @@ QChar guessSeparator(const QString &t)
 
 bool readCsvWith(const QString &path, Encoding enc, Table &out, QString &error, QChar sep)
 {
+    error.clear(); // tránh dùng lại thông báo lỗi cũ của lần gọi trước
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) { error = QObject::tr("Không mở được tệp: ") + f.errorString(); return false; }
     QString text;
