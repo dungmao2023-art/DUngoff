@@ -109,6 +109,57 @@ int main(int argc, char **argv)
     Table rb; CHECK(!readCsv(dir.filePath("hong.csv"), rb, err), "CSV không phải UTF-8: từ chối, không đoán bảng mã");
     CHECK(!readCsv(dir.filePath("khong-co.csv"), rb, err), "tệp không tồn tại báo lỗi");
 
+
+    // ---- Nhận diện bảng mã CSV ----
+    {
+        const QString vi = QStringLiteral("Họ tên,Địa chỉ\n001,Nguyễn Văn An\n");
+        const QByteArray u8 = vi.toUtf8();
+        const QByteArray cp = QByteArray::fromHex("486ff22074ea6e2cd069f26120636869d20a3030312c4e677579eade6e2056e36e20416e0a");
+        QString txt, e2;
+        auto g = detectCsvEncoding(QByteArray("\xEF\xBB\xBF") + u8);
+        CHECK(g.enc == Encoding::Utf8Bom && g.confidence == 1.0 && !g.needsUserChoice, "BOM UTF-8: chắc chắn, không cần hỏi");
+        g = detectCsvEncoding(u8);
+        CHECK(g.enc == Encoding::Utf8 && g.confidence >= 0.95 && !g.needsUserChoice, "UTF-8 không BOM có tiếng Việt: nhận ra");
+        g = detectCsvEncoding("Ma,Ten\n1,An\n");
+        CHECK(g.enc == Encoding::Utf8 && g.confidence == 1.0, "ASCII thuần: UTF-8");
+        QByteArray le("\xFF\xFE"), be("\xFE\xFF");
+        for (QChar c : vi) { le.append(char(c.unicode() & 0xFF)); le.append(char(c.unicode() >> 8)); be.append(char(c.unicode() >> 8)); be.append(char(c.unicode() & 0xFF)); }
+        g = detectCsvEncoding(le); CHECK(g.enc == Encoding::Utf16LE && !g.needsUserChoice, "BOM UTF-16 LE");
+        g = detectCsvEncoding(be); CHECK(g.enc == Encoding::Utf16BE && !g.needsUserChoice, "BOM UTF-16 BE");
+        CHECK(decodeText(le, Encoding::Utf16LE, txt, e2) && txt == vi, "giải mã UTF-16 LE đúng nguyên văn");
+        CHECK(decodeText(be, Encoding::Utf16BE, txt, e2) && txt == vi, "giải mã UTF-16 BE đúng nguyên văn");
+        g = detectCsvEncoding(cp);
+        CHECK(g.enc == Encoding::Windows1258 && g.needsUserChoice && g.confidence < 0.95 && !g.reason.isEmpty(), "Windows-1258: chỉ gợi ý, BẮT người dùng xác nhận");
+        CHECK(decodeText(cp, Encoding::Windows1258, txt, e2) && txt == vi, "giải mã Windows-1258 ra đúng chữ Việt (NFC)");
+        g = detectCsvEncoding(QByteArray("\xA9\xB5\xAE\xB1 abc\n"));
+        CHECK(g.needsUserChoice && g.confidence < 0.5, "byte không giống tiếng Việt: độ tin cậy thấp, cần người dùng chọn");
+        g = detectCsvEncoding(QByteArray("Ma\n\x81\x8A\n"));
+        CHECK(g.enc == Encoding::Unknown && g.needsUserChoice, "byte không định nghĩa: không đoán");
+        CHECK(!decodeText(QByteArray("Ma\n\x81\n"), Encoding::Windows1258, txt, e2) && !e2.isEmpty(), "Windows-1258 gặp byte lạ: từ chối, không thay ký tự");
+        CHECK(!decodeText(cp, Encoding::Utf8, txt, e2), "chọn nhầm UTF-8 cho tệp Windows-1258: từ chối");
+        CHECK(!decodeText(QByteArray("abc"), Encoding::Utf16LE, txt, e2), "UTF-16 độ dài lẻ: từ chối");
+        QByteArray nobom; for (QChar c : QStringLiteral("Ma,Ten\n001,Nam\n002,Hoa\n")) { nobom.append(char(c.unicode())); nobom.append('\0'); }
+        g = detectCsvEncoding(nobom);
+        CHECK(g.enc == Encoding::Utf16LE && g.needsUserChoice && g.confidence < 0.95, "UTF-16 không BOM: gợi ý và bắt xác nhận");
+
+        QString big; for (int i = 0; i < 25; ++i) big += QStringLiteral("d%1;x\r\n").arg(i);
+        const QStringList pv = previewLines(big, 20);
+        CHECK(pv.size() == 20 && pv[0] == "d0;x" && !pv[0].contains(QLatin1Char('\r')), "xem trước đúng 20 dòng, bỏ \\r");
+        CHECK(guessSeparator(big) == QLatin1Char(';') && guessSeparator("a,b\n") == QLatin1Char(',') && guessSeparator("a\tb\n") == QLatin1Char('\t'), "đoán dấu phân cách");
+
+        QTemporaryDir d2;
+        const QString pc = d2.filePath("cu.csv");
+        { QFile f(pc); f.open(QIODevice::WriteOnly); f.write(cp); }
+        Table t1; QString er;
+        CHECK(!readCsv(pc, t1, er), "readCsv mặc định (UTF-8) vẫn từ chối tệp Windows-1258");
+        CHECK(readCsvWith(pc, Encoding::Windows1258, t1, er) && t1.header.value(1) == QStringLiteral("Địa chỉ") && t1.rows.value(0).value(1) == QStringLiteral("Nguyễn Văn An") && t1.rows[0][0] == "001", "đọc CSV Windows-1258 sau khi chọn bảng mã");
+        QFile chk(pc); chk.open(QIODevice::ReadOnly);
+        CHECK(chk.readAll() == cp, "tệp gốc không bị đổi byte nào");
+        const QString outp = d2.filePath("moi.csv");
+        CHECK(writeCsvCopy(outp, t1, er), "ghi bản sao UTF-8 từ tệp Windows-1258");
+        Table t2; CHECK(readCsv(outp, t2, er) && t2 == t1, "bản sao đọc lại nguyên vẹn");
+    }
+
     std::cout << "\nKẾT QUẢ: " << (g_fail ? "CÓ LỖI" : "TẤT CẢ ĐẠT") << "  (đạt " << g_pass << ", lỗi " << g_fail << ")\n";
     return g_fail ? 1 : 0;
 }

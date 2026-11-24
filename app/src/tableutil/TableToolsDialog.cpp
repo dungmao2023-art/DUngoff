@@ -1,0 +1,291 @@
+// SPDX-License-Identifier: MPL-2.0
+#include "TableToolsDialog.h"
+#include "TableOps.h"
+
+#include <QCheckBox>
+#include <QFile>
+#include <QSignalBlocker>
+#include <functional>
+#include <QComboBox>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QFontDatabase>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QListWidget>
+#include <QMessageBox>
+#include <QPlainTextEdit>
+#include <QPushButton>
+#include <QTabWidget>
+#include <QVBoxLayout>
+
+using namespace tbl;
+
+namespace {
+
+// Một nguồn CSV: đường dẫn + bảng mã + dấu phân cách + xem trước + xác nhận.
+// Chỉ cho phép đọc khi bảng mã chắc chắn HOẶC người dùng đã xem trước và tích xác nhận.
+class CsvPicker : public QWidget {
+public:
+    std::function<void()> onLoaded; // gọi khi đọc xong tiêu đề (để cập nhật danh sách cột)
+
+    explicit CsvPicker(const QString& label, QWidget* parent = nullptr) : QWidget(parent) {
+        auto* v = new QVBoxLayout(this);
+        v->setContentsMargins(0, 0, 0, 0);
+        auto* row = new QHBoxLayout;
+        row->addWidget(new QLabel(label));
+        m_path = new QLineEdit;
+        m_path->setReadOnly(true);
+        row->addWidget(m_path, 1);
+        auto* pick = new QPushButton(tr("Chọn…"));
+        row->addWidget(pick);
+        v->addLayout(row);
+
+        auto* row2 = new QHBoxLayout;
+        row2->addWidget(new QLabel(tr("Bảng mã:")));
+        m_enc = new QComboBox;
+        for (Encoding e : {Encoding::Utf8, Encoding::Utf16LE, Encoding::Utf16BE, Encoding::Windows1258})
+            m_enc->addItem(encodingName(e), int(e));
+        row2->addWidget(m_enc);
+        row2->addWidget(new QLabel(tr("Dấu phân cách:")));
+        m_sep = new QComboBox;
+        m_sep->addItem(tr("Dấu phẩy ( , )"), int(',')); m_sep->addItem(tr("Chấm phẩy ( ; )"), int(';')); m_sep->addItem(tr("Tab"), int('\t'));
+        row2->addWidget(m_sep);
+        row2->addStretch(1);
+        v->addLayout(row2);
+
+        m_reason = new QLabel;
+        m_reason->setWordWrap(true);
+        v->addWidget(m_reason);
+        m_confirm = new QCheckBox(tr("Tôi đã xem trước bên dưới và xác nhận đây là bảng mã đúng"));
+        v->addWidget(m_confirm);
+        m_preview = new QPlainTextEdit;
+        m_preview->setReadOnly(true);
+        m_preview->setLineWrapMode(QPlainTextEdit::NoWrap);
+        m_preview->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+        m_preview->setMinimumHeight(110);
+        v->addWidget(m_preview, 1);
+
+        connect(pick, &QPushButton::clicked, this, [this] {
+            const QString p = QFileDialog::getOpenFileName(this, tr("Chọn tệp CSV"), QString(), tr("CSV (*.csv *.txt *.tsv);;Mọi tệp (*)"));
+            if (!p.isEmpty()) setPath(p);
+        });
+        connect(m_enc, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this] { refreshPreview(); });
+        connect(m_sep, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this] { if (onLoaded) onLoaded(); });
+        connect(m_confirm, &QCheckBox::toggled, this, [this] { if (onLoaded) onLoaded(); });
+    }
+
+    QString path() const { return m_path->text(); }
+
+    void setPath(const QString& p) {
+        m_path->setText(p);
+        QFile f(p);
+        if (!f.open(QIODevice::ReadOnly)) { m_raw.clear(); m_reason->setText(tr("Không mở được tệp: %1").arg(f.errorString())); m_preview->clear(); return; }
+        m_raw = f.readAll();
+        m_guess = detectCsvEncoding(m_raw);
+        QSignalBlocker b(m_enc);
+        const int idx = m_enc->findData(int(m_guess.enc == Encoding::Utf8Bom ? Encoding::Utf8 : m_guess.enc));
+        if (idx >= 0) m_enc->setCurrentIndex(idx);
+        m_confirm->setChecked(!m_guess.needsUserChoice);
+        m_confirm->setVisible(m_guess.needsUserChoice);
+        refreshPreview();
+    }
+
+    // Đọc bảng. false + lý do nếu chưa chọn tệp, chưa xác nhận, hoặc giải mã lỗi.
+    bool load(Table& out, QString& err) const {
+        if (path().isEmpty()) { err = tr("Chưa chọn tệp CSV."); return false; }
+        if (m_guess.needsUserChoice && !m_confirm->isChecked()) { err = tr("Bảng mã chưa chắc chắn: hãy xem trước và tích xác nhận."); return false; }
+        return readCsvWith(path(), encoding(), out, err, QChar(m_sep->currentData().toInt()));
+    }
+
+private:
+    Encoding encoding() const { return Encoding(m_enc->currentData().toInt()); }
+
+    void refreshPreview() {
+        QString text, err;
+        if (!decodeText(m_raw, encoding(), text, err)) {
+            m_preview->setPlainText(err);
+            m_reason->setText(tr("<b>Gợi ý:</b> %1").arg(m_guess.reason.toHtmlEscaped()));
+            if (onLoaded) onLoaded();
+            return;
+        }
+        m_preview->setPlainText(previewLines(text, 20).join(QLatin1Char('\n')));
+        { QSignalBlocker b(m_sep); const int si = m_sep->findData(int(guessSeparator(text).unicode())); if (si >= 0) m_sep->setCurrentIndex(si); }
+        QString r = tr("<b>Gợi ý:</b> %1 (độ tin cậy %2%).").arg(m_guess.reason.toHtmlEscaped()).arg(int(m_guess.confidence * 100));
+        if (encoding() != m_guess.enc && !(m_guess.enc == Encoding::Utf8Bom && encoding() == Encoding::Utf8))
+            r += tr(" Bạn đang chọn bảng mã khác gợi ý.");
+        m_reason->setText(r);
+        if (onLoaded) onLoaded();
+    }
+
+    QLineEdit* m_path; QComboBox* m_enc; QComboBox* m_sep; QLabel* m_reason; QCheckBox* m_confirm; QPlainTextEdit* m_preview;
+    QByteArray m_raw; EncodingGuess m_guess;
+};
+
+QString defaultOut(const QString& src, const QString& suffix) {
+    const QFileInfo fi(src);
+    return fi.dir().filePath(fi.completeBaseName() + QStringLiteral(" - ") + suffix + QStringLiteral(".csv"));
+}
+
+}  // namespace
+
+struct TableToolsDialog::Impl {
+    QTabWidget* tabs = nullptr;
+    CsvPicker* a = nullptr;
+    CsvPicker* b = nullptr;
+    QListWidget* dupCols = nullptr; QCheckBox* fold = nullptr;
+    QList<QComboBox*> kindBoxes; QWidget* kindHost = nullptr; QComboBox* money = nullptr;
+    QComboBox* keyCol = nullptr;
+    QPlainTextEdit* report = nullptr;
+    Table tableA;
+    bool haveA = false;
+};
+
+TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Impl) {
+    setWindowTitle(tr("Tiện ích bảng (CSV)"));
+    resize(760, 720);
+    auto* root = new QVBoxLayout(this);
+    auto* note = new QLabel(tr("Mọi thao tác chỉ đọc tệp gốc và ghi ra <b>bản sao mới</b> cùng báo cáo. Ô không chuyển được sẽ giữ nguyên và có cảnh báo."));
+    note->setWordWrap(true);
+    root->addWidget(note);
+    d->a = new CsvPicker(tr("Tệp CSV:"));
+    root->addWidget(d->a, 2);
+
+    d->tabs = new QTabWidget;
+    root->addWidget(d->tabs, 1);
+
+    // --- Dòng trùng ---
+    auto* w1 = new QWidget; auto* l1 = new QVBoxLayout(w1);
+    l1->addWidget(new QLabel(tr("Chọn cột làm khoá (dòng trùng khoá sẽ bị bỏ, giữ dòng đầu tiên):")));
+    d->dupCols = new QListWidget; l1->addWidget(d->dupCols);
+    d->fold = new QCheckBox(tr("So sánh không phân biệt hoa/thường và khoảng trắng hai đầu (không đổi dữ liệu)"));
+    l1->addWidget(d->fold);
+    auto* run1 = new QPushButton(tr("Xoá dòng trùng và lưu bản sao…")); l1->addWidget(run1);
+    d->tabs->addTab(w1, tr("Dòng trùng"));
+
+    // --- Làm sạch ---
+    auto* w2 = new QWidget; auto* l2 = new QVBoxLayout(w2);
+    l2->addWidget(new QLabel(tr("Chọn kiểu làm sạch cho từng cột (mã, số điện thoại, số dài và số 0 đầu luôn được bảo vệ):")));
+    d->kindHost = new QWidget; new QFormLayout(d->kindHost);
+    l2->addWidget(d->kindHost, 1);
+    auto* mrow = new QHBoxLayout; mrow->addWidget(new QLabel(tr("Cách viết số tiền:")));
+    d->money = new QComboBox; d->money->addItem(tr("Việt Nam: 1.500.000,5"), int(MoneyLocale::VN)); d->money->addItem(tr("Quốc tế: 1,500,000.5"), int(MoneyLocale::EN));
+    mrow->addWidget(d->money); mrow->addStretch(1); l2->addLayout(mrow);
+    auto* run2 = new QPushButton(tr("Làm sạch và lưu bản sao…")); l2->addWidget(run2);
+    d->tabs->addTab(w2, tr("Làm sạch ngày/tiền"));
+
+    // --- So sánh ---
+    auto* w3 = new QWidget; auto* l3 = new QVBoxLayout(w3);
+    d->b = new CsvPicker(tr("CSV thứ hai:")); l3->addWidget(d->b, 1);
+    auto* krow = new QHBoxLayout; krow->addWidget(new QLabel(tr("Cột mã để ghép dòng:")));
+    d->keyCol = new QComboBox; krow->addWidget(d->keyCol, 1); l3->addLayout(krow);
+    auto* run3 = new QPushButton(tr("So sánh và lưu bảng khác biệt…")); l3->addWidget(run3);
+    d->tabs->addTab(w3, tr("So sánh hai CSV"));
+
+    d->report = new QPlainTextEdit; d->report->setReadOnly(true); d->report->setPlaceholderText(tr("Báo cáo sẽ hiện ở đây."));
+    d->report->setMinimumHeight(110);
+    root->addWidget(d->report, 1);
+    auto* close = new QPushButton(tr("Đóng")); connect(close, &QPushButton::clicked, this, &QDialog::accept);
+    root->addWidget(close, 0, Qt::AlignRight);
+
+    // Khi tệp A đọc được: cập nhật danh sách cột cho 3 tab.
+    d->a->onLoaded = [this] {
+        QString err; Table t;
+        d->haveA = d->a->load(t, err);
+        d->dupCols->clear(); d->keyCol->clear();
+        auto* form = qobject_cast<QFormLayout*>(d->kindHost->layout());
+        while (form->rowCount() > 0) form->removeRow(0);
+        d->kindBoxes.clear();
+        if (!d->haveA) { if (!err.isEmpty() && !d->a->path().isEmpty()) d->report->setPlainText(err); return; }
+        d->tableA = t;
+        d->report->setPlainText(tr("Đã đọc %1 cột, %2 dòng dữ liệu.").arg(t.header.size()).arg(t.rows.size()));
+        for (const QString& h : t.header) {
+            auto* it = new QListWidgetItem(h); it->setFlags(it->flags() | Qt::ItemIsUserCheckable); it->setCheckState(Qt::Unchecked); d->dupCols->addItem(it);
+            d->keyCol->addItem(h);
+            auto* c = new QComboBox; c->addItem(tr("Giữ nguyên"), int(ColumnKind::Keep)); c->addItem(tr("Ngày → dd/mm/yyyy"), int(ColumnKind::Date)); c->addItem(tr("Số tiền → số thuần"), int(ColumnKind::Money));
+            form->addRow(h, c); d->kindBoxes << c;
+        }
+    };
+
+    auto askSave = [this](const QString& suggestion) -> QString {
+        const QString p = QFileDialog::getSaveFileName(this, tr("Lưu bản sao thành"), suggestion, tr("CSV (*.csv)"));
+        if (p.isEmpty()) return {};
+        if (QFileInfo(p).canonicalFilePath() == QFileInfo(d->a->path()).canonicalFilePath() || (d->b && !d->b->path().isEmpty() && QFileInfo(p).canonicalFilePath() == QFileInfo(d->b->path()).canonicalFilePath())) {
+            QMessageBox::warning(this, tr("Tiện ích bảng"), tr("Không được ghi đè tệp gốc. Hãy chọn tên khác."));
+            return {};
+        }
+        return p;
+    };
+    auto save = [this](const QString& path, const Table& t, QString& report) {
+        QString err;
+        if (!writeCsvCopy(path, t, err)) { report += tr("\nKHÔNG LƯU ĐƯỢC: %1").arg(err); QMessageBox::warning(this, tr("Tiện ích bảng"), err); return false; }
+        report += tr("\nĐã lưu bản sao: %1 (UTF-8 có BOM, mở được bằng Excel).").arg(path);
+        return true;
+    };
+    auto needA = [this]() -> bool {
+        if (!d->haveA) { QMessageBox::information(this, tr("Tiện ích bảng"), tr("Hãy chọn tệp CSV và xác nhận bảng mã trước.")); return false; }
+        return true;
+    };
+
+    connect(run1, &QPushButton::clicked, this, [this, askSave, save, needA] {
+        if (!needA()) return;
+        QList<int> cols;
+        for (int i = 0; i < d->dupCols->count(); ++i) if (d->dupCols->item(i)->checkState() == Qt::Checked) cols << i;
+        if (cols.isEmpty()) { QMessageBox::information(this, tr("Tiện ích bảng"), tr("Hãy tích ít nhất một cột làm khoá.")); return; }
+        const auto r = removeDuplicates(d->tableA, cols, d->fold->isChecked());
+        QString rep = tr("Dòng trùng: bỏ %1 / %2 dòng.").arg(r.removed.size()).arg(d->tableA.rows.size());
+        for (int i = 0; i < r.removed.size() && i < 100; ++i) rep += tr("\n  - dòng %1 trùng dòng %2: %3").arg(r.removed[i].originalIndex + 2).arg(r.removed[i].keptIndex + 2).arg(r.removed[i].cells.join(QStringLiteral(" | ")));
+        if (r.removed.size() > 100) rep += tr("\n  … (còn %1 dòng nữa)").arg(r.removed.size() - 100);
+        for (const QString& w : r.warnings) rep += tr("\nCẢNH BÁO: %1").arg(w);
+        if (!r.ok) { d->report->setPlainText(rep + tr("\nKhông thực hiện được.")); return; }
+        const QString out = askSave(defaultOut(d->a->path(), tr("bỏ trùng")));
+        if (out.isEmpty()) { d->report->setPlainText(rep + tr("\n(Chưa lưu.)")); return; }
+        save(out, r.cleaned, rep);
+        d->report->setPlainText(rep);
+    });
+
+    connect(run2, &QPushButton::clicked, this, [this, askSave, save, needA] {
+        if (!needA()) return;
+        QList<QPair<QString, ColumnKind>> kinds;
+        for (int i = 0; i < d->kindBoxes.size() && i < d->tableA.header.size(); ++i) {
+            const auto k = ColumnKind(d->kindBoxes[i]->currentData().toInt());
+            if (k != ColumnKind::Keep) kinds.append({d->tableA.header[i], k});
+        }
+        if (kinds.isEmpty()) { QMessageBox::information(this, tr("Tiện ích bảng"), tr("Hãy chọn kiểu làm sạch cho ít nhất một cột.")); return; }
+        const auto r = cleanTable(d->tableA, kinds, MoneyLocale(d->money->currentData().toInt()));
+        QString rep = tr("Làm sạch: đổi %1 ô, %2 cảnh báo (ô không chuyển được giữ nguyên).").arg(r.changes.size()).arg(r.warnings.size());
+        for (int i = 0; i < r.changes.size() && i < 100; ++i) rep += tr("\n  - dòng %1, cột %2: \"%3\" → \"%4\"").arg(r.changes[i].row + 2).arg(d->tableA.header.value(r.changes[i].col)).arg(r.changes[i].before, r.changes[i].after);
+        if (r.changes.size() > 100) rep += tr("\n  … (còn %1 thay đổi nữa)").arg(r.changes.size() - 100);
+        for (int i = 0; i < r.warnings.size() && i < 100; ++i) rep += tr("\nCẢNH BÁO: %1").arg(r.warnings[i]);
+        if (r.warnings.size() > 100) rep += tr("\n… (còn %1 cảnh báo nữa)").arg(r.warnings.size() - 100);
+        const QString out = askSave(defaultOut(d->a->path(), tr("đã làm sạch")));
+        if (out.isEmpty()) { d->report->setPlainText(rep + tr("\n(Chưa lưu.)")); return; }
+        save(out, r.cleaned, rep);
+        d->report->setPlainText(rep);
+    });
+
+    connect(run3, &QPushButton::clicked, this, [this, askSave, save, needA] {
+        if (!needA()) return;
+        Table tb; QString err;
+        if (!d->b->load(tb, err)) { QMessageBox::information(this, tr("Tiện ích bảng"), err); return; }
+        if (d->keyCol->currentText().isEmpty()) { QMessageBox::information(this, tr("Tiện ích bảng"), tr("Hãy chọn cột mã.")); return; }
+        const auto r = compareTables(d->tableA, tb, d->keyCol->currentText());
+        QString rep = tr("So sánh: giống %1, khác %2 ô, chỉ có ở tệp 1: %3 dòng, chỉ có ở tệp 2: %4 dòng.").arg(r.same).arg(r.changed.size()).arg(r.onlyInA.size()).arg(r.onlyInB.size());
+        for (const QString& w : r.warnings) rep += tr("\nCẢNH BÁO: %1").arg(w);
+        if (!r.ok) { d->report->setPlainText(rep + tr("\nKhông thực hiện được.")); return; }
+        const QString out = askSave(defaultOut(d->a->path(), tr("khác biệt")));
+        if (out.isEmpty()) { d->report->setPlainText(rep + tr("\n(Chưa lưu.)")); return; }
+        save(out, diffAsTable(r), rep);
+        d->report->setPlainText(rep);
+    });
+}
+
+void TableToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
+    TableToolsDialog dlg(parent);
+    dlg.d->tabs->setCurrentIndex(tab);
+    if (!initialPath.isEmpty() && QFileInfo::exists(initialPath)) dlg.d->a->setPath(initialPath);
+    dlg.exec();
+    delete dlg.d;
+}

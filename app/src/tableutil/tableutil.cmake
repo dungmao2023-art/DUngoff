@@ -1,5 +1,9 @@
 # Tiện ích bảng tính (chỉ QtCore): bộ kiểm thử dung-tabletest.
 set(DUNG_TBL_DIR ${CMAKE_CURRENT_LIST_DIR})
+target_sources(DungOffice PRIVATE
+  ${DUNG_TBL_DIR}/TableOps.h ${DUNG_TBL_DIR}/TableOps.cpp
+  ${DUNG_TBL_DIR}/TableToolsDialog.h ${DUNG_TBL_DIR}/TableToolsDialog.cpp)
+target_include_directories(DungOffice PRIVATE ${DUNG_TBL_DIR})
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core)
 add_executable(dung-tabletest
   ${PROJECT_SOURCE_DIR}/tests/tableutil/table_tests.cpp

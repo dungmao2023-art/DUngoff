@@ -193,6 +193,11 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     B(".uno:SortDescending", tr("Giảm dần"), 0xE8CB, "Z↓", false),
                     B(".uno:DataFilterAutoFilter", tr("Bộ lọc"), 0xE71C, "⏷", true),
                 }},
+                {tr("Tiện ích bảng"), {
+                    B("tableTools:dedup", tr("Dòng trùng"), 0xE8B9, "⧉", false),
+                    B("tableTools:clean", tr("Làm sạch ngày/tiền"), 0xE8EF, "✧", false),
+                    B("tableTools:compare", tr("So sánh CSV"), 0xE8AB, "⇄", false),
+                }},
                 {tr("Tìm kiếm"), {
                     B("xl:find", tr("Tìm"), 0xE721, "🔍", false),
                     B("xl:replace", tr("Thay thế"), 0xE8AC, "⇄", false),

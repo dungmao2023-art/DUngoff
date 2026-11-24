@@ -34,6 +34,7 @@
 #include <QHash>
 #include <QTabBar>
 #include "pdf/PdfToolsDialog.h"
+#include "tableutil/TableToolsDialog.h"
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolButton>
@@ -423,6 +424,17 @@ void MainWindow::onAppAction(const QString& id) {
         QString path;
         if (docVisible && t->document() && !t->document()->isNew()) path = QString::fromStdU16String(t->document()->originalPath().u16string());
         PdfToolsDialog::run(this, tabs.value(id.mid(9), PdfToolsDialog::Merge), path);
+    }
+    else if (id.startsWith(QLatin1String("tableTools:"))) {
+        // Tiện ích bảng (app/src/tableutil/): làm việc trên CSV, luôn ra bản sao. Dùng tệp CSV đang mở nếu có.
+        const QString k = id.mid(11);
+        const auto tab = k == QLatin1String("clean") ? TableToolsDialog::Clean : k == QLatin1String("compare") ? TableToolsDialog::Compare : TableToolsDialog::Dedup;
+        QString path;
+        if (docVisible && t->document() && !t->document()->isNew()) {
+            const QString p = QString::fromStdU16String(t->document()->originalPath().u16string());
+            if (p.endsWith(QLatin1String(".csv"), Qt::CaseInsensitive)) path = p;
+        }
+        TableToolsDialog::run(this, tab, path);
     }
     else if (!docVisible) return;
     else if (handlePptAction(t, id)) {}

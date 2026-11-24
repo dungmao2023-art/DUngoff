@@ -31,14 +31,170 @@ static QVector<QStringList> parseCsv(const QString &text, QChar sep, QString &er
     return rows;
 }
 
-bool readCsv(const QString &path, Table &out, QString &error, QChar sep)
+// ---------------- Bảng mã ----------------
+QString encodingName(Encoding e)
+{
+    switch (e) {
+    case Encoding::Utf8: return QObject::tr("UTF-8");
+    case Encoding::Utf8Bom: return QObject::tr("UTF-8 (có BOM)");
+    case Encoding::Utf16LE: return QObject::tr("UTF-16 LE");
+    case Encoding::Utf16BE: return QObject::tr("UTF-16 BE");
+    case Encoding::Windows1258: return QObject::tr("Windows-1258 (tiếng Việt cũ)");
+    default: return QObject::tr("Không rõ");
+    }
+}
+
+// Windows-1258, nửa cao 0x80-0xFF. 0 = byte không định nghĩa. Các dấu thanh là ký tự tổ hợp (U+0300...) và được chuẩn hoá NFC sau khi giải mã.
+static const char16_t kCp1258[128] = {
+    0x20AC, 0, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0, 0x2039, 0x0152, 0, 0, 0,
+    0, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122, 0, 0x203A, 0x0153, 0, 0, 0x0178,
+    0x00A0, 0x00A1, 0x00A2, 0x00A3, 0x00A4, 0x00A5, 0x00A6, 0x00A7, 0x00A8, 0x00A9, 0x00AA, 0x00AB, 0x00AC, 0x00AD, 0x00AE, 0x00AF,
+    0x00B0, 0x00B1, 0x00B2, 0x00B3, 0x00B4, 0x00B5, 0x00B6, 0x00B7, 0x00B8, 0x00B9, 0x00BA, 0x00BB, 0x00BC, 0x00BD, 0x00BE, 0x00BF,
+    0x00C0, 0x00C1, 0x00C2, 0x0102, 0x00C4, 0x00C5, 0x00C6, 0x00C7, 0x00C8, 0x00C9, 0x00CA, 0x00CB, 0x0300, 0x00CD, 0x00CE, 0x00CF,
+    0x0110, 0x00D1, 0x0309, 0x00D3, 0x00D4, 0x01A0, 0x00D6, 0x00D7, 0x00D8, 0x00D9, 0x00DA, 0x00DB, 0x00DC, 0x01AF, 0x0303, 0x00DF,
+    0x00E0, 0x00E1, 0x00E2, 0x0103, 0x00E4, 0x00E5, 0x00E6, 0x00E7, 0x00E8, 0x00E9, 0x00EA, 0x00EB, 0x0301, 0x00ED, 0x00EE, 0x00EF,
+    0x0111, 0x00F1, 0x0323, 0x00F3, 0x00F4, 0x01A1, 0x00F6, 0x00F7, 0x00F8, 0x00F9, 0x00FA, 0x00FB, 0x00FC, 0x01B0, 0x20AB, 0x00FF};
+
+static bool strictUtf8(const QByteArray &b, QString &out)
+{
+    out = QString::fromUtf8(b);
+    return !out.contains(QChar::ReplacementCharacter) && out.toUtf8() == b;
+}
+
+static bool decodeUtf16(const QByteArray &b, bool le, QString &out)
+{
+    if (b.size() % 2) return false;
+    QString s; s.reserve(b.size() / 2);
+    for (int i = 0; i < b.size(); i += 2) {
+        const uchar a = uchar(b[i]), c = uchar(b[i + 1]);
+        s += QChar(le ? char16_t(a | (c << 8)) : char16_t((a << 8) | c));
+    }
+    for (int i = 0; i < s.size(); ++i) { // surrogate lẻ => không hợp lệ
+        if (s[i].isHighSurrogate()) { if (i + 1 >= s.size() || !s[i + 1].isLowSurrogate()) return false; ++i; }
+        else if (s[i].isLowSurrogate()) return false;
+    }
+    out = s;
+    return true;
+}
+
+static bool decodeCp1258(const QByteArray &b, QString &out)
+{
+    QString s; s.reserve(b.size());
+    for (uchar c : b) {
+        if (c == 0) return false;
+        if (c < 0x80) { s += QChar(c); continue; }
+        const char16_t u = kCp1258[c - 0x80];
+        if (!u) return false;
+        s += QChar(u);
+    }
+    out = s.normalized(QString::NormalizationForm_C);
+    return true;
+}
+
+// Tỷ lệ ký tự không phải ASCII là chữ tiếng Việt (có dấu đặc trưng) sau khi giải mã Windows-1258.
+static double vietnameseRatio(const QString &t, int *nonAscii)
+{
+    int n = 0, vi = 0;
+    for (QChar c : t) {
+        if (c.unicode() < 0x80) continue;
+        ++n;
+        const char16_t u = c.unicode();
+        if ((u >= 0x1EA0 && u <= 0x1EF9) || u == 0x0102 || u == 0x0103 || u == 0x0110 || u == 0x0111 || u == 0x01A0 || u == 0x01A1 || u == 0x01AF || u == 0x01B0
+            || u == 0x20AB || (u >= 0x00C0 && u <= 0x00FD && QStringLiteral("ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝàáâãèéêìíòóôõùúý").contains(c)))
+            ++vi;
+    }
+    if (nonAscii) *nonAscii = n;
+    return n ? double(vi) / n : 0.0;
+}
+
+EncodingGuess detectCsvEncoding(const QByteArray &raw)
+{
+    EncodingGuess g;
+    QString t;
+    if (raw.startsWith("\xEF\xBB\xBF")) {
+        if (strictUtf8(raw.mid(3), t)) { g.enc = Encoding::Utf8Bom; g.confidence = 1.0; g.needsUserChoice = false; g.reason = QObject::tr("Có BOM UTF-8 và nội dung hợp lệ."); return g; }
+        g.reason = QObject::tr("Có BOM UTF-8 nhưng nội dung không hợp lệ UTF-8."); g.alternatives = {Encoding::Windows1258}; return g;
+    }
+    if (raw.startsWith("\xFF\xFE") || raw.startsWith("\xFE\xFF")) {
+        const bool le = raw.startsWith("\xFF\xFE");
+        if (decodeUtf16(raw.mid(2), le, t)) { g.enc = le ? Encoding::Utf16LE : Encoding::Utf16BE; g.confidence = 1.0; g.needsUserChoice = false; g.reason = QObject::tr("Có BOM UTF-16 và nội dung hợp lệ."); return g; }
+        g.reason = QObject::tr("Có BOM UTF-16 nhưng độ dài hoặc ký tự không hợp lệ."); return g;
+    }
+    if (!raw.contains('\0') && strictUtf8(raw, t)) { // byte 0 xen kẽ là dấu hiệu UTF-16, không phải văn bản UTF-8
+        bool ascii = true; for (uchar c : raw) if (c >= 0x80) { ascii = false; break; }
+        g.enc = Encoding::Utf8; g.confidence = ascii ? 1.0 : 0.97; g.needsUserChoice = false;
+        g.reason = ascii ? QObject::tr("Toàn ký tự ASCII; UTF-8 và Windows-1258 cho kết quả giống nhau.")
+                         : QObject::tr("Nội dung là UTF-8 hợp lệ có ký tự đa byte (rất khó trùng hợp ngẫu nhiên).");
+        return g;
+    }
+    // Không BOM, không phải UTF-8: chỉ đưa ra GỢI Ý, luôn cần người dùng xác nhận.
+    int zerosOdd = 0, zerosEven = 0;
+    for (int i = 0; i < raw.size(); ++i) if (raw[i] == 0) (i % 2 ? zerosOdd : zerosEven)++;
+    const int half = raw.size() / 2;
+    if (half > 8 && (zerosOdd > half * 0.3 || zerosEven > half * 0.3) && decodeUtf16(raw, zerosOdd > zerosEven, t)) {
+        g.enc = zerosOdd > zerosEven ? Encoding::Utf16LE : Encoding::Utf16BE; g.confidence = 0.6; g.needsUserChoice = true;
+        g.reason = QObject::tr("Không có BOM nhưng có nhiều byte 0 xen kẽ, giống UTF-16. Hãy xem trước và xác nhận.");
+        g.alternatives = {Encoding::Windows1258};
+        return g;
+    }
+    if (decodeCp1258(raw, t)) {
+        int n = 0; const double r = vietnameseRatio(t, &n);
+        g.enc = Encoding::Windows1258; g.needsUserChoice = true;
+        if (n >= 3 && r >= 0.9) { g.confidence = 0.8; g.reason = QObject::tr("Không phải UTF-8; giải mã Windows-1258 ra chữ tiếng Việt hợp lý. Hãy xem trước và xác nhận."); }
+        else { g.confidence = 0.3; g.reason = QObject::tr("Không phải UTF-8; Windows-1258 giải mã được nhưng kết quả không giống tiếng Việt. Rất có thể là bảng mã khác — hãy kiểm tra kỹ."); }
+        g.alternatives = {Encoding::Utf16LE, Encoding::Utf16BE};
+        return g;
+    }
+    g.reason = QObject::tr("Không nhận ra bảng mã (không phải UTF-8/UTF-16/Windows-1258). Không đoán; hãy mở bằng phần mềm khác để xem bảng mã thật.");
+    g.alternatives = {Encoding::Utf16LE, Encoding::Utf16BE};
+    return g;
+}
+
+bool decodeText(const QByteArray &raw, Encoding enc, QString &text, QString &error)
+{
+    QByteArray b = raw;
+    bool ok = false;
+    switch (enc) {
+    case Encoding::Utf8: case Encoding::Utf8Bom:
+        if (b.startsWith("\xEF\xBB\xBF")) b.remove(0, 3);
+        ok = strictUtf8(b, text); break;
+    case Encoding::Utf16LE: if (b.startsWith("\xFF\xFE")) b.remove(0, 2); ok = decodeUtf16(b, true, text); break;
+    case Encoding::Utf16BE: if (b.startsWith("\xFE\xFF")) b.remove(0, 2); ok = decodeUtf16(b, false, text); break;
+    case Encoding::Windows1258: ok = decodeCp1258(b, text); break;
+    default: error = QObject::tr("Chưa chọn bảng mã."); return false;
+    }
+    if (!ok) { error = QObject::tr("Tệp không giải mã được bằng bảng mã %1; không thay ký tự và không đoán.").arg(encodingName(enc)); return false; }
+    return true;
+}
+
+QStringList previewLines(const QString &t, int maxLines)
+{
+    QStringList out; int start = 0;
+    while (start <= t.size() && out.size() < maxLines) {
+        int e = t.indexOf(QLatin1Char('\n'), start);
+        if (e < 0) { if (start < t.size()) out << t.mid(start); break; }
+        QString l = t.mid(start, e - start); if (l.endsWith(QLatin1Char('\r'))) l.chop(1);
+        out << l; start = e + 1;
+    }
+    return out;
+}
+
+QChar guessSeparator(const QString &t)
+{
+    const QStringList ls = previewLines(t, 5);
+    int c = 0, s = 0, tb = 0;
+    for (const QString &l : ls) { c += l.count(QLatin1Char(',')); s += l.count(QLatin1Char(';')); tb += l.count(QLatin1Char('\t')); }
+    if (tb > c && tb > s) return QLatin1Char('\t');
+    if (s > c) return QLatin1Char(';');
+    return QLatin1Char(',');
+}
+
+bool readCsvWith(const QString &path, Encoding enc, Table &out, QString &error, QChar sep)
 {
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) { error = QObject::tr("Không mở được tệp: ") + f.errorString(); return false; }
-    QByteArray raw = f.readAll();
-    if (raw.startsWith("\xEF\xBB\xBF")) raw.remove(0, 3);
-    const QString text = QString::fromUtf8(raw);
-    if (text.contains(QChar::ReplacementCharacter)) { error = QObject::tr("Tệp không phải UTF-8 hợp lệ; không đoán bảng mã."); return false; }
+    QString text;
+    if (!decodeText(f.readAll(), enc, text, error)) return false;
     auto rows = parseCsv(text, sep, error);
     if (!error.isEmpty()) return false;
     out = Table();
@@ -46,6 +202,11 @@ bool readCsv(const QString &path, Table &out, QString &error, QChar sep)
     out.header = rows.takeFirst();
     out.rows = rows;
     return true;
+}
+
+bool readCsv(const QString &path, Table &out, QString &error, QChar sep)
+{
+    return readCsvWith(path, Encoding::Utf8, out, error, sep);
 }
 
 static QString csvEscape(const QString &s, QChar sep)
