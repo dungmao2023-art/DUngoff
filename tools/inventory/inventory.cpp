@@ -192,36 +192,59 @@ static int victim(const fs::path& program, const fs::path& file, const fs::path&
     return 0;
 }
 
+static size_t pathLen(const fs::path& p) { return p.native().size(); } // đơn vị ký tự của hệ điều hành (UTF-16 trên Windows)
+
+// Tạo thư mục (có thể vượt MAX_PATH) bằng tiền tố \\?\ trên Windows, để tách lỗi của bộ kiểm thử khỏi lỗi của engine/app.
+static bool mkdirsLong(const fs::path& p) {
+    std::error_code ec;
+#ifdef _WIN32
+    fs::create_directories(fs::path(L"\\\\?\\" + fs::absolute(p).wstring()), ec);
+#else
+    fs::create_directories(p, ec);
+#endif
+    return !ec && fs::is_directory(p, ec);
+}
+static bool copyLong(const fs::path& a, const fs::path& b, std::string* why) {
+    std::error_code ec;
+#ifdef _WIN32
+    fs::copy_file(a, fs::path(L"\\\\?\\" + fs::absolute(b).wstring()), fs::copy_options::overwrite_existing, ec);
+#else
+    fs::copy_file(a, b, fs::copy_options::overwrite_existing, ec);
+#endif
+    if (ec && why) *why = ec.message();
+    return !ec;
+}
+
 static int longpath(const fs::path& program, const fs::path& file, const fs::path& out) {
     std::error_code ec;
-    // Thư mục lồng nhau tên tiếng Việt, tổng độ dài > 280 ký tự
-    fs::path deep = fs::absolute(out);
-    const std::string seg = "Hồ sơ tài liệu năm hai nghìn không trăm hai mươi sáu";
-    int guard = 0;
-    while (deep.u8string().size() < 330 && guard++ < 20) deep /= fs::u8path(seg);
-    fs::create_directories(deep, ec);
-    inv("duong_dan_dai_ky_tu", std::to_string(deep.u8string().size()));
-    inv("tao_thu_muc_dai_ok", fs::is_directory(deep, ec) ? "1" : "0");
-    fs::path longSrc = deep / fs::u8path("Báo cáo tổng hợp quý một.") ;
-    longSrc += ext(file);
-    fs::copy_file(file, longSrc, fs::copy_options::overwrite_existing, ec);
-    inv("sao_chep_vao_duong_dan_dai_ok", ec ? "0" : "1");
-    if (ec) inv("sao_chep_loi", ec.message());
+    fs::create_directories(out, ec);
     std::string err;
     auto engine = Engine::create(program, out / "profile", out / "work", &err);
     if (!engine) { inv("loi", "khoi dong engine: " + err); return 1; }
-    auto d = engine->open(longSrc, &err);
-    inv("mo_tep_o_duong_dan_dai_ok", d ? "1" : "0");
-    if (!d) inv("mo_tep_duong_dan_dai_loi", err);
-    if (d) {
-        fs::path t = deep / fs::u8path("Kết quả đã lưu.");
-        t += ext(file);
-        fs::remove(t, ec);
-        auto r = d->saveAs(t);
-        inv("luu_o_duong_dan_dai_ok", r.ok ? "1" : "0");
-        if (!r.ok) inv("luu_duong_dan_dai_loi", r.message);
+    // Các độ dài đường dẫn tới tệp nguồn (ký tự): dưới, sát và vượt MAX_PATH (260 gồm ký tự kết thúc)
+    for (size_t L : {200, 240, 250, 255, 258, 259, 262, 300, 400}) {
+        const std::string tag = "lp" + std::to_string(L) + "_";
+        fs::path base = fs::absolute(out) / fs::u8path("Hồ sơ " + std::to_string(L));
+        const std::string fname = "tep.xlsx";
+        // đệm thêm ký tự ASCII vào tên thư mục con cuối cho đủ độ dài mong muốn
+        fs::path dir = base / fs::u8path("Tài liệu");
+        size_t cur = pathLen(dir / fname);
+        if (cur > L) { inv(tag + "bo_qua", "duong dan co ban da dai " + std::to_string(cur)); continue; }
+        dir = base / fs::u8path("Tài liệu" + std::string(L - cur, 'a'));
+        fs::path src = dir / fname;
+        inv(tag + "do_dai_that", std::to_string(pathLen(src)));
+        if (!mkdirsLong(dir)) { inv(tag + "tao_thu_muc_ok", "0"); continue; }
+        std::string why;
+        if (!copyLong(file, src, &why)) { inv(tag + "sao_chep_ok", "0"); inv(tag + "sao_chep_loi", why); continue; }
+        auto d = engine->open(src, &err);
+        inv(tag + "mo_ok", d ? "1" : "0");
+        if (!d) { inv(tag + "mo_loi", err.substr(0, 160)); continue; }
+        fs::path tgt = dir / fs::u8path("kq.xlsx");
+        auto r = d->saveAs(tgt);
+        inv(tag + "luu_ok", r.ok ? "1" : "0");
+        if (!r.ok) inv(tag + "luu_loi", r.message.substr(0, 160));
     }
-    // Tên tiếng Việt có dấu tổ hợp (NFD) và ký tự đặc biệt trong tên tệp
+    // Tên tiếng Việt, ký tự đặc biệt
     fs::path vi = out / fs::u8path("Thư mục có dấu ‘ngoặc’ & ký hiệu");
     fs::create_directories(vi, ec);
     fs::path src2 = vi / fs::u8path("Đơn xin nghỉ học (bản 1).");
