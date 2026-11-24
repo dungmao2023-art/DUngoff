@@ -35,6 +35,7 @@ public:
     bool maybeClose();      // hỏi lưu nếu có thay đổi; false = huỷ đóng
     void setZoom(int percent);
     int zoom() const;
+    void stepPart(int delta);  // chuyển trang/slide trước (-1) hoặc sau (+1)
 
 signals:
     void titleChanged();
