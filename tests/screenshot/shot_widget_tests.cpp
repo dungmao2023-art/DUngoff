@@ -65,6 +65,19 @@ int main(int argc, char** argv) {
     const QImage cropped = screenshotWidgetRender(w);
     check(cropped.width() < base.width() && cropped.height() < base.height(), "công cụ Cắt: ảnh nhỏ hơn sau khi kéo chọn");
 
+    // nút chèn vào tài liệu: ẩn khi chưa đăng ký; có hàm chèn thì nhận đúng ảnh kết quả
+    {
+        auto* ins = w->findChild<QAbstractButton*>("insertBtn");
+        check(ins && !ins->isVisibleTo(w), "chưa đăng ký hàm chèn: nút Chèn vào tài liệu bị ẩn");
+        QImage got; int calls = 0;
+        screenshotWidgetSetInsertHandler(w, [&](const QImage& i) { got = i; ++calls; return QString(); });
+        check(ins && ins->isVisibleTo(w), "đăng ký hàm chèn: nút hiện");
+        if (ins) ins->click();
+        check(calls == 1 && diffCount(got, screenshotWidgetRender(w)) == 0, "bấm Chèn: hàm nhận đúng ảnh kết quả (đã cắt)");
+        screenshotWidgetSetInsertHandler(w, [&](const QImage&) { return QStringLiteral("không có tài liệu"); });
+        if (ins) ins->click();
+        check(calls == 1, "hàm chèn báo lỗi: không chèn lặp");
+    }
     // chụp toàn màn hình qua nền offscreen
     QWidget* w2 = createScreenshotWidget(nullptr); w2->resize(900, 700); w2->show(); wait(50);
     w2->findChild<QAbstractButton*>("capFull")->click();

@@ -357,8 +357,10 @@ public:
         m_save = new QPushButton(tr("Lưu vào thư mục mặc định"), this); m_save->setObjectName("saveBtn");
         m_saveAs = new QPushButton(tr("Lưu thành…"), this);
         auto* openDir = new QPushButton(tr("Mở thư mục"), this);
+        m_insert = new QPushButton(tr("Chèn vào tài liệu đang mở"), this); m_insert->setObjectName("insertBtn");
+        m_insert->setVisible(false);   // chỉ hiện khi nơi nhúng đăng ký hàm chèn (setInsertHandler)
         for (QWidget* w : {static_cast<QWidget*>(m_undo), static_cast<QWidget*>(m_redo), static_cast<QWidget*>(m_copy), static_cast<QWidget*>(m_fmt),
-                           static_cast<QWidget*>(m_save), static_cast<QWidget*>(m_saveAs), static_cast<QWidget*>(openDir)}) act->addWidget(w);
+                           static_cast<QWidget*>(m_save), static_cast<QWidget*>(m_saveAs), static_cast<QWidget*>(openDir), static_cast<QWidget*>(m_insert)}) act->addWidget(w);
         act->addStretch();
         lay->addLayout(act);
         m_status = new QLabel(tr("Sẵn sàng. Ảnh chỉ được lưu khi bạn bấm Lưu; không bao giờ ghi đè tệp có sẵn."), this);
@@ -381,6 +383,7 @@ public:
         connect(m_undo, &QPushButton::clicked, this, [this] { if (m_doc && m_doc->undo()) { m_canvas->update(); refresh(); } });
         connect(m_redo, &QPushButton::clicked, this, [this] { if (m_doc && m_doc->redo()) { m_canvas->update(); refresh(); } });
         connect(m_copy, &QPushButton::clicked, this, [this] { copyToClipboard(); });
+        connect(m_insert, &QPushButton::clicked, this, [this] { insertIntoDocument(); });
         connect(m_save, &QPushButton::clicked, this, [this] { saveDefault(); });
         connect(m_saveAs, &QPushButton::clicked, this, [this] { saveAs(); });
         connect(openDir, &QPushButton::clicked, this, [] {
@@ -410,6 +413,8 @@ public:
         refresh();
     }
     QImage render() const { return m_doc ? m_doc->render() : QImage(); }
+    // Nơi nhúng đăng ký hàm chèn ảnh vào tài liệu đang mở; trả về chuỗi lỗi (rỗng = thành công).
+    void setInsertHandler(std::function<QString(const QImage&)> h) { m_insertFn = std::move(h); m_insert->setVisible(bool(m_insertFn)); }
 
 private:
     void setBtnColor(const QColor& c) {
@@ -449,6 +454,13 @@ private:
         const QImage img = render(); if (img.isNull()) return;
         QGuiApplication::clipboard()->setImage(img);
         m_status->setText(tr("Đã sao chép ảnh vào clipboard."));
+    }
+    void insertIntoDocument() {
+        const QImage img = render();
+        if (img.isNull()) { m_status->setText(tr("Chưa có ảnh để chèn.")); return; }
+        if (!m_insertFn) return;
+        const QString err = m_insertFn(img);
+        m_status->setText(err.isEmpty() ? tr("Đã chèn ảnh vào tài liệu đang mở.") : tr("Không chèn được: %1").arg(err));
     }
     Format curFormat() const { return m_fmt->currentIndex() == 1 ? Format::Jpg : m_fmt->currentIndex() == 2 ? Format::Pdf : Format::Png; }
     void saveDefault() {
@@ -498,7 +510,8 @@ private:
 
     Canvas* m_canvas = nullptr;
     std::unique_ptr<Document> m_doc;
-    QPushButton *m_bWindow = nullptr, *m_colorBtn = nullptr, *m_undo = nullptr, *m_redo = nullptr, *m_copy = nullptr, *m_save = nullptr, *m_saveAs = nullptr;
+    QPushButton *m_bWindow = nullptr, *m_colorBtn = nullptr, *m_undo = nullptr, *m_redo = nullptr, *m_copy = nullptr, *m_save = nullptr, *m_saveAs = nullptr, *m_insert = nullptr;
+    std::function<QString(const QImage&)> m_insertFn;
     QSpinBox *m_delay = nullptr, *m_width = nullptr;
     QCheckBox* m_hotkey = nullptr; QComboBox *m_hotkeyKind = nullptr, *m_fmt = nullptr;
     QButtonGroup* m_group = nullptr; QLabel* m_status = nullptr; QColor m_color;
@@ -515,5 +528,9 @@ QWidget* createScreenshotWidget(QWidget* parent) { return new dungshot::Screensh
 
 void screenshotWidgetLoadImage(QWidget* w, const QImage& img) { if (auto* s = dynamic_cast<dungshot::ScreenshotWidget*>(w)) s->loadImage(img); }
 QImage screenshotWidgetRender(QWidget* w) { auto* s = dynamic_cast<dungshot::ScreenshotWidget*>(w); return s ? s->render() : QImage(); }
+
+void screenshotWidgetSetInsertHandler(QWidget* w, std::function<QString(const QImage&)> h) {
+    if (auto* s = dynamic_cast<dungshot::ScreenshotWidget*>(w)) s->setInsertHandler(std::move(h));
+}
 
 #include "ScreenshotWidget.moc"
