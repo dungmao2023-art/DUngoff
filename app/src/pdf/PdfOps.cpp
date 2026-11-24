@@ -298,6 +298,7 @@ Info info(const QString& path, const QString& password) {
         inf.needPassword = tmp.needPassword;
         return inf;
     }
+    if (!tmp.warnings.isEmpty()) inf.warning = tmp.warnings.first();
     inf.pages = r.out.trimmed().toInt();
     QStringList enc = pw.args(false);
     enc << QStringLiteral("--is-encrypted") << path;

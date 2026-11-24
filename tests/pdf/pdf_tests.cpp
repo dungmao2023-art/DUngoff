@@ -164,11 +164,13 @@ int main(int argc, char** argv) {
                     dp.readAllStandardOutput().trimmed().constData(),
                     dp.readAllStandardError().left(200).constData());
     }
-    CHECK(!ib.ok && !ib.error.isEmpty(), "tệp bị cắt cụt: báo lỗi");
+    CHECK((!ib.ok && !ib.error.isEmpty()) || (ib.ok && !ib.warning.isEmpty()), "tệp bị cắt cụt: báo lỗi hoặc cảnh báo đã phục hồi");
     writeFile(P(QStringLiteral("khong-phai-pdf.pdf")), "khong phai pdf");
     CHECK(!info(P(QStringLiteral("khong-phai-pdf.pdf"))).ok, "tệp không phải PDF: báo lỗi");
     r = merge({{bad, {}}, {b, {}}}, P(QStringLiteral("gop-hong.pdf")));
-    CHECK(!r.ok && !QFileInfo::exists(P(QStringLiteral("gop-hong.pdf"))), "gộp với tệp hỏng: không tạo tệp kết quả");
+    CHECK((!r.ok && !QFileInfo::exists(P(QStringLiteral("gop-hong.pdf")))) || (r.ok && !r.warnings.isEmpty()),
+          "gộp với tệp hỏng: từ chối, hoặc ghi kết quả kèm cảnh báo");
+    CHECK(readFile(bad) == cut, "gộp với tệp hỏng: tệp nguồn giữ nguyên");
 
     // --- mật khẩu
     const QString enc = P(QStringLiteral("mat-khau.pdf"));

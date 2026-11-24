@@ -37,6 +37,7 @@ struct Info {
     int pages = 0;
     bool encrypted = false;
     qint64 bytes = 0;
+    QString warning;  // qpdf đọc được nhưng tệp hỏng/đã phải phục hồi
 };
 
 // Đường dẫn qpdf: DUNG_QPDF, rồi <thư mục app>/qpdf/qpdf(.exe), rồi PATH. Rỗng nếu không thấy.
