@@ -43,6 +43,10 @@ jobs:
           set -o pipefail
           qpdf --version | head -1
           QT_QPA_PLATFORM=offscreen ./build/app/dung-pdftest 2>&1 | tee report/linux-pdftest.log
+      - name: Kiểm thử tiện ích văn bản tiếng Việt (số tiền, ngày, bảng mã cũ)
+        run: |
+          set -o pipefail
+          ./build/app/dung-vntexttest 2>&1 | tee report/linux-vntexttest.log
       - name: Kiểm thử thư viện mẫu (thay gói cũ bằng gói mới)
         run: |
           set -o pipefail
@@ -212,6 +216,12 @@ jobs:
           $exe = Get-ChildItem build/out -Recurse -Filter dung-pdftest.exe | Select-Object -First 1
           if (-not $exe) { Write-Host "::error::Không thấy dung-pdftest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-pdftest.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm thử tiện ích văn bản tiếng Việt trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-vntexttest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-vntexttest.exe"; exit 1 }
+          & $exe.FullName *>&1 | Tee-Object report/windows-vntexttest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử thư viện mẫu trên Windows
         run: |
