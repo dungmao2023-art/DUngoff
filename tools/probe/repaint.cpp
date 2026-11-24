@@ -60,19 +60,17 @@ int main(int argc, char** argv) {
     (void)gotBefore;
     doc->clearEvents();
     doc->typeText(u"Dung Office xin chao");
-    {   // Con trỏ nhập liệu: engine có gửi vị trí/hiện-ẩn con trỏ không?
-        std::string cr, cv;
-        const bool gotRect = doc->waitFor(1 /*INVALIDATE_VISIBLE_CURSOR*/, [&](const std::string& pl) { cr = pl; return true; }, 1500);
-        const bool gotVis = doc->waitFor(5 /*CURSOR_VISIBLE*/, [&](const std::string& pl) { cv = pl; return true; }, 500);
-        printf("REPAINT %s: sự kiện vị trí con trỏ: %s %s\n", mode.c_str(), gotRect ? "có" : "KHÔNG", cr.substr(0, 60).c_str());
-        printf("REPAINT %s: sự kiện hiện/ẩn con trỏ: %s %s\n", mode.c_str(), gotVis ? "có" : "KHÔNG", cv.substr(0, 40).c_str());
-    }
     // Phân biệt: sự kiện làm mới do engine LibreOffice tự báo, và sự kiện "SYNTH" do tầng engine của Dũng Office bù thêm.
     const bool nativeInval = doc->waitFor(0, [](const std::string& pl) { return pl != "SYNTH"; }, 3000);
     const bool synthInval = doc->waitFor(0, [](const std::string& pl) { return pl == "SYNTH"; }, 100)
                          || doc->lastPayload(0) == "SYNTH";
     printf("REPAINT %s: engine tự báo làm mới tile sau khi gõ: %s\n", mode.c_str(), nativeInval ? "có" : "KHÔNG");
     printf("REPAINT %s: tầng engine bù sự kiện làm mới (SYNTH): %s\n", mode.c_str(), synthInval ? "có" : "KHÔNG");
+    {   // Con trỏ nhập liệu: engine có gửi vị trí/hiện-ẩn con trỏ không? (1 = INVALIDATE_VISIBLE_CURSOR, 5 = CURSOR_VISIBLE)
+        const std::string cr = doc->lastPayload(1), cv = doc->lastPayload(5);
+        printf("REPAINT %s: sự kiện vị trí con trỏ: %s %s\n", mode.c_str(), cr.empty() ? "KHÔNG" : "có", cr.substr(0, 60).c_str());
+        printf("REPAINT %s: sự kiện hiện/ẩn con trỏ: %s %s\n", mode.c_str(), cv.empty() ? "KHÔNG" : "có", cv.substr(0, 40).c_str());
+    }
     auto typed = tile(*doc, tw, th);
     Box b1 = diff(before, typed, 512);
     report((mode + " (đang gõ)").c_str(), b1);

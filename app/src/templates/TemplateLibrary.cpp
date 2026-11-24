@@ -13,6 +13,9 @@
 #include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QVersionNumber>
+#ifdef Q_OS_WIN
+#include <private/qzipreader_p.h> // đọc zip UTF-8 đúng tên tiếng Việt (tar của Windows không đọc được mọi tệp zip)
+#endif
 
 namespace tpl {
 namespace {
@@ -172,21 +175,22 @@ InstallResult installFromZip(const QString& zipPath, bool allowOlder) {
     InstallResult r;
     QTemporaryDir tmp;
     if (!tmp.isValid()) { r.message = QObject::tr("Không tạo được thư mục tạm."); return r; }
-    QProcess p;
-    QString prog;
-    QStringList args;
 #ifdef Q_OS_WIN
-    prog = QStringLiteral("tar");
-    args << QStringLiteral("-xf") << QDir::toNativeSeparators(zipPath) << QStringLiteral("-C") << QDir::toNativeSeparators(tmp.path());
+    {
+        QZipReader zr(zipPath);
+        if (!zr.isReadable() || zr.count() == 0 || !zr.extractAll(tmp.path())) {
+            r.message = QObject::tr("Không giải nén được tệp zip (tệp hỏng hoặc không phải zip).");
+            return r;
+        }
+    }
 #else
-    prog = QStringLiteral("unzip");
-    args << QStringLiteral("-q") << QStringLiteral("-o") << zipPath << QStringLiteral("-d") << tmp.path();
-#endif
-    p.start(prog, args);
+    QProcess p;
+    p.start(QStringLiteral("unzip"), {QStringLiteral("-q"), QStringLiteral("-o"), zipPath, QStringLiteral("-d"), tmp.path()});
     if (!p.waitForFinished(10 * 60 * 1000) || p.exitCode() != 0) {
         r.message = QObject::tr("Không giải nén được tệp zip: ") + QString::fromUtf8(p.readAllStandardError()).left(200);
         return r;
     }
+#endif
     return installFromDir(tmp.path(), allowOlder);
 }
 

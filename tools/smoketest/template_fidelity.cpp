@@ -76,7 +76,9 @@ int dungRunTemplateFidelity(const fs::path& program, const fs::path& dir, const 
             kind = kindName(d->kind());
             parts = d->partCount();
             const fs::path pdf = out / "pdf" / (std::to_string(n) + ".pdf");
-            auto r = d->saveAs(pdf);
+            SaveOptions so;
+            so.allowLossyExport = true; // xuất PDF = đường in, đã được xác nhận
+            auto r = d->saveAs(pdf, so);
             pdfOk = r.ok;
             if (pdfOk) { bytes = (long long)fs::file_size(pdf, ec); }
             else std::cout << "[LỖI]  xuất PDF " << rel << ": " << r.message << "\n";

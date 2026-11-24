@@ -11,4 +11,10 @@ add_executable(dung-templatetest
   ${DUNG_TPL_DIR}/../extras/WorkspaceStore.cpp ${DUNG_TPL_DIR}/../extras/WorkspaceStore.h)
 target_include_directories(dung-templatetest PRIVATE ${DUNG_TPL_DIR} ${PROJECT_SOURCE_DIR}/app/src)
 target_link_libraries(dung-templatetest PRIVATE Qt6::Core)
+if(WIN32)
+  # Giải nén zip bằng QZipReader (Qt, API riêng) — chỉ dùng trên Windows
+  find_package(Qt6 6.4 REQUIRED COMPONENTS Gui GuiPrivate)
+  target_link_libraries(dung-templatetest PRIVATE Qt6::Gui Qt6::GuiPrivate)
+  target_link_libraries(DungOffice PRIVATE Qt6::GuiPrivate)
+endif()
 set_target_properties(dung-templatetest PROPERTIES AUTOMOC OFF)
