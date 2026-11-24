@@ -43,6 +43,8 @@ if ($QpdfDir -and (Test-Path (Join-Path $QpdfDir "qpdf.exe"))) {
 } else { Write-Warning "Không có qpdf: Công cụ PDF sẽ báo thiếu thành phần." }
 
 $root = Resolve-Path "$PSScriptRoot\.."
+# Gói mẫu đi kèm: ứng dụng tự cài vào thư mục dữ liệu người dùng khi chạy lần đầu (hoặc khi gói mới hơn)
+if (Test-Path (Join-Path $root "templates")) { Copy-Item -Recurse (Join-Path $root "templates") (Join-Path $app "templates") }
 Copy-Item (Join-Path $root "LICENSE") $app
 Copy-Item (Join-Path $root "THIRD_PARTY_NOTICES.md") $app
 $size = (Get-ChildItem $app -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB

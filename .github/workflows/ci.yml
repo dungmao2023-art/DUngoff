@@ -43,6 +43,11 @@ jobs:
           set -o pipefail
           qpdf --version | head -1
           QT_QPA_PLATFORM=offscreen ./build/app/dung-pdftest 2>&1 | tee report/linux-pdftest.log
+      - name: Kiểm thử thư viện mẫu (thay gói cũ bằng gói mới)
+        run: |
+          set -o pipefail
+          (cd templates && python3 -c "import shutil; shutil.make_archive('../mau-thu', 'zip', '.')")
+          DUNG_TEST_ZIP="$PWD/mau-thu.zip" QT_QPA_PLATFORM=offscreen ./build/app/dung-templatetest 2>&1 | tee report/linux-templatetest.log
       - name: Báo lỗi biên dịch
         if: failure()
         run: grep -E "error|Error" report/linux-build.log | head -10 | sed 's/^/::error::/' || true
@@ -200,6 +205,14 @@ jobs:
           $exe = Get-ChildItem build/out -Recurse -Filter dung-pdftest.exe | Select-Object -First 1
           if (-not $exe) { Write-Host "::error::Không thấy dung-pdftest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-pdftest.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm thử thư viện mẫu trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-templatetest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-templatetest.exe"; exit 1 }
+          Compress-Archive -Path templates/* -DestinationPath mau-thu.zip -Force
+          $env:DUNG_TEST_ZIP = "$PWD/mau-thu.zip"
+          & $exe.FullName *>&1 | Tee-Object report/windows-templatetest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử đầy đủ engine trên Windows (nhập liệu, lưu) — chặn job
         id: full

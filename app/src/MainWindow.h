@@ -13,6 +13,7 @@ class HomePage;
 class DocumentTab;
 class SidePanel;
 class ProjectsPage;
+class TemplatesPage;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -36,6 +37,7 @@ private:
     void showHome();
     void showDocuments();
     void showProjects();
+    void showTemplates();
     void onCurrentTabChanged();
     void onAppAction(const QString& id);
     void addRecent(const QString& path);
@@ -54,6 +56,7 @@ private:
     QLabel* m_saveLabel;
     SidePanel* m_side;
     ProjectsPage* m_projects;
+    TemplatesPage* m_templates;
     QLabel* m_zoomLabel;
     QSlider* m_zoom;
 };
