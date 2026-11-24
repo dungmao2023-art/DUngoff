@@ -394,6 +394,14 @@ int runWordTests(const fs::path& program, const fs::path& out) {
         // Lề chuẩn VN: trái 30, phải 15, trên 20, dưới 20 mm (kiểm trong verify_docx.py qua w:pgMar)
         run(e, ".uno:PageLRMargin", w::join({w::argLong("PageLRMargin.Left", 3000), w::argLong("PageLRMargin.Right", 1500)}));
         run(e, ".uno:PageULMargin", w::join({w::argLong("PageULMargin.Upper", 2000), w::argLong("PageULMargin.Lower", 2000)}));
+        // Chẩn đoán: lệnh trang đã biết là chạy (AttributePageSize) có tác dụng trên engine này không?
+        {
+            run(e, ".uno:AttributePageSize", w::join({w::argLong("AttributePageSize.Width", 29700), w::argLong("AttributePageSize.Height", 21000)}));
+            fs::path pf = out / "chan-doan-kich-thuoc.docx";
+            fs::remove(pf, ec);
+            e.saveAs(pf);
+            run(e, ".uno:AttributePageSize", w::join({w::argLong("AttributePageSize.Width", 21000), w::argLong("AttributePageSize.Height", 29700)}));
+        }
         // Thăm dò: ứng viên lệnh lề trang. Mỗi ứng viên đặt lề trái = 21 mm + i mm; sau đó lưu một bản
         // để tests/word/margin_probe.py đọc w:pgMar và cho biết ứng viên NÀO thật sự có tác dụng.
         {
