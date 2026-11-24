@@ -141,8 +141,10 @@ jobs:
           export CCACHE_DIR=C:/lo/ccache CCACHE_MAXSIZE=4G CCACHE_COMPRESS=1 CCACHE_BASEDIR=C:/lo/core
           cd /cygdrive/c/lo/core
           set +e
+          date +%s > /cygdrive/c/lo/report/make-start.txt
           timeout --signal=INT "${MAKE_MINUTES}m" /opt/lo/bin/make build > /cygdrive/c/lo/report/make.log 2>&1
           rc=$?
+          date +%s > /cygdrive/c/lo/report/make-end.txt
           set -e
           echo "make exit code: $rc" | tee -a /cygdrive/c/lo/report/make.log
           /opt/lo/bin/ccache.exe -s | tee /cygdrive/c/lo/report/ccache.txt || true
@@ -189,12 +191,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd /cygdrive/c/lo/report
+          [ -f make.log ] && bash "$(cygpath -u "$GITHUB_WORKSPACE")/dungoff/engine-build/progress.sh" make.log ccache.txt /cygdrive/c/lo/core "${{ inputs.round || '1' }}" /cygdrive/c/lo/report || true
           [ -f make.log ] && { tail -400 make.log > make-tail.log; grep -n -E "error|Error|\*\*\*" make.log | tail -80 > make-errors.log || true; rm make.log; }
           [ -f /cygdrive/c/lo/core/config.log ] && tail -300 /cygdrive/c/lo/core/config.log > config-tail.log
           printf '# Engine Windows — lượt %s/%s\n\n- run: %s/%s/actions/runs/%s\n- kết quả make: %s\n\n## Checkpoint\n' \
             "${{ inputs.round || '1' }}" "$MAX_ROUNDS" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "${{ steps.make.outputs.result }}" > README.md
           cat checkpoint.txt >> README.md 2>/dev/null || true
+          # Giữ báo cáo các lượt trước (nhánh cũ), không ghi đè
+          rm -rf /cygdrive/c/lo/prev-report
+          if git clone -q --depth 1 --branch ci-report-engine "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /cygdrive/c/lo/prev-report 2>/dev/null; then
+            for d in /cygdrive/c/lo/prev-report/round-*; do [ -d "$d" ] && [ ! -e "$(basename "$d")" ] && cp -r "$d" .; done || true
+          fi
           mkdir -p "round-${{ inputs.round || '1' }}" && mv -f *.log *.txt "round-${{ inputs.round || '1' }}/" 2>/dev/null || true
+          { echo; echo "## Tiến độ các lượt"; for r in round-*/progress.txt; do echo; echo '```'; cat "$r"; echo '```'; done; } >> README.md 2>/dev/null || true
           git init -q -b ci-report-engine && git config user.name dung-ci && git config user.email ci@users.noreply.github.com
           git add -A && git commit -qm "engine report run $GITHUB_RUN_ID"
           git push -fq "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-report-engine
