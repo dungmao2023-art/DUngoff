@@ -27,7 +27,7 @@ concurrency:
 
 env:
   LO_TAG: libreoffice-26.8.3.1
-  ENGINE_RELEASE: engine-26.8.3.1-headless
+  ENGINE_RELEASE: engine-26.8.3.2-headless
   MAX_ROUNDS: "3"
   MIN_FREE_GB: "40"
   MAKE_MINUTES: "290"
@@ -97,6 +97,18 @@ jobs:
           cd core && git log -1 --format='%H %s'
           # Ghi đè module có lỗi ở nhánh Windows-headless (xem engine-build/overrides/README.md)
           bash "$(cygpath -u "$GITHUB_WORKSPACE")/dungoff/engine-build/apply-overrides.sh" /cygdrive/c/lo/core
+      - name: Lấy submodule cần cho --with-lang=vi và từ điển (nếu có)
+        if: steps.exists.outputs.done == '0'
+        run: |
+          cd /cygdrive/c/lo/core
+          echo "== .gitmodules:"; cat .gitmodules 2>/dev/null | head -20 || echo "(không có)"
+          for m in translations dictionaries; do
+            if git config -f .gitmodules --get "submodule.$m.path" > /dev/null 2>&1; then
+              echo "== lấy submodule $m"; git submodule update --init --depth 1 "$m" 2>&1 | tail -3 || echo "KHÔNG lấy được $m"
+            else echo "== $m không phải submodule trong bản này"; fi
+          done
+          ls translations 2>/dev/null | head -5; ls dictionaries 2>/dev/null | grep -E '^(vi|en)$' || true
+          ls dictionaries/vi 2>/dev/null | head -20 | tee /cygdrive/c/lo/report/dict-vi-files.txt || true
       - name: Khôi phục ccache
         if: steps.exists.outputs.done == '0'
         uses: actions/cache/restore@v4
@@ -170,6 +182,36 @@ jobs:
         with:
           path: C:\lo\ccache
           key: lo-ccache-${{ env.LO_TAG }}-${{ github.run_id }}
+      - name: Tinh chỉnh engine (từ điển, script dung_api) và tự kiểm
+        if: steps.make.outputs.result == 'done'
+        continue-on-error: true
+        run: |
+          cd /cygdrive/c/lo/core/instdir
+          rep=/cygdrive/c/lo/report
+          echo "== Từ điển có trong engine (trước khi lọc):" | tee $rep/dict-prune.txt
+          ls share/extensions 2>/dev/null | tee -a $rep/dict-prune.txt || true
+          du -sh share/extensions 2>/dev/null | tee -a $rep/dict-prune.txt || true
+          # Chỉ giữ tiếng Việt và tiếng Anh để không phình dung lượng
+          for d in share/extensions/dict-*; do
+            [ -d "$d" ] || continue
+            case "$(basename "$d")" in dict-vi|dict-en) ;; *) echo "bỏ $(basename "$d")" >> $rep/dict-prune.txt; rm -rf "$d";; esac
+          done
+          ls -d share/extensions/dict-* 2>&1 | tee -a $rep/dict-prune.txt || true
+          # Giấy phép từ điển: sao chép tệp README/LICENSE của từ điển vào engine để phát hành kèm
+          mkdir -p LICENSES-dung
+          find share/extensions/dict-vi -maxdepth 2 \( -iname 'README*' -o -iname 'LICENSE*' -o -iname 'COPYING*' -o -iname 'license*' \) -exec cp {} LICENSES-dung/ \; 2>/dev/null || true
+          ls LICENSES-dung | tee -a $rep/dict-prune.txt || true
+          # Thư viện script của ứng dụng
+          mkdir -p share/Scripts/python
+          cp "$(cygpath -u "$GITHUB_WORKSPACE")/dungoff/engine-build/dung-scripts/dung_api.py" share/Scripts/python/dung_api.py
+          sha256sum share/Scripts/python/dung_api.py | tee -a $rep/dict-prune.txt
+          # Tự kiểm: pyuno + Python script provider + đặt lề (không chặn phát hành nếu lỗi)
+          set +e
+          export DUNG_PROGRAM_DIR="$(cygpath -w "$PWD/program")"
+          cp "$(cygpath -u "$GITHUB_WORKSPACE")/dungoff/engine-build/dung-scripts/test_dung_api.py" /tmp/test_dung_api.py
+          timeout 300 program/python.exe "$(cygpath -w /tmp/test_dung_api.py)" 2>&1 | tee $rep/dung-api-test.txt
+          echo "mã thoát bài tự kiểm dung_api: ${PIPESTATUS[0]}" | tee -a $rep/dung-api-test.txt
+          pkill -f soffice.exe 2>/dev/null; true
       - name: Đóng gói engine và phát hành
         if: steps.make.outputs.result == 'done'
         env:

@@ -10,7 +10,6 @@
 --without-junit
 --without-help
 --without-helppack-integration
---without-myspell-dicts
 --without-doxygen
 --disable-gpgmepp
 --disable-online-update
@@ -23,3 +22,6 @@
 --disable-dependency-tracking
 --enable-mergelibs
 --without-galleries
+--enable-release-build
+--with-lang=vi
+--with-myspell-dicts

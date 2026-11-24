@@ -24,6 +24,11 @@ Base/Firebird, report builder, BeanShell/JavaScript scripting, galleries.
 | 8 | Tính năng mất khi lưu (track changes, bình luận, Pivot, SmartArt…) | Cảnh báo/chỉ đọc ở app | Mất tính năng quan trọng do lỗi engine | chờ (exp/feature-fidelity) |
 | 9 | Dung lượng bộ cài (184 MB) | Bỏ module không dùng khi build (Math, Base, Draw?) | — (tuỳ chọn) | chưa đo |
 
+## Cập nhật 25/11/2026 (người dùng chốt build, không chờ hết thí nghiệm)
+Build v2 (tag `engine-26.8.3.2-headless`) gồm: `--with-lang=vi`, từ điển Hunspell vi, `--enable-release-build`,
+giữ Python nội bộ, thư viện script `dung_api.py` (đặt lề/đầu-chân trang qua UNO) kèm bài tự kiểm. Chi tiết: `engine-build/CHANGES-v2.md`.
+Không cắt module trong lượt này (chưa kiểm chứng cờ an toàn). Mục 2 (JSON dialog) và 4 (preedit) giải ở app nếu engine đã hỗ trợ.
+
 ## Quy trình quyết định
 1. Chờ ba thí nghiệm (cầu nối macro, ma trận lệnh, toàn vẹn tính năng).
 2. Điền bảng trên; chỉ các mục "Chỉ build lại nếu" đã thành sự thật mới đưa vào patch/cấu hình.
