@@ -645,6 +645,9 @@ jobs:
             installer/Output/*.zip
             installer/Output/SHA256SUMS.txt
           fail_on_unmatched_files: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body: |
+            Bản cài THỬ (chưa ký số, Windows SmartScreen sẽ cảnh báo). Kiểm SHA256 bằng SHA256SUMS.txt. Xem docs/HUONG_DAN_SU_DUNG.md và docs/KICH_BAN_KIEM_TRA_THIET_BI_THAT.md.
 
   # ------------------------------------------------------------------ Báo cáo: đẩy log + ảnh chụp lên nhánh ci-report
   report:
