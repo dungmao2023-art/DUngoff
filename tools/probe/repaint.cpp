@@ -70,6 +70,10 @@ int main(int argc, char** argv) {
         const std::string cr = doc->lastPayload(1), cv = doc->lastPayload(5);
         printf("REPAINT %s: sự kiện vị trí con trỏ: %s %s\n", mode.c_str(), cr.empty() ? "KHÔNG" : "có", cr.substr(0, 60).c_str());
         printf("REPAINT %s: sự kiện hiện/ẩn con trỏ: %s %s\n", mode.c_str(), cv.empty() ? "KHÔNG" : "có", cv.substr(0, 40).c_str());
+        const std::string cc = doc->lastPayload(17), ca = doc->lastPayload(42);   // 17 = CELL_CURSOR, 42 = CELL_SELECTION_AREA
+        printf("REPAINT %s: sự kiện khung ô (CELL_CURSOR): %s %s\n", mode.c_str(), cc.empty() ? "KHÔNG" : "có", cc.substr(0, 60).c_str());
+        printf("REPAINT %s: sự kiện vùng chọn ô (CELL_SELECTION_AREA): %s %s\n", mode.c_str(), ca.empty() ? "KHÔNG" : "có", ca.substr(0, 60).c_str());
+        printf("REPAINT %s: con trỏ rộng 0 (hợp lệ khi vẽ): %s\n", mode.c_str(), cr.find(", 0, ")!=std::string::npos ? "có — đây là nguyên nhân gốc lỗi cũ" : "không");
     }
     auto typed = tile(*doc, tw, th);
     Box b1 = diff(before, typed, 512);

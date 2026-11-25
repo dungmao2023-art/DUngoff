@@ -4,6 +4,8 @@
 #include <QGuiApplication>
 #include <QInputMethod>
 
+#include "CaretGeom.h"
+#include "CaretTrace.h"
 #include "KeyMap.h"
 #include "Theme.h"
 
@@ -34,7 +36,11 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
     m_synthTimer.setInterval(60);
     connect(&m_synthTimer, &QTimer::timeout, this, [this] { refreshAllTiles(); m_synthLate.start(); });
     m_blink.setInterval(530);
-    connect(&m_blink, &QTimer::timeout, this, [this] { m_blinkOn = !m_blinkOn; if (!m_caret.isEmpty()) viewport()->update(); });
+    connect(&m_blink, &QTimer::timeout, this, [this] {
+        if (m_blinkFrozen) return;
+        m_blinkOn = !m_blinkOn;
+        if (m_hasCaret) viewport()->update();
+    });
     m_blink.start();
     m_synthLate.setSingleShot(true);
     m_synthLate.setInterval(250);
@@ -105,6 +111,7 @@ void TileView::setZoom(int percent) {
 void TileView::resetForPartChange() {
     m_tiles.clear();
     m_selection.clear();
+    m_cellArea = QRect();
     m_doc->documentSize(m_docW, m_docH);
     horizontalScrollBar()->setValue(0);
     verticalScrollBar()->setValue(0);
@@ -199,18 +206,15 @@ void TileView::paintEvent(QPaintEvent* ev) {
     QColor sel = theme::kBlue;
     sel.setAlpha(50);
     for (const QRect& r : m_selection) p.fillRect(toView(r), sel);
-    if (!m_cellCursor.isEmpty()) {
+    if (m_selection.isEmpty() && !m_cellArea.isEmpty()) p.fillRect(toView(m_cellArea), sel);
+    if (m_hasCell) {
+        const QRect v = toView(m_cellCursor);
         p.setPen(QPen(theme::kExcel, 2));
         p.setBrush(Qt::NoBrush);
-        p.drawRect(toView(m_cellCursor).adjusted(0, 0, -1, -1));
-        const QRect v = toView(m_cellCursor);
+        p.drawRect(v.adjusted(0, 0, -1, -1));
         p.fillRect(QRect(v.right() - 3, v.bottom() - 3, 6, 6), theme::kExcel); // tay nắm
     }
-    if (m_caretVisible && m_blinkOn && !m_caret.isEmpty() && hasFocus()) {
-        QRect c = toView(m_caret);
-        c.setWidth(qMax(2, int(devicePixelRatioF() + 1.0)));
-        p.fillRect(c, Qt::black);
-    }
+    drawCaret(p);
     p.restore();
 
     // ---- Tiêu đề hàng/cột (Excel) ----
@@ -244,6 +248,43 @@ void TileView::paintEvent(QPaintEvent* ev) {
         }
         p.fillRect(QRect(0, 0, h.x() - 1, h.y() - 1), bg);
     }
+}
+
+
+bool TileView::caretShownNow() const {
+    return m_hasCaret && m_caretVisible && m_blinkOn && hasFocus();
+}
+
+QRect TileView::caretViewRect() const { return m_hasCaret ? toView(m_caret) : QRect(); }
+QRect TileView::cellCursorViewRect() const { return m_hasCell ? toView(m_cellCursor) : QRect(); }
+
+void TileView::drawCaret(QPainter& p) {
+    if (carettrace::enabled()) {
+        static bool last = false;
+        const bool now = caretShownNow();
+        if (now != last) {
+            last = now;
+            carettrace::log("vẽ: con trỏ %s (có=%d hiện=%d pha=%d focus=%d) viewRect=%d,%d,%d,%d", now ? "BẬT" : "tắt", int(m_hasCaret),
+                            int(m_caretVisible), int(m_blinkOn), int(hasFocus()), caretViewRect().x(), caretViewRect().y(),
+                            caretViewRect().width(), caretViewRect().height());
+        }
+    }
+    if (!caretShownNow()) return;
+    const QRectF c = caretgeom::caretDeviceRect(toView(m_caret), devicePixelRatioF());
+    p.fillRect(c, QColor(0x1B, 0x2A, 0x41));
+}
+
+void TileView::restartBlink() {
+    m_blinkOn = true;
+    m_blink.start();   // khởi động lại chu kỳ: hiện liền ~530ms rồi mới tắt
+    if (m_hasCaret) viewport()->update();
+}
+
+void TileView::focusInEvent(QFocusEvent* e) {
+    QAbstractScrollArea::focusInEvent(e);
+    carettrace::log("focus: VÀO");
+    restartBlink();
+    viewport()->update();
 }
 
 void TileView::resizeEvent(QResizeEvent* e) {
@@ -296,6 +337,17 @@ void TileView::invalidateTwips(const QRect& r) {
 }
 
 void TileView::handleEvent(int type, const QString& payload) {
+    if (carettrace::enabled()) {
+        switch (type) {
+        case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR: case LOK_CALLBACK_CURSOR_VISIBLE: case LOK_CALLBACK_CELL_CURSOR:
+        case LOK_CALLBACK_TEXT_SELECTION: case LOK_CALLBACK_TEXT_SELECTION_START: case LOK_CALLBACK_TEXT_SELECTION_END:
+        case LOK_CALLBACK_GRAPHIC_SELECTION: case LOK_CALLBACK_CELL_SELECTION_AREA: case LOK_CALLBACK_CELL_ADDRESS:
+        case LOK_CALLBACK_INVALIDATE_VIEW_CURSOR: case LOK_CALLBACK_VIEW_CURSOR_VISIBLE:
+            carettrace::log("sự kiện %d: %s", type, payload.left(120).toUtf8().constData());
+            break;
+        default: break;
+        }
+    }
     switch (type) {
     case LOK_CALLBACK_INVALIDATE_TILES: {
         // Engine Windows không tự báo làm mới sau khi gõ/ra lệnh: tầng engine phát "SYNTH".
@@ -318,8 +370,12 @@ void TileView::handleEvent(int type, const QString& payload) {
         if (!m_isCalc) { m_tiles.clear(); viewport()->update(); }
         break;
     case LOK_CALLBACK_CELL_CURSOR:
-        m_cellCursor = payload.startsWith(QLatin1String("EMPTY")) ? QRect() : parseRect(payload);
-        if (!m_cellCursor.isEmpty()) {
+        {
+            const caretgeom::Parsed pc = caretgeom::parseCursorPayload(payload);
+            m_hasCell = pc.valid;
+            m_cellCursor = pc.valid ? pc.rect : QRect();
+        }
+        if (m_hasCell) {
             // Tự cuộn để ô đang chọn luôn nhìn thấy
             const QRect v = toView(m_cellCursor);
             const QPoint h = headerSize();
@@ -335,21 +391,28 @@ void TileView::handleEvent(int type, const QString& payload) {
         viewport()->update();
         break;
     case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR: {
-        QString rect = payload;
-        if (payload.startsWith(QLatin1Char('{')))
-            rect = QJsonDocument::fromJson(payload.toUtf8()).object().value(QStringLiteral("rectangle")).toString();
-        m_caret = rect.startsWith(QLatin1String("EMPTY")) ? QRect() : parseRect(rect);
+        const caretgeom::Parsed pc = caretgeom::parseCursorPayload(payload);
+        m_hasCaret = pc.valid;
+        m_caret = pc.valid ? pc.rect : QRect();
         // Engine headless có thể không gửi CURSOR_VISIBLE: khi chưa từng thấy thì coi con trỏ là hiện.
-        if (!m_caretVisSeen) m_caretVisible = !m_caret.isEmpty();
-        m_blinkOn = true;
+        if (!m_caretVisSeen) m_caretVisible = m_hasCaret;
+        restartBlink();   // đang gõ/di chuyển: hiện liên tục rồi nhấp nháy lại
         viewport()->update();
         break;
     }
     case LOK_CALLBACK_CURSOR_VISIBLE:
         m_caretVisSeen = true;
         m_caretVisible = payload.contains(QLatin1String("true"));
+        restartBlink();
         viewport()->update();
         break;
+    case LOK_CALLBACK_CELL_SELECTION_AREA: {
+        // Vùng nhiều ô của Calc (nếu engine không báo qua TEXT_SELECTION): tô mờ giống vùng chọn chữ.
+        const caretgeom::Parsed pa = caretgeom::parseCursorPayload(payload);
+        m_cellArea = (pa.valid && pa.rect.width() > 0 && pa.rect.height() > 0) ? pa.rect : QRect();
+        viewport()->update();
+        break;
+    }
     default:
         break;
     }
@@ -368,6 +431,7 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 void TileView::mousePressEvent(QMouseEvent* e) {
     cancelComposition();
     setFocus();
+    restartBlink();
     m_pressButtons = toLokButtons(e->buttons());
     sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, e, 1);
 }
@@ -393,6 +457,7 @@ void TileView::keyPressEvent(QKeyEvent* e) {
     if (m_composing && e->key() == Qt::Key_Escape) { cancelComposition(); e->accept(); return; }
     const LokKey k = toLokKey(e);
     if (!k.valid) { QAbstractScrollArea::keyPressEvent(e); return; }
+    restartBlink();   // đang gõ: con trỏ hiện liên tục
     m_doc->postKey(LOK_KEYEVENT_KEYINPUT, k.charCode, k.keyCode);
     e->accept();
 }
@@ -435,12 +500,13 @@ void TileView::cancelComposition() {
 }
 
 void TileView::focusOutEvent(QFocusEvent* e) {
+    carettrace::log("focus: RA");
     cancelComposition();
     QAbstractScrollArea::focusOutEvent(e);
 }
 
 QVariant TileView::inputMethodQuery(Qt::InputMethodQuery q) const {
-    if (q == Qt::ImCursorRectangle) return toView(m_caret.isEmpty() ? m_cellCursor : m_caret);
+    if (q == Qt::ImCursorRectangle) return m_hasCaret ? toView(m_caret) : (m_hasCell ? toView(m_cellCursor) : QRect());
     if (q == Qt::ImEnabled) return true;
     if (q == Qt::ImHints) return int(Qt::ImhNone);
     return QAbstractScrollArea::inputMethodQuery(q);

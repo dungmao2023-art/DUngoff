@@ -10,6 +10,7 @@
 #include <QTimer>
 #include <QVector>
 
+class QPainter;
 class TileView : public QAbstractScrollArea {
     Q_OBJECT
 public:
@@ -19,6 +20,16 @@ public:
     void setZoom(int percent);          // 25..400
     void resetForPartChange();          // gọi sau khi đổi sheet/slide/trang
     void handleEvent(int type, const QString& payload); // gọi trên luồng giao diện
+
+    // ---- Dành cho kiểm thử/chẩn đoán ----
+    bool hasCaret() const { return m_hasCaret; }
+    bool hasCellCursor() const { return m_hasCell; }
+    QRect caretViewRect() const;        // con trỏ chữ trong toạ độ viewport (rỗng nếu chưa có)
+    QRect cellCursorViewRect() const;   // khung ô hiện hành trong toạ độ viewport
+    bool caretShownNow() const;         // con trỏ chữ đang được vẽ ở khung hình này
+    // Khoá pha nhấp nháy (bật/tắt) để so khung hình; unfreeze trả về nhấp nháy bình thường.
+    void freezeBlink(bool on) { m_blinkFrozen = true; m_blinkOn = on; viewport()->update(); }
+    void unfreezeBlink() { m_blinkFrozen = false; restartBlink(); }
 
 signals:
     void zoomChanged(int percent);
@@ -36,6 +47,7 @@ protected:
     void keyReleaseEvent(QKeyEvent*) override;
     void inputMethodEvent(QInputMethodEvent*) override;
     QVariant inputMethodQuery(Qt::InputMethodQuery q) const override;
+    void focusInEvent(QFocusEvent*) override;
     void focusOutEvent(QFocusEvent*) override;
     bool focusNextPrevChild(bool) override { return false; } // Tab dành cho tài liệu
 
@@ -61,7 +73,12 @@ private:
     int m_zoom = 100;
     long m_docW = 0, m_docH = 0;               // twip
     QHash<quint64, QImage> m_tiles;
-    QRect m_cellCursor, m_caret;
+    QRect m_cellCursor, m_caret;   // twip; m_caret có thể rộng 0 nên dùng cờ m_hasCaret/m_hasCell, KHÔNG dùng isEmpty()
+    QRect m_cellArea;              // vùng nhiều ô (CELL_SELECTION_AREA)
+    bool m_hasCaret = false, m_hasCell = false;
+    bool m_blinkFrozen = false;
+    void restartBlink();           // hiện ngay rồi mới nhấp nháy lại (gõ/di chuyển/lấy focus)
+    void drawCaret(QPainter& p);
     void cancelComposition();       // huỷ chữ đang soạn (mất focus / Escape / bấm chuột)
     bool m_composing = false;       // engine đang giữ chữ đang soạn (preedit)
     bool m_caretVisible = false;
