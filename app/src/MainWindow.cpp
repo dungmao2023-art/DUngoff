@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
+#define LOK_USE_UNSTABLE_API
 #include "MainWindow.h"
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <functional>
 #include "ppt/PptActions.h"
 
@@ -129,6 +131,29 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         }, 250);
         if (!o.ok) { if (msg) *msg = QString::fromStdString(o.message); return false; }
         if (res) *res = QString::fromStdString(o.resultText);
+        return true;
+    };
+    dataassist::hooks().selectedCellAddress = [this]() -> QString {
+        DocumentTab* t = current();
+        if (!t || t->kind() != dung::DocKind::Spreadsheet) return {};
+        return QString::fromStdString(dataassist::bridgeCellAddress(t->document()->lastPayload(LOK_CALLBACK_CELL_ADDRESS)));
+    };
+    dataassist::hooks().insertFormulaAt = [this](const QString& target, const QString& f, QString* res, QString* msg) -> bool {
+        DocumentTab* t = current();
+        if (!t || t->kind() != dung::DocKind::Spreadsheet || t->readOnly()) {
+            if (msg) *msg = tr("Cần mở một bảng tính có thể chỉnh sửa."); return false;
+        }
+        const auto addr = dataassist::bridgeCellAddress(target.toStdString());
+        const auto out = dataassist::bridgeInsertFormulaAt(*t->document(), addr, f.toStdString(), LOK_CALLBACK_CELL_ADDRESS,
+            [this, t, addr](const std::string& old) {
+                const auto sheet = QString::fromStdString(t->document()->partName(t->document()->currentPart()));
+                return QMessageBox::question(this, tr("Xác nhận ô kết quả"),
+                    tr("Ghi công thức vào %1 — %2?\nGiá trị hiển thị trước khi ghi: %3\nCó thể thay thế công thức đang có. Hoàn tác bằng Ctrl+Z.")
+                        .arg(sheet, QString::fromStdString(addr), QString::fromStdString(old).left(200)),
+                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+            });
+        if (!out.ok) { if (msg) *msg = QString::fromStdString(out.message); return false; }
+        if (res) *res = QString::fromStdString(out.resultText);
         return true;
     };
     ch->addWidget(m_stack, 1);

@@ -50,10 +50,21 @@ public:
         list_ = new QListWidget; lay->addWidget(list_, 1);
         desc_ = new QLabel; desc_->setWordWrap(true); lay->addWidget(desc_);
         form_ = new QFormLayout; lay->addLayout(form_);
+        auto* targetRow = new QHBoxLayout;
+        target_ = new QLineEdit; target_->setPlaceholderText(QStringLiteral("VD: C6"));
+        auto* useTarget = new QPushButton(QStringLiteral("Lấy ô"));
+        targetRow->addWidget(target_, 1); targetRow->addWidget(useTarget);
+        lay->addWidget(new QLabel(QStringLiteral("Ô kết quả (sheet hiện tại)")));
+        lay->addLayout(targetRow);
+        connect(useTarget, &QPushButton::clicked, this, [this] {
+            const QString addr = hooks().selectedCellAddress ? hooks().selectedCellAddress() : QString();
+            if (addr.isEmpty()) { status_->setText(QStringLiteral("Chưa nhận được địa chỉ ô từ engine.")); return; }
+            target_->setText(addr);
+        });
         result_ = new QLineEdit; result_->setPlaceholderText(QStringLiteral("Công thức sẽ hiện ở đây — sửa tự do được"));
         lay->addWidget(result_);
         auto *btns = new QVBoxLayout;
-        insert_ = new QPushButton(QStringLiteral("Chèn vào ô đang chọn"));
+        insert_ = new QPushButton(QStringLiteral("Chèn vào ô kết quả"));
         copy_ = new QPushButton(QStringLiteral("Sao chép công thức"));
         btns->addWidget(insert_); btns->addWidget(copy_); btns->addStretch();
         lay->addLayout(btns);
@@ -65,10 +76,11 @@ public:
         connect(insert_, &QPushButton::clicked, this, [this] {
             const SyntaxCheck sc = quickSyntaxCheck(result_->text());
             if (!sc.ok) { status_->setText(QStringLiteral("Chưa chèn: ") + sc.message); return; }
-            if (!hooks().insertFormula) { status_->setText(QStringLiteral("Chưa nối với tab Excel đang mở — hãy dùng “Sao chép công thức” rồi dán vào ô.")); return; }
+            if (!hooks().insertFormulaAt) { status_->setText(QStringLiteral("Chưa nối với tab Excel đang mở — hãy dùng “Sao chép công thức” rồi dán vào ô.")); return; }
+            if (target_->text().trimmed().isEmpty()) { status_->setText(QStringLiteral("Hãy nhập ô kết quả hoặc bấm Lấy ô.")); return; }
             QString res, msg;
-            if (!hooks().insertFormula(result_->text(), &res, &msg)) { status_->setText(msg.isEmpty() ? QStringLiteral("Không chèn được (không có tab Excel đang mở?).") : msg); return; }
-            QString note = QStringLiteral("Đã chèn vào ô đang chọn; kết quả engine tính: ") + (res.isEmpty() ? QStringLiteral("(trống)") : res) + QStringLiteral(". Hoàn tác bằng Ctrl+Z.");
+            if (!hooks().insertFormulaAt(target_->text(), result_->text(), &res, &msg)) { status_->setText(msg.isEmpty() ? QStringLiteral("Không chèn được (không có tab Excel đang mở?).") : msg); return; }
+            QString note = QStringLiteral("Đã gửi công thức tới ô kết quả; giá trị đọc lại: ") + (res.isEmpty() ? QStringLiteral("(trống)") : res) + QStringLiteral(". Hoàn tác bằng Ctrl+Z.");
             if (res.startsWith(QLatin1Char('#')) || res.startsWith(QStringLiteral("Err:"))) {
                 const QString fn = result_->text().mid(1, result_->text().indexOf(QLatin1Char('(')) - 1);
                 const QString hint = replacementHint(fn);
@@ -106,7 +118,18 @@ private:
         for (const ArgInfo &a : cur_->args) {
             auto *e = new QLineEdit; e->setPlaceholderText(a.hint);
             edits_.push_back(e);
-            form_->addRow(a.name + (a.optional ? QStringLiteral(" (tuỳ chọn)") : QString()), e);
+            auto* field = new QWidget;
+            auto* row = new QHBoxLayout(field); row->setContentsMargins(0, 0, 0, 0);
+            row->addWidget(e, 1);
+            auto* pick = new QPushButton(QStringLiteral("Lấy ô"));
+            pick->setToolTip(QStringLiteral("Chọn ô trong bảng tính rồi bấm để điền địa chỉ. Với vùng nhiều ô, nhập A1:B10."));
+            row->addWidget(pick);
+            connect(pick, &QPushButton::clicked, this, [this, e] {
+                const QString addr = hooks().selectedCellAddress ? hooks().selectedCellAddress() : QString();
+                if (addr.isEmpty()) { status_->setText(QStringLiteral("Chưa nhận được địa chỉ ô từ engine.")); return; }
+                e->setText(addr);
+            });
+            form_->addRow(a.name + (a.optional ? QStringLiteral(" (tuỳ chọn)") : QString()), field);
             connect(e, &QLineEdit::textChanged, this, [this] { rebuild(); });
         }
         rebuild();
@@ -119,7 +142,7 @@ private:
         if (b.ok) { result_->setText(b.formula); status_->clear(); }
         else { result_->clear(); status_->setText(b.error); }
     }
-    QLineEdit *search_{}, *result_{};
+    QLineEdit *search_{}, *result_{}, *target_{};
     QComboBox *cat_{};
     QListWidget *list_{};
     QLabel *desc_{}, *status_{};

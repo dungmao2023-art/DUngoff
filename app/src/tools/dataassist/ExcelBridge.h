@@ -48,6 +48,55 @@ inline InsertOutcome bridgeInsertFormula(dung::Document& d, const std::string& f
     return o;
 }
 
+// Chỉ nhận địa chỉ A1 một ô thuộc sheet hiện tại; không nhận tên sheet, vùng hoặc tên định nghĩa.
+inline std::string bridgeCellAddress(std::string s) {
+    s = bridgeTrim(s);
+    std::string col, row;
+    size_t i = 0;
+    if (i < s.size() && s[i] == '$') ++i;
+    while (i < s.size() && ((s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z'))) {
+        char c = s[i++];
+        col += (c >= 'a' && c <= 'z') ? char(c - 'a' + 'A') : c;
+    }
+    if (i < s.size() && s[i] == '$') ++i;
+    while (i < s.size() && s[i] >= '0' && s[i] <= '9') row += s[i++];
+    if (i != s.size() || col.empty() || col.size() > 3 || row.empty() || row.size() > 7 || row[0] == '0') return {};
+    int n = 0, rn = 0;
+    for (char c : col) n = n * 26 + c - 'A' + 1;
+    for (char c : row) rn = rn * 10 + c - '0';
+    if (n > 16384 || rn > 1048576) return {};
+    return col + row;
+}
+
+// Chờ callback mới để xác minh địa chỉ đích; không suy đoán từ vùng chọn cũ.
+// Luôn xác nhận trước khi ghi, kể cả khi giá trị hiển thị rỗng (ô có thể chứa công thức).
+inline InsertOutcome bridgeInsertFormulaAt(dung::Document& d, const std::string& target, const std::string& formula,
+                                           int addressEvent,
+                                           const std::function<bool(const std::string&)>& confirm,
+                                           int timeoutMs = 2500) {
+    InsertOutcome o;
+    const auto addr = bridgeCellAddress(target);
+    if (addr.empty()) { o.message = "Ô kết quả phải là một địa chỉ A1 hợp lệ (vd. C6) trong sheet hiện tại."; return o; }
+    if (d.kind() != dung::DocKind::Spreadsheet || d.readOnly()) { o.message = "Cần bảng tính có thể chỉnh sửa."; return o; }
+    if (formula.empty() || formula[0] != '=') { o.message = "Công thức phải bắt đầu bằng ="; return o; }
+    d.waitInputIdle();
+    const int part = d.currentPart();
+    d.clearEvents();
+    d.command(".uno:GoToCell", dung::Document::stringArg("ToPoint", addr));
+    const bool matched = d.waitFor(addressEvent, [&](const std::string& s) { return bridgeCellAddress(s) == addr; }, timeoutMs);
+    d.waitInputIdle();
+    if (!matched || d.currentPart() != part || bridgeCellAddress(d.lastPayload(addressEvent)) != addr) {
+        o.message = "Chưa xác minh được ô kết quả. Chọn ô khác rồi thử lại; chưa ghi dữ liệu.";
+        return o;
+    }
+    o.previous = bridgeSelectedText(d);
+    if (!confirm || !confirm(o.previous)) { o.declined = true; o.message = "Đã huỷ; chưa ghi dữ liệu."; return o; }
+    if (d.currentPart() != part || bridgeCellAddress(d.lastPayload(addressEvent)) != addr) {
+        o.message = "Ô kết quả đã thay đổi; chưa ghi dữ liệu."; return o;
+    }
+    return bridgeInsertFormula(d, formula, [](const std::string&) { return true; });
+}
+
 inline bool bridgeLooksLikeError(const std::string& r) { return r.rfind("#", 0) == 0 || r.rfind("Err:", 0) == 0; }
 
 }  // namespace dataassist
