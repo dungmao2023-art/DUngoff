@@ -1,0 +1,66 @@
+[ĐẠT]  Chuẩn bị tệp gốc trong thư mục tiếng Việt
+  -> khởi động engine
+[ĐẠT]  Khởi động engine LibreOfficeKit 
+       Phiên bản engine: { "ProductName": "LibreOffice", "ProductVersion": "24.2", "ProductExtension": ".7.2", "BuildId": "420(Build:2)" }
+  -> mở XLSX
+[ĐẠT]  Mở XLSX 
+[ĐẠT]  Nhận diện loại tài liệu = Excel
+[ĐẠT]  XLSX mở ở chế độ chỉnh sửa
+[ĐẠT]  Engine nạp bản làm việc tạm, không nạp tệp gốc
+[ĐẠT]  Có 2 sheet (thực tế: 2)
+[ĐẠT]  Tên sheet tiếng Việt: 'Doanh thu', 'Ghi chú'
+  -> render tile XLSX
+No language allowlisted, turning off the language support.
+[ĐẠT]  Render tile có nội dung (8711 điểm ảnh tối)
+  -> gõ nội dung vào F2
+[ĐẠT]  Di chuyển con trỏ ô tới F2
+[ĐẠT]  Nhập 'Dũng' vào F2 (con trỏ xuống F3)
+[ĐẠT]  Nhập công thức '=D5*2' vào F3
+[ĐẠT]  Thanh công thức báo đúng '=D5*2' (thực tế: '=D5*2')
+[ĐẠT]  Di chuyển tới G2
+  -> EnterString
+[ĐẠT]  Nhập công thức từ thanh công thức (EnterString): ="Tổng: "&D5
+  -> clipboard
+[ĐẠT]  Sao chép ô A2 ra clipboard dạng văn bản: 'Bút bi'
+[ĐẠT]  Engine báo tài liệu đã thay đổi
+  -> quy tắc lưu an toàn
+[ĐẠT]  Từ chối ghi đè tệp gốc khi chưa xác nhận: Để bảo vệ dữ liệu, Dũng Office không ghi đè tệp gốc. Hãy dùng "Lưu thành" với tên mới.
+[ĐẠT]  Từ chối ghi định dạng chưa bảo toàn (.xls): Dũng Office chưa ghi được định dạng .xls mà bảo đảm không mất dữ liệu. Hãy chọn định dạng .xlsx.
+[ĐẠT]  Xuất PDF cần xác nhận: Xuất PDF là bản in (mất công thức/khả năng chỉnh sửa). Cần xác nhận xuất.
+[ĐẠT]  Từ chối thay tệp đích đã tồn tại khi chưa xác nhận
+  -> Lưu thành XLSX
+[ĐẠT]  Gợi ý Lưu thành tệp mới: Báo cáo doanh thu - Dũng Office.xlsx
+[ĐẠT]  Lưu thành XLSX: Đã lưu: Báo cáo doanh thu - Dũng Office.xlsx
+[ĐẠT]  Tệp gốc giữ nguyên từng byte sau khi lưu
+[ĐẠT]  Lưu lại (Ctrl+S) vào tệp của phiên: không hỏi, không tạo sao lưu thừa
+[ĐẠT]  Không để lại tệp tạm sau khi lưu
+  -> xuất PDF
+[ĐẠT]  Xuất PDF khi đã xác nhận: Đã lưu: ban-in.pdf
+[ĐẠT]  Thay tệp đã tồn tại có xác nhận -> có bản sao lưu: da-co.dung-backup-20261125-113553.xlsx
+       Đóng tài liệu...
+  -> đóng tài liệu XLSX
+       Đã đóng.
+  -> mở CSV
+[ĐẠT]  Mở CSV 
+[ĐẠT]  CSV mở ở chế độ chỉ đọc (chưa bảo toàn kiểu dữ liệu khi ghi)
+[ĐẠT]  Có cảnh báo cho người dùng khi mở CSV
+[ĐẠT]  Tài liệu chỉ đọc không được lưu khi chưa xác nhận: Tài liệu đang ở chế độ chỉ đọc. Lưu sang định dạng mới có thể làm mất một phần nội dung của tệp gốc (vd. macro). Cần xác nhận trước khi lưu.
+  -> mở DOCX
+[ĐẠT]  Mở DOCX -> Word, chỉnh sửa được 
+[ĐẠT]  Render docx có nội dung (7835 điểm ảnh tối)
+[ĐẠT]  Lưu thành DOCX: Đã lưu: Văn bản - Dũng Office.docx
+  -> mở PPTX
+[ĐẠT]  Mở PPTX -> PowerPoint, 2 trang chiếu 
+[ĐẠT]  Render pptx có nội dung (16746 điểm ảnh tối)
+[ĐẠT]  Lưu thành PPTX: Đã lưu: Trình chiếu - Dũng Office.pptx
+  -> mở PDF
+[ĐẠT]  Mở PDF -> chế độ xem (chỉ đọc) 
+[ĐẠT]  Render pdf có nội dung (1493 điểm ảnh tối)
+[ĐẠT]  PDF: không ghi lại khi chưa xác nhận: PDF được mở để xem. Tạo lại tệp PDF có thể thay đổi bố cục so với bản gốc. Cần xác nhận xuất.
+  -> tạo mới
+[ĐẠT]  Tạo sổ làm việc mới 
+[ĐẠT]  Lưu sổ làm việc mới: Đã lưu: Sổ mới.xlsx
+[ĐẠT]  Tạo + lưu tài liệu Word mới 
+[ĐẠT]  Tạo + lưu bản trình chiếu mới 
+
+KẾT QUẢ: TẤT CẢ ĐẠT

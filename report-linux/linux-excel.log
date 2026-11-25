@@ -1,0 +1,35 @@
+  -> khởi động engine
+[ĐẠT]  Khởi động engine 
+  -> mở tệp Excel cơ bản
+[ĐẠT]  Mở tệp 
+[ĐẠT]  Ban đầu có 2 sheet: Dữ liệu|Phụ
+  -> thêm / đổi tên / nhân đôi / xoá sheet
+[ĐẠT]  Thêm sheet 'Mới' vào cuối: Dữ liệu|Phụ|Mới
+[ĐẠT]  Đổi tên sheet: Dữ liệu|Phụ|Đổi tên
+[ĐẠT]  Nhân đôi sheet 'Phụ' (số sheet = 4): Dữ liệu|Phụ|Phụ_2|Đổi tên
+[TIN]  Thứ tự sheet sau khi nhân đôi: Dữ liệu|Phụ|Phụ_2|Đổi tên
+[ĐẠT]  Tìm thấy sheet 'Đổi tên'
+[ĐẠT]  Xoá sheet 'Đổi tên': Dữ liệu|Phụ|Phụ_2
+[ĐẠT]  Sheet đầu vẫn là 'Dữ liệu'
+  -> định dạng ô A1
+No language allowlisted, turning off the language support.
+  -> định dạng số B2 (%), B4 (#,##0) — không đổi kiểu/giá trị
+  -> độ rộng cột C, chiều cao hàng 4
+  -> tìm & thay thế chỉ trong giá trị (B -> Z), công thức giữ nguyên
+  -> sắp xếp giảm dần theo cột Số
+  -> cố định hàng đầu + bộ lọc tự động
+  -> chèn hàng 4 (công thức dịch theo)
+  -> AutoSum (thông tin, không chặn)
+  -> lưu kết quả
+[ĐẠT]  Lưu thành excel-ket-qua.xlsx: Đã lưu: excel-ket-qua.xlsx
+  -> mở tệp stress 5000 dòng
+[ĐẠT]  Mở tệp stress 
+[ĐẠT]  Có sheet DonHang
+  -> stress: sắp xếp giảm dần theo cột F (5000 dòng, công thức)
+[ĐẠT]  Sắp xếp 5000 dòng không treo (67 ms)
+  -> stress: bộ lọc tự động
+[ĐẠT]  Bật bộ lọc 5000 dòng không treo (0 ms)
+  -> stress: lưu
+[ĐẠT]  Lưu kết quả stress: Đã lưu: stress-ket-qua.xlsx
+
+KẾT QUẢ EXCEL: ĐẠT

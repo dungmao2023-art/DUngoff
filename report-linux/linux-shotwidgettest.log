@@ -1,0 +1,23 @@
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support raise()
+== Kiểm thử khói widget chụp màn hình ==
+[ĐẠT]  widget dựng được, có khung vẽ
+[ĐẠT]  chưa có ảnh: nút Hoàn tác tắt
+[ĐẠT]  chưa có ảnh: nút Lưu tắt (không lưu ảnh rỗng)
+[ĐẠT]  nạp ảnh: ảnh ra giống hệt ảnh nạp vào
+[ĐẠT]  có ảnh: nút Lưu bật
+[ĐẠT]  kéo chuột với Mosaic: vùng chọn bị che (nhiều điểm ảnh đổi)
+[ĐẠT]  sau khi che: nút Hoàn tác bật
+[ĐẠT]  bấm Hoàn tác: ảnh trở lại đúng như ban đầu
+[ĐẠT]  bấm Làm lại: ảnh che trở lại đúng như trước
+[ĐẠT]  công cụ Cắt: ảnh nhỏ hơn sau khi kéo chọn
+[ĐẠT]  chưa đăng ký hàm chèn: nút Chèn vào tài liệu bị ẩn
+[ĐẠT]  đăng ký hàm chèn: nút hiện
+[ĐẠT]  bấm Chèn: hàm nhận đúng ảnh kết quả (đã cắt)
+[ĐẠT]  hàm chèn báo lỗi: không chèn lặp
+[ĐẠT]  chụp toàn màn hình (offscreen): có ảnh kích thước hợp lệ
+
+Tổng: 15 đạt, 0 lỗi, 0 cảnh báo
+KẾT QUẢ: TẤT CẢ ĐẠT

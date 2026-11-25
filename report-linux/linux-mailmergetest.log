@@ -1,0 +1,102 @@
+QZip: not a zip file!
+[ĐẠT]  docx: quét ra 5 trường
+[ĐẠT]  docx: «Họ tên» bị tách 3 run vẫn nhận ra, đếm cả thân lẫn đầu trang
+[ĐẠT]  docx: ghi nơi có trường (thân + đầu trang)
+[ĐẠT]  docx: nhận «…» trong ô bảng
+[ĐẠT]  docx: renderOne thay 5 chỗ (thực tế 5) 
+[ĐẠT]  docx: trường thiếu dữ liệu có cảnh báo
+[ĐẠT]  docx: ký tự đặc biệt XML được thoát đúng; ký tự điều khiển bị bỏ
+[ĐẠT]  docx: không còn ký tự điều khiển
+[ĐẠT]  docx: trường thiếu dữ liệu giữ nguyên chỗ giữ chữ
+[ĐẠT]  docx: giá trị nhiều dòng thành w:br
+[ĐẠT]  docx: định dạng của các run khác vẫn còn
+[ĐẠT]  docx: thay cả trong đầu trang
+[ĐẠT]  docx: mẫu gốc không bị đổi byte nào
+[ĐẠT]  docx: không ghi đè tệp đã có
+[ĐẠT]  docx: không ghi đè chính mẫu
+[ĐẠT]  docx: xem trước đúng dòng đầu
+[ĐẠT]  docx: xem trước có tab và xuống dòng
+[ĐẠT]  docx: makeFieldTemplate 
+[ĐẠT]  docx: mẫu mới có thêm trường «Lời mời»
+[ĐẠT]  docx: tạo trường không sửa mẫu gốc
+[ĐẠT]  docx: đoạn chữ chỉ nằm trong trường đã có bị từ chối
+[ĐẠT]  docx: đoạn chữ không tồn tại bị từ chối
+[ĐẠT]  docx: tên trường chứa { bị từ chối
+[ĐẠT]  docx: tạo trường không ghi đè mẫu gốc
+[ĐẠT]  docx: renderMerged 
+[ĐẠT]  docx: 3 bản ghi → 2 lần ngắt trang
+[ĐẠT]  docx: nội dung từng bản ghi có mặt
+[ĐẠT]  docx: trường trong đầu trang dùng chung có cảnh báo không thay
+[ĐẠT]  docx: chỉ giữ một sectPr cuối
+[ĐẠT]  docx: gộp 0 bản ghi bị từ chối
+[ĐẠT]  pptx: quét 4 trường (thực tế 4) 
+[ĐẠT]  pptx: «Họ tên» tách hai run + có trong ghi chú
+[ĐẠT]  pptx: nhận «…»
+[ĐẠT]  pptx: thay 5 chỗ (thực tế 5) 
+[ĐẠT]  pptx: giá trị nhiều dòng có cảnh báo bị nối một dòng
+[ĐẠT]  pptx: thay đúng, nhiều dòng thành dấu cách
+[ĐẠT]  pptx: giữ a:br và định dạng đậm/nghiêng của run
+[ĐẠT]  pptx: thoát & đúng
+[ĐẠT]  pptx: thay cả trong ghi chú
+[ĐẠT]  pptx: mẫu gốc không đổi
+[ĐẠT]  pptx: xem trước có phân trang chiếu
+[ĐẠT]  pptx: gộp một tệp bị từ chối rõ ràng
+[ĐẠT]  pptx: xuất khác loại với mẫu bị từ chối
+[ĐẠT]  xlsx: quét 2 trường (thực tế 2) 
+[ĐẠT]  xlsx: trường trong công thức có cảnh báo không thay được
+[ĐẠT]  xlsx: thay 2 chỗ (thực tế 2) 
+[ĐẠT]  xlsx: thay trong chuỗi dùng chung (rich text tách run)
+[ĐẠT]  xlsx: thay trong chuỗi nhập trực tiếp
+[ĐẠT]  xlsx: công thức giữ nguyên, không bị đụng
+[ĐẠT]  xlsx: đọc lại tệp xuất ra đúng nội dung
+[ĐẠT]  xlsx: mẫu gốc không đổi
+[ĐẠT]  xlsx: xuất đổi đuôi khác loại bị từ chối
+[ĐẠT]  tệp .xlsm bị từ chối kèm lý do macro
+[ĐẠT]  tệp .txt bị từ chối
+[ĐẠT]  tệp OLE (.doc đổi đuôi/có mật khẩu) bị từ chối kèm hướng dẫn
+[ĐẠT]  tệp hỏng bị từ chối
+[ĐẠT]  dán: tab từ Excel, có tiêu đề
+[ĐẠT]  dán: dấu phẩy + ngoặc kép + BOM
+[ĐẠT]  dán: chấm phẩy, không tiêu đề
+[ĐẠT]  dán: một cột gõ tay, dòng trống được bỏ và báo
+[ĐẠT]  dán: dòng thiếu cột có cảnh báo
+[ĐẠT]  dán: rỗng báo lỗi
+[ĐẠT]  dán: tên cột trùng có cảnh báo
+[ĐẠT]  csv: BOM + chấm phẩy 
+[ĐẠT]  csv: ngoặc kép, dấu phẩy và xuống dòng trong ô
+[ĐẠT]  csv: bảng mã Windows cũ bị từ chối thay vì đọc sai chữ
+[ĐẠT]  xlsx dữ liệu: tên sheet
+[ĐẠT]  xlsx dữ liệu: 4 dòng (thực tế 4) 
+[ĐẠT]  xlsx dữ liệu: ngày đọc thành dd/mm/yyyy và có cảnh báo
+[ĐẠT]  xlsx dữ liệu: xuống dòng trong ô, ô trống, dòng cuối
+[ĐẠT]  xlsx dữ liệu: sheet không tồn tại báo lỗi
+[ĐẠT]  autoMap: khớp tên cột không phân biệt hoa/thường, trường lạ = chưa chọn
+[ĐẠT]  validate: trường chưa chọn cột bị chặn xuất
+[ĐẠT]  validate: đủ ánh xạ thì cho xuất
+[ĐẠT]  validate: cảnh báo ô trống và giá trị quá dài kèm số dòng
+[ĐẠT]  buildRecords: giữ ô trống, không bỏ dòng có dữ liệu
+[ĐẠT]  validate: dòng trùng có cảnh báo
+[ĐẠT]  validate: mẫu không có trường bị chặn kèm hướng dẫn
+[ĐẠT]  tên tệp: ký tự cấm Windows thành _
+[ĐẠT]  tên tệp: tên dành riêng Windows
+[ĐẠT]  tên tệp: bỏ dấu chấm/khoảng trắng cuối
+[ĐẠT]  tên tệp: cắt ở 100 ký tự
+[ĐẠT]  tên tệp: trùng nhau hoặc trùng tệp đã có thì thêm (n), không ghi đè
+[ĐẠT]  tên tệp: có cảnh báo khi phải đổi tên
+[ĐẠT]  tên tệp: mẫu tên dùng trường không có thì cảnh báo
+[ĐẠT]  tên tệp: số thứ tự có đệm 0
+
+Tổng: 86 đạt, 0 lỗi
+total 76
+drwxr-xr-x  3 runner runner  4096 Nov 25 11:35 .
+drwxr-xr-x 19 runner runner  4096 Nov 25 11:35 ..
+-rw-r--r--  1 runner runner    12 Nov 25 11:35 cp.csv
+-rw-r--r--  1 runner runner    13 Nov 25 11:35 cu.docx
+-rw-r--r--  1 runner runner  1988 Nov 25 11:35 docx-1.docx
+-rw-r--r--  1 runner runner  1982 Nov 25 11:35 docx-gop.docx
+-rw-r--r--  1 runner runner  1943 Nov 25 11:35 docx-mau-moi.docx
+-rw-r--r--  1 runner runner    17 Nov 25 11:35 hong.docx
+-rw-r--r--  1 runner runner     0 Nov 25 11:35 macro.xlsm
+-rw-r--r--  1 runner runner 33965 Nov 25 11:35 pptx-1.pptx
+drwxr-xr-x  2 runner runner  4096 Nov 25 11:35 ten
+-rw-r--r--  1 runner runner  2130 Nov 25 11:35 xlsx-1.xlsx

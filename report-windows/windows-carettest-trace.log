@@ -1,0 +1,38 @@
+[+0ms] sự kiện 2: 
+[+0ms] sự kiện 1: 2084, 2204, 0, 342
+[+0ms] focus: VÀO
+[+11ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=154,158,1,23
+[+519ms] vẽ: con trỏ tắt (có=1 hiện=1 pha=0 focus=1) viewRect=154,158,1,23
+[+1066ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=154,158,1,23
+[+2038ms] vẽ: con trỏ tắt (có=1 hiện=1 pha=0 focus=1) viewRect=154,158,1,23
+[+2224ms] focus: RA
+[+2334ms] focus: VÀO
+[+2335ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=154,158,1,23
+[+2459ms] sự kiện 1: 2222, 2204, 0, 342
+[+2566ms] sự kiện 34: A1
+[+2566ms] sự kiện 17: 0, 0, 1991, 299, 0, 0
+[+2566ms] sự kiện 2: 
+[+2566ms] sự kiện 17: 0, 0, 1994, 299, 0, 0
+[+2566ms] sự kiện 42: EMPTY
+[+2566ms] focus: VÀO
+[+2575ms] vẽ: con trỏ tắt (có=0 hiện=0 pha=1 focus=1) viewRect=0,0,0,0
+[+2616ms] sự kiện 2: EMPTY
+[+2617ms] sự kiện 42: EMPTY
+[+4070ms] sự kiện 2: 
+[+4071ms] sự kiện 34: A2
+[+4071ms] sự kiện 17: 0, 300, 1994, 299, 0, 1
+[+4568ms] sự kiện 42: 0, 300, 1995, 300
+[+4568ms] sự kiện 34: A2:D6
+[+4568ms] sự kiện 42: 0, 300, 4875, 1500
+[+4568ms] sự kiện 2: 0, 300, 4875, 1500
+[+6284ms] focus: VÀO
+[+19401ms] sự kiện 2: 
+[+19401ms] sự kiện 6: 1080, 3355, 12239, 2314, 0, {"id":"1626690634064","type":20,"OrdNum":0, "isMathObject": false, "isDiagram": false,"inner
+[+26878ms] sự kiện 1: 9293, 3984, 0, 1055
+[+26879ms] sự kiện 1: 5106, 3984, 0, 1055
+[+26879ms] sự kiện 5: true
+[+26879ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=328,243,1,62
+[+27485ms] vẽ: con trỏ tắt (có=1 hiện=1 pha=0 focus=1) viewRect=328,243,1,62
+[+27671ms] focus: RA
+[+27783ms] focus: VÀO
+[+27784ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=328,243,1,62

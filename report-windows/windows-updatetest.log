@@ -1,0 +1,73 @@
+[ĐẠT]  0.2.0 mới hơn 0.1.0
+[ĐẠT]  so sánh theo số: 0.10.0 mới hơn 0.9.0 (không theo chuỗi)
+[ĐẠT]  v1.0.0 bằng 1.0.0, không phải bản mới
+[ĐẠT]  1.0 bằng 1.0.0
+[ĐẠT]  bản cũ hơn không được coi là mới
+[ĐẠT]  bản thử nghiệm nhỏ hơn bản chính thức cùng số
+[ĐẠT]  bản chính thức mới hơn bản thử nghiệm của nó
+[ĐẠT]  beta.10 mới hơn beta.2 (so sánh số trong hậu tố)
+[ĐẠT]  alpha < beta
+[ĐẠT]  bỏ phần +build khi so sánh
+[ĐẠT]  phiên bản sai định dạng -> không kết luận 'mới' và có lý do
+[ĐẠT]  phiên bản rỗng bị từ chối
+[ĐẠT]  1.2.x không hợp lệ
+[ĐẠT]  1..2 không hợp lệ
+[ĐẠT]  hậu tố rỗng không hợp lệ
+[ĐẠT]  quá nhiều thành phần bị từ chối
+[ĐẠT]  số quá lớn bị từ chối
+[ĐẠT]  github.com https tin cậy
+[ĐẠT]  objects.githubusercontent.com tin cậy
+[ĐẠT]  api.github.com tin cậy
+[ĐẠT]  http (không mã hoá) bị từ chối
+[ĐẠT]  evilgithub.com bị từ chối
+[ĐẠT]  github.com.evil.com bị từ chối
+[ĐẠT]  user@host lừa đảo bị từ chối
+[ĐẠT]  URL có thông tin đăng nhập bị từ chối
+[ĐẠT]  file:// bị từ chối
+[ĐẠT]  ftp bị từ chối
+[ĐẠT]  URL rỗng bị từ chối
+[ĐẠT]  phân tích release hợp lệ
+[ĐẠT]  tìm đúng bộ cài x64
+[ĐẠT]  tìm đúng tệp checksum
+[ĐẠT]  ghi chú giữ nguyên chữ (hiển thị dạng văn bản thuần ở giao diện)
+[ĐẠT]  ưu tiên tệp .sha256 riêng của bộ cài
+[ĐẠT]  tệp có URL lạ/tên chứa đường dẫn/http đều bị loại
+[ĐẠT]  không có bộ cài tin cậy -> không chọn gì
+[ĐẠT]  JSON hỏng bị từ chối
+[ĐẠT]  JSON không phải đối tượng bị từ chối
+[ĐẠT]  thiếu tag_name bị từ chối
+[ĐẠT]  tag sai định dạng bị từ chối
+[ĐẠT]  release không có tệp đính kèm vẫn phân tích được
+[ĐẠT]  nhận biết bản nháp và bản thử nghiệm
+[ĐẠT]  đọc định dạng sha256sum, bỏ dòng rác/mã ngắn
+[ĐẠT]  mã chữ hoa được chuẩn hoá, dấu * (nhị phân) được chấp nhận
+[ĐẠT]  lấy đúng mã cho bộ cài (không phân biệt hoa/thường tên)
+[ĐẠT]  tên không có trong checksum -> từ chối
+[ĐẠT]  hai mã khác nhau cho cùng một tên -> từ chối
+[ĐẠT]  tệp .sha256 chỉ có một mã không kèm tên được chấp nhận
+[ĐẠT]  hai mã không kèm tên -> từ chối (mơ hồ)
+[ĐẠT]  tệp checksum rỗng -> từ chối
+[ĐẠT]  SHA-256 khớp -> chấp nhận
+[ĐẠT]  mã chữ hoa vẫn khớp
+[ĐẠT]  SHA-256 sai -> từ chối
+[ĐẠT]  mã rỗng -> từ chối
+[ĐẠT]  mã sai độ dài -> từ chối
+[ĐẠT]  mã không phải hex -> từ chối
+[ĐẠT]  thiếu tệp -> từ chối
+[ĐẠT]  tệp bị sửa 1 byte -> từ chối
+[ĐẠT]  thông điệp hợp lệ giữ tệp thật (tên tiếng Việt)
+[ĐẠT]  thư mục, tệp không tồn tại, đường dẫn tương đối đều bị bỏ
+[ĐẠT]  thông điệp không có tệp vẫn là yêu cầu đưa cửa sổ lên
+[ĐẠT]  thông điệp không phải JSON bị bỏ
+[ĐẠT]  phiên bản giao thức lạ bị bỏ
+[ĐẠT]  thông điệp quá lớn bị bỏ
+[ĐẠT]  tối đa 50 tệp một lần
+[ĐẠT]  không có phiên đang chạy -> trả false (tiến trình mới tự chạy)
+[ĐẠT]  phiên chính mở được kênh lắng nghe
+[ĐẠT]  tiến trình thứ hai gửi tệp tới phiên chính và nhận xác nhận (mã thoát 0)
+[ĐẠT]  phiên chính nhận đúng đường dẫn tệp tiếng Việt
+[ĐẠT]  phiên chính được yêu cầu đưa cửa sổ lên
+[ĐẠT]  chạy lại không kèm tệp chỉ đưa cửa sổ lên
+[ĐẠT]  tệp không tồn tại bị lọc, tệp thật vẫn được mở
+
+KẾT QUẢ: TẤT CẢ ĐẠT (đạt 71, lỗi 0)

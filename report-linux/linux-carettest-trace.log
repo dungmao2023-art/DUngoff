@@ -1,0 +1,40 @@
+[+0ms] sự kiện 2: 
+[+0ms] sự kiện 6: EMPTY
+[+0ms] sự kiện 1: 2084, 2204, 0, 381
+[+0ms] focus: VÀO
+[+8ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=154,158,1,26
+[+521ms] vẽ: con trỏ tắt (có=1 hiện=1 pha=0 focus=1) viewRect=154,158,1,26
+[+1049ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=154,158,1,26
+[+2017ms] vẽ: con trỏ tắt (có=1 hiện=1 pha=0 focus=1) viewRect=154,158,1,26
+[+2195ms] focus: RA
+[+2297ms] focus: VÀO
+[+2298ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=154,158,1,26
+[+2405ms] sự kiện 1: 2253, 2204, 0, 381
+[+2472ms] sự kiện 34: A1
+[+2472ms] sự kiện 17: 0, 0, 2254, 299, 0, 0
+[+2472ms] sự kiện 2: 
+[+2472ms] sự kiện 17: 0, 0, 2264, 299, 0, 0
+[+2472ms] sự kiện 42: EMPTY
+[+2472ms] focus: VÀO
+[+2478ms] vẽ: con trỏ tắt (có=0 hiện=0 pha=1 focus=1) viewRect=0,0,0,0
+[+2514ms] sự kiện 2: EMPTY
+[+2514ms] sự kiện 42: EMPTY
+[+3974ms] sự kiện 2: 
+[+3974ms] sự kiện 34: A2
+[+3974ms] sự kiện 17: 0, 300, 2264, 299, 0, 1
+[+4450ms] sự kiện 42: 0, 300, 2265, 300
+[+4450ms] sự kiện 34: A2:C6
+[+4450ms] sự kiện 42: 0, 300, 4425, 1500
+[+4450ms] sự kiện 2: 0, 300, 4425, 1500
+[+6071ms] focus: VÀO
+[+19130ms] sự kiện 2: 
+[+19130ms] sự kiện 6: 1080, 3355, 12239, 2314, 0, {"id":"93895123783984","type":20, "handles":{"kinds":{"rectangle":{"1":[{"id":"2","kind":"1"
+[+26554ms] sự kiện 1: 9670, 3984, 0, 1055
+[+26554ms] sự kiện 1: 4729, 3984, 0, 1055
+[+26554ms] sự kiện 5: true
+[+26554ms] sự kiện 1: 5369, 3984, 0, 1055
+[+26556ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=343,243,1,62
+[+27137ms] vẽ: con trỏ tắt (có=1 hiện=1 pha=0 focus=1) viewRect=343,243,1,62
+[+27317ms] focus: RA
+[+27418ms] focus: VÀO
+[+27419ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=343,243,1,62
