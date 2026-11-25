@@ -38,7 +38,7 @@ Mọi lệnh `.uno:` xuất hiện trong mã giao diện (85 lệnh). Cột "B�
 | `.uno:ExecuteSearch` | — | ĐẠT (bộ kiểm thử có sẵn) | word_tests / excel_tests / ppt_tests | xem log CI |
 | `.uno:FontHeight` | — | ĐẠT (bộ kiểm thử có sẵn) | word_tests / excel_tests / ppt_tests | xem log CI |
 | `.uno:FormatPaintbrush` | Calc | ĐẠT | sweep_tests.cpp (`--sweep 1`) | lệnh nhận không lỗi; hiệu ứng cần chọn ô đích bằng chuột (kiểm trên má |
-| `.uno:FreezePanes` | Calc | ĐẠT | sweep_tests.cpp (`--sweep 1`) | state=false |
+| `.uno:FreezePanes` | Calc | ĐẠT | sweep_tests.cpp (`--sweep 1`) + tests/calc/check_freeze.py (đọc `<pane state="frozen">` trong xlsx lưu ra; Linux và Windows đều đạt, run 45621053060) | bật→có pane đóng băng, tắt→không còn |
 | `.uno:FreezePanesColumn` | Calc | ĐẠT | sweep_tests.cpp (`--sweep 1`) | FreezePanes=true |
 | `.uno:FreezePanesRow` | Calc | ĐẠT | sweep_tests.cpp (`--sweep 1`) | FreezePanes=true |
 | `.uno:GoToCell` | — | ĐẠT (bộ kiểm thử có sẵn) | word_tests / excel_tests / ppt_tests | xem log CI |
@@ -98,3 +98,6 @@ Mọi lệnh `.uno:` xuất hiện trong mã giao diện (85 lệnh). Cột "B�
 - Lệnh của giao diện Qt (không phải UNO): `xl:*`, `pdfTools:*`, `cut/copy`, zoom, thao tác PowerPoint ở `app/src/ppt/PptActions.cpp`: KHÔNG kiểm được trong sweep vì cần cửa sổ Qt; được phủ bởi các test Qt riêng (pdf, tableutil...) hoặc kiểm tay trên máy thật.
 - Engine Windows: lần chạy CI 45612738962 cho 27 lệnh ĐẠT, 0 lỗi, 1 CHƯA KIỂM (xem `report/windows-sweep.log`). Bước này chặn job từ nay.
 - Phím tắt: bảng KeyMap có test riêng (tests/keymap); sweep này không lặp lại.
+
+
+**Ghi chú FreezePanes (tắt):** lần quét Windows trước báo LỖI vì test đọc trạng thái sau 350 ms, trong khi engine Windows báo trạng thái bất đồng bộ chậm hơn; engine KHÔNG lỗi (tệp xlsx lưu ra xác nhận bật/tắt đúng). Test nay chờ tối đa 4 s và kiểm thêm bằng tệp. Không phải lỗi chức năng nên nút ribbon giữ nguyên.
