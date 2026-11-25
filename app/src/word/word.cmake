@@ -12,3 +12,16 @@ if(TARGET DungOffice)
     ${_DUNG_WORD_DIR}/WordActions.h ${_DUNG_WORD_DIR}/WordActions.cpp
     ${_DUNG_WORD_DIR}/../vntext/VnText.h ${_DUNG_WORD_DIR}/../vntext/VnText.cpp)
 endif()
+
+# Đặt lề trang bằng cách vá XML (PageMargins): lõi chỉ cần QtCore; dung-margintest chạy cả trên engine thật (--program).
+if(TARGET DungOffice)
+  target_sources(DungOffice PRIVATE ${_DUNG_WORD_DIR}/PageMargins.h ${_DUNG_WORD_DIR}/PageMargins.cpp)
+  find_package(Qt6 6.4 REQUIRED COMPONENTS Core)
+  add_executable(dung-margintest
+    ${CMAKE_SOURCE_DIR}/tests/word/margin_tests.cpp
+    ${_DUNG_WORD_DIR}/PageMargins.h ${_DUNG_WORD_DIR}/PageMargins.cpp
+    ${_DUNG_WORD_DIR}/../tools/filetools/ZipLite.h ${_DUNG_WORD_DIR}/../tools/filetools/ZipLite.cpp)
+  target_include_directories(dung-margintest PRIVATE ${CMAKE_SOURCE_DIR}/engine/include)
+  target_link_libraries(dung-margintest PRIVATE Qt6::Core dungengine)
+  set_target_properties(dung-margintest PROPERTIES AUTOMOC OFF)
+endif()

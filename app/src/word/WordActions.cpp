@@ -3,6 +3,7 @@
 
 #include "../DocumentTab.h"
 #include "WordCommands.h"
+#include "PageMargins.h"
 
 #include "dung/Engine.h"
 #include "../vntext/VnText.h"
@@ -10,6 +11,10 @@
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QDate>
+#include <QDir>
+#include <QFileInfo>
+#include <QGuiApplication>
+#include <QTemporaryDir>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QLineEdit>
@@ -22,6 +27,52 @@ namespace dung::word {
 static std::string ss(const QString& s) { return s.toUtf8().toStdString(); }
 
 static void send(DocumentTab* t, const Call& c) { t->document()->command(c.first, c.second); }
+
+// Đặt lề bằng cách vá XML trên BẢN SAO rồi mở bản sao trong thẻ mới (không dùng lệnh UNO/runMacro).
+// An toàn: thẻ hiện tại, lịch sử hoàn tác và tệp gốc không bị đổi; bản sao được lấy từ trạng thái THẬT của tài liệu
+// (bản phục hồi, gồm cả phần vừa sửa chưa lưu) nên không phụ thuộc cờ "đã sửa" của engine.
+[[maybe_unused]] static bool applyMarginsByPatch(DocumentTab* tab, QWidget* parent, const MarginSpec& spec, const QString& label) {
+    auto* doc = tab->document();
+    if (doc->kind() != dung::DocKind::Text) return false;
+    auto mm = [](const std::optional<qint32>& v) { return v ? QString::number(twipsToMm(*v), 'f', 1) : QStringLiteral("—"); };
+    const QString base = QString::fromUtf8(doc->displayName().c_str());
+    const bool notDocx = !doc->isNew() && !base.endsWith(QLatin1String(".docx"), Qt::CaseInsensitive);
+    QString msg = QObject::tr("Đặt lề «%1»: trái %2 mm, phải %3 mm, trên %4 mm, dưới %5 mm — cho TẤT CẢ các phần của tài liệu.\n\n"
+                              "Engine trên Windows chưa nhận lề qua lệnh, nên Dũng Office sẽ tạo MỘT BẢN SAO của tài liệu hiện tại "
+                              "(gồm cả phần bạn vừa sửa) với lề mới và mở trong thẻ mới.\n"
+                              "• Thẻ hiện tại và tệp gốc KHÔNG bị đổi; thẻ hiện tại vẫn giữ lịch sử hoàn tác.\n"
+                              "• Thẻ mới bắt đầu ở đầu tài liệu, chưa có lịch sử hoàn tác, và được đánh dấu chưa lưu (Lưu sẽ hỏi tên mới, không ghi đè tệp gốc).")
+                      .arg(label, mm(spec.left), mm(spec.right), mm(spec.top), mm(spec.bottom));
+    if (notDocx) msg += QObject::tr("\n• Bản sao được lưu ở định dạng .docx (tệp gốc không phải .docx).");
+    msg += QObject::tr("\n\nTiếp tục?");
+    if (QMessageBox::question(parent, QObject::tr("Lề trang"), msg) != QMessageBox::Yes) return true;
+
+    QTemporaryDir td(QDir::tempPath() + QStringLiteral("/DungOffice-le-XXXXXX"));
+    auto fail = [&](const QString& why) {
+        QMessageBox::warning(parent, QObject::tr("Lề trang"),
+            QObject::tr("Không đặt được lề: %1\n\nTài liệu hiện tại và tệp gốc không bị đổi.").arg(why));
+        return true;
+    };
+    if (!td.isValid()) return fail(QObject::tr("không tạo được thư mục tạm."));
+    const QString srcCopy = td.filePath(QStringLiteral("nguon.docx"));
+    const QString patched = td.filePath(QStringLiteral("moi.docx"));
+    QGuiApplication::setOverrideCursor(Qt::BusyCursor);
+    std::string err;
+    const bool saved = doc->saveRecoveryCopy(dung::fromUtf8(srcCopy.toUtf8().toStdString()), &err);
+    PatchResult p;
+    if (saved) p = patchDocxMargins(srcCopy, patched, spec);
+    QGuiApplication::restoreOverrideCursor();
+    if (!saved) return fail(QObject::tr("engine không tạo được bản sao (%1).").arg(QString::fromUtf8(err.c_str())));
+    if (!p.ok) return fail(p.error);
+
+    const QString orig = doc->isNew() ? QString() : QString::fromUtf8(dung::toUtf8(doc->originalPath()).c_str());
+    const QFileInfo bi(base);
+    const QString newName = bi.completeBaseName() + QObject::tr(" (lề %1)").arg(label) + QStringLiteral(".docx");
+    emit tab->openCopyRequested(patched, orig, newName);   // kết nối trực tiếp: mở xong mới quay lại, rồi thư mục tạm bị xoá
+    if (!p.warnings.isEmpty())
+        QMessageBox::information(parent, QObject::tr("Lề trang"), p.warnings.join(QLatin1Char('\n')));
+    return true;
+}
 
 bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (!id.startsWith(QLatin1String("word:"))) return false;
@@ -90,16 +141,19 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         // Lề trang, đơn vị 1/100 mm. Lệnh PageLRMargin/PageULMargin đã kiểm chứng trên LibreOffice 24.2 (AttributePageLRSpace/ULSpace KHÔNG có tác dụng). "marginVN": thể thức văn bản hành chính (Nghị định 30/2020/NĐ-CP):
         // trên 20, dưới 20, trái 30, phải 15 mm. Các lề khác: thường 25,4 mm; hẹp 12,7 mm.
         long l = 3000, r = 1500, t = 2000, b = 2000;
-        if (name == QLatin1String("marginNormal")) l = r = t = b = 2540;
-        else if (name == QLatin1String("marginNarrow")) l = r = t = b = 1270;
+        QString label = QObject::tr("hành chính");
+        if (name == QLatin1String("marginNormal")) { l = r = t = b = 2540; label = QObject::tr("thường"); }
+        else if (name == QLatin1String("marginNarrow")) { l = r = t = b = 1270; label = QObject::tr("hẹp"); }
+#ifdef Q_OS_WIN
+        // Engine Windows 26.8.3: lệnh PageLRMargin/PageULMargin không đổi lề (CI đã thử 6 bộ lệnh). Dùng đường vá XML trên bản sao.
+        MarginSpec spec;
+        spec.left = mmToTwips(l / 100.0); spec.right = mmToTwips(r / 100.0);
+        spec.top = mmToTwips(t / 100.0);  spec.bottom = mmToTwips(b / 100.0);
+        applyMarginsByPatch(tab, parent, spec, label);
+#else
+        (void)label;
         doc->command(".uno:PageLRMargin", join({argLong("PageLRMargin.Left", l), argLong("PageLRMargin.Right", r)}));
         doc->command(".uno:PageULMargin", join({argLong("PageULMargin.Upper", t), argLong("PageULMargin.Lower", b)}));
-#ifdef Q_OS_WIN
-        // Engine Windows 26.8.3: CI đã thử 6 bộ lệnh lề (PageLRMargin, LeftRightMargin... ) và tệp DOCX vẫn giữ lề 20 mm.
-        // Không giả vờ thành công: báo rõ để người dùng đặt lề bằng hộp thoại Định dạng trang.
-        QMessageBox::warning(parent, QObject::tr("Lề trang"),
-            QObject::tr("Phiên bản engine hiện tại trên Windows CHƯA xác nhận được việc đặt lề bằng nút này (kiểm thử tự động cho thấy lề không đổi).\n"
-                        "Vui lòng kiểm tra lại lề trong hộp thoại định dạng trang trước khi in hoặc gửi."));
 #endif
     } else if (name == QLatin1String("vnMoney")) {
         bool ok = false;
