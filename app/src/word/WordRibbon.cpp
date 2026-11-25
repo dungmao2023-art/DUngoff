@@ -23,6 +23,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
         {QStringLiteral(".uno:JustifyPara"), tr("Đều"), 0xE8E1, QStringLiteral("≡"), true},
         {QStringLiteral(".uno:SpacePara1"), tr("Dòng đơn"), 0xE9E9, QStringLiteral("1.0"), false},
         {QStringLiteral(".uno:SpacePara15"), tr("Dòng 1,5"), 0xE9E9, QStringLiteral("1.5"), false},
+        {QStringLiteral(".uno:SpacePara2"), tr("Dòng đôi"), 0xE9E9, QStringLiteral("2.0"), false},
         {QStringLiteral(".uno:DefaultBullet"), tr("Gạch đầu dòng"), 0xE8FD, QStringLiteral("•"), true},
         {QStringLiteral(".uno:DefaultNumbering"), tr("Đánh số"), 0xE9D5, QStringLiteral("1."), true},
         {QStringLiteral(".uno:DecrementIndent"), tr("Giảm lề"), 0xE290, QStringLiteral("◀≡"), false},
@@ -57,6 +58,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral(".uno:InsertPageNumberField"), tr("Số trang"), 0xE8A5, QStringLiteral("#"), false},
             }},
             {tr("Ký hiệu"), {
+                {QStringLiteral("word:symbols"), tr("Thêm ký hiệu"), 0xE8D2, QStringLiteral("Ω"), false},
                 {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"©\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Bản quyền"), 0xE8D2, QStringLiteral("©"), false},
                 {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"®\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Đã đăng ký"), 0xE8D2, QStringLiteral("®"), false},
                 {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"™\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Nhãn hiệu"), 0xE8D2, QStringLiteral("™"), false},
@@ -78,6 +80,22 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral("word:marginNarrow"), tr("Lề hẹp"), 0xE7C3, QStringLiteral("▯"), false},
             }},
         }},
+        {tr("Gửi thư"), {
+            {tr("Trộn thư"), {
+                {QStringLiteral("word:mailMerge"), tr("Điền hàng loạt"), 0xE8D2, QStringLiteral("⇄"), false},
+            }},
+        }},
+        {tr("Xem lại"), {
+            {tr("Kiểm tra"), {
+                {QStringLiteral("word:reviewSyllable"), tr("Kiểm tra âm tiết"), 0xE8D2, QStringLiteral("Aa"), false},
+                {QStringLiteral("word:reviewCount"), tr("Đếm từ"), 0xE8EF, QStringLiteral("#"), false},
+                {QStringLiteral("word:inspect"), tr("Kiểm tra tài liệu"), 0xE946, QStringLiteral("✓"), false},
+            }},
+        }},
+        {tr("In"), {{tr("In & xuất"), {
+            {QStringLiteral("word:print"), tr("In / Xem trước"), 0xE749, QStringLiteral("🖨"), false},
+            {QStringLiteral("word:exportPdf"), tr("Xuất PDF"), 0xEA90, QStringLiteral("PDF"), false},
+        }}}},
         {tr("Tiện ích Việt"), {
             {tr("Văn bản tiếng Việt"), {
                 {QStringLiteral("word:vnMoney"), tr("Số tiền → chữ"), 0xE8EF, QStringLiteral("đ"), false},
@@ -86,6 +104,10 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral("word:vnSyllable"), tr("Kiểm tra âm tiết"), 0xE8D2, QStringLiteral("Aa"), false},
             }},
         }},
-        {tr("Xem"), {view}},
+        {tr("Xem"), {view, {tr("Điều hướng"), {
+            {QStringLiteral("word:outline"), tr("Dàn ý tài liệu"), 0xE8A5, QStringLiteral("☷"), false},
+            {QStringLiteral(".uno:GoToStartOfDoc"), tr("Đầu tài liệu"), 0xE74A, QStringLiteral("↑"), false},
+            {QStringLiteral(".uno:GoToEndOfDoc"), tr("Cuối tài liệu"), 0xE74B, QStringLiteral("↓"), false},
+        }}}},
     };
 }

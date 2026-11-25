@@ -8,6 +8,10 @@
 #include "dung/Engine.h"
 #include "../vntext/VnText.h"
 #include "../vntext/SyllableCheck.h"
+#include "../tools/mailmerge/MailMergeWidget.h"
+#include <QGridLayout>
+#include <QRegularExpression>
+#include <QTextDocumentFragment>
 
 #include <QCheckBox>
 #include <QDialog>
@@ -85,7 +89,9 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (!id.startsWith(QLatin1String("word:"))) return false;
     if (!tab || tab->readOnly()) return true;
     auto* doc = tab->document();
-    const QString name = id.mid(5);
+    QString name = id.mid(5);
+    if (name == QLatin1String("reviewSyllable")) name = QStringLiteral("vnSyllable");
+    if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
 
     if (name == QLatin1String("font")) {
         const auto fonts = parseFontList(doc->commandValues(".uno:CharFontName"));
@@ -113,6 +119,106 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         const auto& st = paragraphStyles();
         const int i = name.mid(5).toInt();
         if (i >= 0 && i < static_cast<int>(st.size())) send(tab, paragraphStyle(st[static_cast<size_t>(i)].styleName));
+    } else if (name == QLatin1String("print")) {
+        tab->printDocument();
+    } else if (name == QLatin1String("exportPdf")) {
+        tab->exportPdf();
+    } else if (name == QLatin1String("symbols")) {
+        QDialog dlg(parent);
+        dlg.setWindowTitle(QObject::tr("Chèn ký hiệu"));
+        auto* lay = new QVBoxLayout(&dlg);
+        auto* note = new QLabel(QObject::tr("Chọn ký hiệu hoặc nhập ký tự Unicode. Nếu đang bôi chọn, ký hiệu sẽ thay phần chọn."), &dlg);
+        note->setWordWrap(true);
+        lay->addWidget(note);
+        auto* edit = new QLineEdit(&dlg);
+        edit->setMaxLength(16);
+        edit->setPlaceholderText(QObject::tr("Ký hiệu cần chèn"));
+        auto* grid = new QGridLayout;
+        const QStringList symbols = QStringLiteral("© ® ™ § ¶ ° ‰ € £ ¥ ₫ ¢ ± × ÷ ≠ ≤ ≥ ≈ ∞ √ ∑ π α β γ Δ Ω µ → ← ↑ ↓ ↔ ✓ ✗ ★ ☆ • … – — « » № ½ ¼ ¾ ² ³").split(QLatin1Char(' '));
+        for (int n = 0; n < symbols.size(); ++n) {
+            auto* btn = new QPushButton(symbols[n], &dlg);
+            btn->setMinimumWidth(38);
+            grid->addWidget(btn, n / 8, n % 8);
+            QObject::connect(btn, &QPushButton::clicked, edit, [edit, value = symbols[n]] { edit->setText(value); });
+        }
+        lay->addLayout(grid);
+        lay->addWidget(edit);
+        auto* box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+        box->button(QDialogButtonBox::Ok)->setText(QObject::tr("Chèn"));
+        QObject::connect(box, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+        QObject::connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        lay->addWidget(box);
+        if (dlg.exec() == QDialog::Accepted && !edit->text().isEmpty()) {
+            doc->waitInputIdle();
+            if (!doc->paste("text/plain;charset=utf-8", ss(edit->text())))
+                QMessageBox::warning(parent, QObject::tr("Chèn ký hiệu"), QObject::tr("Engine không xác nhận chèn ký hiệu."));
+        }
+    } else if (name == QLatin1String("mailMerge")) {
+        QDialog dlg(parent);
+        dlg.setWindowTitle(QObject::tr("Trộn thư / Điền tên hàng loạt"));
+        dlg.resize(940, 650);
+        auto* lay = new QVBoxLayout(&dlg);
+        auto* hint = new QLabel(QObject::tr("Chọn tệp mẫu đã lưu và danh sách người nhận. Công cụ tạo các tệp kết quả riêng; tài liệu đang mở không bị sửa."), &dlg);
+        hint->setWordWrap(true);
+        lay->addWidget(hint);
+        lay->addWidget(createMailMergeWidget(&dlg), 1);
+        auto* close = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
+        QObject::connect(close, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        lay->addWidget(close);
+        dlg.exec();
+    } else if (name == QLatin1String("inspect") || name == QLatin1String("outline")) {
+        doc->waitInputIdle();
+        std::string plain = doc->selectionAs("text/plain;charset=utf-8");
+        const bool whole = plain.empty();
+        if (whole) {
+            if (QMessageBox::question(parent, QObject::tr("Đọc tài liệu"),
+                    QObject::tr("Đọc toàn văn bản để tạo báo cáo? Vị trí chọn sẽ chuyển về đầu tài liệu; nội dung không bị sửa.")) != QMessageBox::Yes)
+                return true;
+            doc->command(".uno:SelectAll");
+            doc->waitInputIdle();
+            plain = doc->selectionAs("text/plain;charset=utf-8");
+        }
+        const QString html = QString::fromStdString(doc->selectionAs("text/html"));
+        if (whole) doc->command(".uno:GoToStartOfDoc");
+        const auto content = QString::fromStdString(plain);
+        const QRegularExpression rx(QStringLiteral("<h([1-6])(?:\\s[^>]*)?>(.*?)</h\\1\\s*>"),
+            QRegularExpression::CaseInsensitiveOption | QRegularExpression::DotMatchesEverythingOption);
+        QDialog dlg(parent);
+        dlg.setWindowTitle(name == QLatin1String("outline") ? QObject::tr("Dàn ý tài liệu") : QObject::tr("Kiểm tra tài liệu"));
+        dlg.resize(720, 460);
+        auto* lay = new QVBoxLayout(&dlg);
+        auto* summary = new QLabel(QObject::tr("%1 · %2 từ · %3 ký tự. Dàn ý lấy từ các tiêu đề H1–H6 do engine xuất; không phải mục lục tự động.")
+            .arg(whole ? QObject::tr("Toàn văn bản") : QObject::tr("Vùng chọn")).arg(countWords(plain)).arg(content.size()), &dlg);
+        summary->setWordWrap(true);
+        lay->addWidget(summary);
+        auto* list = new QListWidget(&dlg);
+        auto matches = rx.globalMatch(html);
+        while (matches.hasNext()) {
+            const auto match = matches.next();
+            const QString title = QTextDocumentFragment::fromHtml(match.captured(2)).toPlainText().simplified();
+            if (title.isEmpty()) continue;
+            const int level = match.captured(1).toInt();
+            auto* item = new QListWidgetItem(QString(level * 2 - 2, QLatin1Char(' ')) + QStringLiteral("H%1 · ").arg(level) + title, list);
+            item->setData(Qt::UserRole, title);
+        }
+        const bool hasHeadings = list->count() > 0;
+        if (!hasHeadings) list->addItem(QObject::tr("Không tìm thấy tiêu đề H1–H6 trong dữ liệu engine trả về."));
+        lay->addWidget(list, 1);
+        auto* box = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
+        auto* jump = box->addButton(QObject::tr("Tìm tiêu đề"), QDialogButtonBox::ActionRole);
+        jump->setEnabled(hasHeadings);
+        if (hasHeadings) list->setCurrentRow(0);
+        QObject::connect(jump, &QPushButton::clicked, &dlg, [&] {
+            auto* item = list->currentItem();
+            if (!item) return;
+            const auto title = item->data(Qt::UserRole).toString();
+            if (title.isEmpty()) return;
+            dlg.accept();
+            send(tab, findNext(ss(title), false));
+        });
+        QObject::connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        lay->addWidget(box);
+        dlg.exec();
     } else if (name == QLatin1String("table")) {
         bool ok = false;
         const int cols = QInputDialog::getInt(parent, QObject::tr("Chèn bảng"), QObject::tr("Số cột:"), 3, 1, 63, 1, &ok);

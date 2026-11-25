@@ -76,3 +76,8 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 ## Bổ sung ChatGPT — Excel
 - PR #1 đã qua CI Windows/Linux và merge: panel ƒx/Công cụ vùng cạnh Excel, tab Công thức, 11 hàm bổ sung, đồng bộ số click down/up và reset caret. Chưa xác nhận caret Windows thật.
 - Nhánh excel-target: ô đích riêng trong sheet hiện tại, nút lấy địa chỉ ô cho từng đối số, xác nhận ghi kể cả ô hiển thị rỗng, từ chối ghi nếu không nhận callback đúng địa chỉ mới. Vùng nhiều ô nhập tay; chưa hỗ trợ lấy vùng kéo chuột. Test engine cho ô đích, hủy, địa chỉ sai được bổ sung; chờ CI.
+
+## Word — bổ sung trên nhánh chatgpt/word-parity
+- Ribbon: dòng đôi, bảng ký hiệu Unicode, Gửi thư (dùng MailMergeWidget hiện có), Xem lại, In và điều hướng/dàn ý.
+- Dàn ý đọc HTML vùng chọn thực tế từ engine, hiển thị H1–H6 và tìm tiêu đề; không tự sửa, không phải TOC. Khi đọc toàn bộ, hỏi trước vì chuyển vị trí con trỏ về đầu tài liệu.
+- Test thêm giãn dòng đôi và chèn Unicode bằng engine; cần CI và nghiệm thu thao tác hộp thoại trên Windows thật. Chưa xử lý header/footer, TOC, footnote, review Track Changes và lề tùy chỉnh.
