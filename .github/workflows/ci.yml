@@ -6,6 +6,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Nếu điền (vd v0.1.0-test1): phát hành bản cài thử dưới tag này (pre-release nếu tag có dấu -)'
+        required: false
+        default: ''
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -248,6 +253,8 @@ jobs:
   windows:
     runs-on: windows-2022
     timeout-minutes: 75
+    permissions:
+      contents: write
     defaults:
       run:
         shell: pwsh
@@ -637,15 +644,17 @@ jobs:
           name: report-windows
           path: report/
       - name: Phát hành (chỉ khi gắn tag v*)
-        if: startsWith(github.ref, 'refs/tags/v') && steps.full.outcome == 'success'
+        if: (startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != '') && steps.full.outcome == 'success'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release_tag != '' && inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           files: |
             installer/Output/*.exe
             installer/Output/*.zip
             installer/Output/SHA256SUMS.txt
           fail_on_unmatched_files: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(inputs.release_tag != '' && inputs.release_tag || github.ref_name, '-') }}
           body: |
             Bản cài THỬ (chưa ký số, Windows SmartScreen sẽ cảnh báo). Kiểm SHA256 bằng SHA256SUMS.txt. Xem docs/HUONG_DAN_SU_DUNG.md và docs/KICH_BAN_KIEM_TRA_THIET_BI_THAT.md.
 
