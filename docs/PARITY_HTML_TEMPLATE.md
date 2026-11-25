@@ -72,3 +72,7 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 | Excel: tay nắm điền | `.uno:FillDown/FillRight/FillSeries` | ĐẠT; kéo bằng chuột chưa kiểm | Nhóm "Điền" (xuống / sang phải) |
 | Excel: chèn biểu đồ | `.uno:InsertObjectChart` | chỉ thấy tài liệu đổi (modified), **chưa xác nhận biểu đồ thật** | KHÔNG thêm nút; "Biểu đồ nhanh" trong Công cụ vùng vẫn dùng |
 | PowerPoint: đổi chủ đề/bố cục chủ, chuyển cảnh, ghi chú diễn giả | — | CHƯA KIỂM (cần lưu .pptx rồi đọc XML) | chưa làm |
+
+## Bổ sung ChatGPT — Excel
+- PR #1 đã qua CI Windows/Linux và merge: panel ƒx/Công cụ vùng cạnh Excel, tab Công thức, 11 hàm bổ sung, đồng bộ số click down/up và reset caret. Chưa xác nhận caret Windows thật.
+- Nhánh excel-target: ô đích riêng trong sheet hiện tại, nút lấy địa chỉ ô cho từng đối số, xác nhận ghi kể cả ô hiển thị rỗng, từ chối ghi nếu không nhận callback đúng địa chỉ mới. Vùng nhiều ô nhập tay; chưa hỗ trợ lấy vùng kéo chuột. Test engine cho ô đích, hủy, địa chỉ sai được bổ sung; chờ CI.

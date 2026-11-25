@@ -10,6 +10,8 @@ namespace dataassist {
 struct Hooks {
     // đưa công thức vào ô đang chọn của tab Excel (engine tính). false + message nếu không ghi; resultText = kết quả engine tính.
     std::function<bool(const QString &formula, QString *resultText, QString *message)> insertFormula;
+    std::function<bool(const QString &target, const QString &formula, QString *resultText, QString *message)> insertFormulaAt;
+    std::function<QString()> selectedCellAddress;                  // địa chỉ một ô do engine báo
     std::function<QString()> selectedRangeText;                    // vùng ô đang chọn dạng TSV (selectionAs text/plain)
 };
 Hooks &hooks();

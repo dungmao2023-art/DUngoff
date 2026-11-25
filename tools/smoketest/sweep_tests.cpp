@@ -296,6 +296,22 @@ int runSweepTests(const fs::path& program, const fs::path& out) {
     t = trim(dataassist::bridgeSelectedText(x));
     result(C, "wire:lấy vùng đang chọn (TSV)", t.find('1') != std::string::npos && t.find('2') != std::string::npos, t);
 
+    // Ô đích riêng: kiểm tra chuẩn hoá địa chỉ và không ghi khi hủy hoặc địa chỉ không hợp lệ.
+    result(C, "wire:địa chỉ A1 hợp lệ", dataassist::bridgeCellAddress("$xFd$1048576") == "XFD1048576" &&
+        dataassist::bridgeCellAddress("A1:B3").empty() && dataassist::bridgeCellAddress("XFE1").empty() &&
+        dataassist::bridgeCellAddress("A1048577").empty() && dataassist::bridgeCellAddress("Sheet2.A1").empty(), "");
+    gotoCell(x, "P2");
+    auto o4 = dataassist::bridgeInsertFormulaAt(x, "P4", "=SUM(P2:P3)", LOK_CALLBACK_CELL_ADDRESS,
+        [](const std::string&) { return true; });
+    result(C, "wire:chèn vào ô đích riêng", o4.ok && trim(range(x, "P4")) == "3", o4.message);
+    gotoCell(x, "P3");
+    auto o5 = dataassist::bridgeInsertFormulaAt(x, "P2", "=999", LOK_CALLBACK_CELL_ADDRESS,
+        [](const std::string&) { return false; });
+    result(C, "wire:hủy ô đích không làm mất dữ liệu", o5.declined && !o5.ok && trim(range(x, "P2")) == "1", o5.message);
+    auto o6 = dataassist::bridgeInsertFormulaAt(x, "P2:P3", "=999", LOK_CALLBACK_CELL_ADDRESS,
+        [](const std::string&) { return true; });
+    result(C, "wire:từ chối vùng làm ô đích", !o6.ok && trim(range(x, "P2")) == "1", o6.message);
+
     step("thăm dò hàm mới");
     {
         enter(x, "R1", u"a"); enter(x, "R2", u"b"); enter(x, "R3", u"a");
