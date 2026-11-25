@@ -221,13 +221,28 @@ int runSweepTests(const fs::path& program, const fs::path& out) {
 
     step("cố định ô");
     gotoCell(x, "B2");
+    // Trạng thái engine báo về BẤT ĐỒNG BỘ (trên Windows đến chậm hơn Linux): chờ tối đa 4 giây cho tới khi
+    // đúng giá trị mong đợi thay vì đọc ngay sau 350 ms. Bằng chứng cuối cùng là TỆP xlsx lưu ra
+    // (freeze-bat.xlsx / freeze-tat.xlsx) — tests/calc/check_freeze.py đọc <pane state="frozen"> trong XML.
+    auto waitState = [&](const std::string& want) {
+        for (int i = 0; i < 40 && stateOf(".uno:FreezePanes") != want; ++i) settle(100);
+        return stateOf(".uno:FreezePanes");
+    };
     forget(".uno:FreezePanes");
     run(x, ".uno:FreezePanes");
-    std::string fp = stateOf(".uno:FreezePanes");
+    std::string fp = waitState("true");
     result(C, ".uno:FreezePanes", fp == "true", "state=" + fp);
+    {
+        auto r = x.saveAs(out / "freeze-bat.xlsx");
+        std::cout << "FREEZE-FILE|bat|" << (r.ok ? "đã lưu" : "LƯU LỖI: " + r.message) << std::endl;
+    }
     run(x, ".uno:FreezePanes");
-    fp = stateOf(".uno:FreezePanes");
+    fp = waitState("false");
     result(C, ".uno:FreezePanes(tắt)", fp == "false", "state=" + fp);
+    {
+        auto r = x.saveAs(out / "freeze-tat.xlsx");
+        std::cout << "FREEZE-FILE|tat|" << (r.ok ? "đã lưu" : "LƯU LỖI: " + r.message) << std::endl;
+    }
     forget(".uno:FreezePanesColumn");
     run(x, ".uno:FreezePanesColumn");
     fp = stateOf(".uno:FreezePanes");
