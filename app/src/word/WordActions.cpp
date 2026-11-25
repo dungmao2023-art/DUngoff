@@ -7,8 +7,15 @@
 
 #include "dung/Engine.h"
 #include "../vntext/VnText.h"
+#include "../vntext/SyllableCheck.h"
 
 #include <QCheckBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QLabel>
+#include <QListWidget>
+#include <QPushButton>
+#include <QVBoxLayout>
 #include <QColorDialog>
 #include <QDate>
 #include <QDir>
@@ -198,6 +205,49 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         if (!r.warnings.isEmpty()) msg += QObject::tr("\n\nLưu ý: ") + r.warnings.join(QStringLiteral("; "));
         if (QMessageBox::question(parent, QObject::tr("TCVN3 → Unicode"), msg) == QMessageBox::Yes)
             doc->paste("text/plain;charset=utf-8", ss(r.text));
+    } else if (name == QLatin1String("vnSyllable")) {
+        // Chỉ liệt kê âm tiết nghi sai, KHÔNG tự sửa. Kiểm vùng chọn; nếu không chọn gì thì kiểm toàn văn bản.
+        std::string raw = doc->selectionAs("text/plain;charset=utf-8");
+        const bool wholeDoc = raw.empty();
+        if (wholeDoc) {
+            doc->command(".uno:SelectAll");
+            raw = doc->selectionAs("text/plain;charset=utf-8");
+            doc->command(".uno:GoToStartOfDoc");
+        }
+        const QString text = QString::fromUtf8(raw.c_str());
+        const auto issues = vntext::spell::checkText(text);
+        const QString note = QObject::tr("Chỉ bắt âm tiết KHÔNG tồn tại trong tiếng Việt (gõ sai dấu/chữ). Không bắt lỗi dùng sai từ "
+                                         "(ví dụ \"xử dụng\"), không kiểm từ mượn/viết tắt, và có thể báo nhầm tên riêng hiếm. "
+                                         "Không có gì bị tự sửa.");
+        if (issues.isEmpty()) {
+            QMessageBox::information(parent, QObject::tr("Kiểm tra âm tiết"),
+                QObject::tr("Không thấy âm tiết nào sai trong %1.\n\n%2")
+                    .arg(wholeDoc ? QObject::tr("toàn văn bản") : QObject::tr("phần đã chọn"), note));
+            return true;
+        }
+        QDialog dlg(parent);
+        dlg.setWindowTitle(QObject::tr("Kiểm tra âm tiết (%1 nghi sai)").arg(issues.size()));
+        dlg.resize(760, 460);
+        auto* lay = new QVBoxLayout(&dlg);
+        auto* hint = new QLabel(note, &dlg);
+        hint->setWordWrap(true);
+        lay->addWidget(hint);
+        auto* list = new QListWidget(&dlg);
+        for (const auto& it : issues) list->addItem(vntext::spell::describeIssue(text, it));
+        list->setCurrentRow(0);
+        lay->addWidget(list, 1);
+        auto* box = new QDialogButtonBox(&dlg);
+        auto* jump = box->addButton(QObject::tr("Tìm trong văn bản"), QDialogButtonBox::ActionRole);
+        box->addButton(QObject::tr("Đóng"), QDialogButtonBox::RejectRole);
+        lay->addWidget(box);
+        // Tìm lần xuất hiện kế tiếp của âm tiết đang chọn (bắt đầu từ vị trí con trỏ hiện tại). Không sửa văn bản.
+        QObject::connect(jump, &QPushButton::clicked, &dlg, [&]() {
+            const int row = list->currentRow();
+            if (row >= 0 && row < issues.size()) send(tab, findNext(ss(issues[row].text), false));
+        });
+        QObject::connect(list, &QListWidget::itemDoubleClicked, jump, &QPushButton::click);
+        QObject::connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        dlg.exec();
     } else if (name == QLatin1String("count")) {
         std::string text = doc->selectionAs("text/plain;charset=utf-8");
         const bool sel = !text.empty();

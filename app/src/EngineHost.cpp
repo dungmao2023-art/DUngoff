@@ -57,6 +57,8 @@ bool EngineHost::start() {
         if (fi.lastModified().daysTo(QDateTime::currentDateTime()) >= 2) QDir(fi.absoluteFilePath()).removeRecursively();
     const QString work = workRoot.filePath(QStringLiteral("%1-%2").arg(QCoreApplication::applicationPid())
                                                .arg(QDateTime::currentMSecsSinceEpoch()));
+    // Từ điển chính tả tiếng Việt (GPL, thành phần cài riêng): nếu có, engine dùng; nếu không, ứng dụng vẫn chạy bình thường.
+    dung::Engine::setViDictionaryDir(toPath(QCoreApplication::applicationDirPath() + QStringLiteral("/dictionaries/vi")));
     std::string err;
     m_engine = dung::Engine::create(toPath(m_programDir), toPath(base + QStringLiteral("/profile")), toPath(work), &err);
     if (!m_engine) {

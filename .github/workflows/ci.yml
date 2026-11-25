@@ -135,6 +135,24 @@ jobs:
             set -- $m
             timeout 120 ./build/dung-repaintprobe /usr/lib/libreoffice/program "probe-$1" "$2" "$1" 2>&1 | grep -E "^REPAINT" | tee -a report/linux-repaint.log
           done
+      - name: Đăng ký từ điển Hunspell vi cho engine — kiểm khối đăng ký (bắt buộc) + thăm dò gạch chân đỏ
+        run: |
+          set -o pipefail
+          ./build/dung-spelldicttest 2>&1 | tee report/linux-spelldicttest.log
+          python3 tests/spell/make_spell_fixture.py spellfix
+          set +e
+          if sudo apt-get install -y --no-install-recommends hunspell-vi 2>&1 | tail -1; then
+            mkdir -p spelldict && cp /usr/share/hunspell/vi_VN.dic /usr/share/hunspell/vi_VN.aff spelldict/ 2>/dev/null
+          fi
+          for f in spell-good spell-bad; do
+            timeout 120 ./build/dung-spellprobe /usr/lib/libreoffice/program "probe-spell-nodict-$f" "spellfix/$f.docx" 2>&1 | grep -E "^SPELL" | tee -a report/linux-spellprobe.log
+            if [ -f spelldict/vi_VN.dic ]; then
+              timeout 120 ./build/dung-spellprobe /usr/lib/libreoffice/program "probe-spell-dict-$f" "spellfix/$f.docx" spelldict 2>&1 | grep -E "^SPELL" | tee -a report/linux-spellprobe.log
+            else
+              echo "SPELL: không cài được hunspell-vi trên runner Linux — bỏ qua thăm dò có từ điển" | tee -a report/linux-spellprobe.log
+            fi
+          done
+          exit 0
       - name: Kiểm tra round-trip XLSX (không mất dữ liệu)
         run: |
           set -o pipefail
@@ -486,6 +504,26 @@ jobs:
           $code = $LASTEXITCODE
           Write-Host "dung-margintest: mã thoát = $code"
           if ($code) { exit 1 }
+      - name: Từ điển Hunspell vi cho engine trên Windows — kiểm khối đăng ký (bắt buộc) + thăm dò gạch chân đỏ
+        run: |
+          $env:PYTHONUTF8 = "1"
+          & build/out/dung-spelldicttest.exe *>&1 | Tee-Object report/windows-spelldicttest.log
+          if ($LASTEXITCODE) { exit 1 }
+          python tests/spell/make_spell_fixture.py spellfix
+          $dictOk = $false
+          try { ./scripts/fetch-dict-vi.ps1 -OutDir build/dict-vi-probe *>&1 | Tee-Object report/windows-spell-fetch.log; $dictOk = $true } catch { "Không tải được từ điển: $_" | Tee-Object -Append report/windows-spell-fetch.log }
+          foreach ($f in @("spell-good","spell-bad")) {
+            foreach ($mode in @("nodict","dict")) {
+              if ($mode -eq "dict" -and -not $dictOk) { continue }
+              $outf = "report/windows-spellprobe-$mode-$f.log"
+              $args = @("$PWD/build/lo/engine/program", "$PWD/probe-spell-$mode-$f", "$PWD/spellfix/$f.docx")
+              if ($mode -eq "dict") { $args += "$PWD/build/dict-vi-probe" }
+              $p = Start-Process build/out/dung-spellprobe.exe -PassThru -NoNewWindow -ArgumentList $args -RedirectStandardOutput $outf -RedirectStandardError "$outf.err"
+              if (-not $p.WaitForExit(150000)) { Stop-Process $p -Force; "SPELL ${f}/${mode}: LỖI quá thời gian" | Add-Content $outf }
+              Get-Content $outf | Select-String "^SPELL" | ForEach-Object { $_.Line }
+            }
+          }
+          exit 0
       - name: Chữ đang soạn (preedit) của bộ gõ trên Windows
         run: |
           & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --preedit 1 --out "$PWD/smoke-preedit" *>&1 | Tee-Object report/windows-preedit.log

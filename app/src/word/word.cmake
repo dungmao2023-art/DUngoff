@@ -10,7 +10,8 @@ if(TARGET DungOffice)
     ${_DUNG_WORD_DIR}/WordCommands.h ${_DUNG_WORD_DIR}/WordCommands.cpp
     ${_DUNG_WORD_DIR}/WordRibbon.cpp
     ${_DUNG_WORD_DIR}/WordActions.h ${_DUNG_WORD_DIR}/WordActions.cpp
-    ${_DUNG_WORD_DIR}/../vntext/VnText.h ${_DUNG_WORD_DIR}/../vntext/VnText.cpp)
+    ${_DUNG_WORD_DIR}/../vntext/VnText.h ${_DUNG_WORD_DIR}/../vntext/VnText.cpp
+    ${_DUNG_WORD_DIR}/../vntext/SyllableCheck.h ${_DUNG_WORD_DIR}/../vntext/SyllableCheck.cpp)
 endif()
 
 # Đặt lề trang bằng cách vá XML (PageMargins): lõi chỉ cần QtCore; dung-margintest chạy cả trên engine thật (--program).

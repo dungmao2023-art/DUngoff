@@ -521,4 +521,15 @@ QStringList generateAllSyllables() {
     return l;
 }
 
+QString describeIssue(const QString &text, const TextIssue &issue, int radius) {
+    const int from = qMax(0, issue.start - radius);
+    const int to = qMin(text.size(), issue.start + issue.length + radius);
+    QString ctx = text.mid(from, to - from).simplified();
+    QString out = QStringLiteral("\u2026") + ctx + QStringLiteral("\u2026  \u2192  \u00ab") + issue.text + QStringLiteral("\u00bb");
+    if (!issue.result.reason.isEmpty()) out += QStringLiteral(" \u2014 ") + issue.result.reason;
+    if (!issue.result.suggestions.isEmpty())
+        out += QStringLiteral(" (g\u1ee3i \u00fd: ") + issue.result.suggestions.join(QStringLiteral(", ")) + QLatin1Char(')');
+    return out;
+}
+
 } // namespace vntext::spell
