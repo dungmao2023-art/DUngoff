@@ -18,7 +18,7 @@ const std::vector<FormatInfo>& table() {
         {"xls",  DocKind::Spreadsheet, Fidelity::ReadOnly, "", "Excel 97-2003 (.xls)",
          "Định dạng .xls cũ: mở ở chế độ chỉ đọc. Hãy Lưu thành .xlsx để chỉnh sửa an toàn."},
         {"xlsm", DocKind::Spreadsheet, Fidelity::ReadOnly, "", "Excel có macro (.xlsm)",
-         "Tệp có macro VBA: Dũng Office không chạy macro và chưa bảo đảm giữ nguyên macro khi ghi. Mở ở chế độ chỉ đọc."},
+         "Tệp có macro VBA: Dũng Office KHÔNG chạy macro và không ghi đè tệp này. Mở ở chế độ chỉ đọc; tệp gốc giữ nguyên macro. Lưu thành .xlsx sẽ tạo bản không có macro (nút bấm còn hiện nhưng không chạy)."},
         {"xlsb", DocKind::Spreadsheet, Fidelity::ReadOnly, "", "Excel nhị phân (.xlsb)",
          "Không ghi được định dạng .xlsb. Mở ở chế độ chỉ đọc; có thể Lưu thành .xlsx."},
         {"csv",  DocKind::Spreadsheet, Fidelity::ReadOnly, "", "CSV (.csv)",

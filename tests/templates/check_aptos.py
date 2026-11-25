@@ -7,7 +7,11 @@ from pypdf import PdfReader
 import zipfile
 from xml.etree import ElementTree as ET
 
-tdir, out = Path(sys.argv[1]), Path(sys.argv[2])
+args = [a for a in sys.argv[1:] if not a.startswith("--")]
+# --control: biến thể ĐỐI CHỨNG ÂM TÍNH (vd. v5: Always=false, đã biết KHÔNG áp dụng thay phông trên Windows).
+# Kỳ vọng phủ chữ THẤP; thấp thì in [ĐỐI CHỨNG] và thoát 0, cao bất ngờ thì báo để xem lại ghi chú trong Engine.cpp.
+CONTROL = "--control" in sys.argv
+tdir, out = Path(args[0]), Path(args[1])
 A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 
 def toks(t):
@@ -40,8 +44,15 @@ for r in rows:
     cov = sum(1 for x in t if x in have) / max(1, len(t))
     print("   phông trong PDF:", ", ".join(fonts_of(pdf)))
     ok = cov >= 0.97
-    print("[%s] %s: phủ chữ %.1f%% (%d từ)" % ("ĐẠT" if ok else "LỖI", r["relpath"].split("/")[-1], cov * 100, len(t)))
+    name = r["relpath"].split("/")[-1]
+    if CONTROL:
+        print("[%s] %s: phủ chữ %.1f%% (%d từ) - đối chứng âm tính, kỳ vọng thấp" %
+              ("ĐỐI CHỨNG đúng kỳ vọng" if not ok else "BẤT NGỜ: đối chứng đạt 97%", name, cov * 100, len(t)))
+        if ok:
+            bad += 1
+        continue
+    print("[%s] %s: phủ chữ %.1f%% (%d từ)" % ("ĐẠT" if ok else "LỖI", name, cov * 100, len(t)))
     if not ok:
         bad += 1
-print("KẾT QUẢ:", "ĐẠT" if not bad else "CÓ LỖI")
+print("KẾT QUẢ:", ("ĐỐI CHỨNG " if CONTROL else "") + ("ĐẠT" if not bad else "CÓ LỖI"))
 sys.exit(1 if bad else 0)
