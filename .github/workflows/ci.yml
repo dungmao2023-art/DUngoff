@@ -51,6 +51,13 @@ jobs:
           set -o pipefail
           qpdf --version | head -1
           QT_QPA_PLATFORM=offscreen ./build/app/dung-pdftest 2>&1 | tee report/linux-pdftest.log
+      - name: Kiểm thử tiện ích dữ liệu (ƒx Tôi muốn, thống kê/lỗi, xuất theo mẫu) + LibreOffice mở bản xuất
+        run: |
+          set -o pipefail
+          DUNG_DA_OUT="$PWD/da-out" ./build/app/dung-dataassisttest 2>&1 | tee report/linux-dataassisttest.log
+          cd da-out && soffice --headless --convert-to csv:"Text - txt - csv (StarCalc)":44,34,76 --outdir csv ket-qua-xuat.xlsx 2>&1 | tee -a ../report/linux-dataassist-lo.log
+          cat csv/ket-qua-xuat.csv | tee -a ../report/linux-dataassist-lo.log
+          grep -q "00123" csv/ket-qua-xuat.csv && grep -q "Bút bi <xanh> & đỏ" csv/ket-qua-xuat.csv && grep -q "MẪU NHẬP HÀNG" csv/ket-qua-xuat.csv
       - name: Kiểm thử tiện ích bảng tính (dòng trùng, so sánh, làm sạch)
         run: |
           set -o pipefail
@@ -396,6 +403,12 @@ jobs:
           python -m pip install --quiet openpyxl python-pptx
           python tests/fixtures/mailmerge/make_mailmerge_fixtures.py mm-fixtures
           & $exe.FullName mm-fixtures *>&1 | Tee-Object report/windows-mailmergetest.log
+      - name: Kiểm thử tiện ích dữ liệu trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-dataassisttest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-dataassisttest.exe"; exit 1 }
+          & $exe.FullName *>&1 | Tee-Object report/windows-dataassisttest.log
+          if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử công cụ tìm tệp trên Windows
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-filesearchtest.exe | Select-Object -First 1
