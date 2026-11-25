@@ -96,5 +96,5 @@ Mọi lệnh `.uno:` xuất hiện trong mã giao diện (85 lệnh). Cột "B�
 ## Còn lỗi / chưa kiểm
 - `.uno:FormatPaintbrush`: CHƯA KIỂM — hiệu ứng cần chọn ô đích bằng chuột; kiểm trên máy thật (xem docs/KICH_BAN_KIEM_TRA_THIET_BI_THAT.md).
 - Lệnh của giao diện Qt (không phải UNO): `xl:*`, `pdfTools:*`, `cut/copy`, zoom, thao tác PowerPoint ở `app/src/ppt/PptActions.cpp`: KHÔNG kiểm được trong sweep vì cần cửa sổ Qt; được phủ bởi các test Qt riêng (pdf, tableutil...) hoặc kiểm tay trên máy thật.
-- Kết quả trên engine Windows: xem `report/windows-sweep.log` của lần chạy CI mới nhất; bước này chưa chặn job cho tới khi có kết quả ổn định.
+- Engine Windows: lần chạy CI 45612738962 cho 27 lệnh ĐẠT, 0 lỗi, 1 CHƯA KIỂM (xem `report/windows-sweep.log`). Bước này chặn job từ nay.
 - Phím tắt: bảng KeyMap có test riêng (tests/keymap); sweep này không lặp lại.

@@ -536,7 +536,6 @@ jobs:
             Get-Content $outf | Select-String "^REPAINT" | ForEach-Object { $_.Line }
           }
       - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Windows)
-        continue-on-error: true
         timeout-minutes: 6
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
