@@ -488,7 +488,7 @@ jobs:
               $args = @("$PWD/build/lo/engine/program", "$PWD/probe-spell-$mode-$f", "$PWD/spellfix/$f.docx")
               if ($mode -eq "dict") { $args += "$PWD/build/dict-vi-probe" }
               $p = Start-Process build/out/dung-spellprobe.exe -PassThru -NoNewWindow -ArgumentList $args -RedirectStandardOutput $outf -RedirectStandardError "$outf.err"
-              if (-not $p.WaitForExit(150000)) { Stop-Process $p -Force; "SPELL $f/$mode: LỖI quá thời gian" | Add-Content $outf }
+              if (-not $p.WaitForExit(150000)) { Stop-Process $p -Force; "SPELL ${f}/${mode}: LỖI quá thời gian" | Add-Content $outf }
               Get-Content $outf | Select-String "^SPELL" | ForEach-Object { $_.Line }
             }
           }
