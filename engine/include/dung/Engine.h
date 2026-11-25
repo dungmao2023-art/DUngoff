@@ -61,6 +61,17 @@ struct SaveResult {
 
 class Document;
 
+// Kết quả gọi một hàm trong thư viện script do ứng dụng đóng gói (dung_api.py), xem docs/DUNG_API.md.
+struct ScriptResult {
+    bool ok = false;        // hàm chạy xong và báo thành công
+    bool mutated = false;   // hàm đã làm đổi tài liệu
+    std::string message;    // thông báo tiếng Việt cho người dùng
+    std::string json;       // toàn bộ result.json (trường "data" cho hàm đọc)
+};
+
+// Một mục trong danh sách trắng các hàm script. `readOnlySafe`: không đổi tài liệu, được phép trên tài liệu chỉ đọc.
+struct ScriptFn { const char* name; bool readOnlySafe; };
+
 class Engine {
 public:
     // programDir: thư mục "program" của runtime LibreOffice (chứa sofficeapp.dll / libmergedlo.so).
@@ -80,9 +91,13 @@ public:
 
     std::string versionInfo() const;
     const fs::path& workDir() const { return m_workDir; }
+    const fs::path& profileDir() const { return m_profileDir; }
+    // Danh sách trắng các hàm script (phải khớp WHITELIST trong dung_api.py; có kiểm thử đối chiếu).
+    static const std::vector<ScriptFn>& scriptFunctions();
 
 private:
     Engine() = default;
+    fs::path m_profileDir;
     std::unique_ptr<lok::Office> m_office;
     fs::path m_workDir;
     int m_counter = 0;
@@ -179,6 +194,11 @@ public:
     bool isRecovered() const { return !m_recoveredName.empty(); }
     void markModified() { m_modified = true; }
 
+    // --- Script do ứng dụng đóng gói (dung_api.py) ---
+    // Gọi hàm `fn` trong danh sách trắng với đối số JSON (đối tượng). Không bao giờ chạy macro trong tài liệu
+    // của người dùng. Tài liệu chỉ đọc: chỉ hàm readOnlySafe. Hết giờ -> engine bị coi là kẹt, mọi lần gọi sau bị từ chối.
+    ScriptResult callScript(const std::string& fn, const std::string& argsJson = "{}", int timeoutMs = 30000);
+
 private:
     Document() = default;
     static void lokCallback(int type, const char* payload, void* data);
@@ -205,6 +225,8 @@ private:
     std::vector<FeatureLoss> m_featureLoss;
     std::vector<fs::path> m_sessionOutputs; // tệp do chính phiên này ghi ra (Ctrl+S lặp lại không cần sao lưu)
 
+    std::mutex m_scriptMutex;
+    std::atomic<bool> m_scriptWedged{false};
     std::mutex m_mutex;
     std::condition_variable m_cv;
     EventSink m_sink;

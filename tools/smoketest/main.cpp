@@ -104,6 +104,7 @@ int dungRunTemplateFidelity(const fs::path& program, const fs::path& dir, const 
 int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::path& out);
 int dungRunRecoverTests(const fs::path& program, const fs::path& out);   // recover_tests.cpp
 int dungRunPreeditTests(const fs::path& program, const fs::path& out);   // preedit_tests.cpp
+int dungRunApiTests(const fs::path& program, const fs::path& out);       // api_tests.cpp
 
 int main(int argc, char** argv) {
 #ifdef _WIN32
@@ -125,6 +126,7 @@ int main(int argc, char** argv) {
     fs::path templatesDir;             // --templates <thư mục>: toàn vẹn hiển thị/in trên thư viện mẫu
     bool excelMode = false; fs::path stressFile; // --excel 1 [--stress <tệp>]: kiểm thử Excel cơ bản (excel_tests.cpp)
     bool preeditMode = false;          // --preedit 1: chữ đang soạn của bộ gõ (preedit_tests.cpp)
+    bool apiMode = false;              // --api 1: cầu nối script dung_api.py (api_tests.cpp)
     bool recoverMode = false;          // --recover 1: bản phục hồi + đường dẫn dài (recover_tests.cpp)
     bool basicOnly = false;            // --chi-mo 1: dừng sau bước hiển thị (engine chưa hỗ trợ nhập liệu)
     for (size_t i = 1; i + 1 < args.size(); i += 2) {
@@ -140,12 +142,14 @@ int main(int argc, char** argv) {
         else if (args[i] == "--ppt") pptTests = fromUtf8(args[i + 1]);
         else if (args[i] == "--templates") templatesDir = fromUtf8(args[i + 1]);
         else if (args[i] == "--preedit") preeditMode = (args[i + 1] == "1");
+        else if (args[i] == "--api") apiMode = (args[i + 1] == "1");
         else if (args[i] == "--recover") recoverMode = (args[i + 1] == "1");
         else if (args[i] == "--excel") excelMode = (args[i + 1] == "1");
         else if (args[i] == "--stress") stressFile = fromUtf8(args[i + 1]);
         else if (args[i] == "--chi-mo") basicOnly = (args[i + 1] == "1"); // chỉ mở + hiển thị, bỏ nhập liệu/lưu
     }
     if (preeditMode && !program.empty() && !out.empty()) return dungRunPreeditTests(program, out);
+    if (apiMode && !program.empty() && !out.empty()) return dungRunApiTests(program, out);
     if (recoverMode && !program.empty() && !out.empty()) return dungRunRecoverTests(program, out);
     if (wordMode && !program.empty() && !out.empty()) return runWordTests(program, out);
     if (!pptTests.empty() && !program.empty() && !out.empty()) return dungRunPptTests(program, pptTests, out);
