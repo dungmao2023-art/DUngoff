@@ -192,6 +192,12 @@ jobs:
           pip install --quiet python-docx || true
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-word --word 1 2>&1 | tee report/linux-word.log
           python3 tests/word/verify_docx.py smoke-word/word-dinh-dang.docx 2>&1 | tee report/linux-word-docx.log
+      - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Linux)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-sweep --sweep 1 2>&1 | tee report/linux-sweep.log
+          python3 tests/calc/check_freeze.py smoke-sweep 2>&1 | tee report/linux-freeze-file.log
       - name: Đặt lề bằng vá XML (Linux) — đơn vị, gói ZIP, .docx thật, engine thật
         run: |
           set -o pipefail
@@ -543,6 +549,20 @@ jobs:
             if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "REPAINT $($m[0]): LỖI quá thời gian" | Add-Content $outf }
             Get-Content $outf | Select-String "^REPAINT" | ForEach-Object { $_.Line }
           }
+      - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Windows)
+        timeout-minutes: 6
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--sweep", "1", "--out", "$PWD/smoke-sweep") -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-sweep.log -RedirectStandardError report/windows-sweep.err.log
+          if (-not $p.WaitForExit(180000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-sweep.log; exit 1 }
+          Get-Content report/windows-sweep.log
+          if ($p.ExitCode) { exit 1 }
+      - name: Cố định ô — kiểm bằng tệp xlsx lưu ra (Windows)
+        if: always()
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          python tests/calc/check_freeze.py smoke-sweep 2>&1 | Tee-Object report/windows-freeze-file.log
       - name: Phục hồi sau sập + đường dẫn dài trên Windows (250-259, 262, 300 ký tự)
         run: |
           $rt = Get-ChildItem build/out -Recurse -Filter dung-recoverytest.exe | Select-Object -First 1
@@ -749,6 +769,12 @@ jobs:
           git config user.email "ci@users.noreply.github.com"
           git add -A
           git commit -qm "CI report ${GITHUB_SHA::8} (run ${{ github.run_id }})"
-          git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-report
-          # Bản riêng theo nhánh, để các nhánh chạy song song không ghi đè báo cáo của nhau.
-          git push -fq "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/ci-report-${GITHUB_REF_NAME//\//-}"
+          # Một lần đẩy cho cả hai nhánh, thử lại tới 4 lần (lỗi "missing necessary objects" là lỗi tạm của GitHub
+          # khi đẩy hai ref liên tiếp từ kho vừa khởi tạo). Báo cáo là phụ: không để nó làm đỏ cả lần chạy.
+          URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          SAFE="${GITHUB_REF_NAME//[^A-Za-z0-9._-]/-}"
+          for n in 1 2 3 4; do
+            if git push -fq "$URL" "HEAD:refs/heads/ci-report" "HEAD:refs/heads/ci-report-${SAFE}"; then ok=1; break; fi
+            echo "đẩy báo cáo lần $n lỗi, thử lại"; sleep $((n*5))
+          done
+          [ "${ok:-0}" = 1 ] || echo "::warning::Không đẩy được báo cáo lên nhánh ci-report (không ảnh hưởng kết quả kiểm thử)"

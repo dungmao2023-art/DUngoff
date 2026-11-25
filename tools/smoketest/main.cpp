@@ -33,6 +33,8 @@ using namespace dung;
 int runWordTests(const std::filesystem::path& program, const std::filesystem::path& out);   // word_tests.cpp
 int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path& stress, const fs::path& out); // excel_tests.cpp
 
+int runSweepTests(const fs::path& program, const fs::path& out);   // sweep_tests.cpp
+
 static int g_fail = 0;
 static std::mutex g_stepMutex;
 static std::string g_step = "khởi động";
@@ -124,6 +126,7 @@ int main(int argc, char** argv) {
     fs::path pptTests;                 // --ppt <tệp.pptx>: kiểm thử lệnh PowerPoint (ppt_tests.cpp)
     fs::path templatesDir;             // --templates <thư mục>: toàn vẹn hiển thị/in trên thư viện mẫu
     bool excelMode = false; fs::path stressFile; // --excel 1 [--stress <tệp>]: kiểm thử Excel cơ bản (excel_tests.cpp)
+    bool sweepMode = false;            // --sweep 1: quét lệnh ribbon chưa được kiểm (sweep_tests.cpp)
     bool preeditMode = false;          // --preedit 1: chữ đang soạn của bộ gõ (preedit_tests.cpp)
     bool recoverMode = false;          // --recover 1: bản phục hồi + đường dẫn dài (recover_tests.cpp)
     bool basicOnly = false;            // --chi-mo 1: dừng sau bước hiển thị (engine chưa hỗ trợ nhập liệu)
@@ -140,11 +143,13 @@ int main(int argc, char** argv) {
         else if (args[i] == "--ppt") pptTests = fromUtf8(args[i + 1]);
         else if (args[i] == "--templates") templatesDir = fromUtf8(args[i + 1]);
         else if (args[i] == "--preedit") preeditMode = (args[i + 1] == "1");
+        else if (args[i] == "--sweep") sweepMode = (args[i + 1] == "1");
         else if (args[i] == "--recover") recoverMode = (args[i + 1] == "1");
         else if (args[i] == "--excel") excelMode = (args[i + 1] == "1");
         else if (args[i] == "--stress") stressFile = fromUtf8(args[i + 1]);
         else if (args[i] == "--chi-mo") basicOnly = (args[i + 1] == "1"); // chỉ mở + hiển thị, bỏ nhập liệu/lưu
     }
+    if (sweepMode && !program.empty() && !out.empty()) return runSweepTests(program, out);
     if (preeditMode && !program.empty() && !out.empty()) return dungRunPreeditTests(program, out);
     if (recoverMode && !program.empty() && !out.empty()) return dungRunRecoverTests(program, out);
     if (wordMode && !program.empty() && !out.empty()) return runWordTests(program, out);
