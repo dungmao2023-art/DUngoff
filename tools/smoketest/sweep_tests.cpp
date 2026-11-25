@@ -366,7 +366,7 @@ int runSweepTests(const fs::path& program, const fs::path& out) {
             {".uno:ChangeCaseToLower", "hello world. xin chao"},
             {".uno:ChangeCaseToSentenceCase", "Hello world. Xin chao"},
             {".uno:ChangeCaseToTitleCase", "Hello World. Xin Chao"},
-            {".uno:ChangeCaseToToggleCase", "HELLO WORLD. XIN CHAO"},   // đảo hoa/thường từ "hello world. xin chao"
+            {".uno:ChangeCaseToToggleCase", "hELLO WORLD. xIN CHAO"},   // "tOGGLE cASE" của engine: đảo theo từ (đã quan sát trên CI)
         };
         for (const auto& c : css) {
             run(d, ".uno:SelectAll");

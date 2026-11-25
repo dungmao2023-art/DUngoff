@@ -164,6 +164,10 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 {tr("Tính toán"), {
                     B(".uno:AutoSum", tr("Tổng"), 0xE8EF, "Σ", false),
                 }},
+                {tr("Điền"), {
+                    B(".uno:FillDown", tr("Điền xuống"), 0xE74B, "↓", false),
+                    B(".uno:FillRight", tr("Điền sang phải"), 0xE72A, "→", false),
+                }},
                 {tr("Sắp xếp & lọc"), {
                     B(".uno:SortAscending", tr("Tăng dần"), 0xE8CB, "A↓", false),
                     B(".uno:SortDescending", tr("Giảm dần"), 0xE8CB, "Z↓", false),
