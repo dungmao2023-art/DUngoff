@@ -399,6 +399,13 @@ const char kBasicModule[] =
     "<script:module xmlns:script=\"http://openoffice.org/2000/script\" script:name=\"DungApi\" script:language=\"StarBasic\">"
     "Sub Run\n"
     "  On Error GoTo Fail\n"
+    "  Dim hb As Object, hu As String, hn As Integer\n"
+    "  hb = CreateUnoService(\"com.sun.star.util.PathSubstitution\")\n"
+    "  hu = hb.substituteVariables(\"$(user)/dung-api/basic-alive.txt\", True)\n"
+    "  hn = FreeFile\n"
+    "  Open hu For Output As #hn\n"
+    "  Print #hn, \"vao Run\"\n"
+    "  Close #hn\n"
     "  Dim f As Object, p As Object, s As Object\n"
     "  f = CreateUnoService(\"com.sun.star.script.provider.MasterScriptProviderFactory\")\n"
     "  p = f.createScriptProvider(\"\")\n"
@@ -1295,6 +1302,7 @@ ScriptResult Document::callScript(const std::string& fn, const std::string& args
     fs::create_directories(dir, ec);
     fs::remove(dir / "result.json", ec);
     fs::remove(dir / "basic-error.txt", ec);
+    fs::remove(dir / "basic-alive.txt", ec);
     const std::string nonce = randomToken() + std::to_string(steadyMs());
     std::string req = "{\"nonce\":\"" + nonce + "\",\"fn\":\"" + fn + "\",\"args\":" + argsJson;
     if (!m_working.empty()) req += ",\"expect_url\":\"" + jsonEscape(toFileUrl(m_working)) + "\"";
@@ -1306,12 +1314,29 @@ ScriptResult Document::callScript(const std::string& fn, const std::string& args
     auto fut = sh->p.get_future();
     lok::Office* office = m_engine->m_office.get();
     lok::Document* doc = m_doc.get();
-    std::thread([sh, office, doc] {
+    auto diag = std::make_shared<std::string>();
+    const fs::path argsPath = dir / "args.json";
+    std::thread([sh, office, doc, diag, argsPath] {
         bool ok = false;
         try {
             ok = onEngine([&] {
                 doc->setView(doc->getView()); // chọn lại chế độ xem hiện hành để script thấy đúng tài liệu
-                return office->runMacro("macro:///Standard.DungApi.Run");
+                // Thử lần lượt vài dạng URL: trên engine Windows dạng đầu tiên có thể thất bại. Chỉ thử dạng kế tiếp khi
+                // args.json còn nguyên (script chưa đọc yêu cầu) nên một lệnh không bao giờ chạy hai lần.
+                static const char* const urls[] = {
+                    "macro:///Standard.DungApi.Run",
+                    "macro:///Standard.DungApi.Run()",
+                    "vnd.sun.star.script:Standard.DungApi.Run?language=Basic&location=application"};
+                for (const char* u : urls) {
+                    const bool r = office->runMacro(u);
+                    char* err = office->getError();
+                    *diag += std::string(u) + " -> " + (r ? "true" : "false");
+                    if (err) { if (*err) *diag += std::string(" [" ) + err + "]"; std::free(err); }
+                    *diag += "; ";
+                    std::error_code e2;
+                    if (r || !fs::exists(argsPath, e2)) return r;
+                }
+                return false;
             });
         } catch (...) {}
         sh->p.set_value(ok);
@@ -1330,7 +1355,7 @@ ScriptResult Document::callScript(const std::string& fn, const std::string& args
         { std::ifstream bf(dir / "basic-error.txt", std::ios::binary); be.assign(std::istreambuf_iterator<char>(bf), {}); }
         while (!be.empty() && (be.back() == '\n' || be.back() == '\r')) be.pop_back();
         if (!be.empty()) { fs::remove(dir / "basic-error.txt", ec); return fail("Script lỗi khi khởi chạy: " + be); }
-        return fail(launched ? "Script không trả kết quả." : "Engine không chạy được script (runMacro thất bại).");
+        return fail(launched ? "Script không trả kết quả." : "Engine không chạy được script (runMacro thất bại: " + *diag + ").");
     }
     if (jsonString(j, "nonce") != nonce) return fail("Kết quả script không khớp yêu cầu (nonce).");
     r.json = j;
