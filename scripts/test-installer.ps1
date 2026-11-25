@@ -37,7 +37,13 @@ function Snapshot {
 function LnkTarget($lnk) {
   try {
     $t = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath
-    if (-not $t) { Say "    (WScript.Shell trả về TargetPath rỗng cho $lnk; tồn tại: $(Test-Path -LiteralPath $lnk), cỡ: $((Get-Item -LiteralPath $lnk).Length))" }
+    if (-not $t) {
+      # WScript.Shell không đọc được lối tắt có tên Unicode trên một số máy: đọc bằng Shell.Application (GetLink)
+      $sh = New-Object -ComObject Shell.Application
+      $it = $sh.NameSpace((Split-Path $lnk -Parent)).ParseName((Split-Path $lnk -Leaf))
+      if ($it) { $t = $it.GetLink.Path }
+      Say "    (WScript.Shell trả TargetPath rỗng; đọc lại bằng Shell.Application -> '$t')"
+    }
     $t
   } catch { Say "    (không đọc được lối tắt $lnk : $($_.Exception.Message))"; $null }
 }
@@ -77,7 +83,11 @@ function RunInstalledApp($tag, $exe) {
       Add-Type -Namespace W -Name U -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool PostMessage(System.IntPtr h, uint m, System.IntPtr w, System.IntPtr l);' -ErrorAction SilentlyContinue
       $null = [W.U]::PostMessage($p.MainWindowHandle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)  # WM_CLOSE
     }
-    if (-not $p.WaitForExit(30000)) {
+    if (-not $p.WaitForExit(8000)) {
+      Say "    [$tag] sau 8 giây chưa thoát; các cửa sổ cấp cao của tiến trình:"
+      ListWindows $p | ForEach-Object { Say "      $_" }
+    }
+    if (-not $p.WaitForExit(22000)) {
       Note "[$tag] app không tự thoát sau CloseMainWindow 30 giây (có thể đang hiện hộp thoại hỏi) - buộc dừng"
       Stop-Process $p -Force
       $script:fails++
@@ -86,6 +96,28 @@ function RunInstalledApp($tag, $exe) {
       Ok ($p.ExitCode -eq 0) "[$tag] app thoát sạch, mã $($p.ExitCode)"
     }
   }
+}
+
+function ListWindows($p) {
+  Add-Type -Namespace W -Name E -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc f, System.IntPtr l);
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(System.IntPtr h, out uint pid);
+[System.Runtime.InteropServices.DllImport("user32.dll", CharSet=System.Runtime.InteropServices.CharSet.Unicode)] public static extern int GetWindowText(System.IntPtr h, System.Text.StringBuilder s, int n);
+[System.Runtime.InteropServices.DllImport("user32.dll", CharSet=System.Runtime.InteropServices.CharSet.Unicode)] public static extern int GetClassName(System.IntPtr h, System.Text.StringBuilder s, int n);
+[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool IsWindowVisible(System.IntPtr h);
+public delegate bool EnumProc(System.IntPtr h, System.IntPtr l);
+'@ -ErrorAction SilentlyContinue
+  $res = New-Object System.Collections.ArrayList
+  $cb = [W.E+EnumProc]{ param($h, $l)
+    $pid2 = 0; [void][W.E]::GetWindowThreadProcessId($h, [ref]$pid2)
+    if ($pid2 -eq $p.Id) {
+      $t = New-Object System.Text.StringBuilder 256; $c = New-Object System.Text.StringBuilder 256
+      [void][W.E]::GetWindowText($h, $t, 256); [void][W.E]::GetClassName($h, $c, 256)
+      [void]$res.Add("hiện=$([W.E]::IsWindowVisible($h)) lớp='$($c.ToString())' tiêu đề='$($t.ToString())'")
+    }
+    $true }
+  [void][W.E]::EnumWindows($cb, [IntPtr]::Zero)
+  $res
 }
 
 function Uninstall($tag, $dir) {

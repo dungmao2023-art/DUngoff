@@ -82,6 +82,7 @@ Name: "{userdesktop}\Dũng Office"; Filename: "{app}\DungOffice.exe"; Tasks: des
 
 [Registry]
 ; Thêm "Mở bằng Dũng Office" (không chiếm liên kết mặc định của người dùng)
+Root: HKCU; Subkey: "Software\Classes\Applications"; Flags: uninsdeletekeyifempty
 Root: HKCU; Subkey: "Software\Classes\Applications\DungOffice.exe\shell\open\command"; ValueType: string; ValueData: """{app}\DungOffice.exe"" ""%1"""; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\Applications\DungOffice.exe"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "Dũng Office"; Flags: uninsdeletekey
 ; Khoá cha rỗng còn sót lại sau khi gỡ (kiểm bằng scripts/test-installer.ps1). Inno gỡ theo thứ tự ngược: các dòng này đứng
