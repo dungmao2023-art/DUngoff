@@ -1,0 +1,24 @@
+  -> khởi động engine
+[ĐẠT]  Khởi động engine 
+  -> Writer: S1 soạn từng bước rồi chốt
+No language allowlisted, turning off the language support.
+[ĐẠT]  Tạo tài liệu Word 
+[ĐẠT]  S1: sau khi chốt, tài liệu là 'A dường' đúng một lần [A dường]
+  -> Writer: S2 huỷ chữ đang soạn
+[ĐẠT]  S2: chữ đang soạn đã bị huỷ, không còn 'xyz' [A dường B]
+[ĐẠT]  S2: phần đã gõ trước đó ' B' còn nguyên [A dường B]
+  -> Writer: S3 chốt rồi soạn tiếp cụm mới
+[ĐẠT]  S3: 'việt nam' đúng, không nhân đôi [A dường Bviệt nam]
+[ĐẠT]  S3: 'việt' chỉ xuất hiện một lần
+  -> Writer: S4 chốt rỗng (END khi không soạn) không làm hỏng
+[ĐẠT]  S4: END khi không có chữ đang soạn không đổi tài liệu
+  -> Calc: S5 soạn trong ô
+[ĐẠT]  Tạo bảng tính 
+[GHI NHẬN] Calc: nội dung ô A1 sau khi soạn+chốt: [Toán]
+[ĐẠT]  S5: ô A1 chứa 'Toán' sau khi chốt
+  -> Impress: S6 soạn khi chưa có khung chữ (không được treo/sập)
+[ĐẠT]  Tạo bài trình chiếu 
+[GHI NHẬN] Impress: gửi preedit khi không ở chế độ sửa chữ — engine không sập, không treo (chỉ kiểm tra không sập)
+[ĐẠT]  S6: engine vẫn sống sau preedit trong Impress
+
+KẾT QUẢ: TẤT CẢ ĐẠT

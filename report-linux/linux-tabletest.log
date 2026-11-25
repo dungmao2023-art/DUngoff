@@ -1,0 +1,74 @@
+[ĐẠT]  trùng đúng khoá, phân biệt hoa/thường khi không chuẩn hoá
+[ĐẠT]  diff ghi dòng được giữ
+[ĐẠT]  chuẩn hoá hoa/thường/khoảng trắng bắt thêm 'a01 '
+[ĐẠT]  dòng khoá rỗng không bị coi là trùng
+[ĐẠT]  có cảnh báo về khoá rỗng
+[ĐẠT]  hoàn tác dòng trùng == bảng gốc, từng ô
+[ĐẠT]  hoàn tác (không chuẩn hoá) == bảng gốc
+[ĐẠT]  bảng gốc không bị sửa
+[ĐẠT]  khoá nhiều cột
+[ĐẠT]  khoá sai bị từ chối
+[ĐẠT]  số điện thoại giữ số 0 đầu
+[ĐẠT]  một dòng giống hệt
+[ĐẠT]  phát hiện ô khác giá trị
+[ĐẠT]  dòng chỉ có ở A và ở B
+[ĐẠT]  cảnh báo mã trùng và cột chỉ có ở một bên
+[ĐẠT]  bảng khác biệt xuất ra đủ 3 dòng
+[ĐẠT]  cột mã không tồn tại bị từ chối
+[ĐẠT]  '007' khác '7' (không ép kiểu số)
+[ĐẠT]  số dài 20 chữ số so chính xác, không mất độ chính xác
+[ĐẠT]  ngày d/m/yyyy -> dd/mm/yyyy
+[ĐẠT]  ngày ISO -> dd/mm/yyyy
+[ĐẠT]  ngày dấu chấm/gạch
+[ĐẠT]  ngày không tồn tại: giữ nguyên + cảnh báo
+[ĐẠT]  năm 2 chữ số: không đoán
+[ĐẠT]  số seri/số điện thoại không bị đổi thành ngày
+[ĐẠT]  đã chuẩn thì không đổi
+[ĐẠT]  ô rỗng/chữ giữ nguyên
+[ĐẠT]  VN: 1.500.000 -> 1500000
+[ĐẠT]  bỏ ký hiệu tiền ở cuối
+[ĐẠT]  VN: dấu phẩy thập phân, bỏ 0 thừa, không làm tròn
+[ĐẠT]  EN: 1,500,000.25
+[ĐẠT]  số âm
+[ĐẠT]  dấu nghìn sai vị trí: giữ nguyên + cảnh báo
+[ĐẠT]  phân cách lạ không đoán
+[ĐẠT]  số điện thoại không bị coi là tiền
+[ĐẠT]  số >15 chữ số giữ nguyên (không qua double)
+[ĐẠT]  chữ lẫn số giữ nguyên
+[ĐẠT]  0,5 hợp lệ
+[ĐẠT]  nhận diện chuỗi cần bảo vệ
+[ĐẠT]  bảng gốc không bị sửa khi làm sạch
+[ĐẠT]  đúng số ô được đổi
+[ĐẠT]  cột mã giữ nguyên số 0 đầu
+[ĐẠT]  ô lỗi giữ nguyên
+[ĐẠT]  mỗi ô không chuyển được và cột thiếu đều có cảnh báo
+[ĐẠT]  đọc CSV: BOM, dấu phẩy/nháy/xuống dòng trong ô, số 0 đầu
+[ĐẠT]  ghi bản sao CSV
+[ĐẠT]  ghi rồi đọc lại == nguyên vẹn
+[ĐẠT]  không ghi đè tệp đã có
+[ĐẠT]  CSV không phải UTF-8: từ chối, không đoán bảng mã
+[ĐẠT]  tệp không tồn tại báo lỗi
+[ĐẠT]  BOM UTF-8: chắc chắn, không cần hỏi
+[ĐẠT]  UTF-8 không BOM có tiếng Việt: nhận ra
+[ĐẠT]  ASCII thuần: UTF-8
+[ĐẠT]  BOM UTF-16 LE
+[ĐẠT]  BOM UTF-16 BE
+[ĐẠT]  giải mã UTF-16 LE đúng nguyên văn
+[ĐẠT]  giải mã UTF-16 BE đúng nguyên văn
+[ĐẠT]  Windows-1258: chỉ gợi ý, BẮT người dùng xác nhận
+[ĐẠT]  giải mã Windows-1258 ra đúng chữ Việt (NFC)
+[ĐẠT]  byte không giống tiếng Việt: độ tin cậy thấp, cần người dùng chọn
+[ĐẠT]  byte không định nghĩa: không đoán
+[ĐẠT]  Windows-1258 gặp byte lạ: từ chối, không thay ký tự
+[ĐẠT]  chọn nhầm UTF-8 cho tệp Windows-1258: từ chối
+[ĐẠT]  UTF-16 độ dài lẻ: từ chối
+[ĐẠT]  UTF-16 không BOM: gợi ý và bắt xác nhận
+[ĐẠT]  xem trước đúng 20 dòng, bỏ \r
+[ĐẠT]  đoán dấu phân cách
+[ĐẠT]  readCsv mặc định (UTF-8) vẫn từ chối tệp Windows-1258
+[ĐẠT]  đọc CSV Windows-1258 sau khi chọn bảng mã
+[ĐẠT]  tệp gốc không bị đổi byte nào
+[ĐẠT]  ghi bản sao UTF-8 từ tệp Windows-1258
+[ĐẠT]  bản sao đọc lại nguyên vẹn
+
+KẾT QUẢ: TẤT CẢ ĐẠT  (đạt 72, lỗi 0)

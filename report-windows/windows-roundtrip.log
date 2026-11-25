@@ -1,0 +1,5 @@
+Tệp gốc không có giá trị cache của công thức (chưa từng được Excel tính) — bỏ qua so sánh kết quả.
+Đã kiểm tra 54 ô, 3 chỉnh sửa dự kiến.
+KHÁC BIỆT ĐÃ BIẾT (xem docs/DATA_SAFETY.md):
+  ~ Ghi chú!B1: định dạng số 'General' -> '#,##0'
+OK: không phát hiện mất dữ liệu.

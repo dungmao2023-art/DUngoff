@@ -1,0 +1,28 @@
+REPAINT writer: engine tự báo làm mới tile sau khi gõ: có
+REPAINT writer: tầng engine bù sự kiện làm mới (SYNTH): KHÔNG
+REPAINT writer: sự kiện vị trí con trỏ: có 4991, 2204, 0, 381
+REPAINT writer: sự kiện hiện/ẩn con trỏ: KHÔNG 
+REPAINT writer: sự kiện khung ô (CELL_CURSOR): KHÔNG 
+REPAINT writer: sự kiện vùng chọn ô (CELL_SELECTION_AREA): KHÔNG 
+REPAINT writer: con trỏ rộng 0 (hợp lệ khi vẽ): có — đây là nguyên nhân gốc lỗi cũ
+REPAINT writer (đang gõ): điểm ảnh đổi=1448 vùng=[92,97]-[313,109]
+REPAINT writer: LỖI (gõ xong mà hình không đổi)
+REPAINT calc: engine tự báo làm mới tile sau khi gõ: có
+REPAINT calc: tầng engine bù sự kiện làm mới (SYNTH): có
+REPAINT calc: sự kiện vị trí con trỏ: có 7444, 304, 0, 258
+REPAINT calc: sự kiện hiện/ẩn con trỏ: có true
+REPAINT calc: sự kiện khung ô (CELL_CURSOR): có EMPTY
+REPAINT calc: sự kiện vùng chọn ô (CELL_SELECTION_AREA): có EMPTY
+REPAINT calc: con trỏ rộng 0 (hợp lệ khi vẽ): có — đây là nguyên nhân gốc lỗi cũ
+REPAINT calc (đang gõ): điểm ảnh đổi=537 vùng=[167,25]-[222,49]
+REPAINT calc (sau Enter): điểm ảnh đổi=548 vùng=[166,28]-[224,47]
+REPAINT calc: ĐẠT (giao diện thay đổi sau khi gõ)
+REPAINT impress: engine tự báo làm mới tile sau khi gõ: có
+REPAINT impress: tầng engine bù sự kiện làm mới (SYNTH): có
+REPAINT impress: sự kiện vị trí con trỏ: có 12873, 3984, 0, 1055
+REPAINT impress: sự kiện hiện/ẩn con trỏ: có true
+REPAINT impress: sự kiện khung ô (CELL_CURSOR): KHÔNG 
+REPAINT impress: sự kiện vùng chọn ô (CELL_SELECTION_AREA): KHÔNG 
+REPAINT impress: con trỏ rộng 0 (hợp lệ khi vẽ): có — đây là nguyên nhân gốc lỗi cũ
+REPAINT impress (đang gõ): điểm ảnh đổi=13722 vùng=[46,140]-[511,244]
+REPAINT impress: ĐẠT (giao diện thay đổi sau khi gõ)

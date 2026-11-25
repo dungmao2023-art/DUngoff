@@ -1,0 +1,75 @@
+  -> khởi động engine
+  -> tạo bảng tính mới
+  -> sắp xếp
+[ĐẠT]  Calc .uno:SortAscending  {1  2  3  4}
+SWEEP|Calc|.uno:SortAscending|ĐẠT|1  2  3  4
+[ĐẠT]  Calc .uno:SortDescending  {4  3  2  1}
+SWEEP|Calc|.uno:SortDescending|ĐẠT|4  3  2  1
+  -> chèn/xoá cột và hàng
+[ĐẠT]  Calc .uno:InsertColumnsBefore  {D2=X}
+SWEEP|Calc|.uno:InsertColumnsBefore|ĐẠT|D2=X
+[ĐẠT]  Calc .uno:DeleteColumns  {C2=X}
+SWEEP|Calc|.uno:DeleteColumns|ĐẠT|C2=X
+[ĐẠT]  Calc .uno:InsertRowsBefore(làm dịch hàng)  {A5=1}
+SWEEP|Calc|.uno:InsertRowsBefore(làm dịch hàng)|ĐẠT|A5=1
+[ĐẠT]  Calc .uno:DeleteRows  {A4=1 A5=}
+SWEEP|Calc|.uno:DeleteRows|ĐẠT|A4=1 A5=
+  -> căn lề ô
+[ĐẠT]  Calc .uno:AlignLeft  {state=true html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="}
+SWEEP|Calc|.uno:AlignLeft|ĐẠT|state=true html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="
+[ĐẠT]  Calc .uno:AlignRight  {state=true html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="}
+SWEEP|Calc|.uno:AlignRight|ĐẠT|state=true html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="
+[ĐẠT]  Calc .uno:AlignHorizontalCenter  {state=true html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="}
+SWEEP|Calc|.uno:AlignHorizontalCenter|ĐẠT|state=true html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="
+[ĐẠT]  Calc .uno:AlignTop  {state=(chưa báo) html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="}
+SWEEP|Calc|.uno:AlignTop|ĐẠT|state=(chưa báo) html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="
+[ĐẠT]  Calc .uno:AlignVCenter  {state=(chưa báo) html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="}
+SWEEP|Calc|.uno:AlignVCenter|ĐẠT|state=(chưa báo) html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="
+[ĐẠT]  Calc .uno:AlignBottom  {state=(chưa báo) html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="}
+SWEEP|Calc|.uno:AlignBottom|ĐẠT|state=(chưa báo) html=<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="
+  -> gộp ô
+[ĐẠT]  Calc .uno:ToggleMergeCells  {<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="text/html; charset=u}
+SWEEP|Calc|.uno:ToggleMergeCells|ĐẠT|<!DOCTYPE html>    <html>  <head>      <meta http-equiv="content-type" content="text/html; charset=u
+  -> định dạng số
+[ĐẠT]  Calc .uno:NumberFormatPercent  {50.00%}
+SWEEP|Calc|.uno:NumberFormatPercent|ĐẠT|50.00%
+[ĐẠT]  Calc .uno:NumberFormatStandard  {0.5}
+SWEEP|Calc|.uno:NumberFormatStandard|ĐẠT|0.5
+[ĐẠT]  Calc .uno:NumberFormatIncDecimals  {0.50}
+SWEEP|Calc|.uno:NumberFormatIncDecimals|ĐẠT|0.50
+[ĐẠT]  Calc .uno:NumberFormatDecDecimals  {0.50 -> 0.5}
+SWEEP|Calc|.uno:NumberFormatDecDecimals|ĐẠT|0.50 -> 0.5
+[ĐẠT]  Calc .uno:NumberFormatDate  {03/15/23}
+SWEEP|Calc|.uno:NumberFormatDate|ĐẠT|03/15/23
+  -> vừa cột
+[ĐẠT]  Calc .uno:SetOptimalColumnWidth  {rộng 85 -> 246}
+SWEEP|Calc|.uno:SetOptimalColumnWidth|ĐẠT|rộng 85 -> 246
+  -> cố định ô
+[ĐẠT]  Calc .uno:FreezePanes  {state=true}
+SWEEP|Calc|.uno:FreezePanes|ĐẠT|state=true
+FREEZE-FILE|bat|đã lưu
+[ĐẠT]  Calc .uno:FreezePanes(tắt)  {state=false}
+SWEEP|Calc|.uno:FreezePanes(tắt)|ĐẠT|state=false
+FREEZE-FILE|tat|đã lưu
+[ĐẠT]  Calc .uno:FreezePanesColumn  {FreezePanes=true}
+SWEEP|Calc|.uno:FreezePanesColumn|ĐẠT|FreezePanes=true
+[ĐẠT]  Calc .uno:FreezePanesRow  {FreezePanes=true}
+SWEEP|Calc|.uno:FreezePanesRow|ĐẠT|FreezePanes=true
+  -> cắt
+[ĐẠT]  Calc .uno:Cut  {N1=}
+SWEEP|Calc|.uno:Cut|ĐẠT|N1=
+  -> chép định dạng
+[CHƯA KIỂM]  Calc .uno:FormatPaintbrush  {hiệu ứng cần chọn ô đích bằng chuột; kiểm trên máy thật}
+SWEEP|Calc|.uno:FormatPaintbrush|CHƯA KIỂM|hiệu ứng cần chọn ô đích bằng chuột; kiểm trên máy thật
+  -> tiêu đề hàng/cột
+[ĐẠT]  Calc .uno:ViewRowColumnHeaders  {{ "commandName": ".uno:ViewRowColumnHeaders", "rows": [ { "text": 0, "size": 0, "groupLevels": 0}, { "text": "1", "size": 17}, { "text": "2"}
+SWEEP|Calc|.uno:ViewRowColumnHeaders|ĐẠT|{ "commandName": ".uno:ViewRowColumnHeaders", "rows": [ { "text": 0, "size": 0, "groupLevels": 0}, { "text": "1", "size": 17}, { "text": "2"
+  -> tạo văn bản mới
+  -> về đầu văn bản
+[ĐẠT]  Writer .uno:GoToStartOfDoc  {ZDong dau  dong hai}
+SWEEP|Writer|.uno:GoToStartOfDoc|ĐẠT|ZDong dau  dong hai
+  -> số trang
+[ĐẠT]  Writer .uno:InsertPageNumberField  {ZDong dau  dong hai  1   html=<!DOCTYPE html>  <html>  <head>   <meta http-equiv="content-}
+SWEEP|Writer|.uno:InsertPageNumberField|ĐẠT|ZDong dau  dong hai  1   html=<!DOCTYPE html>  <html>  <head>   <meta http-equiv="content-
+
+KẾT QUẢ QUÉT LỆNH: TẤT CẢ ĐẠT (0 lỗi)

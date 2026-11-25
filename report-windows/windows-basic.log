@@ -1,0 +1,15 @@
+[ĐẠT]  Chuẩn bị tệp gốc trong thư mục tiếng Việt
+  -> khởi động engine
+[ĐẠT]  Khởi động engine LibreOfficeKit 
+       Phiên bản engine: { "ProductName": "LibreOfficeDev", "ProductVersion": "26.8", "ProductExtension": ".3.1", "BuildId": "861effc5289d539f15c4c18d1ba8579ffd78728b" }
+  -> mở XLSX
+[ĐẠT]  Mở XLSX 
+[ĐẠT]  Nhận diện loại tài liệu = Excel
+[ĐẠT]  XLSX mở ở chế độ chỉnh sửa
+[ĐẠT]  Engine nạp bản làm việc tạm, không nạp tệp gốc
+[ĐẠT]  Có 2 sheet (thực tế: 2)
+[ĐẠT]  Tên sheet tiếng Việt: 'Doanh thu', 'Ghi chú'
+  -> render tile XLSX
+[ĐẠT]  Render tile có nội dung (7347 điểm ảnh tối)
+
+KẾT QUẢ CƠ BẢN: ĐẠT

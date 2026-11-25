@@ -1,0 +1,12 @@
+[ĐẠT]  Đoạn 'Tiêu đề thử' giữ kiểu Heading 1
+[ĐẠT]  Chữ 'Chữ đậm' giữ định dạng đậm
+[ĐẠT]  Chữ ' thường' không bị đậm
+[ĐẠT]  Hai mục danh sách còn nguyên nội dung
+[ĐẠT]  Bảng 3 cột x 2 hàng được lưu
+[ĐẠT]  Hai đoạn có danh sách (w:numPr)
+[ĐẠT]  Liên kết được lưu (w:hyperlink)
+[ĐẠT]  Đích liên kết https://example.com/ còn nguyên
+       lề thực tế (mm): trái 30.0 phải 15.0 trên 20.0 dưới 20.0
+[ĐẠT]  Lề chuẩn VN (trái 30, phải 15, trên 20, dưới 20 mm) được lưu vào DOCX
+
+KẾT QUẢ DOCX: TẤT CẢ ĐẠT

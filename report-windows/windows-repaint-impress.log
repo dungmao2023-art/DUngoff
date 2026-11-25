@@ -1,0 +1,9 @@
+REPAINT impress: engine tự báo làm mới tile sau khi gõ: KHÔNG
+REPAINT impress: tầng engine bù sự kiện làm mới (SYNTH): có
+REPAINT impress: sự kiện vị trí con trỏ: có 12969, 3984, 0, 1055
+REPAINT impress: sự kiện hiện/ẩn con trỏ: có true
+REPAINT impress: sự kiện khung ô (CELL_CURSOR): KHÔNG 
+REPAINT impress: sự kiện vùng chọn ô (CELL_SELECTION_AREA): KHÔNG 
+REPAINT impress: con trỏ rộng 0 (hợp lệ khi vẽ): có — đây là nguyên nhân gốc lỗi cũ
+REPAINT impress (đang gõ): điểm ảnh đổi=11447 vùng=[46,140]-[511,244]
+REPAINT impress: ĐẠT (giao diện thay đổi sau khi gõ)

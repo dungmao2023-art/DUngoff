@@ -1,0 +1,64 @@
+  -> khởi động engine
+[ĐẠT]  Khởi động engine 
+  -> mở PPTX
+No language allowlisted, turning off the language support.
+[ĐẠT]  Mở PPTX 
+[ĐẠT]  Nhận diện = PowerPoint
+[ĐẠT]  PPTX mở ở chế độ chỉnh sửa
+[ĐẠT]  Có 2 trang chiếu (thực tế: 2)
+  -> trang mới (.uno:InsertPage)
+[ĐẠT]  Trang mới: 2 -> 3
+  -> nhân bản (.uno:DuplicatePage)
+[ĐẠT]  Nhân bản trang: -> 4
+  -> xoá trang (.uno:DeletePage)
+[ĐẠT]  Xoá trang: -> 3
+  -> di chuyển trang
+[ĐẠT]  Hai trang đầu có nội dung khác nhau (để nhận ra thứ tự)
+[ĐẠT]  Dời trang xuống (.uno:MovePageDown): hai trang đổi chỗ
+[ĐẠT]  Dời trang lên (.uno:MovePageUp): trả về thứ tự cũ
+  -> ẩn trang
+       partInfo(0) = { "visible": "1", "selected": "1", "masterPageCount": "11", "mode": "0" }
+       sau HideSlide = { "visible": "0", "selected": "1", "masterPageCount": "11", "mode": "0" }
+[ĐẠT]  Ẩn trang (.uno:HideSlide): thông tin trang đổi
+  -> sửa chữ trong khung đầu tiên
+  -> Đậm
+[ĐẠT]  Đậm (.uno:Bold): engine báo true
+  -> Nghiêng
+[ĐẠT]  Nghiêng (.uno:Italic): engine báo true
+  -> Gạch chân
+[ĐẠT]  Gạch chân (.uno:Underline): engine báo true
+  -> Căn phải
+[ĐẠT]  Căn phải (.uno:RightPara): engine báo true
+[ĐẠT]  Căn trái (.uno:LeftPara): engine báo true
+[ĐẠT]  Căn đều (.uno:JustifyPara): engine báo true
+  -> Phông chữ
+[ĐẠT]  Đổi phông (.uno:CharFontName): engine báo DejaVu Sans
+  -> Cỡ chữ
+[ĐẠT]  Đổi cỡ chữ (.uno:FontHeight): engine báo 32
+  -> Màu chữ
+[ĐẠT]  Đổi màu chữ (.uno:Color): engine báo 16711680 (đỏ)
+  -> danh sách trong khung nội dung
+[ĐẠT]  Đầu dòng (.uno:DefaultBullet): nội dung trang đổi
+[ĐẠT]  Đánh số (.uno:DefaultNumbering): nội dung trang đổi
+  -> đổi bố cục
+[ĐẠT]  Đổi bố cục (.uno:AssignLayout): nội dung trang đổi
+  -> chèn bảng
+[ĐẠT]  Chèn bảng 3x2 (.uno:InsertTable): trang đổi
+  -> chèn hình khối
+[ĐẠT]  Chèn hình chữ nhật (.uno:BasicShapes.rectangle + kéo chuột): trang đổi
+  -> chèn hộp văn bản
+[ĐẠT]  Chèn hộp văn bản (.uno:Text + kéo chuột): trang đổi
+  -> chèn ảnh
+[ĐẠT]  Chèn ảnh (.uno:InsertGraphic, FileName): trang đổi
+  -> ghi chú người nói
+       kích thước trang chiếu 14401x10801, trang ghi chú 12241x15841
+[ĐẠT]  Chế độ ghi chú đổi kích thước trang (đang ở trang ghi chú)
+[ĐẠT]  Trở về chế độ trang chiếu (kích thước trang như cũ)
+  -> vẽ trang bất kỳ
+[ĐẠT]  paintPartTile không làm đổi trang hiện tại
+[ĐẠT]  partHash gọi được
+  -> lưu PPTX
+[ĐẠT]  Lưu thành PPTX sau khi chỉnh: Đã lưu: Trình chiếu thử - Dũng Office.pptx
+[ĐẠT]  Tệp PPTX mới có nội dung
+
+KẾT QUẢ PPT: TẤT CẢ ĐẠT
