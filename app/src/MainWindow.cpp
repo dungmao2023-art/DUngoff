@@ -14,6 +14,8 @@
 #include "templates/TemplateLibrary.h"
 #include "templates/TemplatesPage.h"
 #include "toolbox/ToolboxPage.h"
+#include "DataAssistWidgets.h"
+#include "ExcelBridge.h"
 #include "Ribbon.h"
 #include "Theme.h"
 #include "TileView.h"
@@ -111,6 +113,24 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_templates, &TemplatesPage::openPath, this, &MainWindow::openPath);
     m_toolbox = new ToolboxPage(m_stack);
     m_stack->addWidget(m_toolbox);
+    // Nối tiện ích dữ liệu (Hộp công cụ) với tab Excel đang mở. Ghi đè ô có dữ liệu phải được xác nhận; engine hoàn tác được (Ctrl+Z).
+    dataassist::hooks().selectedRangeText = [this]() -> QString {
+        DocumentTab* t = current();
+        if (!t || t->kind() != dung::DocKind::Spreadsheet) return {};
+        return QString::fromStdString(dataassist::bridgeSelectedText(*t->document()));
+    };
+    dataassist::hooks().insertFormula = [this](const QString& f, QString* res, QString* msg) -> bool {
+        DocumentTab* t = current();
+        if (!t || t->kind() != dung::DocKind::Spreadsheet) { if (msg) *msg = tr("Chưa có tab Excel nào đang mở — mở một bảng tính rồi chọn ô cần chèn."); return false; }
+        const auto o = dataassist::bridgeInsertFormula(*t->document(), f.toStdString(), [this](const std::string& old) {
+            return QMessageBox::question(this, tr("Ghi đè ô đang có dữ liệu?"),
+                                         tr("Ô đang chọn có nội dung:\n\n%1\n\nChèn công thức sẽ thay thế nội dung này (có thể hoàn tác bằng Ctrl+Z). Tiếp tục?").arg(QString::fromStdString(old).left(200)),
+                                         QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+        }, 250);
+        if (!o.ok) { if (msg) *msg = QString::fromStdString(o.message); return false; }
+        if (res) *res = QString::fromStdString(o.resultText);
+        return true;
+    };
     ch->addWidget(m_stack, 1);
     m_side = new SidePanel(content);
     ch->addWidget(m_side);

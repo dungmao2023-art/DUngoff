@@ -8,7 +8,8 @@ namespace dataassist {
 
 // Móc nối tuỳ chọn do nơi nhúng cung cấp. Chưa có móc => widget chỉ sao chép vào bảng nhớ tạm và nói rõ.
 struct Hooks {
-    std::function<bool(const QString &formula)> insertFormula;   // đưa công thức vào ô đang chọn của tab Excel (engine tính)
+    // đưa công thức vào ô đang chọn của tab Excel (engine tính). false + message nếu không ghi; resultText = kết quả engine tính.
+    std::function<bool(const QString &formula, QString *resultText, QString *message)> insertFormula;
     std::function<QString()> selectedRangeText;                    // vùng ô đang chọn dạng TSV (selectionAs text/plain)
 };
 Hooks &hooks();

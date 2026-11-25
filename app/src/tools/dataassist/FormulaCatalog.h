@@ -35,6 +35,9 @@ QString foldVietnamese(const QString &s);
 // Tìm theo ý người dùng ("cộng tổng", "tìm theo mã", "đếm ô có điều kiện"). Xếp theo điểm giảm dần.
 QVector<const FuncInfo*> search(const QString &query, int maxResults = 12);
 
+// Gợi ý hàm thay thế khi engine không chạy được hàm mới (XLOOKUP/FILTER/SORT/UNIQUE). Rỗng nếu không có.
+QString replacementHint(const QString &name);
+
 // Dựng công thức "=NAME(a,b,c)" từ giá trị nhập cho từng đối số.
 // Đối số bắt buộc để trống => ok=false, error nêu tên đối số. Đối số tuỳ chọn trống ở CUỐI thì bỏ; ở GIỮA thì lỗi.
 // sep: dấu ngăn đối số (',' hoặc ';'). Không đổi nội dung đối số của người dùng.
