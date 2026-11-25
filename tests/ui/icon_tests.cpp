@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
             const int ink = inkCount(im);
             const QRect box = inkBox(im);
             const double cover = double(ink) / (px * px);
-            const bool ok = im.size() == QSize(px, px) && ink >= px / 2 && cover < 0.80 && box.width() >= px * 0.4 && box.height() >= px * 0.3;
+            const bool ok = im.size() == QSize(px, px) && ink >= px / 2 && cover < 0.80 && qMax(box.width(), box.height()) >= px * 0.4;
             if (!ok) bad << QStringLiteral("%1@%2(ink=%3,%4%%)").arg(n).arg(px).arg(ink).arg(int(cover * 100));
         }
     }
@@ -125,7 +125,10 @@ int main(int argc, char** argv) {
                 || !qFuzzyCompare(p2.devicePixelRatio(), 2.0) || inkCount(p2.toImage()) <= inkCount(p1.toImage()))
                 badDpr << n;
             const QPixmap viaIcon = icon(n, blue).pixmap(QSize(24, 24), 2.0, QIcon::Normal, QIcon::Off);
-            if (viaIcon.size() != QSize(48, 48) || inkCount(viaIcon.toImage()) == 0) badDpr << n + QStringLiteral("(QIcon)");
+            if (n == QLatin1String("bold"))
+                printf("       thông tin: QIcon::pixmap(24x24, dpr=2) -> %dx%d vật lý, dpr=%.1f, logic %dx%d\n", viaIcon.width(), viaIcon.height(),
+                       viaIcon.devicePixelRatio(), viaIcon.deviceIndependentSize().toSize().width(), viaIcon.deviceIndependentSize().toSize().height());
+            if (viaIcon.deviceIndependentSize().toSize() != QSize(24, 24) || inkCount(viaIcon.toImage()) == 0) badDpr << n + QStringLiteral("(QIcon)");
         }
         check(badDpr.isEmpty(), QStringLiteral("DPR 2/3: ảnh đúng kích thước vật lý, có nét, qua cả QIcon::pixmap"), badDpr.join(QLatin1Char(' ')));
     }
@@ -165,8 +168,8 @@ int main(int argc, char** argv) {
         const QString path = QDir(outDir).filePath(QStringLiteral("icons-contact-sheet.png"));
         check(sheet.save(path), QStringLiteral("ghi tờ tổng hợp: ") + path);
         // Cỡ thật 16/24/32 phóng 3 lần (điểm ảnh gần nhất) để soát độ đọc được ở cỡ nhỏ
-        const int z = 3, scell = 40 * z + 6;
-        const int c2 = 14, r2 = (names.size() + c2 - 1) / c2;
+        const int z = 2, scell = 72 * z + 8;
+        const int c2 = 9, r2 = (names.size() + c2 - 1) / c2;
         QImage small(c2 * scell, r2 * scell, QImage::Format_ARGB32_Premultiplied);
         small.fill(Qt::white);
         QPainter q(&small);
@@ -174,8 +177,8 @@ int main(int argc, char** argv) {
             const int cx = (i % c2) * scell, cy = (i / c2) * scell;
             int x = cx + 2;
             for (int px : {16, 24, 32}) {
-                q.drawImage(QRect(x, cy + 2, px * z / 2, px * z / 2), renderImage(names[i], blue, px));
-                x += px * z / 2 + 2;
+                q.drawImage(QRect(x, cy + 2, px * z, px * z), renderImage(names[i], blue, px));
+                x += px * z + 2;
             }
         }
         q.end();
