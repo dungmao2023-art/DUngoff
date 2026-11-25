@@ -14,3 +14,9 @@ if(WIN32 AND MSVC)
   target_link_libraries(dung-filesearchtest PRIVATE psapi)
 endif()
 set_target_properties(dung-filesearchtest PROPERTIES AUTOMOC OFF)
+# PDF: Qt6::Pdf (kéo theo Qt6::Gui) là phần tuỳ chọn của bản dựng; lõi vẫn chỉ cần QtCore khi không có.
+# Phụ thuộc: print.cmake đã find_package(Qt6 OPTIONAL_COMPONENTS Pdf) và đặt DUNG_HAVE_QTPDF cho DungOffice.
+if(TARGET Qt6::Pdf)
+  target_link_libraries(dung-filesearchtest PRIVATE Qt6::Pdf)
+  target_compile_definitions(dung-filesearchtest PRIVATE DUNG_HAVE_QTPDF=1)
+endif()

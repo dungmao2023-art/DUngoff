@@ -45,7 +45,7 @@ public:
         m_name->setPlaceholderText(tr("Tên tệp, ví dụ: bao cao -nhap ext:docx,xlsx size>1mb after:2026-01-01"));
         m_name->setToolTip(tr("Không phân biệt hoa/thường và dấu. -từ để loại trừ; \"cụm từ\" trong ngoặc kép; ext:docx,xlsx; size>1mb; size<10mb; after:yyyy-mm-dd; before:yyyy-mm-dd"));
         m_content = new QLineEdit;
-        m_content->setPlaceholderText(tr("Từ khoá trong NỘI DUNG (tuỳ chọn): txt, csv, md, docx, xlsx, pptx, pdf (cần pdftotext)"));
+        m_content->setPlaceholderText(tr("Từ khoá trong NỘI DUNG (tuỳ chọn): txt, csv, md, docx, xlsx, pptx, pdf"));
         m_folder = new QLineEdit(QDir::homePath());
         auto *pick = new QPushButton(tr("Chọn thư mục…"));
         auto *row1 = new QHBoxLayout;
@@ -201,7 +201,7 @@ private:
         if (out.stats.canceled) s += tr(" — đã dừng theo yêu cầu, kết quả chưa đầy đủ");
         if (out.stats.truncatedResults) s += tr(" — đạt giới hạn số kết quả, hãy thu hẹp bộ lọc");
         if (out.stats.staleIndexEntries > 0) s += tr(" — %1 mục chỉ mục đã cũ (tệp không còn)").arg(out.stats.staleIndexEntries);
-        if (out.stats.pdfUnavailable) s += tr(" — KHÔNG tìm nội dung PDF được vì máy chưa có pdftotext");
+        if (out.stats.pdfUnavailable) s += tr(" — KHÔNG tìm nội dung PDF được vì máy bản dựng này không có bộ đọc PDF (Qt6::Pdf) và máy chưa có pdftotext");
         if (!out.stats.unsupportedByExt.isEmpty()) {
             QStringList l;
             for (auto it = out.stats.unsupportedByExt.cbegin(); it != out.stats.unsupportedByExt.cend(); ++it) l << QStringLiteral(".%1 (%2)").arg(it.key()).arg(it.value());

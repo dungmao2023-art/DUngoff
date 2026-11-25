@@ -1,7 +1,7 @@
 // Tìm kiếm tệp: lõi chỉ cần QtCore (không giao diện, không dịch vụ nền).
 // - Tìm theo TÊN: không phân biệt hoa/thường và dấu tiếng Việt, nhiều từ khoá, loại trừ, lọc đuôi/dung lượng/ngày.
 // - Tìm theo NỘI DUNG: txt/csv/md/log/json/xml/html, docx/xlsx/pptx (đọc XML trong zip, không mở engine),
-//   pdf (chỉ khi máy có pdftotext; nếu không thì bỏ qua và nói rõ).
+//   pdf (Qt6::Pdf nếu bản dựng có; nếu không thì pdftotext trên máy; thiếu cả hai thì bỏ qua và nói rõ).
 // - Đa luồng có giới hạn, huỷ được, giới hạn bộ nhớ; chỉ mục tên tệp tuỳ chọn do người dùng bật và xoá được.
 // - Tệp không đọc được bị bỏ qua và liệt kê lý do; không bao giờ dừng cả phiên vì một tệp lỗi.
 #pragma once
@@ -34,7 +34,7 @@ struct Query {
     int maxMemoryMB = 256;        // trần bộ nhớ ước tính cho việc đọc nội dung
     qint64 maxTextFileBytes = 512LL * 1024 * 1024;   // tệp văn bản lớn hơn: bỏ qua và nêu lý do
     qint64 maxZipFileBytes = 256LL * 1024 * 1024;    // docx/xlsx/pptx lớn hơn: bỏ qua và nêu lý do
-    QString pdftotextPath;        // rỗng = tự tìm trong PATH
+    QString pdftotextPath;        // rỗng = dùng Qt6::Pdf (nếu có), không thì tìm pdftotext trong PATH; đặt đường dẫn = ép dùng pdftotext đó
     bool useIndexForNames = true; // dùng chỉ mục khi có (do người gọi truyền)
 };
 
