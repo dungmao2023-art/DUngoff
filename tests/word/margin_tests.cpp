@@ -29,8 +29,11 @@
 #include <thread>
 
 #ifdef _WIN32
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
+#include <shellapi.h>   // CommandLineToArgvW
 #endif
 
 using namespace dung::word;
@@ -342,7 +345,7 @@ void roundTrip(dung::Engine& eng, dung::Document& src, const QString& tag, const
     const QString dir = out;
     const QString rec = dir + "/rec-" + tag + ".docx", patched = dir + "/patched-" + tag + ".docx", res = dir + "/ketqua-" + tag + ".docx";
     std::string err;
-    const bool saved = src.saveRecoveryCopy(dung::fromUtf8(rec.toStdString()), &err);
+    const bool saved = src.saveRecoveryCopy(dung::fromUtf8(rec.toUtf8().toStdString()), &err);
     check(saved, "[" + tag + "] bản phục hồi của tài liệu đang mở", QString::fromStdString(err));
     if (!saved) return;
     const ReadResult before = readDocxMargins(rec);
@@ -350,11 +353,11 @@ void roundTrip(dung::Engine& eng, dung::Document& src, const QString& tag, const
     const PatchResult p = patchDocxMargins(rec, patched, spec);
     check(p.ok, "[" + tag + "] vá lề", p.error);
     if (!p.ok) return;
-    auto d2 = eng.open(dung::fromUtf8(patched.toStdString()), &err);
+    auto d2 = eng.open(dung::fromUtf8(patched.toUtf8().toStdString()), &err);
     check((bool)d2, "[" + tag + "] nạp bản đã vá lại vào engine", QString::fromStdString(err));
     if (!d2) return;
     QFile::remove(res);
-    const auto sr = d2->saveAs(dung::fromUtf8(res.toStdString()));
+    const auto sr = d2->saveAs(dung::fromUtf8(res.toUtf8().toStdString()));
     check(sr.ok, "[" + tag + "] Lưu thành DOCX từ bản đã nạp", QString::fromStdString(sr.message));
     if (!sr.ok) return;
     const ReadResult after = readDocxMargins(res);
@@ -389,8 +392,8 @@ void testEngine(const QString& program, const QString& out, const QString& realD
     watchdog(600);
     QDir().mkpath(out);
     std::string err;
-    auto eng = dung::Engine::create(dung::fromUtf8(program.toStdString()), dung::fromUtf8((out + "/profile").toStdString()),
-                                    dung::fromUtf8((out + "/work").toStdString()), &err);
+    auto eng = dung::Engine::create(dung::fromUtf8(program.toUtf8().toStdString()), dung::fromUtf8((out + "/profile").toUtf8().toStdString()),
+                                    dung::fromUtf8((out + "/work").toUtf8().toStdString()), &err);
     check((bool)eng, "khởi động engine", QString::fromStdString(err));
     if (!eng) return;
     {
@@ -409,7 +412,7 @@ void testEngine(const QString& program, const QString& out, const QString& realD
         roundTrip(*eng, *d, "chitrenduoi", ul, out, text);
     }
     if (!realDocx.isEmpty()) {
-        auto d = eng->open(dung::fromUtf8(realDocx.toStdString()), &err);
+        auto d = eng->open(dung::fromUtf8(realDocx.toUtf8().toStdString()), &err);
         check((bool)d, "mở tệp .docx thật " + QFileInfo(realDocx).fileName(), QString::fromStdString(err));
         if (d) roundTrip(*eng, *d, "tephat", vn(), out, QString());
     }
@@ -418,13 +421,22 @@ void testEngine(const QString& program, const QString& out, const QString& realD
 } // namespace
 
 int main(int argc, char** argv) {
+    QStringList args;
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
+    // Đối số dạng Unicode (argv của Windows theo bảng mã ANSI làm hỏng đường dẫn tiếng Việt).
+    (void)argc; (void)argv;
+    int wargc = 0;
+    LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+    for (int i = 0; i < wargc; ++i) args << QString::fromWCharArray(wargv[i]);
+    LocalFree(wargv);
+#else
+    for (int i = 0; i < argc; ++i) args << QString::fromUtf8(argv[i]);
 #endif
     QString docxDir, program, out, realDocx;
-    for (int i = 1; i + 1 < argc; i += 2) {
-        const std::string a = argv[i];
-        const QString v = QString::fromUtf8(argv[i + 1]);
+    for (int i = 1; i + 1 < args.size(); i += 2) {
+        const QString& a = args[i];
+        const QString& v = args[i + 1];
         if (a == "--docx-dir") docxDir = v;
         else if (a == "--program") program = v;
         else if (a == "--out") out = v;
