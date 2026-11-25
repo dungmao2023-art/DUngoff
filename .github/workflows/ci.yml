@@ -13,8 +13,9 @@ concurrency:
 
 env:
   LO_VERSION: "26.8.3"
-  ENGINE_TAG: "engine-26.8.3.1-headless"
-  ENGINE_SHA256: "03261237878855c27013ff81ba03d766fd794ff49f88d711a013747f7325cac1"
+  # Quay lại engine cũ (dự phòng): ENGINE_TAG="engine-26.8.3.1-headless", ENGINE_SHA256="03261237878855c27013ff81ba03d766fd794ff49f88d711a013747f7325cac1"
+  ENGINE_TAG: "engine-26.8.3.2-headless"
+  ENGINE_SHA256: "cb7664001dfb51a31467f2b1849e294e6564d607a91baea5c4efa215010ad492"
   QT_VERSION: "6.8.3"
 
 jobs:
@@ -466,6 +467,31 @@ jobs:
         run: |
           & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --preedit 1 --out "$PWD/smoke-preedit" *>&1 | Tee-Object report/windows-preedit.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: Khảo sát engine v2 (Python, từ điển, nhãn tiếng Việt)
+        continue-on-error: true
+        run: |
+          $e = "build/lo/engine"
+          "== Tệp chính ==" | Tee-Object report/windows-engine-survey.log
+          foreach ($f in "program/python.exe","program/pythonscript.py","program/pyuno.pyd","program/uno.py","share/Scripts/python/dung_api.py","dung-engine-headless.txt") { "{0}: {1}" -f $f, (Test-Path "$e/$f") | Tee-Object -Append report/windows-engine-survey.log }
+          "== Từ điển trong engine ==" | Tee-Object -Append report/windows-engine-survey.log
+          Get-ChildItem "$e/share/extensions" -Directory -ErrorAction SilentlyContinue | ForEach-Object { "{0}  {1} tệp" -f $_.Name, (Get-ChildItem $_.FullName -Recurse -File).Count } | Tee-Object -Append report/windows-engine-survey.log
+          "== Bản địa hoá (.mo) ==" | Tee-Object -Append report/windows-engine-survey.log
+          $mo = @(Get-ChildItem $e -Recurse -Filter *.mo -ErrorAction SilentlyContinue)
+          "tổng số .mo: $($mo.Count)" | Tee-Object -Append report/windows-engine-survey.log
+          $mo | Where-Object { $_.FullName -match '[\\/]vi[\\/]|vi_VN|[\\/]vi-VN' } | Select-Object -First 5 | ForEach-Object { $_.FullName } | Tee-Object -Append report/windows-engine-survey.log
+          "== Thư mục ngôn ngữ vi ==" | Tee-Object -Append report/windows-engine-survey.log
+          Get-ChildItem $e -Recurse -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^vi([-_]VN)?$' } | ForEach-Object { $_.FullName } | Tee-Object -Append report/windows-engine-survey.log
+      - name: Cầu nối script dung_api (runMacro -> Basic -> Python, lề, danh sách trắng) trên engine Windows
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--api", "1", "--out", "$PWD/smoke-api") -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-api-bridge.log -RedirectStandardError report/windows-api-bridge.err.log
+          if (-not $p.WaitForExit(8 * 60 * 1000)) { Stop-Process $p -Force; "TREO quá 8 phút" | Add-Content report/windows-api-bridge.log; exit 1 }
+          Get-Content report/windows-api-bridge.log
+          Get-Content report/windows-api-bridge.err.log -ErrorAction SilentlyContinue | Select-Object -Last 20
+          Get-ChildItem smoke-api -Recurse -Include basic-error.txt,result.json -ErrorAction SilentlyContinue | ForEach-Object { "== $($_.FullName)"; Get-Content $_.FullName | Select-Object -First 20 }
+          if ($p.ExitCode) { exit 1 }
       - name: Kiểm thử ánh xạ phím/bộ gõ trên Windows
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-keymaptest.exe | Select-Object -First 1
