@@ -74,6 +74,21 @@ int main(int argc, char** argv) {
         CHECK(find(classifyEntries({"xl/model/item.data"}), "mo-hinh-du-lieu") != nullptr);
         CHECK(find(classifyEntries({"word/activeX/activeX1.xml"}), "activex")->certain == false);
         CHECK(classifyEntries({"ppt/slideMasters/slideMaster1.xml"}).empty());  // một master: không cảnh báo
+        CHECK(classifyEntries({"ppt/slideMasters/slideMaster1.xml", "ppt/slideLayouts/slideLayout1.xml"}).empty());  // 1 bố cục: không báo
+        {
+            auto l = classifyEntries({"ppt/slideMasters/slideMaster1.xml", "ppt/slideLayouts/slideLayout1.xml",
+                                      "ppt/slideLayouts/slideLayout2.xml", "ppt/slideLayouts/_rels/slideLayout1.xml.rels"});
+            CHECK(l.size() == 1 && l[0].id == "master-tach" && l[0].count == 2 && !l[0].certain);
+            CHECK(!l[0].blocking);  // chỉ báo ngắn, không bắt xác nhận
+            CHECK(find(classifyEntries({"xl/vbaProject.bin"}), "macro")->blocking);
+            CHECK(describeFeatureLoss(l).find("trang cái") != std::string::npos);
+            // Nhiều master: dùng mục slide-master cũ, không thêm mục thứ hai
+            auto k = classifyEntries({"ppt/slideMasters/slideMaster1.xml", "ppt/slideMasters/slideMaster2.xml",
+                                      "ppt/slideLayouts/slideLayout1.xml", "ppt/slideLayouts/slideLayout2.xml"});
+            CHECK(k.size() == 1 && k[0].id == "slide-master");
+            // Không có pptx (docx/xlsx) thì không bao giờ báo
+            CHECK(classifyEntries({"word/document.xml", "xl/worksheets/sheet1.xml"}).empty());
+        }
         auto m = classifyEntries({"ppt/slideMasters/slideMaster1.xml", "ppt/slideMasters/slideMaster2.xml"});
         CHECK(m.size() == 1 && m[0].id == "slide-master" && !m[0].certain);
         CHECK(classifyEntries({}).empty());
@@ -137,7 +152,8 @@ int main(int argc, char** argv) {
         auto pv = scanFeatureLoss(fx / "features-pivot.xlsx");
         CHECK(pv.scanned && pv.items.empty());
         auto pp = scanFeatureLoss(fx / "features.pptx");
-        CHECK(pp.scanned && pp.items.empty());  // một master: không báo nhầm
+        // features.pptx: 1 master + 11 bố cục -> báo "có thể" (đúng với số đo trong docs/PPTX_LIMITS.md)
+        CHECK(pp.scanned && pp.items.size() == 1 && pp.items[0].id == "master-tach" && pp.items[0].count == 11);
     }
 
     std::printf("%d/%d kiểm tra đạt\n", g_n - g_fail, g_n);

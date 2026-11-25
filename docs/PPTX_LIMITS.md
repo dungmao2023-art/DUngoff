@@ -15,3 +15,7 @@ slide ẩn, hay hiệu ứng chuyển cảnh; thêm mẫu thật trước khi k�
 
 Về dòng "phủ chữ 46,8%" trong log Windows: đó là biến thể đối chứng v5 (Always=false), cố ý đo để chứng minh cấu hình đó
 KHÔNG thay được phông. Cấu hình đang dùng (Always=true, Carlito) đạt 100% ở cả 2 mẫu.
+
+Cảnh báo khi lưu: nếu tệp có đúng 1 master và từ 2 bố cục trở lên (đếm theo tên thành phần trong zip, không đọc rels),
+cảnh báo lưu hiện sẵn có thêm một dòng "Bố cục trang cái ... có thể bị tách thành nhiều trang cái". Chỉ là "có thể": bố cục không
+dùng có thể bị bỏ nên số master sau khi lưu chưa chắc bằng số bố cục. Không thêm hộp thoại hay bước xác nhận mới.
