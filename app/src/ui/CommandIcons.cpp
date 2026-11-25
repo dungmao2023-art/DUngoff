@@ -31,7 +31,10 @@ QString iconNameForCommand(const QString& id) {
         {"word:marginNarrow", "margins"}, {"word:marginNormal", "margins"}, {"word:marginVN", "margins"},
         {"word:count", "word-count"}, {"word:back", "back"},
         {"word:vnDate", "calendar"}, {"word:vnMoney", "currency"}, {"word:vnSyllable", "spell"}, {"word:vnTcvn3", "transfer"},
+        {".uno:ChangeCaseToUpper", "font-name"}, {".uno:ChangeCaseToLower", "font-name"}, {".uno:ChangeCaseToSentenceCase", "font-name"},
+        {".uno:ChangeCaseToTitleCase", "font-name"}, {".uno:ChangeCaseToToggleCase", "font-name"}, {".uno:InsertSymbol", "text"},
         // Excel
+        {".uno:FillDown", "move-down"}, {".uno:FillRight", "transfer"},
         {".uno:AlignLeft", "align-left"}, {".uno:AlignHorizontalCenter", "align-center"}, {".uno:AlignRight", "align-right"},
         {".uno:AlignTop", "align-top"}, {".uno:AlignVCenter", "align-middle"}, {".uno:AlignBottom", "align-bottom"},
         {".uno:AutoSum", "sum"}, {".uno:DataFilterAutoFilter", "filter"},
