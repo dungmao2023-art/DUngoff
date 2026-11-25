@@ -15,6 +15,7 @@ struct FeatureLoss {
     std::string effect;   // điều gì xảy ra khi lưu bằng Dũng Office
     int count = 0;        // số thành phần tìm thấy trong tệp
     bool certain = true;  // true: đã có bằng chứng mất; false: chỉ "có thể"
+    bool blocking = true; // false: chỉ báo ngắn, KHÔNG bắt xác nhận trước khi lưu (vd. master-tach)
 };
 
 struct FeatureScanResult {

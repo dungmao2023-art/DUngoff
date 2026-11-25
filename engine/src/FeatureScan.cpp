@@ -63,7 +63,7 @@ bool listZipNames(const fs::path& zipFile, std::vector<std::string>& names, std:
 }
 
 std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawNames) {
-    int fonts = 0, macro = 0, formctl = 0, activex = 0, smartart = 0, slicers = 0, timelines = 0, model = 0, ink = 0, masters = 0;
+    int fonts = 0, macro = 0, formctl = 0, activex = 0, smartart = 0, slicers = 0, timelines = 0, model = 0, ink = 0, masters = 0, layouts = 0;
     for (const auto& raw : rawNames) {
         const std::string n = lower(raw);
         if ((startsWith(n, "word/fonts/") && endsWith(n, ".odttf")) ||
@@ -87,10 +87,12 @@ std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawName
             ++ink;
         else if (startsWith(n, "ppt/slidemasters/slidemaster") && endsWith(n, ".xml"))
             ++masters;
+        else if (startsWith(n, "ppt/slidelayouts/slidelayout") && endsWith(n, ".xml"))
+            ++layouts;
     }
     std::vector<FeatureLoss> v;
-    auto add = [&](const char* id, const char* title, const char* effect, int c, bool certain) {
-        if (c > 0) v.push_back({id, title, effect, c, certain});
+    auto add = [&](const char* id, const char* title, const char* effect, int c, bool certain, bool blocking = true) {
+        if (c > 0) v.push_back({id, title, effect, c, certain, blocking});
     };
     add("font-nhung", "Phông chữ nhúng trong tệp",
         "Bản lưu KHÔNG còn phông nhúng. Máy nào không cài phông này sẽ hiển thị bằng phông thay thế, "
@@ -118,6 +120,12 @@ std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawName
     if (masters >= 2)
         add("slide-master", "Nhiều slide master tuỳ biến",
             "Slide master có thể bị gộp hoặc dồn xuống từng bố cục; nên so lại giao diện slide sau khi lưu.", masters, false);
+    // Một master nhiều bố cục: đã đo (docs/PPTX_LIMITS.md) LibreOffice ghi lại thành mỗi bố cục một master.
+    // Đếm theo tên thành phần (rẻ, không đọc rels) nên chỉ là "có thể": bố cục không dùng có thể bị bỏ.
+    else if (masters == 1 && layouts >= 2)
+        add("master-tach", "Bố cục trang cái (slide master)",
+            "Lưu PPTX: các bố cục trang cái có thể bị tách thành nhiều trang cái; hiển thị không đổi nhưng sửa trang cái trong PowerPoint sẽ phải sửa nhiều chỗ.",
+            layouts, false, /*blocking=*/false);
     return v;
 }
 

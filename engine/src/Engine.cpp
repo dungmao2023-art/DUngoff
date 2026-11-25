@@ -715,9 +715,14 @@ std::unique_ptr<Document> Engine::open(const fs::path& original, std::string* er
         info->ext == "docm" || info->ext == "pptm" || info->ext == "dotx" || info->ext == "xltx" || info->ext == "potx") {
         const FeatureScanResult sc = scanFeatureLoss(longPath(original));
         if (sc.scanned) {
-            doc->m_featureLoss = sc.items;
-            for (const auto& it : sc.items)
+            for (const auto& it : sc.items) {
+                if (!it.blocking) {  // chỉ báo ngắn, không đưa vào danh sách bắt xác nhận khi lưu
+                    doc->m_warnings.push_back(it.effect);
+                    continue;
+                }
+                doc->m_featureLoss.push_back(it);
                 doc->m_warnings.push_back("Khi lưu bản sao sẽ mất: " + it.title + (it.certain ? "" : " (có thể)") + ". " + it.effect);
+            }
         }
     }
     Document* raw = doc.get();
