@@ -1,0 +1,28 @@
+[ĐẠT]  Danh sách sheet sau thêm/đổi tên/nhân đôi/xoá: ['Dữ liệu', 'Phụ', 'Phụ_2']
+[ĐẠT]  Còn đủ 5 dòng số liệu: [2, 3, 5, 6, 7]
+[ĐẠT]  Giá trị số giữ nguyên, không bị ép kiểu
+[ĐẠT]  Thay thế chỉ đổi văn bản (Bút→Zút), tên khác giữ nguyên
+[ĐẠT]  Sắp xếp giảm dần: [1500.5, 300, 45, 20, 7]
+[ĐẠT]  Công thức theo dòng khi sắp xếp/chèn hàng, và KHÔNG bị thay 'B'→'Z': ['=B2*2', '=B3*2', '=B5*2', '=B6*2', '=B7*2']
+[ĐẠT]  Cột ngày vẫn là kiểu ngày
+[ĐẠT]  Ghi chú đi theo dòng 'Vở' sau sắp xếp
+[ĐẠT]  Liên kết đi theo dòng 'Kẹp' sau sắp xếp
+[ĐẠT]  A1 đậm + nghiêng
+[ĐẠT]  A1 cỡ 16, phông Arial (thực tế 16.0, Arial)
+[ĐẠT]  A1 màu chữ đỏ
+[ĐẠT]  A1 màu nền vàng
+[ĐẠT]  A1 căn giữa + xuống dòng
+[ĐẠT]  Có ô số ở định dạng phần trăm (giá trị vẫn là số)
+[ĐẠT]  Có ô số ở định dạng #,##0
+[ĐẠT]  Cột C đã đặt rộng ~4 cm (width=18.0; đơn vị ký tự Excel phụ thuộc phông mặc định, Linux ra 18)
+[ĐẠT]  Có hàng cao ~1,5 cm
+[ĐẠT]  Cố định hàng đầu: A2
+[ĐẠT]  Bộ lọc tự động: A1:E7
+[ĐẠT]  Đủ 5000 dòng sau sắp xếp (5000)
+[ĐẠT]  Không mất/trùng dòng nào (Mã + Số lượng)
+[ĐẠT]  Công thức Thành tiền còn nguyên ở mọi dòng
+[ĐẠT]  Cột F đã sắp giảm dần
+[ĐẠT]  Bảng (Table) BangDonHang còn nguyên vùng A1:H5001: {'BangDonHang': 'A1:H5001'}
+[TIN]  Sau khi bấm Bộ lọc trên vùng đã có sẵn bộ lọc: auto_filter=None (bật/tắt đảo trạng thái)
+
+KẾT QUẢ XÁC MINH EXCEL: ĐẠT

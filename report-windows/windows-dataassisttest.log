@@ -1,0 +1,97 @@
+[ĐẠT]  Danh mục có từ 45 hàm: 49
+[ĐẠT]  Không trùng tên hàm
+[ĐẠT]  Mọi hàm có ý định, mô tả, ví dụ
+[ĐẠT]  6 nhóm hàm
+[ĐẠT]  Nhóm không rỗng: Tính toán
+[ĐẠT]  Nhóm không rỗng: Điều kiện
+[ĐẠT]  Nhóm không rỗng: Tra cứu
+[ĐẠT]  Nhóm không rỗng: Văn bản
+[ĐẠT]  Nhóm không rỗng: Ngày tháng
+[ĐẠT]  Nhóm không rỗng: Tài chính
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: FILTER
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: SORT
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: UNIQUE
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: TEXT
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: DATE
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: NETWORKDAYS
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: PMT
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: NPV
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: IRR
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: ROUNDUP
+[ĐẠT]  Có hàm mà bộ tính JS của bản HTML không hỗ trợ: ROUNDDOWN
+[ĐẠT]  Bỏ dấu tiếng Việt kể cả đ/Đ
+[ĐẠT]  Tìm “cộng tổng” => SUM
+[ĐẠT]  Tìm không dấu “tong” => SUM
+[ĐẠT]  Tìm “tìm theo mã” => VLOOKUP
+[ĐẠT]  Tìm “đếm có điều kiện” => COUNTIF
+[ĐẠT]  Tìm “làm tròn lên” => ROUNDUP
+[ĐẠT]  Tìm “xoa khoang trang” => TRIM
+[ĐẠT]  Tìm theo tên hàm
+[ĐẠT]  Không khớp => rỗng, không đoán
+[ĐẠT]  Dựng VLOOKUP: =VLOOKUP(A2,F2:H100,2,FALSE)
+[ĐẠT]  Thiếu đối số giữa => báo tên đối số: Thiếu đối số "Bảng"
+[ĐẠT]  Đối số tuỳ chọn cuối bỏ trống được: =SUMIF(A2:A9,"x")
+[ĐẠT]  Dấu ngăn ';' cho 1 đối số
+[ĐẠT]  Dấu ngăn ';' : =IF(A1>1;"a";"b")
+[ĐẠT]  Hàm không đối số: =TODAY()
+[ĐẠT]  Thiếu = bị báo
+[ĐẠT]  Thiếu ) bị báo
+[ĐẠT]  Thừa ) bị báo
+[ĐẠT]  Thiếu nháy đóng bị báo
+[ĐẠT]  Ngoặc trong chuỗi không tính
+[ĐẠT]  Số Việt 1.234.567,5
+[ĐẠT]  Số Anh 1,234,567.5
+[ĐẠT]  1.234 mơ hồ được đánh dấu
+[ĐẠT]  12.34.5 không phải số
+[ĐẠT]  1.23,4.5 không phải số
+[ĐẠT]  Số âm trong ngoặc
+[ĐẠT]  Phần trăm
+[ĐẠT]  Có ký hiệu tiền
+[ĐẠT]  Chữ/rỗng không phải số
+[ĐẠT]  Tách TSV: 5 dòng × 3 cột
+[ĐẠT]  Thống kê số: tổng 30,5, TB 15,25
+[ĐẠT]  Đếm ô lỗi và ô trống
+[ĐẠT]  Mã 001… và chữ được tính là chữ (không phải số): 8
+[ĐẠT]  Có cảnh báo khi vùng có ô lỗi
+[ĐẠT]  Tìm ô lỗi #DIV/0! đúng vị trí dòng 4 cột 2
+[ĐẠT]  Nhận diện chuỗi lỗi
+[ĐẠT]  Gom nhóm cộng theo nhãn, bỏ ô không phải số và báo
+[ĐẠT]  Đếm theo nhãn
+[ĐẠT]  Nhóm thừa gộp vào Khác (16)
+[ĐẠT]  Nạp mẫu: 
+[ĐẠT]  Tìm dòng tiêu đề = 2 (bỏ dòng ghi chú), 5 cột
+[ĐẠT]  Tên sheet tiếng Việt
+[ĐẠT]  Cảnh báo dòng mẫu sẵn sẽ bị thay
+[ĐẠT]  Mẫu không tồn tại => lỗi rõ ràng
+[ĐẠT]  Mẫu không phải xlsx => lỗi rõ ràng
+[ĐẠT]  Ghép cột tự động theo tên (bỏ dấu/hoa thường): 
+[ĐẠT]  Kiểm tra: không có lỗi chặn
+[ĐẠT]  Cảnh báo cột mẫu “Ghi chú” chưa có dữ liệu
+[ĐẠT]  Cảnh báo cột nguồn “Cột thừa” không được dùng
+[ĐẠT]  Cảnh báo ô “abc” ở cột số
+[ĐẠT]  Cảnh báo số 1.234 mơ hồ
+[ĐẠT]  Một cột nguồn ghép hai lần => lỗi chặn
+[ĐẠT]  Chưa ghép cột nào => lỗi chặn
+[ĐẠT]  Xuất: 
+[ĐẠT]  Ghi 3 dòng (bỏ dòng chỉ có dữ liệu ở cột không ghép): 3
+[ĐẠT]  Báo cột mẫu chưa ghép
+[ĐẠT]  Tệp mẫu gốc KHÔNG đổi (SHA-256)
+[ĐẠT]  Không ghi đè tệp đích đã có
+[ĐẠT]  Không ghi đè lên chính mẫu
+[ĐẠT]  Giữ dòng ghi chú và ô gộp của mẫu
+[ĐẠT]  Dòng mẫu sẵn đã bị thay
+[ĐẠT]  Ký tự đặc biệt XML được thoát
+[ĐẠT]  Mã 00123 giữ nguyên số 0 đầu (ghi dạng chữ)
+[ĐẠT]  Số lượng 10 ghi dạng số thật
+[ĐẠT]  2,5 (kiểu Việt) ghi thành 2.5
+[ĐẠT]  1.500 kiểu Việt = 1500
+[ĐẠT]  “abc” ở cột số giữ nguyên dạng chữ, không đổi thành 0
+[ĐẠT]  Cập nhật vùng dữ liệu A1:E5
+[ĐẠT]  Bỏ calcChain cũ
+[ĐẠT]  Gỡ tham chiếu calcChain khỏi gói
+[ĐẠT]  Giữ các phần khác của gói
+[ĐẠT]  Đọc lại bản xuất: tiêu đề còn đúng
+[ĐẠT]  Đọc lại bản xuất: 3 dòng dữ liệu
+
+Tổng: 94 đạt, 0 lỗi
+KẾT QUẢ DATAASSIST: ĐẠT

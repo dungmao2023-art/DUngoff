@@ -1,0 +1,17 @@
+  -> khởi động engine
+[ĐẠT]  Khởi động engine 
+  -> mở stress-5000-dong.xlsx
+No language allowlisted, turning off the language support.
+[ĐẠT]  Mở tệp (348 ms) 
+       Loại: Excel, chỉ đọc: không, số sheet: 3
+  -> render sheet DanhMuc
+[ĐẠT]  Sheet 'DanhMuc' render có nội dung (4 ms)
+  -> render sheet DonHang
+[ĐẠT]  Sheet 'DonHang' render có nội dung (5 ms)
+  -> render sheet TongHop
+[ĐẠT]  Sheet 'TongHop' render có nội dung (1 ms)
+  -> Lưu thành bản sao
+[ĐẠT]  Lưu thành XLSX (224 ms): Đã lưu: stress-5000-dong - Dũng Office.xlsx
+[ĐẠT]  Tệp gốc giữ nguyên từng byte
+
+KẾT QUẢ: TẤT CẢ ĐẠT

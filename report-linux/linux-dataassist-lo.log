@@ -1,0 +1,7 @@
+Warning: failed to launch javaldx - java may not function correctly
+convert /home/runner/work/DUngoff/DUngoff/da-out/ket-qua-xuat.xlsx as a Calc document -> /home/runner/work/DUngoff/DUngoff/da-out/csv/ket-qua-xuat.csv using filter : Text - txt - csv (StarCalc):44,34,76
+MẪU NHẬP HÀNG,,,,
+Mã hàng,Tên hàng,Số lượng,Đơn giá,Ghi chú
+00123,Bút bi <xanh> & đỏ,10,1500,
+A-2,Vở,2.5,abc,
+T-9,Thước,1234,2000,

@@ -1,0 +1,216 @@
+[1/197] Automatic UIC for target dung-templatetest
+[2/197] Automatic UIC for target dung-tabletest
+[3/197] Automatic UIC for target dung-mailmergetest
+[4/197] Automatic UIC for target dung-dataassisttest
+[5/197] Automatic UIC for target dung-recoverytest
+[6/197] Automatic UIC for target dung-vntexttest
+[7/197] Automatic UIC for target dung-keymaptest
+[8/197] Automatic UIC for target dung-syllabletest
+[9/197] Automatic UIC for target dung-printtest
+[10/197] Automatic UIC for target dung-icontest
+[11/197] Automatic MOC and UIC for target dung-ribbonicontest
+[12/197] Automatic MOC and UIC for target dung-updatetest
+[13/197] Automatic UIC for target dung-shottest
+[14/197] Automatic MOC and UIC for target dung-toolboxtest
+[15/197] Automatic UIC for target dung-filesearchtest
+[16/197] Automatic UIC for target dung-pdftest
+[17/197] Automatic UIC for target dung-filetest
+[18/197] Automatic MOC and UIC for target dung-shotwidgettest
+[19/197] Building CXX object CMakeFiles/dungengine.dir/engine/src/FeatureScan.cpp.o
+[20/197] Building CXX object CMakeFiles/dungengine.dir/engine/src/FormatPolicy.cpp.o
+[21/197] Building CXX object CMakeFiles/dung-featurescan-test.dir/tests/featurescan/featurescan_tests.cpp.o
+[22/197] Building CXX object CMakeFiles/dung-featurescan-test.dir/engine/src/FeatureScan.cpp.o
+[23/197] Building CXX object CMakeFiles/dung-smoketest.dir/tools/smoketest/main.cpp.o
+[24/197] Building CXX object CMakeFiles/dung-smoketest.dir/tools/smoketest/recover_tests.cpp.o
+[25/197] Building CXX object CMakeFiles/dung-smoketest.dir/tools/smoketest/template_fidelity.cpp.o
+[26/197] Building CXX object CMakeFiles/dung-smoketest.dir/tools/smoketest/excel_tests.cpp.o
+[27/197] Building CXX object CMakeFiles/dung-smoketest.dir/tools/smoketest/ppt_tests.cpp.o
+[28/197] Building CXX object CMakeFiles/dung-spelldicttest.dir/tests/spell/dict_tests.cpp.o
+[29/197] Building CXX object CMakeFiles/dung-smoketest.dir/tools/smoketest/preedit_tests.cpp.o
+[30/197] Building CXX object CMakeFiles/dung-smoketest.dir/app/src/word/WordCommands.cpp.o
+[31/197] Building CXX object CMakeFiles/dung-spellprobe.dir/tools/probe/spellprobe.cpp.o
+[32/197] Building CXX object CMakeFiles/dung-repaintprobe.dir/tools/probe/repaint.cpp.o
+[33/197] Building CXX object CMakeFiles/dungengine.dir/engine/src/Engine.cpp.o
+[34/197] Building CXX object app/CMakeFiles/dung-templatetest.dir/__/tests/templates/template_tests.cpp.o
+[35/197] Building CXX object CMakeFiles/dung-margintest.dir/app/src/tools/filetools/ZipLite.cpp.o
+[36/197] Building CXX object CMakeFiles/dung-margintest.dir/tests/word/margin_tests.cpp.o
+[37/197] Linking CXX static library libdungengine.a
+[38/197] Building CXX object CMakeFiles/dung-smoketest.dir/tools/smoketest/word_tests.cpp.o
+[39/197] Automatic MOC and UIC for target dung-carettest
+[40/197] Building CXX object app/CMakeFiles/dung-templatetest.dir/src/extras/WorkspaceStore.cpp.o
+[41/197] Building CXX object CMakeFiles/dung-margintest.dir/app/src/word/PageMargins.cpp.o
+[42/197] Building CXX object app/CMakeFiles/dung-templatetest.dir/src/templates/TemplateLibrary.cpp.o
+[43/197] Automatic MOC and UIC for target DungOffice
+[44/197] Building CXX object app/CMakeFiles/dung-tabletest.dir/src/tableutil/TableOps.cpp.o
+[45/197] Building CXX object app/CMakeFiles/dung-tabletest.dir/__/tests/tableutil/table_tests.cpp.o
+[46/197] Building CXX object app/CMakeFiles/dung-dataassisttest.dir/src/tools/dataassist/DataChecks.cpp.o
+[47/197] Building CXX object app/CMakeFiles/dung-mailmergetest.dir/__/tests/mailmerge/mailmerge_tests.cpp.o
+/home/runner/work/DUngoff/DUngoff/tests/mailmerge/mailmerge_tests.cpp: In function ‘int main(int, char**)’:
+/home/runner/work/DUngoff/DUngoff/tests/mailmerge/mailmerge_tests.cpp:82:25: warning: loop variable ‘n’ of type ‘const QString&’ binds to a temporary constructed from type ‘const char* const’ [-Wrange-loop-construct]
+   82 |     for (const QString &n : {"An", "Bình", "Cường"}) { Values x; x["Họ tên"] = n; x["Chức vụ"] = "CV " + n; x["Đơn vị"] = "ĐV"; x["Ghi chú"] = ""; recs << x; }
+      |                         ^
+/home/runner/work/DUngoff/DUngoff/tests/mailmerge/mailmerge_tests.cpp:82:25: note: use non-reference type ‘const QString’ to make the copy explicit or ‘const char* const&’ to prevent copying
+/home/runner/work/DUngoff/DUngoff/tests/mailmerge/mailmerge_tests.cpp:197:45: warning: loop variable ‘n’ of type ‘const QString&’ binds to a temporary constructed from type ‘const char* const’ [-Wrange-loop-construct]
+  197 |     QVector<Values> nr; for (const QString &n : {"An", "An", "B/C"}) { Values x; x["Họ tên"] = n; nr << x; }
+      |                                             ^
+/home/runner/work/DUngoff/DUngoff/tests/mailmerge/mailmerge_tests.cpp:197:45: note: use non-reference type ‘const QString’ to make the copy explicit or ‘const char* const&’ to prevent copying
+[48/197] Building CXX object app/CMakeFiles/dung-dataassisttest.dir/src/tools/dataassist/FormulaCatalog.cpp.o
+[49/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/Theme.cpp.o
+[50/197] Building CXX object app/CMakeFiles/dung-dataassisttest.dir/__/tests/dataassist/dataassist_tests.cpp.o
+[51/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/main.cpp.o
+[52/197] Building CXX object app/CMakeFiles/dung-dataassisttest.dir/src/tools/dataassist/TemplateExport.cpp.o
+[53/197] Building CXX object app/CMakeFiles/DungOffice.dir/DungOffice_autogen/mocs_compilation.cpp.o
+[54/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/KeyMap.cpp.o
+[55/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/EngineHost.cpp.o
+[56/197] Building CXX object app/CMakeFiles/dung-mailmergetest.dir/src/tools/mailmerge/MailMergeCore.cpp.o
+[57/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/shell/TopBar.cpp.o
+[58/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/DocumentTab.cpp.o
+[59/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/shell/ShellIcons.cpp.o
+[60/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/TileView.cpp.o
+[61/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/HomePage.cpp.o
+[62/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/Ribbon.cpp.o
+[63/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/ppt/SlideShow.cpp.o
+[64/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/shell/QuickPalette.cpp.o
+[65/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/ppt/PptActions.cpp.o
+[66/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/ppt/SlideThumbs.cpp.o
+[67/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/excel/ExcelUi.cpp.o
+[68/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/extras/WorkspaceStore.cpp.o
+[69/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/extras/SidePanel.cpp.o
+[70/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/templates/TemplateLibrary.cpp.o
+[71/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/extras/ProjectsPage.cpp.o
+[72/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/MainWindow.cpp.o
+[73/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/templates/TemplatesPage.cpp.o
+[74/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tableutil/TableOps.cpp.o
+[75/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/dataassist/FormulaCatalog.cpp.o
+[76/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/dataassist/DataChecks.cpp.o
+[77/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/dataassist/TemplateExport.cpp.o
+[78/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/toolbox/tools/DataAssistTool.cpp.o
+[79/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tableutil/TableToolsDialog.cpp.o
+[80/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/mailmerge/MailMergeWidget.cpp.o
+[81/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/print/PrintLogic.cpp.o
+[82/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/recovery/RecoveryDialog.cpp.o
+[83/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/dataassist/DataAssistWidgets.cpp.o
+[84/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/recovery/RecoveryStore.cpp.o
+[85/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/print/PrintRender.cpp.o
+[86/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/print/PrintDialog.cpp.o
+[87/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/update/UpdateChecker.cpp.o
+[88/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/mailmerge/MailMergeCore.cpp.o
+[89/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/update/UpdateCore.cpp.o
+[90/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/update/UpdateDialog.cpp.o
+[91/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/SingleInstance.cpp.o
+[92/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/toolbox/ToolRegistry.cpp.o
+[93/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/toolbox/tools/MailMergeTool.cpp.o
+[94/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/toolbox/ExternalToolWidget.cpp.o
+[95/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/toolbox/tools/TimerTool.cpp.o
+[96/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/toolbox/tools/ScreenshotTool.cpp.o
+[97/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/ui/IconData.cpp.o
+[98/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/toolbox/tools/FileSearchTool.cpp.o
+[99/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/toolbox/tools/FileToolsTool.cpp.o
+[100/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/toolbox/ToolboxPage.cpp.o
+[101/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/toolbox/ExternalTool.cpp.o
+[102/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/ui/CommandIcons.cpp.o
+[103/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/screenshot/ScreenshotCore.cpp.o
+[104/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/ui/Icons.cpp.o
+[105/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/screenshot/ScreenshotWidget.cpp.o
+[106/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/filetools/ZipLite.cpp.o
+[107/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/filesearch/FileSearchWidget.cpp.o
+[108/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/filetools/LinkScan.cpp.o
+[109/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/filesearch/FileSearchCore.cpp.o
+[110/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/word/WordCommands.cpp.o
+[111/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/word/WordRibbon.cpp.o
+[112/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/pdf/PdfToolsDialog.cpp.o
+[113/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/filetools/FileOps.cpp.o
+[114/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/pdf/PdfOps.cpp.o
+/home/runner/work/DUngoff/DUngoff/app/src/pdf/PdfOps.cpp:504:12: warning: ‘QByteArray dungpdf::{anonymous}::num(qint64)’ defined but not used [-Wunused-function]
+  504 | QByteArray num(qint64 v) { return QByteArray::number(v); }
+      |            ^~~
+[115/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/word/WordActions.cpp.o
+[116/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/vntext/VnText.cpp.o
+[117/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/tools/filetools/FileToolsWidgets.cpp.o
+[118/197] Building CXX object app/CMakeFiles/dung-recoverytest.dir/__/tests/recovery/recovery_tests.cpp.o
+/home/runner/work/DUngoff/DUngoff/tests/recovery/recovery_tests.cpp: In function ‘int main(int, char**)’:
+/home/runner/work/DUngoff/DUngoff/tests/recovery/recovery_tests.cpp:32:86: warning: comparison of unsigned expression in ‘< 0’ is always false [-Wtype-limits]
+   32 |         if (a[3] == QLatin1String("live")) { char c; if (std::fread(&c, 1, 1, stdin) < 0) {} s.end(); return 0; }
+      |                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~
+[119/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/vntext/SyllableCheck.cpp.o
+[120/197] Building CXX object app/CMakeFiles/dung-recoverytest.dir/src/extras/WorkspaceStore.cpp.o
+[121/197] Building CXX object app/CMakeFiles/dung-vntexttest.dir/__/tests/vntext/vntext_tests.cpp.o
+[122/197] Building CXX object app/CMakeFiles/dung-recoverytest.dir/src/recovery/RecoveryStore.cpp.o
+[123/197] Building CXX object app/CMakeFiles/dung-vntexttest.dir/src/vntext/VnText.cpp.o
+[124/197] Building CXX object app/CMakeFiles/dung-syllabletest.dir/__/tests/vntext/syllable_tests.cpp.o
+[125/197] Building CXX object app/CMakeFiles/DungOffice.dir/src/word/PageMargins.cpp.o
+[126/197] Building CXX object app/CMakeFiles/dung-keymaptest.dir/__/tests/keymap/keymap_tests.cpp.o
+[127/197] Building CXX object app/CMakeFiles/dung-keymaptest.dir/src/KeyMap.cpp.o
+[128/197] Building CXX object app/CMakeFiles/dung-carettest.dir/dung-carettest_autogen/mocs_compilation.cpp.o
+[129/197] Building CXX object app/CMakeFiles/dung-carettest.dir/src/KeyMap.cpp.o
+[130/197] Building CXX object app/CMakeFiles/dung-carettest.dir/src/Theme.cpp.o
+[131/197] Building CXX object app/CMakeFiles/dung-syllabletest.dir/src/vntext/SyllableCheck.cpp.o
+[132/197] Building CXX object app/CMakeFiles/dung-carettest.dir/__/tests/caret/caret_tests.cpp.o
+[133/197] Building CXX object app/CMakeFiles/dung-updatetest.dir/dung-updatetest_autogen/mocs_compilation.cpp.o
+[134/197] Building CXX object app/CMakeFiles/dung-printtest.dir/src/print/PrintRender.cpp.o
+[135/197] Building CXX object app/CMakeFiles/dung-printtest.dir/__/tests/print/print_tests.cpp.o
+[136/197] Building CXX object app/CMakeFiles/dung-printtest.dir/src/print/PrintLogic.cpp.o
+[137/197] Building CXX object app/CMakeFiles/dung-carettest.dir/src/TileView.cpp.o
+[138/197] Building CXX object app/CMakeFiles/dung-toolboxtest.dir/dung-toolboxtest_autogen/mocs_compilation.cpp.o
+[139/197] Building CXX object app/CMakeFiles/dung-updatetest.dir/__/tests/update/update_tests.cpp.o
+[140/197] Building CXX object app/CMakeFiles/dung-updatetest.dir/src/SingleInstance.cpp.o
+[141/197] Building CXX object app/CMakeFiles/dung-toolboxtest.dir/src/toolbox/ToolRegistry.cpp.o
+[142/197] Building CXX object app/CMakeFiles/dung-toolboxtest.dir/src/extras/WorkspaceStore.cpp.o
+[143/197] Building CXX object app/CMakeFiles/dung-updatetest.dir/src/update/UpdateCore.cpp.o
+[144/197] Building CXX object app/CMakeFiles/dung-icontest.dir/src/ui/IconData.cpp.o
+[145/197] Building CXX object app/CMakeFiles/dung-icontest.dir/__/tests/ui/icon_tests.cpp.o
+[146/197] Building CXX object app/CMakeFiles/dung-toolboxtest.dir/__/tests/toolbox/toolbox_tests.cpp.o
+[147/197] Building CXX object app/CMakeFiles/dung-ribbonicontest.dir/dung-ribbonicontest_autogen/mocs_compilation.cpp.o
+[148/197] Building CXX object app/CMakeFiles/dung-ribbonicontest.dir/src/ui/IconData.cpp.o
+[149/197] Building CXX object app/CMakeFiles/dung-icontest.dir/src/ui/CommandIcons.cpp.o
+[150/197] Building CXX object app/CMakeFiles/dung-toolboxtest.dir/src/toolbox/ExternalTool.cpp.o
+[151/197] Building CXX object app/CMakeFiles/dung-ribbonicontest.dir/__/tests/ui/ribbon_icon_tests.cpp.o
+[152/197] Building CXX object app/CMakeFiles/dung-icontest.dir/src/ui/Icons.cpp.o
+[153/197] Building CXX object app/CMakeFiles/dung-ribbonicontest.dir/src/Theme.cpp.o
+[154/197] Building CXX object app/CMakeFiles/dung-ribbonicontest.dir/src/ui/CommandIcons.cpp.o
+[155/197] Building CXX object app/CMakeFiles/dung-shotwidgettest.dir/dung-shotwidgettest_autogen/mocs_compilation.cpp.o
+[156/197] Building CXX object app/CMakeFiles/dung-ribbonicontest.dir/src/word/WordRibbon.cpp.o
+[157/197] Building CXX object app/CMakeFiles/dung-ribbonicontest.dir/src/ui/Icons.cpp.o
+[158/197] Building CXX object app/CMakeFiles/dung-shottest.dir/__/tests/screenshot/shot_tests.cpp.o
+[159/197] Building CXX object app/CMakeFiles/dung-shotwidgettest.dir/__/tests/screenshot/shot_widget_tests.cpp.o
+[160/197] Building CXX object app/CMakeFiles/dung-shottest.dir/src/tools/screenshot/ScreenshotCore.cpp.o
+[161/197] Building CXX object app/CMakeFiles/dung-shotwidgettest.dir/src/tools/screenshot/ScreenshotCore.cpp.o
+[162/197] Building CXX object app/CMakeFiles/dung-ribbonicontest.dir/src/Ribbon.cpp.o
+[163/197] Building CXX object app/CMakeFiles/dung-shotwidgettest.dir/src/tools/screenshot/ScreenshotWidget.cpp.o
+[164/197] Building CXX object app/CMakeFiles/dung-filetest.dir/src/tools/filetools/ZipLite.cpp.o
+[165/197] Building CXX object app/CMakeFiles/dung-filesearchtest.dir/__/tests/filesearch/filesearch_tests.cpp.o
+[166/197] Building CXX object app/CMakeFiles/dung-filetest.dir/src/tools/filetools/LinkScan.cpp.o
+[167/197] Linking CXX executable dung-featurescan-test
+[168/197] Linking CXX executable dung-smoketest
+[169/197] Linking CXX executable dung-spelldicttest
+[170/197] Building CXX object app/CMakeFiles/dung-filesearchtest.dir/src/tools/filesearch/FileSearchCore.cpp.o
+[171/197] Linking CXX executable dung-spellprobe
+[172/197] Linking CXX executable dung-repaintprobe
+[173/197] Linking CXX executable dung-margintest
+[174/197] Linking CXX executable app/dung-templatetest
+[175/197] Linking CXX executable app/dung-tabletest
+[176/197] Linking CXX executable app/DungOffice
+[177/197] Linking CXX executable app/dung-mailmergetest
+[178/197] Linking CXX executable app/dung-recoverytest
+[179/197] Linking CXX executable app/dung-dataassisttest
+[180/197] Linking CXX executable app/dung-syllabletest
+[181/197] Linking CXX executable app/dung-vntexttest
+[182/197] Linking CXX executable app/dung-keymaptest
+[183/197] Linking CXX executable app/dung-carettest
+[184/197] Linking CXX executable app/dung-updatetest
+[185/197] Linking CXX executable app/dung-toolboxtest
+[186/197] Linking CXX executable app/dung-printtest
+[187/197] Building CXX object app/CMakeFiles/dung-pdftest.dir/__/tests/pdf/pdf_tests.cpp.o
+[188/197] Building CXX object app/CMakeFiles/dung-filetest.dir/src/tools/filetools/FileOps.cpp.o
+[189/197] Linking CXX executable app/dung-icontest
+[190/197] Linking CXX executable app/dung-shottest
+[191/197] Linking CXX executable app/dung-ribbonicontest
+[192/197] Building CXX object app/CMakeFiles/dung-pdftest.dir/src/pdf/PdfOps.cpp.o
+/home/runner/work/DUngoff/DUngoff/app/src/pdf/PdfOps.cpp:504:12: warning: ‘QByteArray dungpdf::{anonymous}::num(qint64)’ defined but not used [-Wunused-function]
+  504 | QByteArray num(qint64 v) { return QByteArray::number(v); }
+      |            ^~~
+[193/197] Linking CXX executable app/dung-filesearchtest
+[194/197] Linking CXX executable app/dung-shotwidgettest
+[195/197] Linking CXX executable app/dung-pdftest
+[196/197] Building CXX object app/CMakeFiles/dung-filetest.dir/__/tests/filetools/file_tests.cpp.o
+[197/197] Linking CXX executable app/dung-filetest

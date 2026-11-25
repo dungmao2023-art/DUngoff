@@ -1,0 +1,203 @@
+[1/198] Automatic UIC for target dung-tabletest
+[2/198] Automatic UIC for target dung-mailmergetest
+[3/198] Automatic UIC for target dung-templatetest
+[4/198] Automatic UIC for target dung-dataassisttest
+[5/198] Automatic UIC for target dung-recoverytest
+[6/198] Automatic UIC for target dung-vntexttest
+[7/198] Automatic UIC for target dung-syllabletest
+[8/198] Automatic UIC for target dung-keymaptest
+[9/198] Automatic UIC for target dung-printtest
+[10/198] Automatic UIC for target dung-icontest
+[11/198] Automatic MOC and UIC for target dung-updatetest
+[12/198] Automatic MOC and UIC for target dung-toolboxtest
+[13/198] Automatic UIC for target dung-shottest
+[14/198] Automatic MOC and UIC for target dung-ribbonicontest
+[15/198] Automatic UIC for target dung-filesearchtest
+[16/198] Automatic MOC and UIC for target dung-shotwidgettest
+[17/198] Automatic UIC for target dung-filetest
+[18/198] Automatic UIC for target dung-pdftest
+[19/198] Building CXX object CMakeFiles\dungengine.dir\engine\src\FeatureScan.cpp.obj
+[20/198] Building CXX object CMakeFiles\dungengine.dir\engine\src\FormatPolicy.cpp.obj
+[21/198] Building CXX object CMakeFiles\dung-featurescan-test.dir\engine\src\FeatureScan.cpp.obj
+[22/198] Building CXX object CMakeFiles\dung-featurescan-test.dir\tests\featurescan\featurescan_tests.cpp.obj
+[23/198] Building CXX object CMakeFiles\dung-smoketest.dir\tools\smoketest\excel_tests.cpp.obj
+[24/198] Building CXX object CMakeFiles\dungengine.dir\engine\src\Engine.cpp.obj
+[25/198] Building CXX object CMakeFiles\dung-smoketest.dir\tools\smoketest\ppt_tests.cpp.obj
+D:\a\DUngoff\DUngoff\tools\smoketest\ppt_tests.cpp(145): warning C4267: 'argument': conversion from 'size_t' to '_Ty', possible loss of data
+        with
+        [
+            _Ty=uint8_t
+        ]
+[26/198] Building CXX object CMakeFiles\dung-smoketest.dir\tools\smoketest\main.cpp.obj
+[27/198] Building CXX object CMakeFiles\dung-smoketest.dir\tools\smoketest\template_fidelity.cpp.obj
+[28/198] Linking CXX static library dungengine.lib
+[29/198] Building CXX object CMakeFiles\dung-smoketest.dir\tools\smoketest\recover_tests.cpp.obj
+[30/198] Building CXX object CMakeFiles\dung-smoketest.dir\app\src\word\WordCommands.cpp.obj
+[31/198] Building CXX object CMakeFiles\dung-smoketest.dir\tools\smoketest\preedit_tests.cpp.obj
+[32/198] Building CXX object CMakeFiles\dung-repaintprobe.dir\tools\probe\repaint.cpp.obj
+[33/198] Building CXX object CMakeFiles\dung-spellprobe.dir\tools\probe\spellprobe.cpp.obj
+[34/198] Building CXX object CMakeFiles\dung-spelldicttest.dir\tests\spell\dict_tests.cpp.obj
+[35/198] Building CXX object CMakeFiles\dung-smoketest.dir\tools\smoketest\word_tests.cpp.obj
+[36/198] Automatic MOC and UIC for target dung-carettest
+[37/198] Building CXX object CMakeFiles\dung-margintest.dir\app\src\tools\filetools\ZipLite.cpp.obj
+[38/198] Building CXX object app\CMakeFiles\dung-templatetest.dir\__\tests\templates\template_tests.cpp.obj
+[39/198] Building CXX object CMakeFiles\dung-margintest.dir\tests\word\margin_tests.cpp.obj
+[40/198] Building CXX object CMakeFiles\dung-margintest.dir\app\src\word\PageMargins.cpp.obj
+[41/198] Building CXX object app\CMakeFiles\dung-templatetest.dir\src\extras\WorkspaceStore.cpp.obj
+[42/198] Building CXX object app\CMakeFiles\dung-templatetest.dir\src\templates\TemplateLibrary.cpp.obj
+[43/198] Building CXX object app\CMakeFiles\dung-tabletest.dir\src\tableutil\TableOps.cpp.obj
+[44/198] Building CXX object app\CMakeFiles\dung-tabletest.dir\__\tests\tableutil\table_tests.cpp.obj
+[45/198] Building CXX object app\CMakeFiles\dung-mailmergetest.dir\src\tools\mailmerge\MailMergeCore.cpp.obj
+[46/198] Building CXX object app\CMakeFiles\dung-dataassisttest.dir\__\tests\dataassist\dataassist_tests.cpp.obj
+[47/198] Automatic MOC and UIC for target DungOffice
+[48/198] Building CXX object app\CMakeFiles\dung-mailmergetest.dir\__\tests\mailmerge\mailmerge_tests.cpp.obj
+[49/198] Building CXX object app\CMakeFiles\dung-dataassisttest.dir\src\tools\dataassist\DataChecks.cpp.obj
+[50/198] Building CXX object app\CMakeFiles\dung-dataassisttest.dir\src\tools\dataassist\FormulaCatalog.cpp.obj
+[51/198] Building CXX object app\CMakeFiles\dung-recoverytest.dir\__\tests\recovery\recovery_tests.cpp.obj
+[52/198] Building CXX object app\CMakeFiles\dung-dataassisttest.dir\src\tools\dataassist\TemplateExport.cpp.obj
+[53/198] Building CXX object app\CMakeFiles\dung-recoverytest.dir\src\recovery\RecoveryStore.cpp.obj
+[54/198] Building CXX object app\CMakeFiles\dung-recoverytest.dir\src\extras\WorkspaceStore.cpp.obj
+[55/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\main.cpp.obj
+[56/198] Building CXX object app\CMakeFiles\DungOffice.dir\DungOffice_autogen\mocs_compilation.cpp.obj
+[57/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\Theme.cpp.obj
+[58/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\EngineHost.cpp.obj
+[59/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\KeyMap.cpp.obj
+[60/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\TileView.cpp.obj
+[61/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\shell\TopBar.cpp.obj
+[62/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\shell\ShellIcons.cpp.obj
+[63/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\HomePage.cpp.obj
+[64/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\DocumentTab.cpp.obj
+[65/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\shell\QuickPalette.cpp.obj
+[66/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\excel\ExcelUi.cpp.obj
+[67/198] Building RC object app\CMakeFiles\DungOffice.dir\resources\app.rc.res
+[68/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\Ribbon.cpp.obj
+[69/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\MainWindow.cpp.obj
+[70/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\ppt\SlideShow.cpp.obj
+[71/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\ppt\PptActions.cpp.obj
+[72/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\ppt\SlideThumbs.cpp.obj
+[73/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\extras\WorkspaceStore.cpp.obj
+[74/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\extras\SidePanel.cpp.obj
+[75/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\extras\ProjectsPage.cpp.obj
+[76/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\templates\TemplatesPage.cpp.obj
+[77/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\templates\TemplateLibrary.cpp.obj
+[78/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tableutil\TableOps.cpp.obj
+[79/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tableutil\TableToolsDialog.cpp.obj
+[80/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\dataassist\DataChecks.cpp.obj
+[81/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\dataassist\FormulaCatalog.cpp.obj
+[82/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\mailmerge\MailMergeCore.cpp.obj
+[83/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\mailmerge\MailMergeWidget.cpp.obj
+[84/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\dataassist\TemplateExport.cpp.obj
+[85/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\dataassist\DataAssistWidgets.cpp.obj
+[86/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\toolbox\tools\DataAssistTool.cpp.obj
+[87/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\print\PrintLogic.cpp.obj
+[88/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\recovery\RecoveryStore.cpp.obj
+[89/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\recovery\RecoveryDialog.cpp.obj
+[90/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\print\PrintRender.cpp.obj
+[91/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\print\PrintDialog.cpp.obj
+[92/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\update\UpdateCore.cpp.obj
+[93/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\update\UpdateChecker.cpp.obj
+[94/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\toolbox\ToolRegistry.cpp.obj
+[95/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\update\UpdateDialog.cpp.obj
+[96/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\SingleInstance.cpp.obj
+[97/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\toolbox\tools\TimerTool.cpp.obj
+[98/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\toolbox\ExternalToolWidget.cpp.obj
+[99/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\toolbox\ToolboxPage.cpp.obj
+[100/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\toolbox\tools\MailMergeTool.cpp.obj
+[101/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\toolbox\tools\ScreenshotTool.cpp.obj
+[102/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\ui\IconData.cpp.obj
+[103/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\toolbox\ExternalTool.cpp.obj
+[104/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\toolbox\tools\FileSearchTool.cpp.obj
+[105/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\toolbox\tools\FileToolsTool.cpp.obj
+[106/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\ui\Icons.cpp.obj
+[107/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\ui\CommandIcons.cpp.obj
+[108/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\screenshot\ScreenshotCore.cpp.obj
+[109/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\filetools\ZipLite.cpp.obj
+[110/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\screenshot\ScreenshotWidget.cpp.obj
+[111/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\filesearch\FileSearchWidget.cpp.obj
+[112/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\filesearch\FileSearchCore.cpp.obj
+[113/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\filetools\FileOps.cpp.obj
+[114/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\filetools\LinkScan.cpp.obj
+[115/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\word\WordCommands.cpp.obj
+[116/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\pdf\PdfOps.cpp.obj
+[117/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\tools\filetools\FileToolsWidgets.cpp.obj
+[118/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\word\WordRibbon.cpp.obj
+[119/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\vntext\VnText.cpp.obj
+[120/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\pdf\PdfToolsDialog.cpp.obj
+[121/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\word\WordActions.cpp.obj
+[122/198] Building CXX object app\CMakeFiles\dung-vntexttest.dir\src\vntext\VnText.cpp.obj
+[123/198] Building CXX object app\CMakeFiles\dung-vntexttest.dir\__\tests\vntext\vntext_tests.cpp.obj
+[124/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\vntext\SyllableCheck.cpp.obj
+[125/198] Building CXX object app\CMakeFiles\dung-syllabletest.dir\__\tests\vntext\syllable_tests.cpp.obj
+[126/198] Building CXX object app\CMakeFiles\DungOffice.dir\src\word\PageMargins.cpp.obj
+[127/198] Building CXX object app\CMakeFiles\dung-keymaptest.dir\__\tests\keymap\keymap_tests.cpp.obj
+[128/198] Building CXX object app\CMakeFiles\dung-syllabletest.dir\src\vntext\SyllableCheck.cpp.obj
+[129/198] Building CXX object app\CMakeFiles\dung-keymaptest.dir\src\KeyMap.cpp.obj
+[130/198] Building CXX object app\CMakeFiles\dung-carettest.dir\dung-carettest_autogen\mocs_compilation.cpp.obj
+[131/198] Building CXX object app\CMakeFiles\dung-carettest.dir\src\Theme.cpp.obj
+[132/198] Building CXX object app\CMakeFiles\dung-carettest.dir\src\KeyMap.cpp.obj
+[133/198] Building CXX object app\CMakeFiles\dung-carettest.dir\__\tests\caret\caret_tests.cpp.obj
+[134/198] Building CXX object app\CMakeFiles\dung-carettest.dir\src\TileView.cpp.obj
+[135/198] Building CXX object app\CMakeFiles\dung-updatetest.dir\dung-updatetest_autogen\mocs_compilation.cpp.obj
+[136/198] Building CXX object app\CMakeFiles\dung-printtest.dir\src\print\PrintRender.cpp.obj
+[137/198] Building CXX object app\CMakeFiles\dung-printtest.dir\src\print\PrintLogic.cpp.obj
+[138/198] Building CXX object app\CMakeFiles\dung-printtest.dir\__\tests\print\print_tests.cpp.obj
+[139/198] Building CXX object app\CMakeFiles\dung-toolboxtest.dir\dung-toolboxtest_autogen\mocs_compilation.cpp.obj
+[140/198] Building CXX object app\CMakeFiles\dung-updatetest.dir\__\tests\update\update_tests.cpp.obj
+[141/198] Building CXX object app\CMakeFiles\dung-updatetest.dir\src\update\UpdateCore.cpp.obj
+[142/198] Building CXX object app\CMakeFiles\dung-toolboxtest.dir\src\toolbox\ToolRegistry.cpp.obj
+[143/198] Building CXX object app\CMakeFiles\dung-updatetest.dir\src\SingleInstance.cpp.obj
+[144/198] Building CXX object app\CMakeFiles\dung-icontest.dir\src\ui\IconData.cpp.obj
+[145/198] Building CXX object app\CMakeFiles\dung-toolboxtest.dir\src\extras\WorkspaceStore.cpp.obj
+[146/198] Building CXX object app\CMakeFiles\dung-icontest.dir\src\ui\Icons.cpp.obj
+[147/198] Building CXX object app\CMakeFiles\dung-toolboxtest.dir\src\toolbox\ExternalTool.cpp.obj
+[148/198] Building CXX object app\CMakeFiles\dung-toolboxtest.dir\__\tests\toolbox\toolbox_tests.cpp.obj
+[149/198] Building CXX object app\CMakeFiles\dung-icontest.dir\src\ui\CommandIcons.cpp.obj
+[150/198] Building CXX object app\CMakeFiles\dung-ribbonicontest.dir\src\ui\IconData.cpp.obj
+[151/198] Building CXX object app\CMakeFiles\dung-icontest.dir\__\tests\ui\icon_tests.cpp.obj
+[152/198] Building CXX object app\CMakeFiles\dung-ribbonicontest.dir\src\ui\Icons.cpp.obj
+[153/198] Building CXX object app\CMakeFiles\dung-ribbonicontest.dir\dung-ribbonicontest_autogen\mocs_compilation.cpp.obj
+[154/198] Building CXX object app\CMakeFiles\dung-ribbonicontest.dir\src\ui\CommandIcons.cpp.obj
+[155/198] Building CXX object app\CMakeFiles\dung-ribbonicontest.dir\__\tests\ui\ribbon_icon_tests.cpp.obj
+[156/198] Building CXX object app\CMakeFiles\dung-shotwidgettest.dir\dung-shotwidgettest_autogen\mocs_compilation.cpp.obj
+[157/198] Building CXX object app\CMakeFiles\dung-ribbonicontest.dir\src\word\WordRibbon.cpp.obj
+[158/198] Building CXX object app\CMakeFiles\dung-ribbonicontest.dir\src\Theme.cpp.obj
+[159/198] Building CXX object app\CMakeFiles\dung-shottest.dir\src\tools\screenshot\ScreenshotCore.cpp.obj
+[160/198] Building CXX object app\CMakeFiles\dung-ribbonicontest.dir\src\Ribbon.cpp.obj
+[161/198] Building CXX object app\CMakeFiles\dung-shottest.dir\__\tests\screenshot\shot_tests.cpp.obj
+[162/198] Building CXX object app\CMakeFiles\dung-shotwidgettest.dir\__\tests\screenshot\shot_widget_tests.cpp.obj
+[163/198] Building CXX object app\CMakeFiles\dung-shotwidgettest.dir\src\tools\screenshot\ScreenshotCore.cpp.obj
+[164/198] Building CXX object app\CMakeFiles\dung-shotwidgettest.dir\src\tools\screenshot\ScreenshotWidget.cpp.obj
+[165/198] Building CXX object app\CMakeFiles\dung-filesearchtest.dir\__\tests\filesearch\filesearch_tests.cpp.obj
+[166/198] Building CXX object app\CMakeFiles\dung-filesearchtest.dir\src\tools\filesearch\FileSearchCore.cpp.obj
+[167/198] Building CXX object app\CMakeFiles\dung-filetest.dir\src\tools\filetools\ZipLite.cpp.obj
+[168/198] Building CXX object app\CMakeFiles\dung-filetest.dir\src\tools\filetools\FileOps.cpp.obj
+[169/198] Building CXX object app\CMakeFiles\dung-filetest.dir\src\tools\filetools\LinkScan.cpp.obj
+[170/198] Linking CXX executable dung-spelldicttest.exe
+[171/198] Linking CXX executable dung-featurescan-test.exe
+[172/198] Linking CXX executable dung-smoketest.exe
+[173/198] Linking CXX executable dung-spellprobe.exe
+[174/198] Linking CXX executable dung-repaintprobe.exe
+[175/198] Linking CXX executable dung-margintest.exe
+[176/198] Linking CXX executable app\dung-templatetest.exe
+[177/198] Linking CXX executable app\dung-tabletest.exe
+[178/198] Linking CXX executable app\DungOffice.exe
+[179/198] Linking CXX executable app\dung-dataassisttest.exe
+[180/198] Linking CXX executable app\dung-mailmergetest.exe
+[181/198] Linking CXX executable app\dung-recoverytest.exe
+[182/198] Linking CXX executable app\dung-vntexttest.exe
+[183/198] Linking CXX executable app\dung-syllabletest.exe
+[184/198] Linking CXX executable app\dung-keymaptest.exe
+[185/198] Linking CXX executable app\dung-carettest.exe
+[186/198] Linking CXX executable app\dung-updatetest.exe
+[187/198] Linking CXX executable app\dung-printtest.exe
+[188/198] Linking CXX executable app\dung-toolboxtest.exe
+[189/198] Linking CXX executable app\dung-icontest.exe
+[190/198] Linking CXX executable app\dung-ribbonicontest.exe
+[191/198] Linking CXX executable app\dung-shottest.exe
+[192/198] Linking CXX executable app\dung-filesearchtest.exe
+[193/198] Linking CXX executable app\dung-shotwidgettest.exe
+[194/198] Building CXX object app\CMakeFiles\dung-pdftest.dir\src\pdf\PdfOps.cpp.obj
+[195/198] Building CXX object app\CMakeFiles\dung-pdftest.dir\__\tests\pdf\pdf_tests.cpp.obj
+[196/198] Linking CXX executable app\dung-pdftest.exe
+[197/198] Building CXX object app\CMakeFiles\dung-filetest.dir\__\tests\filetools\file_tests.cpp.obj
+[198/198] Linking CXX executable app\dung-filetest.exe

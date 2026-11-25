@@ -1,0 +1,99 @@
+[ĐẠT]  fold: B�o c�o ? bao cao
+[ĐẠT]  fold: �U?NG �i ? duong di (�, U, ?)
+[ĐẠT]  fold: NFC v� NFD cho c�ng k?t qu?
+[ĐẠT]  fold gi? d?u: NFC v� NFD v?n c�ng k?t qu?
+[ĐẠT]  fold gi? d?u: bao ? b�o
+[ĐẠT]  fold: b?ng �nh x? v? tr� d? d? d�i
+[ĐẠT]  parse: t? kho� v� c?m trong ngo?c k�p
+[ĐẠT]  parse: lo?i tr?
+[ĐẠT]  parse: du�i (b? d?u ch?m)
+[ĐẠT]  parse: dung lu?ng
+[ĐẠT]  parse: ng�y
+[ĐẠT]  parse: h?p l? th� kh�ng c� c?nh b�o
+[ĐẠT]  parse: di?u ki?n sai KH�NG b? b? qua �m th?m (c� 2 c?nh b�o)
+[ĐẠT]  splitTerms
+[ĐẠT]  inflate: van b?n l?n (dynamic Huffman)
+[ĐẠT]  inflate: d? li?u ng?u nhi�n (kh?i stored)
+[ĐẠT]  inflate: chu?i ng?n (fixed Huffman)
+[ĐẠT]  inflate: c?t d�ng tr?n b? nh?, tr? status=1
+[ĐẠT]  inflate: d? li?u c?t b�o l?i, kh�ng treo/crash
+[ĐẠT]  inflate: r�c b�o l?i/c?t, kh�ng crash
+[ĐẠT]  crc32 d�ng gi� tr? chu?n
+[ĐẠT]  t?o du?c t?p t�n d�i 190+ k� t?
+[ĐẠT]  t?o du?c thu m?c s�u (du?ng d?n 467 k� t?)
+[ĐẠT]  t�n: 'bao cao' kh?p B�o c�o (NFC), (NFD) v� BAO CAO
+[ĐẠT]  t�n: t?p trong thu m?c ?n b? b? qua m?c d?nh
+[ĐẠT]  t�n: t�m th?y t?p ? thu m?c r?t s�u
+[ĐẠT]  t�n: includeHidden b?t th� th?y t?p ?n
+[ĐẠT]  t�n: g� c� d?u (NFD) v?n kh?p t�n NFC v� kh�ng d?u
+[ĐẠT]  t�n: ch? d? ph�n bi?t d?u lo?i 'BAO CAO' nhung gi? NFC/NFD
+[ĐẠT]  t�n: ph�n bi?t d?u th� 'bao cao thang' kh�ng kh?p 'B�o c�o th�ng'
+[ĐẠT]  t�n: lo?i tr? -nhap -quy
+[ĐẠT]  l?c: du�i pdf
+[ĐẠT]  l?c: dung lu?ng = 2 byte
+[ĐẠT]  l?c: ng�y s?a tru?c 2021
+[ĐẠT]  t�n: t�m th?y t�n d�i
+[ĐẠT]  kh�ng nh?p g�: b�o l?i r� r�ng thay v� li?t k� t?t c?
+[ĐẠT]  thu m?c kh�ng t?n t?i: b�o l?i
+[ĐẠT]  gi?i h?n s? k?t qu?: c?t v� b�o r�
+[ĐẠT]  n?i dung: 'hop dong lao dong' kh?p 'H?p d?ng lao d?ng' trong txt v� docx
+[ĐẠT]  n?i dung: txt c� v? tr� 'd�ng 2' v� tr�ch do?n g?c c� d?u
+[ĐẠT]  n?i dung: docx c� v? tr� 'do?n 1'
+[ĐẠT]  n?i dung: UTF-8 c� BOM (csv)
+[ĐẠT]  n?i dung: UTF-16 LE v� BE c� BOM
+[ĐẠT]  n?i dung: d�ng d�i 5 MB v?i k� t? nhi?u byte ? ranh gi?i kh�ng b? b�o sai b?ng m�
+[ĐẠT]  n?i dung: docx d�ng m?c kh�ng n�n (stored)
+[ĐẠT]  n?i dung: d?c c? d?u trang (header) c?a docx
+[ĐẠT]  n?i dung: xlsx � chu?i chung gh�p t? nhi?u run, v? tr� 'Danh s�ch!A2'
+[ĐẠT]  n?i dung: xlsx b? phi�n �m (rPh), kh�ng kh?p nh?m
+[ĐẠT]  n?i dung: xlsx inlineStr ? sheet 2, v? tr� 'Qu?!C5'
+[ĐẠT]  n?i dung: xlsx gi? s? 0 d?u c?a gi� tr? d� luu
+[ĐẠT]  n?i dung: pptx � v? tr� 'slide 1'
+[ĐẠT]  n?i dung: pptx � slide 10 x?p sau slide 2 (so s?, kh�ng so chu?i)
+[ĐẠT]  n?i dung: nhi?u t? kho� l� AND theo c? t?p
+[ĐẠT]  b? qua c� l� do: t?p b?ng m� cu
+[ĐẠT]  b? qua c� l� do: t?p nh? ph�n
+[ĐẠT]  b? qua c� l� do: docx b? c?t
+[ĐẠT]  b? qua c� l� do: docx sai CRC
+[ĐẠT]  b? qua c� l� do: kh�ng ph?i zip
+[ĐẠT]  th?ng k�: .doc/.xls cu du?c b�o l� chua t�m n?i dung
+[ĐẠT]  m?t t?p l?i kh�ng l�m d?ng c? phi�n (v?n c� k?t qu? h?p l?)
+INFO  Qt6::Pdf trong bản dựng: CÓ; pdftotext trên máy: CÓ
+[ĐẠT]  n?i dung: pdf qua Qt6::Pdf, v? tr� trang
+[ĐẠT]  n?i dung: c� Qt6::Pdf ? kh�ng b�o pdfUnavailable
+[ĐẠT]  pdf h?ng kh�ng l�m d?ng phi�n
+[ĐẠT]  pdf h?ng du?c b�o trong danh s�ch b? qua k�m l� do
+[ĐẠT]  �p pdftotext kh�ng t?n t?i ? kh�ng c� k?t qu? gi?
+[ĐẠT]  hu?: c? hu? c� t? d?u ? d?ng ngay v� b�o canceled
+[ĐẠT]  ch? m?c: l?p du?c
+[ĐẠT]  ch? m?c: d?c l?i du?c
+[ĐẠT]  ch? m?c: k?t qu? t�m t�n gi?ng h?t duy?t tr?c ti?p
+[ĐẠT]  ch? m?c: t?p d� xo� du?c ph�t hi?n l� cu, kh�ng tr? v?
+[ĐẠT]  ch? m?c: y�u c?u t?p ?n m� ch? m?c kh�ng c� ? t? duy?t tr?c ti?p, kh�ng b? s�t
+[ĐẠT]  ch? m?c: xo� du?c
+[ĐẠT]  ch? m?c: sau khi xo� kh�ng c�n t?i du?c
+INFO  mẫu thật: 158 tệp docx/xlsx/pptx, đọc lỗi 0, có chữ 158
+[ĐẠT]  m?u th?t: d?c du?c to�n b? docx/xlsx/pptx kh�ng l?i
+[ĐẠT]  m?u th?t: =90% t?p tr�ch du?c ch?
+[ĐẠT]  m?u th?t: t�m theo m?t t? l?y t? t?p th� t�m l?i d�ng t?p d�
+BENCH mau-that tim 'hop dong' trong 163 tep: 47 ms, 5 ket qua, 0 bo qua, RAM dinh 36828 KB
+INFO  tạo bộ đo: 6000 tệp (~2 KB mỗi tệp), 60 tệp chứa từ khoá, mất 7795 ms
+BENCH ours-name ms=205 hits=16 extra=0 peakKB=10324
+
+BENCH raw-name ms=182 hits=16 extra=0 peakKB=10084
+
+BENCH ours-content ms=1200 hits=60 extra=0 peakKB=11148
+
+BENCH raw-content ms=384 hits=60 extra=0 peakKB=10332
+
+BENCH ours-index build_ms=462 load_ms=5 entries=6000
+
+BENCH ours-index ms=57 hits=16 extra=0 peakKB=13216
+
+[ĐẠT]  do: t�m t�n cho s? k?t qu? b?ng c�ch duy?t th�
+[ĐẠT]  do: t�m n?i dung ra d�ng s? t?p c� t? kho�
+[ĐẠT]  do: t�m t�n b?ng ch? m?c cho c�ng s? k?t qu?
+[ĐẠT]  hu?: d?ng gi?a ch?ng khi dang duy?t b? l?n
+
+Đạt 80, lỗi 0
+KẾT QUẢ: TẤT CẢ ĐẠT

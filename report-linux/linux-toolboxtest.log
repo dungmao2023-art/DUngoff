@@ -1,0 +1,131 @@
+[ĐẠT]  đăng ký công cụ hợp lệ
+[ĐẠT]  từ chối trùng mã (không ghi đè âm thầm)
+[ĐẠT]  công cụ gốc vẫn còn nguyên sau khi bị trùng mã
+[ĐẠT]  từ chối mã sai: "A"
+[ĐẠT]  từ chối mã sai: "Ab"
+[ĐẠT]  từ chối mã sai: "a b"
+[ĐẠT]  từ chối mã sai: "../x"
+[ĐẠT]  từ chối mã sai: "-ab"
+[ĐẠT]  từ chối mã sai: ""
+[ĐẠT]  từ chối mã sai: "x"
+[ĐẠT]  từ chối thiếu hàm tạo giao diện
+[ĐẠT]  từ chối tên rỗng
+[ĐẠT]  gom công cụ theo 4 nhóm (nhóm trống thành "Khác")
+[ĐẠT]  nhóm "Khác" chứa công cụ không khai báo nhóm
+[ĐẠT]  tìm công cụ theo mã
+[ĐẠT]  tìm không dấu: "chup man hinh" ra Chụp màn hình
+[ĐẠT]  tìm không phân biệt hoa-thường
+[ĐẠT]  tìm theo mô tả, có dấu hay không đều ra
+[ĐẠT]  không khớp thì trả danh sách rỗng
+[ĐẠT]  ô tìm rỗng trả tất cả
+[ĐẠT]  foldVn bỏ dấu và chữ đ
+[ĐẠT]  xoá sổ để thử lại
+[ĐẠT]  chưa ghim gì
+[ĐẠT]  ghim hai lần không tạo bản sao, giữ thứ tự
+[ĐẠT]  bỏ ghim
+[ĐẠT]  mã rỗng không được ghim
+[ĐẠT]  định dạng 3725 giây = 01:02:05
+[ĐẠT]  định dạng có phần mười giây
+[ĐẠT]  thời lượng âm về 0
+[ĐẠT]  "90" = 90 phút
+[ĐẠT]  "5:30" = 5 phút 30 giây
+[ĐẠT]  "1:02:03" = 1 giờ 2 phút 3 giây
+[ĐẠT]  từ chối thời lượng sai: ""
+[ĐẠT]  từ chối thời lượng sai: "abc"
+[ĐẠT]  từ chối thời lượng sai: "0"
+[ĐẠT]  từ chối thời lượng sai: "1:75"
+[ĐẠT]  từ chối thời lượng sai: "-5"
+[ĐẠT]  từ chối thời lượng sai: "1:2:3:4"
+[ĐẠT]  từ chối thời lượng sai: "5:"
+[ĐẠT]  từ chối thời lượng sai: "100000"
+[ĐẠT]  đường dẫn tương đối trong thư mục được chấp nhận
+[ĐẠT]  từ chối đường dẫn: "../x"
+[ĐẠT]  từ chối đường dẫn: "a/../../x"
+[ĐẠT]  từ chối đường dẫn: "/etc/passwd"
+[ĐẠT]  từ chối đường dẫn: "C:/x"
+[ĐẠT]  từ chối đường dẫn: "a\b"
+[ĐẠT]  từ chối đường dẫn: "~/x"
+[ĐẠT]  từ chối đường dẫn: ""
+[ĐẠT]  tool.json tối thiểu hợp lệ
+[ĐẠT]  tool.json đủ 6 kiểu trường hợp lệ
+[ĐẠT]  từ chối tool.json: không phải JSON — tool.json không phải JSON hợp lệ (unterminated object)
+[ĐẠT]  từ chối tool.json: gốc là danh sách — tool.json không phải JSON hợp lệ (không phải đối tượng)
+[ĐẠT]  từ chối tool.json: thiếu id — thiếu trường "id"
+[ĐẠT]  từ chối tool.json: thiếu command — thiếu trường "command"
+[ĐẠT]  từ chối tool.json: mã chứa ../ — "id" chỉ gồm chữ thường, số, '_' hoặc '-' (2–41 ký tự, bắt đầu bằng ch
+[ĐẠT]  từ chối tool.json: mã chữ hoa — "id" chỉ gồm chữ thường, số, '_' hoặc '-' (2–41 ký tự, bắt đầu bằng ch
+[ĐẠT]  từ chối tool.json: lệnh tuyệt đối — "command": không dùng đường dẫn tuyệt đối
+[ĐẠT]  từ chối tool.json: lệnh có ổ đĩa — "command" phải là tên chương trình trần (vd python) hoặc đường dẫn tươ
+[ĐẠT]  từ chối tool.json: lệnh thoát thư mục — "command": không được thoát ra ngoài thư mục tool ('..')
+[ĐẠT]  từ chối tool.json: lệnh thoát thư mục sâu — "command": không được thoát ra ngoài thư mục tool ('..')
+[ĐẠT]  từ chối tool.json: lệnh powershell — "command": không cho gọi trực tiếp trình lệnh hệ thống (powershell); h
+[ĐẠT]  từ chối tool.json: lệnh cmd.exe — "command": không cho gọi trực tiếp trình lệnh hệ thống (CMD.EXE); hãy 
+[ĐẠT]  từ chối tool.json: lệnh bash — "command": không cho gọi trực tiếp trình lệnh hệ thống (bash); hãy dùn
+[ĐẠT]  từ chối tool.json: lệnh .bat — "command": không hỗ trợ tệp .bat/.cmd/.vbs/.ps1/.lnk... (nguy cơ chèn 
+[ĐẠT]  từ chối tool.json: lệnh .ps1 — "command": không hỗ trợ tệp .bat/.cmd/.vbs/.ps1/.lnk... (nguy cơ chèn 
+[ĐẠT]  từ chối tool.json: lệnh .vbs — "command": không hỗ trợ tệp .bat/.cmd/.vbs/.ps1/.lnk... (nguy cơ chèn 
+[ĐẠT]  từ chối tool.json: workingDir thoát ra ngoài — "workingDir": không được thoát ra ngoài thư mục tool ('..')
+[ĐẠT]  từ chối tool.json: workingDir tuyệt đối — "workingDir": không dùng đường dẫn tuyệt đối
+[ĐẠT]  từ chối tool.json: timeoutSec = 0 — "timeoutSec" phải từ 1 đến 3600
+[ĐẠT]  từ chối tool.json: timeoutSec quá lớn — "timeoutSec" phải từ 1 đến 3600
+[ĐẠT]  từ chối tool.json: schema khác 1 — "schema" phải là 1 (phiên bản tool.json không được hỗ trợ)
+[ĐẠT]  từ chối tool.json: đối số dùng trường không tồn tại — đối số #1 dùng {khong_co} nhưng không có trường nhập nào tên đó
+[ĐẠT]  từ chối tool.json: trường trùng mã — trường nhập trùng mã "a"
+[ĐẠT]  từ chối tool.json: trường tên tooldir — trường nhập #1: mã "tooldir" không hợp lệ (chữ cái đầu, chỉ chữ/số/_; 
+[ĐẠT]  từ chối tool.json: kiểu trường lạ — trường "a": kiểu "script" không hỗ trợ (text, multiline, number, file,
+[ĐẠT]  từ chối tool.json: choice không có danh sách — trường "a": kiểu choice cần "choices"
+[ĐẠT]  từ chối tool.json: choice mặc định ngoài danh sách — trường "a": giá trị mặc định không nằm trong choices
+[ĐẠT]  từ chối tool.json: min lớn hơn max — trường "a": min lớn hơn max
+[ĐẠT]  từ chối tool.json: args không phải danh sách — "args" phải là danh sách chữ
+[ĐẠT]  từ chối tool.json quá lớn
+[ĐẠT]  nạp thư mục tool hợp lệ, có dấu vân tay SHA-256
+[ĐẠT]  từ chối tên thư mục có ../
+[ĐẠT]  từ chối tool.json hỏng
+[ĐẠT]  từ chối khi tệp lệnh tương đối không có thật
+[ĐẠT]  từ chối thư mục thiếu tool.json
+[ĐẠT]  từ chối thư mục tool là liên kết tượng trưng trỏ ra ngoài
+[ĐẠT]  từ chối thư mục tool chứa liên kết tượng trưng (không đọc trộm tệp ngoài)
+[ĐẠT]  quét: chỉ nhận đúng 1 tool hợp lệ
+[ĐẠT]  quét: các tool lỗi được liệt kê kèm lý do (không im lặng)
+[ĐẠT]  quét: báo trùng mã tool
+[ĐẠT]  tool mới chưa được xác nhận
+[ĐẠT]  chưa xác nhận thì KHÔNG chuẩn bị lệnh chạy
+[ĐẠT]  sau khi người dùng xác nhận thì được nhớ
+[ĐẠT]  đã xác nhận: chuẩn bị lệnh thành công
+[ĐẠT]  chương trình là tệp trong thư mục tool: /tmp/DungOfficeToolboxTest-eIlDLw/tools/chao/run.bin
+[ĐẠT]  đối số: giá trị mặc định điền vào, trường tuỳ chọn để trống bị bỏ khỏi dòng lệnh
+[ĐẠT]  thư mục chạy là thư mục tool
+[ĐẠT]  giá trị lạ nằm gọn trong MỘT đối số (không có shell để chèn lệnh)
+[ĐẠT]  thiếu trường bắt buộc bị từ chối
+[ĐẠT]  số không hợp lệ bị từ chối
+[ĐẠT]  số vượt max bị từ chối
+[ĐẠT]  số dưới min bị từ chối
+[ĐẠT]  dấu phẩy thập phân bị từ chối (tránh hiểu nhầm)
+[ĐẠT]  giá trị ngoài danh sách choice bị từ chối
+[ĐẠT]  giá trị trong danh sách choice được nhận
+[ĐẠT]  tệp không tồn tại bị từ chối
+[ĐẠT]  tệp có thật được nhận
+[ĐẠT]  ô một dòng chứa xuống dòng bị từ chối
+[ĐẠT]  giá trị quá dài bị từ chối
+[ĐẠT]  script bị sửa sau lúc quét: từ chối chạy
+[ĐẠT]  dấu vân tay đổi khi script đổi
+[ĐẠT]  xác nhận cũ không còn hiệu lực với bản đã sửa
+[ĐẠT]  xác nhận lại bản mới thì chạy được
+[ĐẠT]  thu hồi xác nhận
+[ĐẠT]  tên chương trình trần hợp lệ về cú pháp
+[ĐẠT]  chương trình chưa cài: báo rõ, không kèm theo Python/AutoHotkey
+[ĐẠT]  tool mẫu xin-chao hợp lệ 
+[ĐẠT]  tool mẫu chuẩn bị được lệnh 
+[ĐẠT]  tool mẫu Python chạy và in tiếng Việt đúng
+[ĐẠT]  chạy: lấy đúng mã thoát 3
+[ĐẠT]  đối số có dấu và dấu cách đến nguyên vẹn
+[ĐẠT]  đầu ra UTF-8 tiếng Việt giải mã đúng
+[ĐẠT]  hết giờ: tự dừng và báo timedOut
+[ĐẠT]  hết giờ: dừng trong thời gian hợp lý
+[ĐẠT]  nút Dừng: dừng tiến trình theo yêu cầu
+[ĐẠT]  nút Dừng: dừng nhanh
+[ĐẠT]  chương trình không khởi động được: báo lỗi, không treo
+[ĐẠT]  mỗi lần chạy được ghi log (bắt đầu/kết thúc)
+[ĐẠT]  log ghi rõ hết giờ và dừng tay
+
+KẾT QUẢ: TẤT CẢ ĐẠT
