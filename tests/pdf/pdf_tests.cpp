@@ -156,6 +156,15 @@ int main(int argc, char** argv) {
     CHECK(ia.ok && ia.pages == 3 && !ia.encrypted, "info: 3 trang, không mật khẩu");
     CHECK(!info(P(QStringLiteral("khong-co.pdf"))).ok, "info: tệp không tồn tại báo lỗi");
 
+    // --- reorder: đủ trang, đúng thứ tự, giữ nguyên nguồn.
+    const QString reordered = P(QStringLiteral("reorder.pdf"));
+    CHECK(reorder({a, {}}, QStringLiteral("3,1,2"), reordered).ok && info(reordered).pages == 3, "Sắp xếp 3,1,2 đủ 3 trang");
+    const QString first = P(QStringLiteral("reorder-first.pdf"));
+    CHECK(extract({reordered, {}}, QStringLiteral("1"), first).ok && qdfOf(first).contains("(A 3)"), "Trang đầu bản sắp xếp là trang 3 gốc");
+    CHECK(!reorder({a, {}}, QStringLiteral("1,1,3"), P(QStringLiteral("invalid-order.pdf"))).ok, "Từ chối trang trùng");
+    CHECK(!reorder({a, {}}, QStringLiteral("1,3"), P(QStringLiteral("invalid-order.pdf"))).ok, "Từ chối thiếu trang");
+    CHECK(!reorder({a, {}}, QStringLiteral("3,1,2"), a, true).ok && readFile(a) == aBytes, "Không ghi đè nguồn khi sắp xếp");
+
     // --- merge
     Result r = merge({{a, {}}, {b, {}}}, P(QStringLiteral("gop.pdf")));
     CHECK(r.ok && info(P(QStringLiteral("gop.pdf"))).pages == 5, "gộp 3+2 thành 5 trang");

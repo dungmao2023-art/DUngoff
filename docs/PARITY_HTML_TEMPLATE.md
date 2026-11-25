@@ -81,3 +81,8 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 - Ribbon: dòng đôi, bảng ký hiệu Unicode, Gửi thư (dùng MailMergeWidget hiện có), Xem lại, In và điều hướng/dàn ý.
 - Dàn ý đọc HTML vùng chọn thực tế từ engine, hiển thị H1–H6 và tìm tiêu đề; không tự sửa, không phải TOC. Khi đọc toàn bộ, hỏi trước vì chuyển vị trí con trỏ về đầu tài liệu.
 - Test thêm giãn dòng đôi và chèn Unicode bằng engine; cần CI và nghiệm thu thao tác hộp thoại trên Windows thật. Chưa xử lý header/footer, TOC, footnote, review Track Changes và lề tùy chỉnh.
+
+## PowerPoint + PDF — nhánh chatgpt/ppt-pdf-parity
+- PPT: bật/tắt chế độ ghi chú engine setPartMode (smoketest đã có kiểm đổi kích thước và nhập ghi chú), trạng thái, reset viewport, trở về slide trước trình chiếu; thêm cỡ/màu chữ tùy chỉnh, đi đến trang, tab Thiết kế/In. Chưa sửa theme/master/chuyển cảnh hay xác minh ghi chú lưu PPTX trên Windows thật.
+- PDF: sắp xếp trang bằng qpdf, kiểm đủ trang và không trùng, giữ nguyên nguồn, test thứ tự nội dung, trang thiếu/trùng và cấm ghi đè. Chưa OCR/chỉnh chữ PDF gốc.
+- CI Word #3 PASS Linux/Windows và merge d76688d. Các thay đổi PPT/PDF trên nhánh riêng chờ CI.

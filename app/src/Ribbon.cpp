@@ -89,6 +89,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 {tr("Thao tác"), {
                     {QStringLiteral("pdfTools:merge"), tr("Gộp"), 0xE8B9, QStringLiteral("⊞"), false},
                     {QStringLiteral("pdfTools:split"), tr("Tách"), 0xE8C6, QStringLiteral("✂"), false},
+                    {QStringLiteral("pdfTools:reorder"), tr("Sắp xếp trang"), 0xE8C8, QStringLiteral("↕"), false},
                     {QStringLiteral("pdfTools:rotate"), tr("Xoay"), 0xE7AD, QStringLiteral("⟳"), false},
                     {QStringLiteral("pdfTools:compress"), tr("Nén"), 0xE8B7, QStringLiteral("⇲"), false},
                 }},
@@ -245,9 +246,24 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
             {tr("Trình chiếu"), {{tr("Trình chiếu"), {
                     {QStringLiteral("ppt.show"), tr("Từ đầu"), 0xE768, QStringLiteral("▶"), false},
                     {QStringLiteral("ppt.showHere"), tr("Từ trang này"), 0xE768, QStringLiteral("▷"), false},
-                    {QStringLiteral("ppt.transitionNote"), tr("Hiệu ứng"), 0xE7B8, QStringLiteral("ⓘ"), false},
+                    {QStringLiteral("ppt.transitionNote"), tr("Giới hạn hiệu ứng"), 0xE7B8, QStringLiteral("ⓘ"), false},
                 }}}},
-            {tr("Xem"), {view}},
+            {tr("Thiết kế"), {{tr("Bố cục"), {
+                {QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"0\"}}"), tr("Tiêu đề"), 0xE8A1, QStringLiteral("T"), false},
+                {QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"20\"}}"), tr("Trống"), 0xE7C3, QStringLiteral("□"), false},
+            }}, {tr("Thuộc tính chữ"), {
+                {QStringLiteral("ppt.fontSize"), tr("Cỡ tùy chỉnh"), 0xE8E9, QStringLiteral("Aa"), false},
+                {QStringLiteral("ppt.textColor"), tr("Màu tùy chỉnh"), 0xE790, QStringLiteral("A"), false},
+            }}}},
+            {tr("Xem"), {view, {tr("Chế độ xem"), {
+                {QStringLiteral("ppt.normal"), tr("Trang chiếu"), 0xE7C3, QStringLiteral("□"), false},
+                {QStringLiteral("ppt.notes"), tr("Ghi chú diễn giả"), 0xE8D2, QStringLiteral("T"), false},
+                {QStringLiteral("ppt.goto"), tr("Đến trang"), 0xE7C3, QStringLiteral("#"), false},
+            }}}},
+            {tr("In"), {{tr("In & xuất"), {
+                {QStringLiteral("print"), tr("In / Xem trước"), 0xE749, QStringLiteral("🖨"), false},
+                {QStringLiteral("exportPdf"), tr("Xuất PDF"), 0xEA90, QStringLiteral("PDF"), false},
+            }}}},
         };
     default: // PDF / bản vẽ
         return {fileTab, {tr("Trang đầu"), {file, view}}};

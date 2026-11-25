@@ -21,7 +21,7 @@ class QCheckBox;
 class PdfToolsDialog : public QDialog {
     Q_OBJECT
 public:
-    enum Tab { Merge = 0, Split = 1, Rotate = 2, Compress = 3, Info = 4, Number = 5, Stamp = 6, Images = 7, Blank = 8 };
+    enum Tab { Merge = 0, Split = 1, Rotate = 2, Compress = 3, Info = 4, Number = 5, Stamp = 6, Images = 7, Blank = 8, Reorder = 9 };
     // Mở hộp thoại (chặn cho tới khi đóng). `initialPath` là PDF đang mở (có thể rỗng).
     static void run(QWidget* parent, Tab tab, const QString& initialPath);
 
@@ -37,6 +37,7 @@ private:
     QWidget* buildStamp();
     QWidget* buildImages();
     QWidget* buildBlank();
+    QWidget* buildReorder();
     QWidget* fileRow(QLineEdit** edit, const std::function<void()>& onChosen);
 
     QString pickPdf();
@@ -83,4 +84,7 @@ private:
     QCheckBox* m_imgA4 = nullptr;
     QLineEdit* m_blankFile = nullptr;
     QLabel* m_blankInfo = nullptr;
+    QLineEdit* m_orderFile = nullptr;
+    QLabel* m_orderInfo = nullptr;
+    QLineEdit* m_orderSpec = nullptr;
 };

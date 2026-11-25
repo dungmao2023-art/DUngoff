@@ -42,13 +42,14 @@ void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
     PdfToolsDialog dlg(parent);
     dlg.m_tabs->setCurrentIndex(tab);
     if (!initialPath.isEmpty()) {
-        for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile, dlg.m_numFile, dlg.m_stampFile, dlg.m_blankFile})
+        for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile, dlg.m_numFile, dlg.m_stampFile, dlg.m_blankFile, dlg.m_orderFile})
             if (e) e->setText(initialPath);
         dlg.refreshPageCount(initialPath, dlg.m_splitInfo);
         dlg.refreshPageCount(initialPath, dlg.m_rotInfo);
         dlg.refreshPageCount(initialPath, dlg.m_numInfo);
         dlg.refreshPageCount(initialPath, dlg.m_stampInfo);
         dlg.refreshPageCount(initialPath, dlg.m_blankInfo);
+        dlg.refreshPageCount(initialPath, dlg.m_orderInfo);
         dlg.m_mergeList->addItem(initialPath);
     }
     dlg.exec();
@@ -68,6 +69,7 @@ PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     m_tabs->addTab(buildStamp(), tr("Đóng dấu"));
     m_tabs->addTab(buildImages(), tr("Ảnh → PDF"));
     m_tabs->addTab(buildBlank(), tr("Trang trắng"));
+    m_tabs->addTab(buildReorder(), tr("Sắp xếp"));
     lay->addWidget(m_tabs);
     auto* note = new QLabel(tr("Tệp gốc không bao giờ bị sửa: kết quả luôn lưu thành tệp mới."), this);
     note->setStyleSheet("color:#555");
@@ -251,6 +253,36 @@ QWidget* PdfToolsDialog::buildSplit() {
                        }),
                        tr("Tách xong"));
         }
+    });
+    return w;
+}
+
+QWidget* PdfToolsDialog::buildReorder() {
+    auto* w = new QWidget(this);
+    auto* f = new QFormLayout(w);
+    f->addRow(tr("Tệp PDF:"), fileRow(&m_orderFile, [this] {
+        m_orderSpec->clear();
+        refreshPageCount(m_orderFile->text(), m_orderInfo);
+    }));
+    m_orderInfo = new QLabel(w);
+    f->addRow(QString(), m_orderInfo);
+    m_orderSpec = new QLineEdit(w);
+    m_orderSpec->setPlaceholderText(tr("VD: 3,1-2,4-"));
+    f->addRow(tr("Thứ tự trang mới:"), m_orderSpec);
+    auto* note = new QLabel(tr("Nhập các trang theo thứ tự mong muốn. Mỗi trang phải xuất hiện đúng một lần. Không sửa tệp gốc; muốn xóa trang, dùng Tách."), w);
+    note->setWordWrap(true);
+    f->addRow(note);
+    auto* go = new QPushButton(tr("Lưu bản đã sắp xếp..."), w);
+    f->addRow(go);
+    connect(go, &QPushButton::clicked, this, [this] {
+        const QString src = m_orderFile->text(), spec = m_orderSpec->text().trimmed();
+        if (src.isEmpty() || spec.isEmpty()) { QMessageBox::information(this, tr("Sắp xếp"), tr("Hãy chọn PDF và nhập thứ tự trang.")); return; }
+        const QString dest = pickDest(this, src, tr("sắp xếp"));
+        if (dest.isEmpty()) return;
+        const bool replace = QFileInfo::exists(dest);
+        showResult(runWithPasswords({src}, [this, src, spec, dest, replace] {
+            return reorder(inputFor(src), spec, dest, replace);
+        }), tr("Sắp xếp xong"));
     });
     return w;
 }

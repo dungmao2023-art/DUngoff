@@ -730,7 +730,8 @@ void MainWindow::onAppAction(const QString& id) {
             {QStringLiteral("rotate"), PdfToolsDialog::Rotate}, {QStringLiteral("compress"), PdfToolsDialog::Compress},
             {QStringLiteral("info"), PdfToolsDialog::Info},
             {QStringLiteral("number"), PdfToolsDialog::Number}, {QStringLiteral("stamp"), PdfToolsDialog::Stamp},
-            {QStringLiteral("images"), PdfToolsDialog::Images}, {QStringLiteral("blank"), PdfToolsDialog::Blank}};
+            {QStringLiteral("images"), PdfToolsDialog::Images}, {QStringLiteral("blank"), PdfToolsDialog::Blank},
+            {QStringLiteral("reorder"), PdfToolsDialog::Reorder}};
         QString path;
         if (docVisible && t->document() && !t->document()->isNew()) path = QString::fromStdU16String(t->document()->originalPath().u16string());
         PdfToolsDialog::run(this, tabs.value(id.mid(9), PdfToolsDialog::Merge), path);

@@ -50,6 +50,8 @@ Info info(const QString& path, const QString& password = QString());
 
 Result merge(const QList<Input>& inputs, const QString& dest, bool allowReplace = false);
 Result extract(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace = false);
+// Sắp xếp: mọi trang phải xuất hiện đúng một lần; không xóa hoặc nhân bản trang.
+Result reorder(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace = false);
 // Mỗi trang một tệp: <outDir>/<tên>-trangNNN.pdf. Không ghi đè: nếu có tệp trùng tên thì từ chối toàn bộ.
 Result splitEach(const Input& in, const QString& outDir);
 Result rotate(const Input& in, const QString& pagesSpec, int degrees, const QString& dest, bool allowReplace = false);

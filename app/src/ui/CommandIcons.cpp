@@ -60,12 +60,13 @@ QString iconNameForCommand(const QString& id) {
         {".uno:MovePageUp", "move-up"}, {".uno:MovePageDown", "move-down"},
         {".uno:HideSlide", "eye-off"}, {".uno:ShowSlide", "eye"},
         {"ppt.image", "image"}, {"ppt.rect", "shape"}, {"ppt.textbox", "textbox"},
+        {"ppt.notes", "text"}, {"ppt.normal", "template"}, {"ppt.goto", "page-number"}, {"ppt.fontSize", "font-size"}, {"ppt.textColor", "font-color"},
         {"ppt.show", "play"}, {"ppt.showHere", "play"}, {"ppt.transitionNote", "transition"},
         // PDF
         {"pdfPrev", "move-up"}, {"pdfNext", "move-down"},
         {"pdfTools:merge", "merge-pdf"}, {"pdfTools:split", "split"}, {"pdfTools:rotate", "rotate"}, {"pdfTools:compress", "compress"},
         {"pdfTools:images", "image"}, {"pdfTools:blank", "new"}, {"pdfTools:number", "page-number"}, {"pdfTools:stamp", "stamp"},
-        {"pdfTools:info", "info"},
+        {"pdfTools:info", "info"}, {"pdfTools:reorder", "move-up"},
     };
     // Lệnh có tham số: ".uno:Color#{...}" -> tra theo phần trước dấu #.
     const int hash = id.indexOf(QLatin1Char('#'));

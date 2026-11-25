@@ -240,7 +240,7 @@ QString DocumentTab::statusText() const {
     const int n = m_doc->partCount(), cur = m_doc->currentPart() + 1;
     switch (m_doc->kind()) {
     case DocKind::Spreadsheet: s += tr("  •  Sheet %1/%2").arg(cur).arg(n); break;
-    case DocKind::Presentation: s += tr("  •  Trang chiếu %1/%2").arg(cur).arg(n); break;
+    case DocKind::Presentation: s += (m_pptNotes ? tr("  •  Ghi chú %1/%2") : tr("  •  Trang chiếu %1/%2")).arg(cur).arg(n); break;
     case DocKind::Drawing: s += tr("  •  Trang %1/%2").arg(cur).arg(n); break;
     default: break;
     }
@@ -266,7 +266,7 @@ void DocumentTab::rebuildParts() {
         for (int i = 0; i < n; ++i) {
             m_slides->addItem(m_doc->kind() == DocKind::Presentation ? tr("Trang chiếu %1").arg(i + 1)
                                                                     : tr("Trang %1").arg(i + 1));
-            if (m_doc->kind() == DocKind::Presentation) pptSetThumbnail(m_slides->item(i), m_doc.get(), i);
+            if (m_doc->kind() == DocKind::Presentation && !m_pptNotes) pptSetThumbnail(m_slides->item(i), m_doc.get(), i);
         }
         m_slides->setCurrentRow(cur);
     }
@@ -358,6 +358,17 @@ void DocumentTab::paste() {
 
 void DocumentTab::setZoom(int percent) { m_view->setZoom(percent); }
 
+void DocumentTab::setPptNotesMode(bool notes) {
+    if (m_doc->kind() != DocKind::Presentation || m_pptNotes == notes) return;
+    m_doc->waitInputIdle();
+    m_doc->setPartMode(notes ? 1 : 0); // LOK_PARTMODE_NOTES / SLIDES, verified in ppt_tests.cpp
+    m_doc->waitInputIdle();
+    m_pptNotes = notes;
+    m_view->resetForPartChange();
+    rebuildParts();
+    m_view->setFocus();
+    emit statusChanged();
+}
 void DocumentTab::stepPart(int delta) {
     if (!m_slides || m_slides->count() == 0) return;
     const int r = qBound(0, m_slides->currentRow() + delta, m_slides->count() - 1);
