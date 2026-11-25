@@ -253,6 +253,11 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     check(waitState(".uno:SpacePara15", truthy, 3000, &got) || has(selHtml(d), "150%"), "Giãn dòng 1,5 (.uno:SpacePara15)", "trạng thái=" + got);
     run(d, ".uno:SpacePara1");
 
+    forgetState(".uno:SpacePara2");
+    run(d, ".uno:SpacePara2");
+    check(waitState(".uno:SpacePara2", truthy, 3000, &got) || has(selHtml(d), "200%"), "Giãn dòng đôi (.uno:SpacePara2)", "trạng thái=" + got);
+    run(d, ".uno:SpacePara1");
+
     // ---------------- kiểu đoạn ----------------
     step("kiểu đoạn");
     forgetState(".uno:StyleApply");
@@ -352,6 +357,13 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     selectAll(d);
     html = selHtml(d);
     check(has(html, "href=\"https://example.com/\""), "Chèn liên kết (.uno:SetHyperlink)", snippet(html, 160));
+
+    step("ký hiệu Unicode qua engine");
+    run(d, ".uno:GoToEndOfDoc");
+    check(d.paste("text/plain;charset=utf-8", "Ω ≤ ≥ ₫"), "Engine nhận ký hiệu Unicode");
+    d.waitInputIdle();
+    selectAll(d);
+    check(has(selText(d), "Ω ≤ ≥ ₫"), "Ký hiệu Unicode xuất hiện trong tài liệu", snippet(selText(d), 180));
 
     // ---------------- bố cục trang: khổ giấy, hướng ----------------
     step("khổ giấy A4");
