@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "EngineHost.h"
+#include "ExitTrace.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -12,6 +13,12 @@
 EngineHost& EngineHost::instance() {
     static EngineHost h;
     return h;
+}
+
+EngineHost::~EngineHost() {
+    exittrace::log("EngineHost: bắt đầu huỷ engine (lok destroy)");
+    m_engine.reset();
+    exittrace::log("EngineHost: huỷ engine xong");
 }
 
 static bool hasLokLibrary(const QString& dir) {

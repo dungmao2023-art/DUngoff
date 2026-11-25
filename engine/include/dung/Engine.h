@@ -187,7 +187,7 @@ public:
     void markModified() { m_modified = true; }
 
 private:
-    Document() = default;
+    Document();
     static void lokCallback(int type, const char* payload, void* data);
     void onEvent(int type, const char* payload);
 
@@ -220,5 +220,8 @@ private:
 
     friend class Engine;
 };
+
+// Số tài liệu engine đang mở (dùng để quyết định có được thoát cứng an toàn hay không).
+int liveDocumentCount();
 
 } // namespace dung
