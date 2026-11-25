@@ -66,6 +66,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral("word:vnMoney"), tr("Số tiền → chữ"), 0xE8EF, QStringLiteral("đ"), false},
                 {QStringLiteral("word:vnDate"), tr("Chèn ngày Việt"), 0xE787, QStringLiteral("📅"), false},
                 {QStringLiteral("word:vnTcvn3"), tr("TCVN3 → Unicode"), 0xE8D2, QStringLiteral("Ư"), false},
+                {QStringLiteral("word:vnSyllable"), tr("Kiểm tra âm tiết"), 0xE8D2, QStringLiteral("Aa"), false},
             }},
         }},
         {tr("Xem"), {view}},

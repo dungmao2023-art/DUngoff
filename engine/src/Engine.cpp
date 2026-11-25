@@ -414,6 +414,97 @@ static void seedFontSubstitution(const fs::path& profileDir) {
     fs::rename(tmp, file, ec);
 }
 
+// ---------------------------------------------------------------- Từ điển chính tả (Hunspell)
+// Từ điển tiếng Việt là dữ liệu GPL cài riêng (thư mục dictionaries\vi), KHÔNG nằm trong engine. Để engine dùng nó, đăng ký
+// từng cặp .dic/.aff vào mục /org.openoffice.Office.Linguistic/ServiceManager/Dictionaries của hồ sơ người dùng (cùng
+// lược đồ với dictionary.xcu của phần mở rộng từ điển). Khối ghi giữa hai dấu chú thích để chạy lại thì thay thế/gỡ.
+static fs::path g_viDictDir;
+static const char* kDictBegin = "<!-- dung-dict-begin -->";
+static const char* kDictEnd = "<!-- dung-dict-end -->";
+
+static std::string xmlEscape(const std::string& s) {
+    std::string o;
+    for (char c : s) {
+        switch (c) {
+        case '&': o += "&amp;"; break;
+        case '<': o += "&lt;"; break;
+        case '>': o += "&gt;"; break;
+        case '"': o += "&quot;"; break;
+        default: o += c;
+        }
+    }
+    return o;
+}
+
+std::string Engine::viDictionaryRegistryXml(const fs::path& dir) {
+    std::error_code ec;
+    if (dir.empty() || !fs::is_directory(dir, ec)) return {};
+    std::vector<fs::path> dics;
+    for (const auto& e : fs::directory_iterator(dir, ec)) {
+        if (!e.is_regular_file(ec) || e.path().extension() != ".dic") continue;
+        fs::path aff = e.path();
+        aff.replace_extension(".aff");
+        if (fs::is_regular_file(aff, ec)) dics.push_back(e.path());
+    }
+    std::sort(dics.begin(), dics.end());
+    std::string out;
+    for (const auto& dic : dics) {
+        fs::path aff = dic;
+        aff.replace_extension(".aff");
+        std::string id = dic.stem().string();
+        for (char& c : id) if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) c = '_';
+        out += "<item oor:path=\"/org.openoffice.Office.Linguistic/ServiceManager/Dictionaries\">"
+               "<node oor:name=\"HunSpellDic_dung_" + id + "\" oor:op=\"replace\">"
+               "<prop oor:name=\"Locations\" oor:type=\"oor:string-list\"><value oor:separator=\" \">" +
+               xmlEscape(toFileUrl(dic)) + " " + xmlEscape(toFileUrl(aff)) + "</value></prop>"
+               "<prop oor:name=\"Format\" oor:type=\"xs:string\"><value>DICT_SPELL</value></prop>"
+               "<prop oor:name=\"Locales\" oor:type=\"oor:string-list\"><value>vi-VN</value></prop>"
+               "</node></item>\n";
+    }
+    return out;
+}
+
+void Engine::setViDictionaryDir(const fs::path& dir) { g_viDictDir = dir; }
+
+// Ghi/thay/gỡ khối từ điển trong registrymodifications.xcu. Không đụng phần khác của tệp.
+static void seedViDictionary(const fs::path& profileDir) {
+    const std::string block = Engine::viDictionaryRegistryXml(g_viDictDir);
+    std::error_code ec;
+    const fs::path file = profileDir / "user" / "registrymodifications.xcu";
+    std::string content;
+    if (fs::exists(file, ec)) {
+        std::ifstream in(file, std::ios::binary);
+        content.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    } else if (block.empty()) {
+        return;
+    } else {
+        fs::create_directories(profileDir / "user", ec);
+        content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<oor:items xmlns:oor=\"http://openoffice.org/2001/registry\" "
+                  "xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n</oor:items>\n";
+    }
+    const std::string original = content;
+    const size_t b = content.find(kDictBegin);
+    if (b != std::string::npos) {
+        const size_t e = content.find(kDictEnd, b);
+        if (e == std::string::npos) return; // khối hỏng: không đụng vào
+        size_t endPos = e + std::string(kDictEnd).size();
+        if (endPos < content.size() && content[endPos] == '\n') ++endPos;
+        content.erase(b, endPos - b);
+    }
+    if (!block.empty()) {
+        const size_t pos = content.rfind("</oor:items>");
+        if (pos == std::string::npos) return; // tệp lạ
+        content.insert(pos, std::string(kDictBegin) + "\n" + block + kDictEnd + "\n");
+    }
+    if (content == original) return;
+    const fs::path tmp = file.string() + ".dung-tmp";
+    {
+        std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+        out << content;
+    }
+    fs::rename(tmp, file, ec);
+}
+
 // ---------------------------------------------------------------- Engine
 std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::path& profileDir,
                                        const fs::path& workDir, std::string* error) {
@@ -426,6 +517,7 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
     fs::create_directories(profileDir, ec);
     fs::create_directories(workDir, ec);
     seedFontSubstitution(profileDir);
+    seedViDictionary(profileDir);
 #ifndef _WIN32
     // Trên Linux/macOS, LibreOffice đổi URL -> đường dẫn theo bảng mã của locale. Với locale
     // POSIX/ASCII, tên tệp tiếng Việt sẽ không mở được -> ép LC_CTYPE sang UTF-8.

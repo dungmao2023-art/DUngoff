@@ -187,6 +187,22 @@ int main() {
     for (const char *s : {"hóan", "ngườĩ", "qủa"})
         check(checkSyllable(U(s)).verdict != Verdict::Valid, QStringLiteral("dấu sai chữ: %1").arg(U(s)));
 
+    // ---- 8. Mô tả kết quả cho danh sách (ngữ cảnh + lý do + gợi ý), chỉ đọc
+    {
+        const QString t = U("Tôi tòan tâm làm việc.");
+        const auto is = checkText(t);
+        check(is.size() == 1, U("describeIssue: có đúng 1 lỗi"));
+        if (is.size() == 1) {
+            const QString d = describeIssue(t, is[0]);
+            check(d.contains(U("tòan")) && d.contains(U("toàn")), U("describeIssue: có âm tiết sai và gợi ý sửa"), d);
+            check(d.contains(U("tâm")), U("describeIssue: có ngữ cảnh xung quanh"), d);
+            check(t == U("Tôi tòan tâm làm việc."), U("describeIssue không đổi văn bản gốc"));
+        }
+        const QString big = QString(300, QLatin1Char('a')) + U(" tòan ") + QString(300, QLatin1Char('b'));
+        const auto bi = checkText(big);
+        if (!bi.isEmpty()) check(describeIssue(big, bi[0], 10).size() < 120, U("describeIssue cắt ngữ cảnh theo bán kính"));
+    }
+
     std::printf("\nĐạt: %d; lỗi: %d\nKẾT QUẢ: %s\n", g_pass, g_fail, g_fail ? "CÓ LỖI" : "TẤT CẢ ĐẠT");
     return g_fail ? 1 : 0;
 }

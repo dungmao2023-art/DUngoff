@@ -56,6 +56,9 @@ struct TextIssue {
 // Quét văn bản, trả các âm tiết Invalid có độ chắc chắn >= minCertainty. Không sửa gì, không đổi văn bản.
 QVector<TextIssue> checkText(const QString &text, Certainty minCertainty = Certainty::High);
 
+// Một dòng mô tả cho danh sách kết quả: «…ngữ cảnh…» kèm lý do và gợi ý. Chỉ đọc, không đổi văn bản.
+QString describeIssue(const QString &text, const TextIssue &issue, int radius = 18);
+
 // Sinh toàn bộ âm tiết hợp lệ KHÔNG dấu thanh... (có dấu mũ/móc) bằng luật; dùng cho kiểm thử và thống kê.
 QStringList generateToneless();
 // Sinh mọi âm tiết có thanh (áp dụng luật thanh cho vần p,t,c,ch), dạng dựng sẵn NFC.

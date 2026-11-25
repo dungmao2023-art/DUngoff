@@ -69,6 +69,13 @@ public:
     // Chỉ được tạo MỘT lần trong một tiến trình (giới hạn của LibreOffice).
     static std::unique_ptr<Engine> create(const fs::path& programDir, const fs::path& profileDir,
                                           const fs::path& workDir, std::string* error);
+
+    // Thư mục chứa từ điển Hunspell của người dùng (thành phần cài riêng, vd. <app>\dictionaries\vi chứa vi-DauCu.dic/.aff).
+    // Gọi TRƯỚC Engine::create. Mỗi cặp <tên>.dic + <tên>.aff trong thư mục được đăng ký cho locale vi-VN vào hồ sơ
+    // engine (registrymodifications.xcu). Thư mục không có/không còn từ điển -> mục đăng ký cũ được gỡ. Không đụng tệp từ điển.
+    static void setViDictionaryDir(const fs::path& dir);
+    // Nội dung khối xcu sẽ ghi cho thư mục từ điển (rỗng nếu không có cặp .dic/.aff). Dùng cho kiểm thử.
+    static std::string viDictionaryRegistryXml(const fs::path& dir);
     ~Engine();
 
     // Mở tài liệu. Engine KHÔNG bao giờ mở trực tiếp tệp gốc: tệp gốc được sao chép sang
