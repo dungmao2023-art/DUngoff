@@ -539,6 +539,12 @@ jobs:
           name: DungOffice-Setup-x64
           path: installer/Output/*.exe
           retention-days: 14
+      - name: Kiểm bộ cài đầu-cuối (cài im lặng, registry, lối tắt, chạy app đã cài, gỡ, đường dẫn có dấu)
+        if: success() && steps.full.outcome == 'success'
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem installer/Output/*.exe | Select-Object -First 1).FullName
+          ./scripts/test-installer.ps1 -Setup $setup -DistApp "$PWD\build\dist\DungOffice" -DistDict "$PWD\build\dist\dict-vi" -Docx "$PWD\fixtures\mau-van-ban.docx" -Report "$PWD\report"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
