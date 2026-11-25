@@ -44,6 +44,7 @@ SidePanel::SidePanel(QWidget* parent) : QWidget(parent) {
     v->addWidget(m_tabs, 1);
     auto* foot = new QLabel(tr("Lưu trên máy bạn, không gửi lên mạng."), this);
     foot->setStyleSheet(QStringLiteral("color:#697992;font-size:11px;"));
+    foot->setWordWrap(true);
     v->addWidget(foot);
 
     m_saveTimer = new QTimer(this);

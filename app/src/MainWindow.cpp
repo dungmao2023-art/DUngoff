@@ -114,6 +114,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     ch->addWidget(m_stack, 1);
     m_side = new SidePanel(content);
     ch->addWidget(m_side);
+    m_side->setVisible(QSettings().value(QStringLiteral("ui/workPanel"), false).toBool());
     setCentralWidget(central);
 
     // ---- Thanh trạng thái ----
@@ -282,7 +283,7 @@ QWidget* MainWindow::buildSidebar() {
         auto* b = new QPushButton(text, body);
         b->setObjectName(QStringLiteral("NavItem"));
         b->setIcon(shell::icon(pm));
-        b->setIconSize(QSize(30, 30));
+        b->setIconSize(QSize(28, 28));
         b->setCheckable(checkable);
         b->setCursor(Qt::PointingHandCursor);
         b->setFocusPolicy(Qt::TabFocus);
@@ -308,7 +309,7 @@ QWidget* MainWindow::buildSidebar() {
     section(tr("LỊCH & CÔNG VIỆC"));
     auto* work = make(tr("Công việc · Ghi chú"), sym("work"), false);
     work->setCheckable(true);
-    work->setChecked(true);
+    work->setChecked(QSettings().value(QStringLiteral("ui/workPanel"), false).toBool()); // mặc định ẩn như thiết kế
     work->setToolTip(tr("Hiện/ẩn bảng Ghi chú · Lịch · Liên hệ bên phải"));
     section(tr("TẬP TIN & DỰ ÁN"));
     auto* tmpl = make(tr("Kho mẫu"), sym("templates"), true);
@@ -331,7 +332,10 @@ QWidget* MainWindow::buildSidebar() {
     v->addWidget(card);
     m_navFullOnly << card;
 
-    connect(work, &QPushButton::toggled, this, [this](bool on) { m_side->setVisible(on); });
+    connect(work, &QPushButton::toggled, this, [this](bool on) {
+        m_side->setVisible(on);
+        QSettings().setValue(QStringLiteral("ui/workPanel"), on);
+    });
     home->setChecked(true);
     word->setToolTip(tr("Tạo tài liệu Word mới"));
     excel->setToolTip(tr("Tạo sổ làm việc Excel mới"));

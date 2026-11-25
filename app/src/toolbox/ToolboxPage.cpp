@@ -6,6 +6,7 @@
 #include "ToolRegistry.h"
 
 #include <QDesktopServices>
+#include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -16,6 +17,36 @@
 #include <QToolButton>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <functional>
+
+namespace {
+// Thẻ công cụ: cả khung là nút (chuột, Enter, Space).
+class ToolCard : public QFrame {
+public:
+    explicit ToolCard(QWidget* parent) : QFrame(parent) {
+        setObjectName(QStringLiteral("ToolCard"));
+        setCursor(Qt::PointingHandCursor);
+        setMinimumSize(210, 84);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        setAttribute(Qt::WA_Hover, true);
+        setFocusPolicy(Qt::StrongFocus);
+        setStyleSheet(QStringLiteral("QFrame#ToolCard{background:white;border:1px solid #DCE5F2;border-radius:14px;}"
+                                     "QFrame#ToolCard:hover,QFrame#ToolCard:focus{border-color:#2864BA;background:#FAFCFF;}"
+                                     "QFrame#ToolCard QLabel{background:transparent;border:none;}"));
+    }
+    std::function<void()> onClick;
+protected:
+    void mouseReleaseEvent(QMouseEvent* e) override {
+        if (e->button() == Qt::LeftButton && rect().contains(e->pos()) && onClick) onClick();
+    }
+    void keyPressEvent(QKeyEvent* e) override {
+        if ((e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_Space) && onClick) onClick();
+        else QFrame::keyPressEvent(e);
+    }
+};
+}  // namespace
 
 namespace {
 // Tool ngoài đã quét, giữ để tạo giao diện khi người dùng mở (id -> spec)
@@ -129,16 +160,23 @@ void ToolboxPage::rebuild() {
         auto* wrap = new QWidget(body);
         auto* wl = new QGridLayout(wrap);
         wl->setContentsMargins(0, 0, 0, 0);
-        auto* card = new QToolButton(wrap);
-        card->setToolButtonStyle(Qt::ToolButtonTextOnly);
-        card->setText(t.iconText + QStringLiteral("  ") + t.name + (t.description.isEmpty() ? QString() : QStringLiteral("\n") + t.description));
-        card->setCursor(Qt::PointingHandCursor);
-        card->setMinimumSize(210, 74);
-        card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        card->setStyleSheet(QStringLiteral("QToolButton{background:white;border:1px solid #D9E1EC;border-radius:10px;padding:10px 30px 10px 10px;text-align:left;color:#1E293B;}"
-                                           "QToolButton:hover{border-color:#275DD6;background:#F3F7FF;}"));
         const QString id = t.id;
-        connect(card, &QToolButton::clicked, this, [this, id] { openTool(id); });
+        auto* card = new ToolCard(wrap);  // khung bấm được: tên + mô tả tự xuống dòng, không bị cắt chữ
+        card->onClick = [this, id] { openTool(id); };
+        auto* cl = new QVBoxLayout(card);
+        cl->setContentsMargins(14, 10, 34, 10);
+        cl->setSpacing(2);
+        auto* nm = new QLabel(t.iconText + QStringLiteral("  ") + t.name, card);
+        nm->setStyleSheet(QStringLiteral("font-weight:700;font-size:13px;color:#17294D;"));
+        nm->setWordWrap(true);
+        cl->addWidget(nm);
+        if (!t.description.isEmpty()) {
+            auto* ds = new QLabel(t.description, card);
+            ds->setStyleSheet(QStringLiteral("font-size:11px;color:#6B7A99;"));
+            ds->setWordWrap(true);
+            cl->addWidget(ds);
+        }
+        cl->addStretch(1);
         wl->addWidget(card, 0, 0);
         auto* pin = new QToolButton(wrap);
         const bool pinned = toolbox::isPinned(id);

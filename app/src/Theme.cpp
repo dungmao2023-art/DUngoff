@@ -30,17 +30,27 @@ QString styleSheet() {
     QString css = QStringLiteral(R"(
 * { color: #17294D; }
 QMainWindow, QWidget#Central { background: #F4F8FF; }
+QScrollArea { background: transparent; border: none; }
+QScrollArea > QWidget > QWidget { background: transparent; }
+QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
+QScrollBar::handle:vertical { background: #C9D5EA; border-radius: 4px; min-height: 28px; }
+QScrollBar::handle:vertical:hover { background: #A9BBDC; }
+QScrollBar:horizontal { background: transparent; height: 10px; margin: 2px; }
+QScrollBar::handle:horizontal { background: #C9D5EA; border-radius: 4px; min-width: 28px; }
+QScrollBar::handle:horizontal:hover { background: #A9BBDC; }
+QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; border: none; background: none; }
+QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 QToolTip { background: #17294D; color: white; border: none; padding: 4px 8px; }
 
 /* ===== Thanh bên ===== */
 QWidget#Sidebar { background: #FBFCFF; border-right: 1px solid #DCE5F2; }
 QWidget#SideScrollBody, QScrollArea#SideScroll { background: transparent; border: none; }
 QLabel#SideBrand { font-size: 17px; font-weight: 700; color: #17294D; }
-QLabel#SideSub { font-size: 9px; font-weight: 700; color: #8A97B4; letter-spacing: 2px; }
+QLabel#SideSub { font-size: 9px; font-weight: 700; color: #8A97B4; letter-spacing: 1px; }
 QLabel#SideSection { font-size: 10px; font-weight: 700; color: #8A97B4; letter-spacing: 1px; padding: 14px 8px 4px 8px; }
 QPushButton#NavItem {
   background: transparent; border: none; border-left: 3px solid transparent; border-radius: 10px;
-  text-align: left; padding: 6px 10px; font-size: 13px; color: #4A5A7C; min-height: 36px;
+  text-align: left; padding: 3px 8px; font-size: 13px; color: #4A5A7C; min-height: 34px;
 }
 QPushButton#NavItem:hover { background: #EEF4FF; }
 QPushButton#NavItem:checked { background: #E8F0FF; border-left: 3px solid #2864BA; color: #17294D; font-weight: 700; }

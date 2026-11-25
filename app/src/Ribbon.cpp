@@ -308,7 +308,11 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             tb->setText(b.label);
             tb->setToolTip(b.label);
             tb->setMinimumHeight(56);
-            tb->setMinimumWidth(qMax(44, tb->fontMetrics().horizontalAdvance(b.label) + 14)); // không cắt nhãn dài
+            {   // đo bằng đúng cỡ chữ 11px của QSS (font mặc định chưa áp QSS lúc này) để không cắt nhãn
+                QFont lf = tb->font();
+                lf.setPixelSize(11);
+                tb->setMinimumWidth(qMax(54, QFontMetrics(lf).horizontalAdvance(b.label) + 22));
+            }
             const QString id = b.id;
             connect(tb, &QToolButton::clicked, this, [this, id, tb] {
                 if (id.startsWith(QLatin1String(".uno:"))) {
