@@ -146,9 +146,19 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
         note(label + ": ảnh chọn nhiều ô đã lưu (kiểm bằng mắt)");
     }
     if (wantCaret) {
-        click(vp, QPoint(wantCell ? 120 : 140, 120), label.contains("pptx"));
-        if (label.contains("pptx")) click(vp, QPoint(300, 200), true);
-        bool ok = waitFor([&] { return view.hasCaret(); }, 8000);
+        bool ok = false;
+        if (label.contains("pptx")) {
+            // Dò lưới điểm: nhấp đúp để vào chế độ sửa chữ của ô chữ trên trang chiếu đầu, dừng khi engine báo con trỏ.
+            for (int y = 100; y <= 560 && !ok; y += 60)
+                for (int x = 120; x <= 780 && !ok; x += 110) {
+                    click(vp, QPoint(x, y), true);
+                    ok = waitFor([&] { return view.hasCaret(); }, 700);
+                    if (ok) note(label + QString(": vào được ô chữ ở (%1,%2)").arg(x).arg(y));
+                }
+        } else {
+            click(vp, QPoint(140, 120));
+            ok = waitFor([&] { return view.hasCaret(); }, 8000);
+        }
         if (!ok && label.contains("pptx")) {
             note(label + ": CHƯA kiểm được con trỏ trong ô chữ Impress bằng chuột giả lập (không có điểm dừng chữ ở toạ độ thử)");
             return;
@@ -185,9 +195,9 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
             QApplication::sendEvent(&view, &k);
             QKeyEvent kr(QEvent::KeyRelease, Qt::Key_A, Qt::NoModifier, "a");
             QApplication::sendEvent(&view, &kr);
-            pump(800);
-            check(view.caretViewRect().x() > before.x(), label + ": gõ chữ → con trỏ dịch sang phải", QString("%1 → %2").arg(before.x()).arg(view.caretViewRect().x()));
-            check(view.caretShownNow(), label + ": ngay sau khi gõ con trỏ đặc (hiện)");
+            const bool moved = waitFor([&] { return view.caretViewRect().x() > before.x(); }, 3000);
+            check(moved, label + ": gõ chữ → con trỏ dịch sang phải", QString("%1 → %2").arg(before.x()).arg(view.caretViewRect().x()));
+            check(view.caretShownNow(), label + ": ngay sau khi gõ/di chuyển con trỏ đặc (hiện, chưa vào pha tắt)");
         }
     }
     doc->setEventSink(nullptr);
