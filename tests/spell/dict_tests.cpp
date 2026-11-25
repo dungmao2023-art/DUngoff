@@ -39,15 +39,17 @@ int main() {
     check(has(x, "HunSpellDic_dung_vi_DauCu") && has(x, "HunSpellDic_dung_vi_DauMoi"), "mỗi cặp một nút, tên chỉ gồm chữ/số/_");
     check(has(x, "<value>vi-VN</value>"), "gắn locale vi-VN");
     check(has(x, "DICT_SPELL"), "định dạng DICT_SPELL");
-    check(has(x, "vi-DauCu.dic file") == false && has(x, "file://"), "đường dẫn dạng URL file://");
+    check(has(x, "file:///"), "đường dẫn dạng URL file:///");
     check(x.find("vi-DauCu") < x.find("vi-DauMoi"), "thứ tự xác định (DauCu trước)");
     check(!has(x, "README"), "không đăng ký tệp không phải từ điển");
 
     touch(root / "space dir" / "tiếng Việt" / "vi_x&y.dic"); touch(root / "space dir" / "tiếng Việt" / "vi_x&y.aff");
     const std::string y = dung::Engine::viDictionaryRegistryXml(root / "space dir" / "tiếng Việt");
     check(!y.empty(), "đường dẫn có dấu cách và tiếng Việt vẫn đăng ký");
-    check(has(y, "&amp;") && !has(y, "x&y"), "ký tự & được escape trong XML");
-    check(has(y, "%20") || has(y, " "), "dấu cách trong URL được xử lý");
+    check(!has(y, "x&y") && !has(y, "& "), "ký tự & không lọt thô vào XML (đã mã hoá %26 trong URL)");
+    check(has(y, "x%26y"), "tên có & được mã hoá URL");
+    check(has(y, "space%20dir"), "dấu cách trong đường dẫn được mã hoá %20");
+    check(has(y, "ti%E1%BA%BFng"), "chữ tiếng Việt trong đường dẫn được mã hoá UTF-8");
 
     fs::remove_all(root, ec);
     std::printf("\nĐạt: %d; lỗi: %d\nKẾT QUẢ: %s\n", g_pass, g_fail, g_fail ? "CÓ LỖI" : "TẤT CẢ ĐẠT");
