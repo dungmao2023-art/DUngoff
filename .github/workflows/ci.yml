@@ -468,8 +468,11 @@ jobs:
           if (-not $mt) { Write-Host "::error::Không thấy dung-margintest.exe"; exit 1 }
           $real = (Get-ChildItem templates -Recurse -Filter *.docx | Sort-Object FullName | Select-Object -First 1).FullName
           Write-Host "tệp thật thử qua engine: $real"
+          $ErrorActionPreference = 'Continue'
           & $mt.FullName --docx-dir "$PWD/templates" --program "$PWD/build/lo/engine/program" --out "$PWD/smoke-margin" --docx "$real" *>&1 | Tee-Object report/windows-margin.log
-          if ($LASTEXITCODE) { exit 1 }
+          $code = $LASTEXITCODE
+          Write-Host "dung-margintest: mã thoát = $code"
+          if ($code) { exit 1 }
       - name: Chữ đang soạn (preedit) của bộ gõ trên Windows
         run: |
           & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --preedit 1 --out "$PWD/smoke-preedit" *>&1 | Tee-Object report/windows-preedit.log
