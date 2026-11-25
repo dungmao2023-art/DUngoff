@@ -35,7 +35,11 @@ function Snapshot {
   @((RegKeys "HKCU:\Software\Classes") + (RegKeys "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall")) | Sort-Object
 }
 function LnkTarget($lnk) {
-  try { (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath } catch { $null }
+  try {
+    $t = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath
+    if (-not $t) { Say "    (WScript.Shell trả về TargetPath rỗng cho $lnk; tồn tại: $(Test-Path -LiteralPath $lnk), cỡ: $((Get-Item -LiteralPath $lnk).Length))" }
+    $t
+  } catch { Say "    (không đọc được lối tắt $lnk : $($_.Exception.Message))"; $null }
 }
 function RegDefault($path) { try { (Get-Item $path -ErrorAction Stop).GetValue("") } catch { $null } }
 
@@ -65,7 +69,14 @@ function RunInstalledApp($tag, $exe) {
       Ok ($inDir.Count -ge 5) "[$tag] app nạp $($inDir.Count) mô-đun từ thư mục cài (Qt/engine nằm trong thư mục cài)"
       Ok ((@($mods | Where-Object { $_ -match '(?i)\\Qt6Core\.dll$' }).Count) -ge 1) "[$tag] Qt6Core.dll được nạp"
     } catch { Note "[$tag] không liệt kê được mô-đun: $($_.Exception.Message)" }
-    $null = $p.CloseMainWindow()
+    $p.Refresh()
+    Say "    [$tag] cửa sổ chính: handle=$($p.MainWindowHandle) tiêu đề='$($p.MainWindowTitle)' phản hồi=$($p.Responding) luồng=$($p.Threads.Count)"
+    $closed = $p.CloseMainWindow()
+    Say "    [$tag] CloseMainWindow trả về $closed"
+    if (-not $closed -and $p.MainWindowHandle -ne 0) {
+      Add-Type -Namespace W -Name U -MemberDefinition '[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool PostMessage(System.IntPtr h, uint m, System.IntPtr w, System.IntPtr l);' -ErrorAction SilentlyContinue
+      $null = [W.U]::PostMessage($p.MainWindowHandle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)  # WM_CLOSE
+    }
     if (-not $p.WaitForExit(30000)) {
       Note "[$tag] app không tự thoát sau CloseMainWindow 30 giây (có thể đang hiện hộp thoại hỏi) - buộc dừng"
       Stop-Process $p -Force

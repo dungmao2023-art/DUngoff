@@ -83,7 +83,17 @@ Name: "{userdesktop}\Dũng Office"; Filename: "{app}\DungOffice.exe"; Tasks: des
 [Registry]
 ; Thêm "Mở bằng Dũng Office" (không chiếm liên kết mặc định của người dùng)
 Root: HKCU; Subkey: "Software\Classes\Applications\DungOffice.exe\shell\open\command"; ValueType: string; ValueData: """{app}\DungOffice.exe"" ""%1"""; Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\Classes\Applications\DungOffice.exe"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "Dũng Office"
+Root: HKCU; Subkey: "Software\Classes\Applications\DungOffice.exe"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "Dũng Office"; Flags: uninsdeletekey
+; Khoá cha rỗng còn sót lại sau khi gỡ (kiểm bằng scripts/test-installer.ps1). Inno gỡ theo thứ tự ngược: các dòng này đứng
+; TRƯỚC dòng con nên được xử lý SAU (khi con đã xoá), và chỉ xoá nếu khoá thật sự rỗng (không đụng dữ liệu của phần mềm khác).
+Root: HKCU; Subkey: "Software\Classes\.xlsx"; Flags: uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\Classes\.xlsx\OpenWithList"; Flags: uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\Classes\.docx"; Flags: uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\Classes\.docx\OpenWithList"; Flags: uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\Classes\.pptx"; Flags: uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\Classes\.pptx\OpenWithList"; Flags: uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\Classes\.pdf"; Flags: uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\Classes\.pdf\OpenWithList"; Flags: uninsdeletekeyifempty
 Root: HKCU; Subkey: "Software\Classes\.xlsx\OpenWithList\DungOffice.exe"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\.docx\OpenWithList\DungOffice.exe"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\.pptx\OpenWithList\DungOffice.exe"; Flags: uninsdeletekey
