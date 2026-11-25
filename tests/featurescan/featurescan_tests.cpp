@@ -59,6 +59,15 @@ int main(int argc, char** argv) {
         CHECK(classifyEntries({"word/fontTable.xml", "xl/worksheets/sheet1.xml"}).empty());  // fontTable không phải font nhúng
         CHECK(find(classifyEntries({"xl/vbaProject.bin"}), "macro") != nullptr);
         CHECK(find(classifyEntries({"word/vbaProject.bin"}), "macro") != nullptr);
+        {
+            auto b = classifyEntries({"xl/vbaProject.bin", "xl/ctrlProps/ctrlProp1.xml", "xl/ctrlProps/ctrlProp2.xml"});
+            CHECK(find(b, "nut-bieu-mau") && find(b, "nut-bieu-mau")->count == 2);
+            CHECK(find(classifyEntries({"xl/ctrlProps/ctrlProps2.xml"}), "nut-bieu-mau") != nullptr);  // tên LibreOffice ghi
+            CHECK(find(classifyEntries({"xl/vbaProject.bin"}), "nut-bieu-mau") == nullptr);
+            const std::string d = describeFeatureLoss(b);
+            CHECK(d.find("KHÔNG chạy macro") != std::string::npos);
+            CHECK(d.find("tệp gốc") != std::string::npos);
+        }
         CHECK(find(classifyEntries({"ppt/diagrams/data1.xml", "ppt/diagrams/layout1.xml"}), "smartart")->count == 1);
         CHECK(find(classifyEntries({"xl/slicers/slicer1.xml", "xl/slicerCaches/slicerCache1.xml"}), "slicer")->count == 2);
         CHECK(find(classifyEntries({"xl/timelines/timeline1.xml"}), "timeline") != nullptr);

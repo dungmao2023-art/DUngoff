@@ -63,7 +63,7 @@ bool listZipNames(const fs::path& zipFile, std::vector<std::string>& names, std:
 }
 
 std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawNames) {
-    int fonts = 0, macro = 0, activex = 0, smartart = 0, slicers = 0, timelines = 0, model = 0, ink = 0, masters = 0;
+    int fonts = 0, macro = 0, formctl = 0, activex = 0, smartart = 0, slicers = 0, timelines = 0, model = 0, ink = 0, masters = 0;
     for (const auto& raw : rawNames) {
         const std::string n = lower(raw);
         if ((startsWith(n, "word/fonts/") && endsWith(n, ".odttf")) ||
@@ -71,6 +71,8 @@ std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawName
             ++fonts;
         else if (endsWith(n, "/vbaproject.bin"))
             ++macro;
+        else if (contains(n, "/ctrlprops/ctrlprop") && endsWith(n, ".xml"))
+            ++formctl;
         else if (contains(n, "/activex/") && !endsWith(n, "/"))
             ++activex;
         else if (contains(n, "/diagrams/data") && endsWith(n, ".xml"))
@@ -93,8 +95,14 @@ std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawName
     add("font-nhung", "Phông chữ nhúng trong tệp",
         "Bản lưu KHÔNG còn phông nhúng. Máy nào không cài phông này sẽ hiển thị bằng phông thay thế, "
         "có thể lệch chữ và ngắt trang.", fonts, true);
+    // Kiểm chứng trên engine thật (tests/excel/verify_formats.py): lưu .xlsm -> .xlsx KHÔNG còn xl/vbaProject.bin
+    // (macro mất), các nút biểu mẫu vẫn còn hiển thị nhưng không có macro; lưu .xlsm -> .xlsm chỉ ghi lại một
+    // dự án VBA khác byte với bản gốc (không bảo đảm), nên .xlsm luôn mở chỉ đọc.
     add("macro", "Macro VBA",
-        "Macro và các nút gắn macro KHÔNG được lưu sang bản mới; bản mới chỉ có dữ liệu và định dạng.", macro, true);
+        "Dũng Office KHÔNG chạy macro. Bản lưu mới sẽ MẤT macro (KHÔNG chứa macro, chỉ có dữ liệu và định dạng). "
+        "Macro vẫn còn nguyên trong tệp gốc vì tệp gốc không bị thay đổi; hãy giữ tệp gốc nếu cần dùng macro.", macro, true);
+    add("nut-bieu-mau", "Nút bấm / điều khiển biểu mẫu",
+        "Các nút vẫn hiển thị trong bản lưu mới nhưng bấm vào sẽ không làm gì vì macro gắn với nút không được giữ.", formctl, true);
     add("activex", "Điều khiển ActiveX",
         "Điều khiển ActiveX có thể không được giữ hoặc không còn hoạt động.", activex, false);
     add("smartart", "SmartArt",
