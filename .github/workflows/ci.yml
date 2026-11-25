@@ -192,6 +192,11 @@ jobs:
           pip install --quiet python-docx || true
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-word --word 1 2>&1 | tee report/linux-word.log
           python3 tests/word/verify_docx.py smoke-word/word-dinh-dang.docx 2>&1 | tee report/linux-word-docx.log
+      - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Linux)
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-sweep --sweep 1 2>&1 | tee report/linux-sweep.log
       - name: Đặt lề bằng vá XML (Linux) — đơn vị, gói ZIP, .docx thật, engine thật
         run: |
           set -o pipefail
@@ -543,6 +548,15 @@ jobs:
             if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "REPAINT $($m[0]): LỖI quá thời gian" | Add-Content $outf }
             Get-Content $outf | Select-String "^REPAINT" | ForEach-Object { $_.Line }
           }
+      - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Windows)
+        timeout-minutes: 6
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--sweep", "1", "--out", "$PWD/smoke-sweep") -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-sweep.log -RedirectStandardError report/windows-sweep.err.log
+          if (-not $p.WaitForExit(180000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-sweep.log; exit 1 }
+          Get-Content report/windows-sweep.log
+          if ($p.ExitCode) { exit 1 }
       - name: Phục hồi sau sập + đường dẫn dài trên Windows (250-259, 262, 300 ký tự)
         run: |
           $rt = Get-ChildItem build/out -Recurse -Filter dung-recoverytest.exe | Select-Object -First 1
