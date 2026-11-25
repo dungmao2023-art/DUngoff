@@ -46,19 +46,21 @@ jobs:
         continue-on-error: true
         run: |
           $exe = (Get-ChildItem build/out -Recurse -Filter dung-smoketest.exe | Select-Object -First 1).FullName
+          $dis = '<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>false</value></prop></item>'
           $variants = @(
-            @{n="nolib";    e="new"; sec="none"; macro="macro:///Nope.Nope.Nope";                  log=$false},
-            @{n="nofn";     e="new"; sec="none"; macro="macro:///Standard.DungApi.NoSuch";         log=$false},
-            @{n="docbasic"; e="new"; sec="none"; macro="macro://./Standard.DungApi.Noop";           log=$false},
-            @{n="noop";     e="new"; sec="none"; macro="macro:///Standard.DungApi.Noop";           log=$false},
-            @{n="noparen";  e="new"; sec="none"; macro="macro:///Standard.DungApi.Noop()";          log=$false},
-            @{n="oldnofn";  e="old"; sec="none"; macro="macro:///Standard.DungApi.NoSuch";          log=$false}
+            @{n="pre-noop";   e="new"; sec="none"; macro="macro:///Standard.DungApi.Noop"; pre="macro:///Standard.DungApi.Noop"; xcu=""},
+            @{n="pre-nolib";  e="new"; sec="none"; macro="macro:///Standard.DungApi.Noop"; pre="macro:///Nope.Nope.Nope"; xcu=""},
+            @{n="pre-old";    e="old"; sec="none"; macro="macro:///Standard.DungApi.Noop"; pre="macro:///Standard.DungApi.Noop"; xcu=""},
+            @{n="dis-false";  e="new"; sec="0";    macro="macro:///Standard.DungApi.Noop"; pre="macro:///Standard.DungApi.Noop"; xcu=$dis},
+            @{n="pre-tools";  e="new"; sec="none"; macro="macro:///Standard.DungApi.Noop"; pre="macro:///Tools.Strings.GetFileName"; xcu=""}
           )
           foreach ($v in $variants) {
             "=================== $($v.n)" 
-            Remove-Item Env:DUNG_API_SECLEVEL, Env:DUNG_API_MACRO, Env:SAL_LOG -ErrorAction SilentlyContinue
+            Remove-Item Env:DUNG_API_SECLEVEL, Env:DUNG_API_MACRO, Env:SAL_LOG, Env:DUNG_API_PRELOAD, Env:DUNG_API_XCU_EXTRA -ErrorAction SilentlyContinue
             if ($v.sec)   { $env:DUNG_API_SECLEVEL = $v.sec }
             if ($v.macro) { $env:DUNG_API_MACRO = $v.macro }
+            if ($v.pre)   { $env:DUNG_API_PRELOAD = $v.pre }
+            if ($v.xcu)   { $env:DUNG_API_XCU_EXTRA = $v.xcu }
             if ($v.log)   { $env:SAL_LOG = "+WARN+INFO.sfx+INFO.basic+INFO.sfx.appl+INFO.desktop.lib" }
             $out = "smoke-$($v.n)"; $lo = "$PWD/build/lo-$($v.e)/engine/program"
             $p = Start-Process $exe -ArgumentList @("--program", $lo, "--api", "1", "--out", "$PWD/$out") -PassThru -NoNewWindow -RedirectStandardOutput "report/$($v.n).log" -RedirectStandardError "report/$($v.n).err.log"
@@ -66,11 +68,11 @@ jobs:
             "-- exit $($p.ExitCode); ĐẠT/LỖI đếm:"
             $txt = Get-Content "report/$($v.n).log" -ErrorAction SilentlyContinue
             "ĐẠT: " + @($txt | Where-Object { $_ -match '^\[ĐẠT\]' }).Count + "  LỖI: " + @($txt | Where-Object { $_ -match '^\[LỖI\]' }).Count
+            $txt | Where-Object { $_ -match 'THÍ NGHIỆM' } | ForEach-Object { $_.Substring(0, [Math]::Min(300, $_.Length)) }
             $txt | Where-Object { $_ -match 'ping' } | Select-Object -First 2 | ForEach-Object { $_.Substring(0, [Math]::Min(420, $_.Length)) }
             foreach ($f in "basic-alive.txt","basic-error.txt","result.json") { $q = "$out/profile/user/dung-api/$f"; if (Test-Path $q) { "  [$f] " + ((Get-Content $q -TotalCount 3) -join ' | ') } else { "  (không có $f)" } }
             "  hồ sơ basic: " + ((Get-ChildItem "$out/profile/user/basic" -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Name)=$($_.Length)" }) -join ' ')
-            foreach ($f in "basic/Standard/Module1.xba","basic/Standard/script.xlb","registrymodifications.xcu") { $q = "$out/profile/user/$f"; if (Test-Path $q) { "  == $f"; Get-Content $q -TotalCount 40 | ForEach-Object { "     " + $_.Substring(0, [Math]::Min(200, $_.Length)) } } }
-            "  tất cả tệp profile/user: " + ((Get-ChildItem "$out/profile/user" -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName.Substring($PWD.Path.Length + $out.Length + 14) + "=" + $_.Length }) -join ' ')
+            "  xcu bảo mật: " + ((Select-String -Path "$out/profile/user/registrymodifications.xcu" -Pattern 'Scripting' -ErrorAction SilentlyContinue | ForEach-Object { $_.Line.Substring(0, [Math]::Min(220, $_.Line.Length)) }) -join ' || ')
             if ($v.log) { "-- SAL_LOG (lọc, 60 dòng đầu)"; Get-Content "report/$($v.n).err.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'sfx|basic|macro|Macro|script|1287|security|Security' } | Select-Object -First 60 | ForEach-Object { $_.Substring(0, [Math]::Min(300, $_.Length)) } }
           }
       - uses: actions/upload-artifact@v4

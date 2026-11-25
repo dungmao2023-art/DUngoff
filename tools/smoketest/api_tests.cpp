@@ -56,6 +56,10 @@ int dungRunApiTests(const fs::path& program, const fs::path& out) {
     if (!engine) return 1;
     check(fs::exists(out / "profile" / "user" / "Scripts" / "python" / "dung_api.py"), "dung_api.py đã được cài vào hồ sơ engine");
 
+    if (const char* pre = std::getenv("DUNG_API_PRELOAD"); pre && *pre) {
+        // THÍ NGHIỆM: runMacro khi CHƯA có tài liệu nào
+        std::cout << "[THÍ NGHIỆM] runMacro trước khi mở tài liệu: " << pre << " -> " << engine->diagRunMacro(pre) << std::endl;
+    }
     step("Word mới: ping");
     auto d = engine->createNew(DocKind::Text, &err);
     check((bool)d, "Tạo tài liệu Word " + err);

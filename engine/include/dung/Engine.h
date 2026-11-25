@@ -92,6 +92,8 @@ public:
     std::string versionInfo() const;
     const fs::path& workDir() const { return m_workDir; }
     const fs::path& profileDir() const { return m_profileDir; }
+    // THÍ NGHIỆM (exp/macro-1287): gọi runMacro không cần tài liệu, trả 'true/false [thông báo lỗi]'.
+    std::string diagRunMacro(const std::string& url);
     // Danh sách trắng các hàm script (phải khớp WHITELIST trong dung_api.py; có kiểm thử đối chiếu).
     static const std::vector<ScriptFn>& scriptFunctions();
 

@@ -465,8 +465,10 @@ void installDungScripts(const fs::path& profileDir) {
     // THÍ NGHIỆM (exp/macro-1287): DUNG_API_SECLEVEL = none | 0..3
     std::string lvl = "3";
     if (const char* e = std::getenv("DUNG_API_SECLEVEL"); e && *e) lvl = e;
-    if (lvl == "none") return;
-    const std::string item =
+    std::string extra;
+    if (const char* x = std::getenv("DUNG_API_XCU_EXTRA"); x && *x) extra = x;
+    if (lvl == "none" && extra.empty()) return;
+    const std::string item = (lvl == "none") ? ("<!-- " + marker + " -->" + extra + "\n") : extra +
         "<!-- " + marker + " --><item oor:path=\"/org.openoffice.Office.Common/Security/Scripting\" "
         "oor:name=\"MacroSecurityLevel\" oor:op=\"fuse\"><value>" + lvl + "</value></item>\n";
     const size_t at = cur.rfind("</oor:items>");
@@ -811,6 +813,21 @@ std::unique_ptr<Document> Engine::open(const fs::path& original, std::string* er
         d->initializeForRendering(nullptr);
     });
     return doc;
+}
+
+std::string Engine::diagRunMacro(const std::string& url) {
+    std::string out;
+    lok::Office* office = m_office.get();
+    try {
+        onEngine([&] {
+            const bool r = office->runMacro(url.c_str());
+            char* err = office->getError();
+            out = std::string(r ? "true" : "false");
+            if (err) { if (*err) out += std::string(" [") + err + "]"; std::free(err); }
+            return r;
+        });
+    } catch (...) { out += " (ngoại lệ)"; }
+    return out;
 }
 
 std::unique_ptr<Document> Engine::createNew(DocKind kind, std::string* error) {
