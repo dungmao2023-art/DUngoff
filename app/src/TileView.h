@@ -97,5 +97,6 @@ private:
     QTimer m_synthLate;    // vẽ lại lần hai: lệnh UNO được engine xử lý trễ sau khi gửi
     void refreshAllTiles();
     int m_pressButtons = 0;
+    int m_clickCount = 1;
     bool m_fitted = false;
 };

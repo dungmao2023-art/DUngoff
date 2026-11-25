@@ -10,6 +10,7 @@
 class QLineEdit;
 class QTimer;
 class QTabBar;
+class QTabWidget;
 class QListWidget;
 class TileView;
 
@@ -36,6 +37,7 @@ public:
     bool exportPdf();
     bool printDocument();   // Ctrl+P: xuất bản in (PDF tạm) → xem trước → in
     bool maybeClose();      // hỏi lưu nếu có thay đổi; false = huỷ đóng
+    void showExcelTools(int page);
     void excelAction(const QString& id);  // xl:* — cài đặt trong excel/ExcelUi.cpp
     void setZoom(int percent);
     int zoom() const;
@@ -65,6 +67,7 @@ private:
     QLineEdit* m_nameBox = nullptr;
     QLineEdit* m_formula = nullptr;
     QTabBar* m_sheets = nullptr;
+    QTabWidget* m_excelTools = nullptr;
     QListWidget* m_slides = nullptr;
     QString m_savedPath;    // tệp mới mà người dùng đã "Lưu thành" trong phiên này
     QString m_cellAddress;
