@@ -167,6 +167,38 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
     doc->postKey(LOK_KEYEVENT_KEYUP, 13, 1280);
     settle(600);
 
+    // ---- Thăm dò hàm (thông tin, KHÔNG chặn): danh mục "Tôi muốn" chỉ khẳng định điều engine thật trả ra ----
+    {
+        step("thăm dò hàm trên engine (dấu ngăn ',' và ';')");
+        struct P { const char16_t* f; const char* expect; };
+        static const P probes[] = {
+            {u"=SUM(1,2,3)", "6"}, {u"=SUM(1;2;3)", "6"}, {u"=IF(2>1,\"a\",\"b\")", "a"}, {u"=IF(2>1;\"a\";\"b\")", "a"},
+            {u"=ROUNDUP(1.21,1)", "1.3"}, {u"=ROUNDDOWN(1.29,1)", "1.2"}, {u"=TEXT(1234.5,\"0.00\")", "1234.50"},
+            {u"=DATE(2026,1,15)", ""}, {u"=NETWORKDAYS(DATE(2026,1,5),DATE(2026,1,9))", "5"},
+            {u"=PMT(0.01,12,-1000000)", ""}, {u"=NPV(0.1,100,200)", ""}, {u"=IRR({-100,60,60})", ""},
+            {u"=COUNTIF({1,2,3,2},2)", "2"}, {u"=SUMPRODUCT({1,2},{3,4})", "11"}, {u"=VLOOKUP(2,{1,\"x\";2,\"y\"},2,0)", "y"},
+            {u"=XLOOKUP(2,{1,2,3},{10,20,30})", "20"}, {u"=UNIQUE({1;1;2})", ""}, {u"=SORT({3;1;2})", ""}, {u"=FILTER({1;2;3},{1;0;1})", ""},
+            {u"=DATEDIF(DATE(2026,1,1),DATE(2026,1,31),\"D\")", "30"}, {u"=1/0", ""},
+        };
+        int row = 20;
+        for (const auto& p : probes) {
+            std::string ref = "K" + std::to_string(row++);
+            gotoCell(*doc, ref);
+            doc->typeText(p.f);
+            doc->postKey(LOK_KEYEVENT_KEYINPUT, 13, 1280);
+            doc->postKey(LOK_KEYEVENT_KEYUP, 13, 1280);
+            settle(250);
+            gotoCell(*doc, ref);
+            std::string got = doc->selectionAs("text/plain;charset=utf-8");
+            while (!got.empty() && (got.back() == '\n' || got.back() == '\r')) got.pop_back();
+            std::string f8;
+            for (char16_t c : std::u16string(p.f)) f8 += c < 128 ? char(c) : '?';
+            bool known = std::string(p.expect).size() > 0;
+            if (known) info(std::string(got == p.expect ? "Thăm dò ĐÚNG " : "Thăm dò KHÁC ") + f8 + " => '" + got + "' (mong '" + p.expect + "')");
+            else info("Thăm dò " + f8 + " => '" + got + "'");
+        }
+    }
+
     step("lưu kết quả");
     auto r = doc->saveAs(out / "excel-ket-qua.xlsx");
     check(r.ok, "Lưu thành excel-ket-qua.xlsx: " + r.message);
