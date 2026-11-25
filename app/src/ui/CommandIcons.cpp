@@ -46,6 +46,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:SetOptimalColumnWidth", "col-width"}, {".uno:SortAscending", "sort"}, {".uno:SortDescending", "sort"},
         {".uno:ToggleMergeCells", "merge-cells"}, {".uno:WrapText", "wrap-text"},
         {"xl:colWidth", "col-width"}, {"xl:rowHeight", "row-height"}, {"xl:fillColor", "fill-color"}, {"xl:textColor", "font-color"},
+        {"xl:formulaAssistant", "sum"}, {"xl:rangeTools", "col-width"},
         {"xl:find", "search"}, {"xl:replace", "replace"}, {"xl:fontName", "font-name"}, {"xl:fontSize", "font-size"},
         {"xl:sheetAdd", "add"}, {"xl:sheetDelete", "delete"}, {"xl:sheetDup", "slide-duplicate"}, {"xl:sheetRename", "rename"},
         {"tableTools:clean", "clear-format"}, {"tableTools:compare", "compare"}, {"tableTools:dedup", "duplicate-files"},

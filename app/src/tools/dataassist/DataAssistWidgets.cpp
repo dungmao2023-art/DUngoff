@@ -38,20 +38,21 @@ public:
     explicit FormulaAssistant(QWidget *p) : QWidget(p)
     {
         auto *lay = new QVBoxLayout(this);
-        lay->addWidget(new QLabel(QStringLiteral("<b>ƒx · Tôi muốn…</b><br>Gõ việc cần làm (vd. “cộng tổng”, “tìm theo mã”, “đếm có điều kiện”) hoặc chọn nhóm hàm. "
-                                                 "Công thức được engine bảng tính thật tính; ứng dụng không tự tính thay.")));
-        auto *top = new QHBoxLayout;
+        auto* intro = new QLabel(QStringLiteral("<b>ƒx · Tôi muốn…</b><br>Gõ việc cần làm (vd. “cộng tổng”, “tìm theo mã”) hoặc chọn nhóm hàm. Engine bảng tính tính kết quả."));
+        intro->setWordWrap(true);
+        lay->addWidget(intro);
+        auto *top = new QVBoxLayout;
         search_ = new QLineEdit; search_->setPlaceholderText(QStringLiteral("Tôi muốn…"));
         cat_ = new QComboBox; cat_->addItem(QStringLiteral("Tất cả nhóm"), -1);
         for (Category c : allCategories()) cat_->addItem(categoryName(c), int(c));
-        top->addWidget(search_, 1); top->addWidget(cat_);
+        top->addWidget(search_); top->addWidget(cat_);
         lay->addLayout(top);
         list_ = new QListWidget; lay->addWidget(list_, 1);
         desc_ = new QLabel; desc_->setWordWrap(true); lay->addWidget(desc_);
         form_ = new QFormLayout; lay->addLayout(form_);
         result_ = new QLineEdit; result_->setPlaceholderText(QStringLiteral("Công thức sẽ hiện ở đây — sửa tự do được"));
         lay->addWidget(result_);
-        auto *btns = new QHBoxLayout;
+        auto *btns = new QVBoxLayout;
         insert_ = new QPushButton(QStringLiteral("Chèn vào ô đang chọn"));
         copy_ = new QPushButton(QStringLiteral("Sao chép công thức"));
         btns->addWidget(insert_); btns->addWidget(copy_); btns->addStretch();
@@ -94,14 +95,14 @@ private:
         }
         if (!shown_.isEmpty()) list_->setCurrentRow(0); else { desc_->setText(q.isEmpty() ? QString() : QStringLiteral("Không có hàm khớp “%1”.").arg(q)); clearForm(); }
     }
-    void clearForm() { while (form_->rowCount()) form_->removeRow(0); edits_.clear(); result_->clear(); }
+    void clearForm() { cur_ = nullptr; while (form_->rowCount()) form_->removeRow(0); edits_.clear(); result_->clear(); }
     void select(int r)
     {
         clearForm();
         if (r < 0 || r >= shown_.size()) return;
         cur_ = shown_[r];
         desc_->setText(QStringLiteral("<b>%1</b> (%2): %3<br>Ví dụ: <code>%4</code>%5").arg(cur_->name, categoryName(cur_->cat), cur_->description, cur_->example.toHtmlEscaped(),
-            cur_->newerEngineOnly ? QStringLiteral("<br><i>Hàm mảng động/mới: engine kiểm thử Linux của dự án trả #NAME? cho hàm này; chưa kiểm trên engine Windows. Nếu ô báo #NAME? thì engine chưa hỗ trợ — không phải lỗi của bạn.</i>") : QString()));
+            cur_->newerEngineOnly ? QStringLiteral("<br><i>Hàm mảng động/mới: engine Windows 26.8.3.1 đã kiểm thử; engine Linux cũ trả #NAME?. Nếu ô báo #NAME? thì engine chưa hỗ trợ — không phải lỗi của bạn.</i>") : QString()));
         for (const ArgInfo &a : cur_->args) {
             auto *e = new QLineEdit; e->setPlaceholderText(a.hint);
             edits_.push_back(e);

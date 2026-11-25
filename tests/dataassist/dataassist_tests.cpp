@@ -60,6 +60,8 @@ int main(int argc, char **argv)
     QSet<QString> seen; bool dup = false, allHave = true;
     for (const FuncInfo &f : catalog()) { if (seen.contains(f.name)) dup = true; seen.insert(f.name); if (f.intent.isEmpty() || f.example.isEmpty() || f.description.isEmpty()) allHave = false; }
     CHECK(!dup, "Không trùng tên hàm"); CHECK(allHave, "Mọi hàm có ý định, mô tả, ví dụ");
+    for (const char* n : {"COUNTBLANK", "PRODUCT", "AVERAGEIF", "AVERAGEIFS", "NOT", "LOOKUP", "SQRT", "INT", "MOD", "POWER", "CONCAT"})
+        CHECK(findFunction(QString::fromLatin1(n)) != nullptr, QString("Hàm trợ lý theo HTML: ") + n);
     CHECK(allCategories().size() == 6, "6 nhóm hàm");
     for (Category c : allCategories()) CHECK(!byCategory(c).isEmpty(), "Nhóm không rỗng: " + categoryName(c));
     for (const char *n : {"FILTER", "SORT", "UNIQUE", "TEXT", "DATE", "NETWORKDAYS", "PMT", "NPV", "IRR", "ROUNDUP", "ROUNDDOWN"})

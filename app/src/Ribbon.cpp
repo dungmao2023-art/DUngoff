@@ -160,10 +160,14 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     B("xl:sheetDelete", tr("Xoá sheet"), 0xE74D, "−▭", false),
                 }},
             }},
-            {tr("Dữ liệu"), {
-                {tr("Tính toán"), {
-                    B(".uno:AutoSum", tr("Tổng"), 0xE8EF, "Σ", false),
+            {tr("Công thức"), {
+                {tr("Trợ lý"), {
+                    B("xl:formulaAssistant", tr("Tôi muốn"), 0xE8EF, "ƒx", false),
+                    B("xl:rangeTools", tr("Công cụ vùng"), 0xE8B9, "▦", false),
+                    B(".uno:AutoSum", tr("Tổng tự động"), 0xE8EF, "Σ", false),
                 }},
+            }},
+            {tr("Dữ liệu"), {
                 {tr("Điền"), {
                     B(".uno:FillDown", tr("Điền xuống"), 0xE74B, "↓", false),
                     B(".uno:FillRight", tr("Điền sang phải"), 0xE72A, "→", false),

@@ -7,6 +7,9 @@
 #include "EngineHost.h"
 #include "Theme.h"
 #include "TileView.h"
+#include "DataAssistWidgets.h"
+#include <QScrollArea>
+#include <QTabWidget>
 #include "ppt/SlideThumbs.h"
 #include "recovery/RecoveryStore.h"
 
@@ -70,7 +73,12 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         m_nameBox = new QLineEdit(fb);
         m_nameBox->setFixedWidth(90);
         m_nameBox->setToolTip(tr("Ô hiện tại — nhập địa chỉ (vd. B12) rồi Enter để đến ô đó"));
-        auto* fx = new QLabel(QStringLiteral("fx"), fb);
+        auto* fx = new QPushButton(tr("ƒx · Tôi muốn"), fb);
+        fx->setToolTip(tr("Mở hoặc thu gọn trợ lý công thức"));
+        fx->setEnabled(!m_doc->readOnly());
+        connect(fx, &QPushButton::clicked, this, [this] {
+            if (m_excelTools) m_excelTools->setVisible(m_excelTools->isHidden());
+        });
         fx->setObjectName(QStringLiteral("Fx"));
         m_formula = new QLineEdit(fb);
         m_formula->setPlaceholderText(tr("Nội dung hoặc công thức của ô"));
@@ -111,6 +119,21 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
     }
     m_view = new TileView(m_doc.get(), this);
     middle->addWidget(m_view, 1);
+    if (m_doc->kind() == DocKind::Spreadsheet && !m_doc->readOnly()) {
+        m_excelTools = new QTabWidget(this);
+        m_excelTools->setObjectName(QStringLiteral("ExcelTools"));
+        m_excelTools->setMinimumWidth(280);
+        m_excelTools->setMaximumWidth(420);
+        auto addTool = [this](QWidget* tool, const QString& title) {
+            auto* scroll = new QScrollArea(m_excelTools);
+            scroll->setWidgetResizable(true);
+            scroll->setWidget(tool);
+            m_excelTools->addTab(scroll, title);
+        };
+        addTool(createFormulaAssistantWidget(), tr("ƒx · Tôi muốn"));
+        addTool(createRangeToolsWidget(), tr("Vùng dữ liệu"));
+        middle->addWidget(m_excelTools);
+    }
     v->addLayout(middle, 1);
 
     // ---- Thanh sheet (Excel) ----
@@ -153,6 +176,12 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
     m_autosave->setInterval(2 * 60 * 1000);
     connect(m_autosave, &QTimer::timeout, this, &DocumentTab::autosaveTick);
     m_autosave->start();
+}
+
+void DocumentTab::showExcelTools(int page) {
+    if (!m_excelTools || readOnly()) return;
+    m_excelTools->setCurrentIndex(page);
+    m_excelTools->show();
 }
 
 DocumentTab::~DocumentTab() {

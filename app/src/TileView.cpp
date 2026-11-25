@@ -112,6 +112,10 @@ void TileView::resetForPartChange() {
     m_tiles.clear();
     m_selection.clear();
     m_cellArea = QRect();
+    m_hasCaret = false;
+    m_caret = QRect();
+    m_caretVisible = false;
+    m_caretVisSeen = false;
     m_doc->documentSize(m_docW, m_docH);
     horizontalScrollBar()->setValue(0);
     verticalScrollBar()->setValue(0);
@@ -432,16 +436,23 @@ void TileView::mousePressEvent(QMouseEvent* e) {
     cancelComposition();
     setFocus();
     restartBlink();
+    m_clickCount = 1;
     m_pressButtons = toLokButtons(e->buttons());
-    sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, e, 1);
+    sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, e, m_clickCount);
 }
-void TileView::mouseReleaseEvent(QMouseEvent* e) { sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, e, 1); }
+void TileView::mouseReleaseEvent(QMouseEvent* e) {
+    sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, e, m_clickCount);
+    m_clickCount = 1;
+}
 void TileView::mouseMoveEvent(QMouseEvent* e) {
     if (e->buttons() != Qt::NoButton) sendMouse(LOK_MOUSEEVENT_MOUSEMOVE, e, 1);
 }
 void TileView::mouseDoubleClickEvent(QMouseEvent* e) {
+    setFocus();
+    restartBlink();
+    m_clickCount = 2;
     m_pressButtons = toLokButtons(e->buttons());
-    sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, e, 2);
+    sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, e, m_clickCount);
 }
 
 void TileView::wheelEvent(QWheelEvent* e) {
@@ -503,6 +514,7 @@ void TileView::focusOutEvent(QFocusEvent* e) {
     carettrace::log("focus: RA");
     cancelComposition();
     QAbstractScrollArea::focusOutEvent(e);
+    viewport()->update();
 }
 
 QVariant TileView::inputMethodQuery(Qt::InputMethodQuery q) const {
