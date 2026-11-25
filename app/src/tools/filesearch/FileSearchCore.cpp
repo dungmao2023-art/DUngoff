@@ -20,6 +20,10 @@
 #include <QThread>
 #include <QThreadPool>
 #include <QXmlStreamReader>
+#ifdef DUNG_HAVE_QTPDF
+#include <QPdfDocument>
+#include <QPdfSelection>
+#endif
 #include <algorithm>
 
 namespace filesearch {
@@ -701,9 +705,47 @@ QString extractText(const QString &path, qint64 budget, qint64 maxFile, const Ch
     return {};
 }
 
-// ---- pdf (cần pdftotext) ----
+// ---- pdf: ưu tiên Qt6::Pdf (có sẵn khi đóng gói cùng ứng dụng), pdftotext chỉ là phương án dự phòng ----
+bool qtPdfBuiltIn()
+{
+#ifdef DUNG_HAVE_QTPDF
+    return true;
+#else
+    return false;
+#endif
+}
+
+#ifdef DUNG_HAVE_QTPDF
+QString extractPdfQt(const QString &path, qint64 budget, const ChunkSink &sink, bool *truncated)
+{
+    QPdfDocument doc;
+    const QPdfDocument::Error err = doc.load(path);
+    if (err == QPdfDocument::Error::IncorrectPassword || err == QPdfDocument::Error::UnsupportedSecurityScheme)
+        return QObject::tr("PDF có mật khẩu hoặc mã hoá — không đọc được nội dung");
+    if (err != QPdfDocument::Error::None)
+        return QObject::tr("không mở được PDF (Qt6::Pdf, mã lỗi %1) — tệp có thể hỏng").arg(int(err));
+    qint64 used = 0;
+    const int pages = doc.pageCount();
+    for (int page = 0; page < pages; ++page) {
+        const QString text = doc.getAllText(page).text();
+        used += text.size() * 2;
+        int ln = 0;
+        for (const QString &l : text.split(QRegularExpression(QStringLiteral("\\r?\\n|\\r")))) {
+            ++ln;
+            if (l.trimmed().isEmpty()) continue;
+            if (!sink(l, QObject::tr("trang %1, dòng %2").arg(page + 1).arg(ln))) return {};
+        }
+        if (used > budget) { if (truncated) *truncated = true; break; }
+    }
+    return {};
+}
+#endif
+
 QString extractPdf(const QString &path, const QString &pdftotext, qint64 budget, const ChunkSink &sink, bool *truncated)
 {
+#ifdef DUNG_HAVE_QTPDF
+    if (pdftotext.isEmpty()) return extractPdfQt(path, budget, sink, truncated);
+#endif
     QString exe = pdftotext;
     if (exe.isEmpty()) exe = QStandardPaths::findExecutable(QStringLiteral("pdftotext"));
     if (exe.isEmpty()) return kPdfUnavailable;
@@ -977,7 +1019,8 @@ Output search(const Query &q, const Index *index, std::atomic_bool *extCancel,
         if (kind == Kind::Unsupported) { out.stats.unsupportedByExt[ext.isEmpty() ? QStringLiteral("(không đuôi)") : ext]++; return; }
         if (kind == Kind::Pdf && !pdfWarned) {
             const QString exe = q.pdftotextPath.isEmpty() ? QStandardPaths::findExecutable(QStringLiteral("pdftotext")) : q.pdftotextPath;
-            if (exe.isEmpty()) { out.stats.pdfUnavailable = true; pdfWarned = true; }
+            // Có Qt6::Pdf trong bản dựng thì luôn đọc được (trừ khi người dùng chỉ định pdftotext riêng mà không có).
+            if (exe.isEmpty() && !(qtPdfBuiltIn() && q.pdftotextPath.isEmpty())) { out.stats.pdfUnavailable = true; pdfWarned = true; }
         }
         if (kind == Kind::Pdf && out.stats.pdfUnavailable) { out.stats.unsupportedByExt[QStringLiteral("pdf")]++; return; }
         slotSem.acquire();

@@ -369,9 +369,30 @@ static void testContent(const QString &root)
     q.contentTerms = {"pdfkeyword"};
     o = search(q);
     const bool havePdftotext = !QStandardPaths::findExecutable("pdftotext").isEmpty();
-    printf("INFO  pdftotext trên máy này: %s\n", havePdftotext ? "CÓ" : "KHÔNG");
-    if (havePdftotext) check(hasName(o, "mau.pdf") && o.results.first().location.startsWith("trang 1"), "nội dung: pdf qua pdftotext, vị trí trang", paths(o).join(" | ") + " skipped=" + QString::number(o.stats.skipped));
-    else check(o.stats.pdfUnavailable && o.results.isEmpty(), "nội dung: không có pdftotext → báo rõ pdfUnavailable, không giả vờ đã tìm");
+#ifdef DUNG_HAVE_QTPDF
+    const bool haveQtPdf = true;
+#else
+    const bool haveQtPdf = false;
+#endif
+    printf("INFO  Qt6::Pdf trong bản dựng: %s; pdftotext trên máy: %s\n", haveQtPdf ? "CÓ" : "KHÔNG", havePdftotext ? "CÓ" : "KHÔNG");
+    if (haveQtPdf) {
+        check(hasName(o, "mau.pdf") && o.results.first().location.startsWith("trang 1"), "nội dung: pdf qua Qt6::Pdf, vị trí trang", paths(o).join(" | ") + " skipped=" + QString::number(o.stats.skipped));
+        check(!o.stats.pdfUnavailable, "nội dung: có Qt6::Pdf → không báo pdfUnavailable");
+        skipped.clear();
+        // PDF hỏng không làm dừng phiên và phải có lý do bỏ qua
+        writeFile(d + "/hong.pdf", "%PDF-1.4\nkhong phai pdf that su");
+        Query q2 = q; q2.contentTerms = {"hop dong lao dong"};
+        Output o2 = search(q2);
+        check(hasName(o2, "utf8.txt"), "pdf hỏng không làm dừng phiên");
+        bool brokenReported = false;
+        for (const auto &sk : o2.skipped) if (sk.path.endsWith("hong.pdf")) brokenReported = true;
+        check(brokenReported, "pdf hỏng được báo trong danh sách bỏ qua kèm lý do");
+        // pdftotext ép dùng mà không tồn tại → không giả vờ đã tìm
+        Query q3 = q; q3.pdftotextPath = d + "/khong-co-pdftotext.exe";
+        Output o3 = search(q3);
+        check(!hasName(o3, "mau.pdf"), "ép pdftotext không tồn tại → không có kết quả giả");
+    } else if (havePdftotext) check(hasName(o, "mau.pdf") && o.results.first().location.startsWith("trang 1"), "nội dung: pdf qua pdftotext, vị trí trang", paths(o).join(" | ") + " skipped=" + QString::number(o.stats.skipped));
+    else check(o.stats.pdfUnavailable && o.results.isEmpty(), "nội dung: không có Qt6::Pdf lẫn pdftotext → báo rõ pdfUnavailable, không giả vờ đã tìm");
     // Huỷ giữa chừng và dừng sớm
     std::atomic_bool cancel{true};
     q.contentTerms = {"hop dong"};
