@@ -123,7 +123,7 @@ int main(int argc, char **argv)
     CHECK(cc.points.size() == 2 && cc.points[0].value == 2, "Đếm theo nhãn");
     QString many = QStringLiteral("T\n"); for (int i = 0; i < 20; ++i) many += QStringLiteral("L%1\n").arg(i);
     const auto cm = groupForChart(parseTsv(many), 0, -1, true, true, 5);
-    CHECK(cm.points.size() == 5 && cm.points.last().label == QLatin1String("Khác") && cm.points.last().value == 16, "Nhóm thừa gộp vào Khác (16)");
+    CHECK(cm.points.size() == 5 && cm.points.last().label == QStringLiteral("Khác") && cm.points.last().value == 16, "Nhóm thừa gộp vào Khác (16)");
 
     // ---------------- Xuất theo mẫu ----------------
     const QString tpl = mkTemplate(out + "/mau-nhap-hang.xlsx", true);
