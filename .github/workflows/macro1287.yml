@@ -47,16 +47,12 @@ jobs:
         run: |
           $exe = (Get-ChildItem build/out -Recurse -Filter dung-smoketest.exe | Select-Object -First 1).FullName
           $variants = @(
-            @{n="new-base";      e="new"; sec="";     macro="";                                   log=$false},
-            @{n="old-base";      e="old"; sec="";     macro="";                                   log=$false},
-            @{n="new-secnone";   e="new"; sec="none"; macro="";                                   log=$false},
-            @{n="old-secnone";   e="old"; sec="none"; macro="";                                   log=$false},
-            @{n="new-sec0";      e="new"; sec="0";    macro="";                                   log=$false},
-            @{n="new-noop";      e="new"; sec="";     macro="macro:///Standard.DungApi.Noop";     log=$false},
-            @{n="new-noop-none"; e="new"; sec="none"; macro="macro:///Standard.DungApi.Noop";     log=$false},
-            @{n="new-alive-none";e="new"; sec="none"; macro="macro:///Standard.DungApi.Alive";    log=$true},
-            @{n="new-module1";   e="new"; sec="none"; macro="macro:///Standard.Module1.Main";     log=$false},
-            @{n="new-tools";     e="new"; sec="none"; macro="macro:///Tools.Misc.Wait?";         log=$false}
+            @{n="nolib";    e="new"; sec="none"; macro="macro:///Nope.Nope.Nope";                  log=$false},
+            @{n="nofn";     e="new"; sec="none"; macro="macro:///Standard.DungApi.NoSuch";         log=$false},
+            @{n="docbasic"; e="new"; sec="none"; macro="macro://./Standard.DungApi.Noop";           log=$false},
+            @{n="noop";     e="new"; sec="none"; macro="macro:///Standard.DungApi.Noop";           log=$false},
+            @{n="noparen";  e="new"; sec="none"; macro="macro:///Standard.DungApi.Noop()";          log=$false},
+            @{n="oldnofn";  e="old"; sec="none"; macro="macro:///Standard.DungApi.NoSuch";          log=$false}
           )
           foreach ($v in $variants) {
             "=================== $($v.n)" 
@@ -73,6 +69,8 @@ jobs:
             $txt | Where-Object { $_ -match 'ping' } | Select-Object -First 2 | ForEach-Object { $_.Substring(0, [Math]::Min(420, $_.Length)) }
             foreach ($f in "basic-alive.txt","basic-error.txt","result.json") { $q = "$out/profile/user/dung-api/$f"; if (Test-Path $q) { "  [$f] " + ((Get-Content $q -TotalCount 3) -join ' | ') } else { "  (không có $f)" } }
             "  hồ sơ basic: " + ((Get-ChildItem "$out/profile/user/basic" -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Name)=$($_.Length)" }) -join ' ')
+            foreach ($f in "basic/Standard/Module1.xba","basic/Standard/script.xlb","registrymodifications.xcu") { $q = "$out/profile/user/$f"; if (Test-Path $q) { "  == $f"; Get-Content $q -TotalCount 40 | ForEach-Object { "     " + $_.Substring(0, [Math]::Min(200, $_.Length)) } } }
+            "  tất cả tệp profile/user: " + ((Get-ChildItem "$out/profile/user" -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName.Substring($PWD.Path.Length + $out.Length + 14) + "=" + $_.Length }) -join ' ')
             if ($v.log) { "-- SAL_LOG (lọc, 60 dòng đầu)"; Get-Content "report/$($v.n).err.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'sfx|basic|macro|Macro|script|1287|security|Security' } | Select-Object -First 60 | ForEach-Object { $_.Substring(0, [Math]::Min(300, $_.Length)) } }
           }
       - uses: actions/upload-artifact@v4
