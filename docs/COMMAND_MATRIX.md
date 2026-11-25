@@ -101,3 +101,10 @@ Mọi lệnh `.uno:` xuất hiện trong mã giao diện (85 lệnh). Cột "B�
 
 
 **Ghi chú FreezePanes (tắt):** lần quét Windows trước báo LỖI vì test đọc trạng thái sau 350 ms, trong khi engine Windows báo trạng thái bất đồng bộ chậm hơn; engine KHÔNG lỗi (tệp xlsx lưu ra xác nhận bật/tắt đúng). Test nay chờ tối đa 4 s và kiểm thêm bằng tệp. Không phải lỗi chức năng nên nút ribbon giữ nguyên.
+
+## Bổ sung nhánh feat/parity-wire (CI run 45618633022, engine thật Linux + Windows)
+- ĐẠT: `wire:*` (chèn công thức vào ô trống; hỏi và KHÔNG ghi khi từ chối; ghi đè khi đồng ý; `.uno:Undo` hoàn tác; lấy vùng chọn), `.uno:FillDown`, `.uno:FillRight`, `.uno:FillSeries`, `.uno:ChangeCaseTo{Upper,Lower,SentenceCase,TitleCase}`, `.uno:ChangeCaseToToggleCase` (hELLO WORLD), `.uno:InsertSymbol`.
+- Hàm: INDEX/MATCH, VLOOKUP ĐẠT cả hai engine. XLOOKUP/FILTER/SORT/UNIQUE: **Windows ĐẠT, Linux `#NAME?`**.
+- `.uno:InsertObjectChart`: chưa xác nhận hiệu ứng (chỉ thấy tài liệu đổi) — không đưa lên ribbon.
+- Hướng giấy qua `.uno:AttributePageSize`: số đo documentSize không tin cậy — dùng cách vá `w:pgSz`.
+- Impress: đổi chủ đề, chuyển cảnh, ghi chú diễn giả: CHƯA KIỂM.

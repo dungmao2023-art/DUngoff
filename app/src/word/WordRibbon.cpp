@@ -34,13 +34,20 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
         {QStringLiteral("word:style2"), tr("Tiêu đề 2"), 0xE8A5, QStringLiteral("H2"), false},
         {QStringLiteral("word:style3"), tr("Tiêu đề 3"), 0xE8A5, QStringLiteral("H3"), false},
     }};
+    const Group changeCase{tr("Hoa/thường"), {
+        {QStringLiteral(".uno:ChangeCaseToUpper"), tr("HOA"), 0xE8D2, QStringLiteral("AA"), false},
+        {QStringLiteral(".uno:ChangeCaseToLower"), tr("thường"), 0xE8D2, QStringLiteral("aa"), false},
+        {QStringLiteral(".uno:ChangeCaseToSentenceCase"), tr("Đầu câu"), 0xE8D2, QStringLiteral("Aa"), false},
+        {QStringLiteral(".uno:ChangeCaseToTitleCase"), tr("Mỗi Từ"), 0xE8D2, QStringLiteral("Ab"), false},
+        {QStringLiteral(".uno:ChangeCaseToToggleCase"), tr("Đảo"), 0xE8D2, QStringLiteral("aA"), false},
+    }};
     const Group find{tr("Tìm kiếm"), {
         {QStringLiteral("word:find"), tr("Tìm"), 0xE721, QStringLiteral("🔍"), false},
         {QStringLiteral("word:replace"), tr("Thay thế"), 0xE8EE, QStringLiteral("⇄"), false},
         {QStringLiteral("word:count"), tr("Đếm từ"), 0xE8EF, QStringLiteral("#"), false},
     }};
     return {
-        {tr("Trang đầu"), {file, undo, clip, font, para, styles, find}},
+        {tr("Trang đầu"), {file, undo, clip, font, changeCase, para, styles, find}},
         {tr("Chèn"), {
             {tr("Phần tử"), {
                 {QStringLiteral("word:table"), tr("Bảng"), 0xE80A, QStringLiteral("▦"), false},
@@ -48,6 +55,16 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral("word:link"), tr("Liên kết"), 0xE71B, QStringLiteral("🔗"), false},
                 {QStringLiteral(".uno:InsertPagebreak"), tr("Ngắt trang"), 0xE7C3, QStringLiteral("⤓"), false},
                 {QStringLiteral(".uno:InsertPageNumberField"), tr("Số trang"), 0xE8A5, QStringLiteral("#"), false},
+            }},
+            {tr("Ký hiệu"), {
+                {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"©\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Bản quyền"), 0xE8D2, QStringLiteral("©"), false},
+                {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"®\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Đã đăng ký"), 0xE8D2, QStringLiteral("®"), false},
+                {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"™\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Nhãn hiệu"), 0xE8D2, QStringLiteral("™"), false},
+                {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"€\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Euro"), 0xE8D2, QStringLiteral("€"), false},
+                {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"°\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Độ"), 0xE8D2, QStringLiteral("°"), false},
+                {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"±\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Cộng trừ"), 0xE8D2, QStringLiteral("±"), false},
+                {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"≠\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Khác"), 0xE8D2, QStringLiteral("≠"), false},
+                {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"→\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Mũi tên"), 0xE8D2, QStringLiteral("→"), false},
             }},
         }},
         {tr("Bố cục"), {

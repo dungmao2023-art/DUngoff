@@ -179,4 +179,14 @@ SyntaxCheck quickSyntaxCheck(const QString &formula)
     return r;
 }
 
+QString replacementHint(const QString &name)
+{
+    const QString n = name.toUpper();
+    if (n == QLatin1String("XLOOKUP")) return QStringLiteral(u"Cần engine mới. Thay bằng =INDEX(vùng_trả_về;MATCH(giá_trị;vùng_tìm;0)) hoặc VLOOKUP.");
+    if (n == QLatin1String("FILTER")) return QStringLiteral(u"Cần engine mới. Thay bằng bộ lọc tự động (Dữ liệu ▸ Lọc) hoặc SUMIF/COUNTIF/AVERAGEIF cho phép tính theo điều kiện.");
+    if (n == QLatin1String("SORT")) return QStringLiteral(u"Cần engine mới. Thay bằng nút Sắp xếp A→Z / Z→A của thanh công cụ (sắp xếp tại chỗ).");
+    if (n == QLatin1String("UNIQUE")) return QStringLiteral(u"Cần engine mới. Thay bằng công cụ “Tìm dòng trùng” trong Công cụ vùng dữ liệu, hoặc bộ lọc nâng cao bỏ bản sao.");
+    return {};
+}
+
 }  // namespace dataassist

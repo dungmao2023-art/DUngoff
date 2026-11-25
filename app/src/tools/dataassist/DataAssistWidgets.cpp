@@ -65,7 +65,15 @@ public:
             const SyntaxCheck sc = quickSyntaxCheck(result_->text());
             if (!sc.ok) { status_->setText(QStringLiteral("Chưa chèn: ") + sc.message); return; }
             if (!hooks().insertFormula) { status_->setText(QStringLiteral("Chưa nối với tab Excel đang mở — hãy dùng “Sao chép công thức” rồi dán vào ô.")); return; }
-            status_->setText(hooks().insertFormula(result_->text()) ? QStringLiteral("Đã chèn vào ô đang chọn; engine sẽ tính kết quả.") : QStringLiteral("Không chèn được (không có tab Excel đang mở?)."));
+            QString res, msg;
+            if (!hooks().insertFormula(result_->text(), &res, &msg)) { status_->setText(msg.isEmpty() ? QStringLiteral("Không chèn được (không có tab Excel đang mở?).") : msg); return; }
+            QString note = QStringLiteral("Đã chèn vào ô đang chọn; kết quả engine tính: ") + (res.isEmpty() ? QStringLiteral("(trống)") : res) + QStringLiteral(". Hoàn tác bằng Ctrl+Z.");
+            if (res.startsWith(QLatin1Char('#')) || res.startsWith(QStringLiteral("Err:"))) {
+                const QString fn = result_->text().mid(1, result_->text().indexOf(QLatin1Char('(')) - 1);
+                const QString hint = replacementHint(fn);
+                note += QStringLiteral(" Engine báo lỗi.") + (hint.isEmpty() ? QString() : QStringLiteral(" ") + hint);
+            }
+            status_->setText(note);
         });
         insert_->setEnabled(true);
         refill();
