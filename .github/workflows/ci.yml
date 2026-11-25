@@ -137,16 +137,6 @@ jobs:
           DUNG_LOK_UNIPOLL=1 ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/mau-doanh-thu.xlsx \
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
             --out smoke-unipoll 2>&1 | tee report/linux-smoketest-unipoll.log
-      - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Windows)
-        continue-on-error: true
-        timeout-minutes: 6
-        run: |
-          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--sweep", "1", "--out", "$PWD/smoke-sweep") -PassThru -NoNewWindow `
-                 -RedirectStandardOutput report/windows-sweep.log -RedirectStandardError report/windows-sweep.err.log
-          if (-not $p.WaitForExit(180000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-sweep.log; exit 1 }
-          Get-Content report/windows-sweep.log
-          if ($p.ExitCode) { exit 1 }
       - name: Thăm dò vẽ lại sau khi gõ chữ (Writer, Calc, Impress)
         continue-on-error: true
         run: |
@@ -545,6 +535,16 @@ jobs:
             if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "REPAINT $($m[0]): LỖI quá thời gian" | Add-Content $outf }
             Get-Content $outf | Select-String "^REPAINT" | ForEach-Object { $_.Line }
           }
+      - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Windows)
+        continue-on-error: true
+        timeout-minutes: 6
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--sweep", "1", "--out", "$PWD/smoke-sweep") -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-sweep.log -RedirectStandardError report/windows-sweep.err.log
+          if (-not $p.WaitForExit(180000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-sweep.log; exit 1 }
+          Get-Content report/windows-sweep.log
+          if ($p.ExitCode) { exit 1 }
       - name: Phục hồi sau sập + đường dẫn dài trên Windows (250-259, 262, 300 ký tự)
         run: |
           $rt = Get-ChildItem build/out -Recurse -Filter dung-recoverytest.exe | Select-Object -First 1

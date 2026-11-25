@@ -293,6 +293,5 @@ int runSweepTests(const fs::path& program, const fs::path& out) {
 
     std::cout << "\nKẾT QUẢ QUÉT LỆNH: " << (g_fail ? "CÓ LỖI" : "TẤT CẢ ĐẠT") << " (" << g_fail << " lỗi)\n";
     std::cout.flush();
-    wr.reset();
-    return g_fail ? 1 : 0;
+    std::_Exit(g_fail ? 1 : 0);   // bỏ qua huỷ engine (treo/abort khi thoát)
 }
