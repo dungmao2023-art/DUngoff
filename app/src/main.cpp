@@ -34,6 +34,13 @@ int main(int argc, char* argv[]) {
     QApplication::setFont(f);
     app.setStyleSheet(theme::styleSheet());
 
+    // Chế độ chụp giao diện cho CI: DUNG_UI_SHOT_DIR=<thư mục> (kèm DUNG_NO_ENGINE=1) — không động tới phiên/engine.
+    if (qEnvironmentVariableIsSet("DUNG_UI_SHOT_DIR")) {
+        qputenv("DUNG_NO_ENGINE", "1");
+        MainWindow w;
+        return w.captureShots(QString::fromLocal8Bit(qgetenv("DUNG_UI_SHOT_DIR"))) == 0 ? 0 : 3;
+    }
+
     // Một phiên duy nhất: nhấp đúp tệp khi app đang chạy -> chuyển tệp sang cửa sổ cũ rồi thoát.
     const QStringList files = QApplication::arguments().mid(1);
     SingleInstance single;

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "MainWindow.h"
+#include <functional>
 #include "ppt/PptActions.h"
 
 #include "DocumentTab.h"
@@ -16,6 +17,9 @@
 #include "Ribbon.h"
 #include "Theme.h"
 #include "TileView.h"
+#include "shell/QuickPalette.h"
+#include "shell/ShellIcons.h"
+#include "shell/TopBar.h"
 
 #include <QAction>
 #include <QApplication>
@@ -30,6 +34,10 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QPushButton>
+#include <QResizeEvent>
+#include <QScrollArea>
+#include <QFrame>
 #include <QSettings>
 #include <QSlider>
 #include <QStackedWidget>
@@ -40,6 +48,7 @@
 #include "tableutil/TableToolsDialog.h"
 #include <QTabWidget>
 #include <QTimer>
+#include <QStyle>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -62,7 +71,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     h->setSpacing(0);
     h->addWidget(buildSidebar());
 
-    m_stack = new QStackedWidget(central);
+    auto* right = new QWidget(central);
+    auto* rv = new QVBoxLayout(right);
+    rv->setContentsMargins(0, 0, 0, 0);
+    rv->setSpacing(0);
+    m_top = new shell::TopBar(right);
+    rv->addWidget(m_top);
+    auto* content = new QWidget(right);
+    auto* ch = new QHBoxLayout(content);
+    ch->setContentsMargins(0, 0, 0, 0);
+    ch->setSpacing(0);
+    rv->addWidget(content, 1);
+    h->addWidget(right, 1);
+
+    m_stack = new QStackedWidget(content);
     m_home = new HomePage(m_stack);
     m_docArea = new QWidget(m_stack);
     auto* dv = new QVBoxLayout(m_docArea);
@@ -89,9 +111,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_templates, &TemplatesPage::openPath, this, &MainWindow::openPath);
     m_toolbox = new ToolboxPage(m_stack);
     m_stack->addWidget(m_toolbox);
-    h->addWidget(m_stack, 1);
-    m_side = new SidePanel(central);
-    h->addWidget(m_side);
+    ch->addWidget(m_stack, 1);
+    m_side = new SidePanel(content);
+    ch->addWidget(m_side);
     setCentralWidget(central);
 
     // ---- Thanh trạng thái ----
@@ -128,6 +150,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_home, &HomePage::openPdf, this, [this] { openDialog(QStringLiteral("PDF (*.pdf)")); });
     connect(m_home, &HomePage::openFile, this, [this] { openDialog(); });
     connect(m_home, &HomePage::openPath, this, &MainWindow::openPath);
+    connect(m_home, &HomePage::openTemplates, this, &MainWindow::showTemplates);
+    connect(m_home, &HomePage::openToolbox, this, &MainWindow::showToolbox);
+    connect(m_top, &shell::TopBar::tabClicked, this, &MainWindow::activateKind);
+    connect(m_top, &shell::TopBar::searchRequested, this, &MainWindow::showPalette);
+    connect(m_top, &shell::TopBar::quickLinkClicked, this, &MainWindow::runCommand);
     connect(m_tabs, &QTabWidget::tabCloseRequested, this, &MainWindow::closeTab);
     connect(m_tabs, &QTabWidget::currentChanged, this, &MainWindow::onCurrentTabChanged);
     connect(m_ribbon, &Ribbon::unoCommand, this, [this](const QString& c) { if (auto* t = current()) t->runCommand(c); });
@@ -141,6 +168,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         connect(a, &QAction::triggered, this, [this, id] { onAppAction(id); });
         addAction(a);
     };
+    addShortcut(QKeySequence(QStringLiteral("Ctrl+K")), QStringLiteral("palette"));
     addShortcut(QKeySequence::Open, QStringLiteral("open"));
     addShortcut(QKeySequence::Save, QStringLiteral("save"));
     addShortcut(QKeySequence::Print, QStringLiteral("print"));
@@ -155,15 +183,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
     m_home->setRecent(recent());
     m_home->setEngineStatus(tr("Đang khởi động engine tài liệu…"));
+    m_top->setReadyText(tr("Đang khởi động…"));
     showHome();
 
     // Khởi động engine sau khi cửa sổ đã hiện (màn hình Home xuất hiện ngay).
+    if (qEnvironmentVariableIsSet("DUNG_NO_ENGINE")) return; // chế độ chụp giao diện: không cần engine
     QTimer::singleShot(50, this, [this] {
         QApplication::setOverrideCursor(Qt::BusyCursor);
         const bool ok = EngineHost::instance().start();
         QApplication::restoreOverrideCursor();
         m_home->setEngineStatus(ok ? EngineHost::instance().versionText() + tr(" — sẵn sàng")
                                    : tr("Lỗi engine: ") + EngineHost::instance().lastError());
+        m_top->setReadyText(ok ? tr("Sẵn sàng") : tr("Engine lỗi"));
         if (ok) QTimer::singleShot(0, this, [this] { offerRecovery(); });
     });
 }
@@ -192,78 +223,228 @@ void MainWindow::offerRecovery() {
 }
 
 QWidget* MainWindow::buildSidebar() {
-    auto* side = new QWidget(this);
+    auto* side = m_sideBar = new QWidget(this);
     side->setObjectName(QStringLiteral("Sidebar"));
     side->setAttribute(Qt::WA_StyledBackground, true);
-    side->setFixedWidth(76);
+    side->setFixedWidth(241);
     auto* v = new QVBoxLayout(side);
-    v->setContentsMargins(6, 12, 6, 12);
-    v->setSpacing(4);
-    auto* logo = new QLabel(QStringLiteral("DŨNG"), side);
-    logo->setObjectName(QStringLiteral("SideLogo"));
-    logo->setAlignment(Qt::AlignCenter);
-    v->addWidget(logo);
-    v->addSpacing(10);
+    v->setContentsMargins(12, 16, 12, 12);
+    v->setSpacing(0);
+
+    // ---- Logo ----
+    auto* head = new QWidget(side);
+    auto* hl = new QHBoxLayout(head);
+    hl->setContentsMargins(6, 0, 0, 0);
+    hl->setSpacing(10);
+    auto* logo = new QLabel(head);
+    logo->setPixmap(shell::badge(QStringLiteral("D"), theme::kBlue, Qt::white, 42, devicePixelRatioF()));
+    logo->setFixedSize(42, 42);
+    hl->addWidget(logo);
+    auto* names = new QWidget(head);
+    auto* nl = new QVBoxLayout(names);
+    nl->setContentsMargins(0, 0, 0, 0);
+    nl->setSpacing(0);
+    auto* brand = new QLabel(tr("Dũng<span style='color:#2864BA;font-weight:400'>Office</span>"), names);
+    brand->setObjectName(QStringLiteral("SideBrand"));
+    brand->setTextFormat(Qt::RichText);
+    auto* sub = new QLabel(tr("FREE · VIỆT NAM"), names);
+    sub->setObjectName(QStringLiteral("SideSub"));
+    nl->addWidget(brand);
+    nl->addWidget(sub);
+    hl->addWidget(names, 1);
+    m_navFullOnly << names;
+    v->addWidget(head);
+    v->addSpacing(8);
+
+    // ---- Danh sách mục (cuộn được khi cửa sổ thấp) ----
+    auto* scroll = new QScrollArea(side);
+    scroll->setObjectName(QStringLiteral("SideScroll"));
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    auto* body = new QWidget;
+    body->setObjectName(QStringLiteral("SideScrollBody"));
+    scroll->setWidget(body);
+    auto* bv = new QVBoxLayout(body);
+    bv->setContentsMargins(0, 0, 0, 0);
+    bv->setSpacing(2);
+    v->addWidget(scroll, 1);
 
     auto* group = new QButtonGroup(side);
-    auto make = [&](const QString& text, char16_t mdl2, const QString& fallback, bool checkable) {
-        auto* b = new QToolButton(side);
-        b->setObjectName(QStringLiteral("SideButton"));
-        b->setText(theme::glyph(mdl2, fallback) + QLatin1Char('\n') + text);
-        if (!theme::iconFontFamily().isEmpty()) {
-            QFont f = b->font();
-            f.setFamilies({QStringLiteral("Segoe UI"), theme::iconFontFamily()});
-            b->setFont(f);
-        }
-        b->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    auto section = [&](const QString& text) {
+        auto* l = new QLabel(text, body);
+        l->setObjectName(QStringLiteral("SideSection"));
+        bv->addWidget(l);
+        m_navFullOnly << l;
+    };
+    // Mọi biểu tượng của thanh bên đi qua shell::badge / shell::symbol (ShellIcons.h).
+    auto make = [&](const QString& text, const QPixmap& pm, bool checkable) {
+        auto* b = new QPushButton(text, body);
+        b->setObjectName(QStringLiteral("NavItem"));
+        b->setIcon(shell::icon(pm));
+        b->setIconSize(QSize(30, 30));
         b->setCheckable(checkable);
         b->setCursor(Qt::PointingHandCursor);
-        b->setMinimumHeight(52);
+        b->setFocusPolicy(Qt::TabFocus);
+        b->setProperty("fullText", text);
+        b->setToolTip(text);
         if (checkable) group->addButton(b);
-        v->addWidget(b);
+        bv->addWidget(b);
+        m_navButtons << b;
         return b;
     };
-    auto* home = make(tr("Trang chủ"), 0xE80F, QStringLiteral("⌂"), true);
-    auto* docs = make(tr("Tài liệu"), 0xE8A5, QStringLiteral("▤"), true);
-    auto* tmpl = make(tr("Mẫu"), 0xE8A5, QStringLiteral("▤"), true);
-    auto* proj = make(tr("Dự án"), 0xE8F1, QStringLiteral("▦"), true);
-    auto* tools = make(tr("Công cụ"), 0xE90F, QStringLiteral("🧰"), true);
-    v->addSpacing(8);
-    auto* word = make(tr("Word"), 0xE8A5, QStringLiteral("W"), false);
-    auto* excel = make(tr("Excel"), 0xE80A, QStringLiteral("X"), false);
-    auto* ppt = make(tr("PowerPoint"), 0xE786, QStringLiteral("P"), false);
-    auto* pdf = make(tr("PDF"), 0xEA90, QStringLiteral("PDF"), false);
-    v->addStretch(1);
-    auto* work = make(tr("Công việc"), 0xE787, QStringLiteral("📅"), false);
+    const qreal dpr = devicePixelRatioF();
+    const QColor soft(0xE8, 0xF0, 0xFF);
+    auto sym = [&](const char* n) { return shell::symbol(QLatin1String(n), theme::kBlue, soft, 30, dpr); };
+    auto app = [&](const QString& l, const QColor& c) { return shell::badge(l, c, Qt::white, 30, dpr); };
+
+    section(tr("KHÔNG GIAN LÀM VIỆC"));
+    auto* home = make(tr("Trang chủ"), sym("home"), true);
+    auto* docs = make(tr("Tài liệu đang mở"), sym("docs"), true);
+    auto* word = make(tr("Soạn thảo Word"), app(QStringLiteral("W"), theme::kWord), false);
+    auto* excel = make(tr("Bảng tính Excel"), app(QStringLiteral("X"), theme::kExcel), false);
+    auto* ppt = make(tr("PowerPoint"), app(QStringLiteral("P"), theme::kPowerPoint), false);
+    auto* pdf = make(tr("Công cụ PDF"), app(QStringLiteral("PDF"), theme::kPdf), false);
+    section(tr("LỊCH & CÔNG VIỆC"));
+    auto* work = make(tr("Công việc · Ghi chú"), sym("work"), false);
     work->setCheckable(true);
     work->setChecked(true);
     work->setToolTip(tr("Hiện/ẩn bảng Ghi chú · Lịch · Liên hệ bên phải"));
-    connect(work, &QToolButton::toggled, this, [this](bool on) { m_side->setVisible(on); });
-    auto* open = make(tr("Mở tệp"), 0xE8E5, QStringLiteral("📂"), false);
-    auto* about = make(tr("Giới thiệu"), 0xE946, QStringLiteral("i"), false);
+    section(tr("TẬP TIN & DỰ ÁN"));
+    auto* tmpl = make(tr("Kho mẫu"), sym("templates"), true);
+    auto* proj = make(tr("Dự án"), sym("projects"), true);
+    auto* tools = make(tr("Công cụ"), sym("tools"), true);
+    auto* open = make(tr("Mở tệp"), sym("open"), false);
+    auto* about = make(tr("Giới thiệu"), sym("about"), false);
+    bv->addStretch(1);
+
+    // ---- Thẻ riêng tư ----
+    auto* card = new QFrame(side);
+    card->setObjectName(QStringLiteral("PrivacyCard"));
+    auto* cv = new QVBoxLayout(card);
+    cv->setContentsMargins(12, 10, 12, 10);
+    auto* ct = new QLabel(tr("<b>Ngoại tuyến · Riêng tư</b><br>Tài liệu ở lại trên máy bạn. Không tài khoản, không gửi lên mạng."), card);
+    ct->setWordWrap(true);
+    ct->setTextFormat(Qt::RichText);
+    cv->addWidget(ct);
+    v->addSpacing(8);
+    v->addWidget(card);
+    m_navFullOnly << card;
+
+    connect(work, &QPushButton::toggled, this, [this](bool on) { m_side->setVisible(on); });
     home->setChecked(true);
     word->setToolTip(tr("Tạo tài liệu Word mới"));
     excel->setToolTip(tr("Tạo sổ làm việc Excel mới"));
     ppt->setToolTip(tr("Tạo bản trình chiếu mới"));
-    pdf->setToolTip(tr("Mở tệp PDF để xem"));
-    connect(home, &QToolButton::clicked, this, &MainWindow::showHome);
-    connect(docs, &QToolButton::clicked, this, &MainWindow::showDocuments);
-    connect(proj, &QToolButton::clicked, this, &MainWindow::showProjects);
-    connect(tmpl, &QToolButton::clicked, this, &MainWindow::showTemplates);
-    connect(tools, &QToolButton::clicked, this, &MainWindow::showToolbox);
-    connect(word, &QToolButton::clicked, this, [this] { newDoc(DocKind::Text); });
-    connect(excel, &QToolButton::clicked, this, [this] { newDoc(DocKind::Spreadsheet); });
-    connect(ppt, &QToolButton::clicked, this, [this] { newDoc(DocKind::Presentation); });
-    connect(pdf, &QToolButton::clicked, this, [this] { openDialog(QStringLiteral("PDF (*.pdf)")); });
-    connect(open, &QToolButton::clicked, this, [this] { openDialog(); });
-    connect(about, &QToolButton::clicked, this, &MainWindow::showAbout);
+    pdf->setToolTip(tr("Mở tệp PDF để xem và dùng công cụ PDF"));
+    connect(home, &QPushButton::clicked, this, &MainWindow::showHome);
+    connect(docs, &QPushButton::clicked, this, &MainWindow::showDocuments);
+    connect(proj, &QPushButton::clicked, this, &MainWindow::showProjects);
+    connect(tmpl, &QPushButton::clicked, this, &MainWindow::showTemplates);
+    connect(tools, &QPushButton::clicked, this, &MainWindow::showToolbox);
+    connect(word, &QPushButton::clicked, this, [this] { newDoc(DocKind::Text); });
+    connect(excel, &QPushButton::clicked, this, [this] { newDoc(DocKind::Spreadsheet); });
+    connect(ppt, &QPushButton::clicked, this, [this] { newDoc(DocKind::Presentation); });
+    connect(pdf, &QPushButton::clicked, this, [this] { openDialog(QStringLiteral("PDF (*.pdf)")); });
+    connect(open, &QPushButton::clicked, this, [this] { openDialog(); });
+    connect(about, &QPushButton::clicked, this, &MainWindow::showAbout);
     side->setProperty("homeBtn", QVariant::fromValue<QObject*>(home));
     side->setProperty("docsBtn", QVariant::fromValue<QObject*>(docs));
     side->setProperty("projBtn", QVariant::fromValue<QObject*>(proj));
     side->setProperty("tmplBtn", QVariant::fromValue<QObject*>(tmpl));
     side->setProperty("toolBtn", QVariant::fromValue<QObject*>(tools));
+    side->setProperty("workBtn", QVariant::fromValue<QObject*>(work));
     setProperty("sidebar", QVariant::fromValue<QObject*>(side));
     return side;
+}
+
+void MainWindow::applyCompact(bool compact) {
+    if (compact == m_compact) return;
+    m_compact = compact;
+    m_sideBar->setFixedWidth(compact ? 76 : 241);
+    m_sideBar->setProperty("compact", compact);
+    for (QWidget* w : m_navFullOnly) w->setVisible(!compact);
+    for (QPushButton* b : m_navButtons) {
+        b->setText(compact ? QString() : b->property("fullText").toString());
+        b->setIconSize(QSize(30, 30));
+    }
+    m_top->setCompact(compact);
+    m_sideBar->style()->unpolish(m_sideBar);
+    m_sideBar->style()->polish(m_sideBar);
+}
+
+void MainWindow::resizeEvent(QResizeEvent* e) {
+    QMainWindow::resizeEvent(e);
+    applyCompact(width() < 840);
+}
+
+void MainWindow::showPalette() {
+    if (!m_palette) {
+        m_palette = new shell::QuickPalette(this);
+        connect(m_palette, &shell::QuickPalette::triggered, this, &MainWindow::runCommand);
+    }
+    QList<shell::PaletteEntry> e;
+    auto add = [&](const char* id, const QString& t, const QString& hint = QString()) { e.append({QString::fromLatin1(id), t, hint}); };
+    add("home", tr("Trang chủ"));
+    add("docs", tr("Tài liệu đang mở"));
+    add("newDoc", tr("Tài liệu Word mới"));
+    add("newXlsx", tr("Sổ làm việc Excel mới"), QStringLiteral("Ctrl+N"));
+    add("newPpt", tr("Bản trình chiếu mới"));
+    add("openPdf", tr("Mở tệp PDF"));
+    add("open", tr("Mở tệp…"), QStringLiteral("Ctrl+O"));
+    add("save", tr("Lưu"), QStringLiteral("Ctrl+S"));
+    add("saveAs", tr("Lưu thành bản sao…"), QStringLiteral("Ctrl+Shift+S"));
+    add("exportPdf", tr("Xuất PDF"));
+    add("print", tr("In / Xem trước"), QStringLiteral("Ctrl+P"));
+    add("close", tr("Đóng tài liệu"), QStringLiteral("Ctrl+W"));
+    add("templates", tr("Kho mẫu"));
+    add("tools", tr("Công cụ"));
+    add("projects", tr("Dự án"));
+    add("work", tr("Công việc · Ghi chú · Lịch · Liên hệ"));
+    add("zoomIn", tr("Phóng to"), QStringLiteral("Ctrl+="));
+    add("zoomOut", tr("Thu nhỏ"), QStringLiteral("Ctrl+-"));
+    add("about", tr("Giới thiệu Dũng Office"));
+    m_palette->setEntries(e);
+    m_palette->popup();
+}
+
+void MainWindow::runCommand(const QString& id) {
+    auto sideBtn = [this](const char* prop) -> QPushButton* {
+        return qobject_cast<QPushButton*>(m_sideBar->property(prop).value<QObject*>());
+    };
+    if (id == QLatin1String("home")) showHome();
+    else if (id == QLatin1String("docs")) showDocuments();
+    else if (id == QLatin1String("templates")) showTemplates();
+    else if (id == QLatin1String("tools")) showToolbox();
+    else if (id == QLatin1String("projects")) showProjects();
+    else if (id == QLatin1String("work")) { if (auto* b = sideBtn("workBtn")) b->setChecked(!b->isChecked()); }
+    else if (id == QLatin1String("newDoc")) newDoc(DocKind::Text);
+    else if (id == QLatin1String("newXlsx")) newDoc(DocKind::Spreadsheet);
+    else if (id == QLatin1String("newPpt")) newDoc(DocKind::Presentation);
+    else if (id == QLatin1String("openPdf")) openDialog(QStringLiteral("PDF (*.pdf)"));
+    else if (id == QLatin1String("about")) showAbout();
+    else onAppAction(id);
+}
+
+void MainWindow::activateKind(const QString& kind) {
+    if (kind == QLatin1String("home")) { showHome(); return; }
+    DocKind want = DocKind::Text;
+    if (kind == QLatin1String("excel")) want = DocKind::Spreadsheet;
+    else if (kind == QLatin1String("ppt")) want = DocKind::Presentation;
+    else if (kind == QLatin1String("pdf")) want = DocKind::Drawing;
+    for (int i = 0; i < m_tabs->count(); ++i) {
+        auto* t = qobject_cast<DocumentTab*>(m_tabs->widget(i));
+        if (t && t->document()->kind() == want) {
+            m_tabs->setCurrentIndex(i);
+            showDocuments();
+            return;
+        }
+    }
+    // Chưa có tài liệu loại này: về Trang chủ và nói rõ, KHÔNG tự tạo tài liệu.
+    showHome();
+    statusBar()->showMessage(tr("Chưa mở tài liệu %1 nào — chọn một thẻ ở Trang chủ để tạo hoặc mở.").arg(
+        kind == QLatin1String("word") ? QStringLiteral("Word") : kind == QLatin1String("excel") ? QStringLiteral("Excel")
+        : kind == QLatin1String("ppt") ? QStringLiteral("PowerPoint") : QStringLiteral("PDF")), 6000);
 }
 
 DocumentTab* MainWindow::current() const { return qobject_cast<DocumentTab*>(m_tabs->currentWidget()); }
@@ -272,7 +453,7 @@ void MainWindow::showHome() {
     m_home->setRecent(recent());
     m_stack->setCurrentWidget(m_home);
     if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
-        if (auto* b = qobject_cast<QToolButton*>(side->property("homeBtn").value<QObject*>())) b->setChecked(true);
+        if (auto* b = qobject_cast<QPushButton*>(side->property("homeBtn").value<QObject*>())) b->setChecked(true);
     refreshStatus();
 }
 
@@ -280,7 +461,7 @@ void MainWindow::showTemplates() {
     m_templates->reload();
     m_stack->setCurrentWidget(m_templates);
     if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
-        if (auto* b = qobject_cast<QToolButton*>(side->property("tmplBtn").value<QObject*>())) b->setChecked(true);
+        if (auto* b = qobject_cast<QPushButton*>(side->property("tmplBtn").value<QObject*>())) b->setChecked(true);
     refreshStatus();
 }
 
@@ -288,14 +469,14 @@ void MainWindow::showToolbox() {
     m_toolbox->reload();
     m_stack->setCurrentWidget(m_toolbox);
     if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
-        if (auto* b = qobject_cast<QToolButton*>(side->property("toolBtn").value<QObject*>())) b->setChecked(true);
+        if (auto* b = qobject_cast<QPushButton*>(side->property("toolBtn").value<QObject*>())) b->setChecked(true);
     refreshStatus();
 }
 
 void MainWindow::showProjects() {
     m_stack->setCurrentWidget(m_projects);
     if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
-        if (auto* b = qobject_cast<QToolButton*>(side->property("projBtn").value<QObject*>())) b->setChecked(true);
+        if (auto* b = qobject_cast<QPushButton*>(side->property("projBtn").value<QObject*>())) b->setChecked(true);
     refreshStatus();
 }
 
@@ -303,7 +484,7 @@ void MainWindow::showDocuments() {
     if (m_tabs->count() == 0) { showHome(); return; }
     m_stack->setCurrentWidget(m_docArea);
     if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
-        if (auto* b = qobject_cast<QToolButton*>(side->property("docsBtn").value<QObject*>())) b->setChecked(true);
+        if (auto* b = qobject_cast<QPushButton*>(side->property("docsBtn").value<QObject*>())) b->setChecked(true);
     if (auto* t = current()) t->view()->setFocus();
     refreshStatus();
 }
@@ -370,10 +551,10 @@ int kindRank(dung::DocKind k) {
 }
 QColor kindColor(dung::DocKind k) {
     switch (k) {
-    case DocKind::Text: return QColor(0x1F, 0x50, 0xBB);
-    case DocKind::Spreadsheet: return QColor(0x21, 0x86, 0x6E);
-    case DocKind::Presentation: return QColor(0xC2, 0x5B, 0x1A);
-    case DocKind::Drawing: return QColor(0xBE, 0x49, 0x49);
+    case DocKind::Text: return theme::kWord;
+    case DocKind::Spreadsheet: return theme::kExcel;
+    case DocKind::Presentation: return theme::kPowerPoint;
+    case DocKind::Drawing: return theme::kPdf;
     default: return QColor(0x44, 0x44, 0x44);
     }
 }
@@ -446,6 +627,19 @@ void MainWindow::onCurrentTabChanged() {
 void MainWindow::refreshStatus() {
     auto* t = current();
     const bool docs = m_stack->currentWidget() == m_docArea && t;
+    {
+        QString k = QStringLiteral("home");
+        if (docs) {
+            switch (t->document()->kind()) {
+            case DocKind::Text: k = QStringLiteral("word"); break;
+            case DocKind::Spreadsheet: k = QStringLiteral("excel"); break;
+            case DocKind::Presentation: k = QStringLiteral("ppt"); break;
+            case DocKind::Drawing: k = QStringLiteral("pdf"); break;
+            default: k.clear(); break;
+            }
+        } else if (m_stack->currentWidget() != m_home) k.clear();
+        m_top->setActive(k);
+    }
     m_status->setText(docs ? t->statusText() : (m_stack->currentWidget() == m_projects ? tr("Dự án") : m_stack->currentWidget() == m_templates ? tr("Thư viện mẫu") : m_stack->currentWidget() == m_toolbox ? tr("Công cụ") : tr("Trang chủ")));
     m_toolLabel->setVisible(docs);
     m_saveLabel->setVisible(docs);
@@ -464,6 +658,8 @@ void MainWindow::refreshStatus() {
         }
         m_saveLabel->setTextFormat(Qt::RichText);
     }
+    if (docs) m_top->setSaveText(t->readOnly() ? tr("● Chỉ đọc") : t->document()->modified() ? tr("● Chưa lưu") : tr("● Đã lưu"));
+    else m_top->setSaveText(tr("● Lưu trên máy bạn"));
     m_roLabel->setVisible(docs && t->readOnly());
     m_zoom->setVisible(docs);
     m_zoomLabel->setVisible(docs);
@@ -475,7 +671,8 @@ void MainWindow::refreshStatus() {
 void MainWindow::onAppAction(const QString& id) {
     auto* t = current();
     const bool docVisible = t && m_stack->currentWidget() == m_docArea;
-    if (id == QLatin1String("open")) openDialog();
+    if (id == QLatin1String("palette")) showPalette();
+    else if (id == QLatin1String("open")) openDialog();
     else if (id == QLatin1String("newWorkbook")) newDoc(DocKind::Spreadsheet);
     else if (id.startsWith(QLatin1String("pdfTools:"))) {
         // Công cụ PDF (app/src/pdf/): dùng tệp PDF đang mở nếu có, nếu không thì người dùng tự chọn tệp.
@@ -563,4 +760,106 @@ void MainWindow::dropEvent(QDropEvent* e) {
     for (const QUrl& u : e->mimeData()->urls())
         if (u.isLocalFile()) files << u.toLocalFile();
     openFiles(files);
+}
+
+
+// ---------------------------------------------------------------- chụp giao diện (kiểm thử)
+#include "shell/ShellIcons.h"
+#include <QDir>
+#include <QFile>
+#include <QGuiApplication>
+#include <QPixmap>
+#include <QTextStream>
+
+int MainWindow::captureShots(const QString& dir) {
+    QDir().mkpath(dir);
+    QFile logf(dir + QStringLiteral("/ui-check.log"));
+    logf.open(QIODevice::WriteOnly | QIODevice::Text);
+    QTextStream log(&logf);
+    int problems = 0;
+
+    // Kiểm tra: (1) hai widget lá cùng cha chồng lên nhau, (2) nhãn/nút bị cắt chữ.
+    auto check = [&](QWidget* root, const QString& where) {
+        const auto all = root->findChildren<QWidget*>();
+        for (QWidget* w : all) {
+            if (!w->isVisibleTo(root) || w->width() <= 0) continue;
+            const bool leaf = qobject_cast<QLabel*>(w) || qobject_cast<QPushButton*>(w);
+            if (!leaf) continue;
+            QString text;
+            if (auto* l = qobject_cast<QLabel*>(w)) text = l->text(); else text = static_cast<QPushButton*>(w)->text();
+            if (text.isEmpty() || text.contains(QLatin1Char('<'))) continue;
+            if (auto* l = qobject_cast<QLabel*>(w); l && l->wordWrap()) continue;
+            const int need = w->fontMetrics().horizontalAdvance(text);
+            if (need > w->width() + 2 && !qobject_cast<QPushButton*>(w)) {
+                log << "CAT-CHU [" << where << "] " << w->objectName() << " '" << text << "' cần " << need << "px, có " << w->width() << "px\n";
+                ++problems;
+            }
+        }
+        // chồng lấn giữa các anh em lá (cùng cha)
+        for (QWidget* par : root->findChildren<QWidget*>()) {
+            QList<QWidget*> kids;
+            for (QObject* o : par->children()) {
+                auto* c = qobject_cast<QWidget*>(o);
+                if (c && c->isVisibleTo(root) && !c->isWindow() && (qobject_cast<QLabel*>(c) || qobject_cast<QPushButton*>(c))) kids << c;
+            }
+            for (int i = 0; i < kids.size(); ++i)
+                for (int j = i + 1; j < kids.size(); ++j) {
+                    // Bố cục QLayout không để chồng; chỉ báo khi giao nhau thực sự > 2px mỗi chiều.
+                    const QRect inter = kids[i]->geometry().intersected(kids[j]->geometry());
+                    if (inter.width() > 2 && inter.height() > 2) {
+                        log << "CHONG [" << where << "] " << kids[i]->objectName() << " x " << kids[j]->objectName() << "\n";
+                        ++problems;
+                    }
+                }
+        }
+    };
+
+    struct Page { const char* name; std::function<void()> show; };
+    const Page pages[] = {
+        {"home", [this] { showHome(); }},
+        {"templates", [this] { showTemplates(); }},
+        {"toolbox", [this] { showToolbox(); }},
+        {"projects", [this] { showProjects(); }},
+    };
+    const QSize sizes[] = {{1366, 768}, {1920, 1080}, {1100, 700}, {800, 600}};
+    for (const QSize& sz : sizes) {
+        resize(sz);
+        show();
+        for (const Page& pg : pages) {
+            pg.show();
+            QApplication::processEvents();
+            QApplication::processEvents();
+            const QString tag = QStringLiteral("%1-%2x%3").arg(QLatin1String(pg.name)).arg(sz.width()).arg(sz.height());
+            grab().save(dir + QStringLiteral("/ui-") + tag + QStringLiteral(".png"));
+            check(this, tag);
+        }
+        // Palette Ctrl+K
+        if (sz.width() == 1366) {
+            showHome();
+            showPalette();
+            QApplication::processEvents();
+            m_palette->grab().save(dir + QStringLiteral("/ui-palette.png"));
+            m_palette->hide();
+        }
+    }
+
+    // Ribbon ở 4 loại tài liệu (không cần engine): dựng riêng một Ribbon.
+    for (auto k : {DocKind::Text, DocKind::Spreadsheet, DocKind::Presentation, DocKind::Drawing}) {
+        QWidget host;
+        host.setObjectName(QStringLiteral("Central"));
+        auto* hv = new QVBoxLayout(&host);
+        hv->setContentsMargins(0, 0, 0, 0);
+        auto* rb = new Ribbon(&host);
+        hv->addWidget(rb);
+        hv->addStretch(1);
+        rb->setKind(k, false);
+        host.resize(1366, 200);
+        host.show();
+        QApplication::processEvents();
+        const QString nm = k == DocKind::Text ? QStringLiteral("word") : k == DocKind::Spreadsheet ? QStringLiteral("excel")
+                          : k == DocKind::Presentation ? QStringLiteral("ppt") : QStringLiteral("pdf");
+        host.grab().save(dir + QStringLiteral("/ui-ribbon-") + nm + QStringLiteral(".png"));
+    }
+    log << "TONG: " << problems << " van de\n";
+    return problems;
 }

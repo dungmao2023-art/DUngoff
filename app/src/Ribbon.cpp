@@ -10,6 +10,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QStackedWidget>
+#include <QStyle>
 #include <QTabBar>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -56,7 +57,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     m_tabs->setDrawBase(false);
     m_tabs->setExpanding(false);
     m_pages = new QStackedWidget(this);
-    m_pages->setFixedHeight(94);
+    m_pages->setFixedHeight(100);
     v->addWidget(m_tabs);
     v->addWidget(m_pages);
     connect(m_tabs, &QTabBar::currentChanged, m_pages, &QStackedWidget::setCurrentIndex);
@@ -342,6 +343,13 @@ void Ribbon::setKind(DocKind kind, bool readOnly) {
     if (m_lastKind == (int)kind && m_lastReadOnly == readOnly) return;
     m_lastKind = (int)kind;
     m_lastReadOnly = readOnly;
+    {   // màu nhấn theo ứng dụng: QSS chọn theo thuộc tính "kind"
+        const char* k = kind == DocKind::Spreadsheet ? "excel" : kind == DocKind::Presentation ? "ppt"
+                      : kind == DocKind::Drawing ? "pdf" : "word";
+        setProperty("kind", QString::fromLatin1(k));
+        style()->unpolish(this);
+        style()->polish(this);
+    }
     const int current = m_tabs->currentIndex();
     while (m_tabs->count()) m_tabs->removeTab(0);
     while (m_pages->count()) {

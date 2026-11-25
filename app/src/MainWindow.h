@@ -15,17 +15,22 @@ class SidePanel;
 class ProjectsPage;
 class TemplatesPage;
 class ToolboxPage;
+class QPushButton;
+namespace shell { class TopBar; class QuickPalette; }
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     void openFiles(const QStringList& paths);
+    // Chế độ chụp giao diện (kiểm thử): lưu PNG các trang ở nhiều cỡ cửa sổ + nhật ký kiểm tra chồng/cắt chữ.
+    int captureShots(const QString& dir);
 
 protected:
     void closeEvent(QCloseEvent* e) override;
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;
+    void resizeEvent(QResizeEvent* e) override;
 
 private:
     QWidget* buildSidebar();
@@ -47,6 +52,10 @@ private:
     QStringList recent() const;
     void refreshStatus();
     void showAbout();
+    void showPalette();
+    void runCommand(const QString& id);   // lệnh của bảng Ctrl+K / liên kết nhanh
+    void activateKind(const QString& kind); // thẻ trên cùng: Word/Excel/PowerPoint/PDF
+    void applyCompact(bool compact);
 
     QStackedWidget* m_stack;
     HomePage* m_home;
@@ -63,4 +72,10 @@ private:
     ToolboxPage* m_toolbox;
     QLabel* m_zoomLabel;
     QSlider* m_zoom;
+    shell::TopBar* m_top = nullptr;
+    shell::QuickPalette* m_palette = nullptr;
+    QWidget* m_sideBar = nullptr;
+    QList<QPushButton*> m_navButtons;
+    QList<QWidget*> m_navFullOnly;
+    bool m_compact = false;
 };

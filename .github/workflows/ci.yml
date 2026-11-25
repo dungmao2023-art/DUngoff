@@ -226,6 +226,13 @@ jobs:
             --stress fixtures/stress-5000-dong.xlsx --excel 1 --out smoke-excel 2>&1 | tee report/linux-excel.log
           python3 -W ignore tests/excel/verify_excel.py smoke-excel/excel-ket-qua.xlsx \
             fixtures/stress-5000-dong.xlsx smoke-excel/stress-ket-qua.xlsx 2>&1 | tee report/linux-excel-verify.log
+      - name: Chụp giao diện khung mới (offscreen, không cần engine)
+        if: always() && hashFiles('build/app/DungOffice') != ''
+        run: |
+          mkdir -p report/ui
+          DUNG_UI_SHOT_DIR="$PWD/report/ui" QT_QPA_PLATFORM=offscreen ./build/app/DungOffice 2>&1 | tee report/linux-ui-shots.log
+          echo "mã thoát chế độ chụp: ${PIPESTATUS[0]} (3 = có cảnh báo chồng/cắt chữ, xem report/ui/ui-check.log)" | tee -a report/linux-ui-shots.log
+          ls report/ui | head -50
       - name: Ảnh chụp giao diện thật (Xvfb)
         if: always() && hashFiles('build/app/DungOffice') != ''
         run: |
@@ -340,6 +347,17 @@ jobs:
           $env:DUNG_REQUIRE_PDF = "1"
           $env:QT_QPA_PLATFORM = "offscreen"
           & $exe.FullName *>&1 | Tee-Object report/windows-printtest.log
+      - name: Chụp giao diện khung mới trên Windows (offscreen, không cần engine)
+        if: always()
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter DungOffice.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::warning::Không thấy DungOffice.exe"; exit 0 }
+          New-Item -ItemType Directory -Force report/ui | Out-Null
+          $env:DUNG_UI_SHOT_DIR = (Resolve-Path report/ui).Path
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $p = Start-Process $exe.FullName -PassThru -Wait
+          "mã thoát chế độ chụp: $($p.ExitCode) (3 = có cảnh báo chồng/cắt chữ)" | Tee-Object report/windows-ui-shots.log
+          Get-ChildItem report/ui | Select-Object -First 50 | ForEach-Object { $_.Name }
       - name: Kiểm thử chụp màn hình trên Windows (lõi + widget, nền offscreen)
         run: |
           $e1 = Get-ChildItem build/out -Recurse -Filter dung-shottest.exe | Select-Object -First 1
