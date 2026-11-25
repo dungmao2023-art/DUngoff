@@ -10,6 +10,9 @@ qt_add_executable(DungOffice WIN32
   src/Ribbon.h src/Ribbon.cpp
   src/DocumentTab.h src/DocumentTab.cpp
   src/HomePage.h src/HomePage.cpp
+  src/shell/ShellIcons.h src/shell/ShellIcons.cpp
+  src/shell/TopBar.h src/shell/TopBar.cpp
+  src/shell/QuickPalette.h src/shell/QuickPalette.cpp
   src/MainWindow.h src/MainWindow.cpp
   resources/app.qrc
 )
