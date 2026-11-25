@@ -47,10 +47,10 @@ QWidget#Sidebar { background: #FBFCFF; border-right: 1px solid #DCE5F2; }
 QWidget#SideScrollBody, QScrollArea#SideScroll { background: transparent; border: none; }
 QLabel#SideBrand { font-size: 17px; font-weight: 700; color: #17294D; }
 QLabel#SideSub { font-size: 9px; font-weight: 700; color: #8A97B4; letter-spacing: 1px; }
-QLabel#SideSection { font-size: 10px; font-weight: 700; color: #8A97B4; letter-spacing: 1px; padding: 14px 8px 4px 8px; }
+QLabel#SideSection { font-size: 10px; font-weight: 700; color: #8A97B4; letter-spacing: 1px; padding: 8px 8px 2px 8px; }
 QPushButton#NavItem {
   background: transparent; border: none; border-left: 3px solid transparent; border-radius: 10px;
-  text-align: left; padding: 3px 8px; font-size: 13px; color: #4A5A7C; min-height: 34px;
+  text-align: left; padding: 1px 8px; font-size: 13px; color: #4A5A7C; min-height: 30px;
 }
 QPushButton#NavItem:hover { background: #EEF4FF; }
 QPushButton#NavItem:checked { background: #E8F0FF; border-left: 3px solid #2864BA; color: #17294D; font-weight: 700; }
@@ -98,7 +98,7 @@ QTabBar#RibbonTabs::tab {
 QTabBar#RibbonTabs::tab:selected { color: @ACC@; border-bottom: 2px solid @ACC@; font-weight: 700; }
 QTabBar#RibbonTabs::tab:hover { color: @ACC@; }
 QToolButton#RibbonButton {
-  background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 3px 4px; font-size: 11px; min-width: 54px; color: #3D4F78;
+  background: transparent; border: 1px solid transparent; border-radius: 8px; padding: 3px 4px; font-size: 11px; color: #3D4F78;
 }
 QToolButton#RibbonButton:hover { background: @ACCBG@; border-color: @ACCBD@; }
 QToolButton#RibbonButton:checked { background: @ACCBG2@; border-color: @ACC@; }

@@ -3,6 +3,8 @@
 #include "../update/UpdateDialog.h"
 
 #include "WorkspaceStore.h"
+#include "../ui/Icons.h"
+#include <QGraphicsDropShadowEffect>
 
 #include <QDesktopServices>
 #include <QDir>
@@ -57,16 +59,35 @@ ProjectsPage::ProjectsPage(QWidget* parent) : QWidget(parent) {
     scroll->setFrameShape(QFrame::NoFrame);
     outer->addWidget(scroll);
     auto* body = new QWidget(scroll);
+    body->setObjectName(QStringLiteral("PrjBody"));
+    body->setStyleSheet(QStringLiteral(
+        "QWidget#PrjBody{background:#F4F7FC;}"
+        "QLabel#PrjTitle{font-size:24px;font-weight:700;color:#17294D;}"
+        "QLabel#PrjDesc{font-size:13px;color:#697992;}"
+        "QLabel#PrjSub{font-size:16px;font-weight:700;color:#17294D;}"
+        "QFrame#PHead,QFrame#PCol{background:#FFFFFF;border:1px solid #DEE5F0;border-radius:16px;}"
+        "QFrame#PHead QLabel,QFrame#PCol QLabel{border:0;background:transparent;}"
+        "QListWidget{background:#F8FAFE;border:1px solid #E6ECF6;border-radius:12px;padding:4px;outline:0;}"
+        "QListWidget::item{padding:5px 6px;border-radius:8px;}"
+        "QListWidget::item:selected{background:#E8F0FF;color:#17294D;}"
+        "QPushButton#PrjPrimary{background:#2864BA;color:white;border:0;border-radius:12px;padding:9px 18px;font-weight:700;}"
+        "QPushButton#PrjPrimary:hover{background:#1B4A90;}"
+        "QPushButton#PrjGhost{background:#FFFFFF;color:#2864BA;border:1px solid #DEE5F0;border-radius:12px;padding:8px 14px;font-weight:600;}"
+        "QPushButton#PrjGhost:hover{background:#EEF4FF;}"));
     scroll->setWidget(body);
     auto* v = new QVBoxLayout(body);
     v->setContentsMargins(24, 20, 24, 20);
     v->setSpacing(16);
     auto* title = new QLabel(tr("Dự án"), body);
-    title->setStyleSheet(QStringLiteral("font-size:22px;font-weight:700;color:#1C2940;"));
+    title->setObjectName(QStringLiteral("PrjTitle"));
     v->addWidget(title);
+    auto* desc = new QLabel(tr("Tiến độ Dũng Office và các dự án khác của tác giả — ghi lại cục bộ trên máy bạn."), body);
+    desc->setObjectName(QStringLiteral("PrjDesc"));
+    desc->setWordWrap(true);
+    v->addWidget(desc);
     v->addWidget(buildHeader());
     auto* sub = new QLabel(tr("Các dự án khác của tác giả"), body);
-    sub->setStyleSheet(QStringLiteral("font-size:16px;font-weight:700;color:#1C2940;margin-top:8px;"));
+    sub->setObjectName(QStringLiteral("PrjSub"));
     v->addWidget(sub);
     load();
     auto* cols = new QHBoxLayout;
@@ -81,8 +102,12 @@ void ProjectsPage::flush() { save(); }
 
 QWidget* ProjectsPage::buildHeader() {
     auto* card = new QFrame(this);
-    card->setStyleSheet(QStringLiteral("QFrame#PHead{background:#fff;border:1px solid #DEE5F0;border-radius:12px;}"));
     card->setObjectName(QStringLiteral("PHead"));
+    {
+        auto* sh = new QGraphicsDropShadowEffect(card);
+        sh->setBlurRadius(24); sh->setOffset(0, 4); sh->setColor(QColor(30, 60, 120, 30));
+        card->setGraphicsEffect(sh);
+    }
     auto* v = new QVBoxLayout(card);
     v->setContentsMargins(18, 16, 18, 16);
     auto* row = new QHBoxLayout;
@@ -90,11 +115,16 @@ QWidget* ProjectsPage::buildHeader() {
                                 .arg(QStringLiteral(DUNG_VERSION)), card);
     name->setTextFormat(Qt::RichText);
     row->addWidget(name, 1);
-    auto* upd = new QPushButton(tr("⟳ Update"), card);
+    auto* upd = new QPushButton(tr("Cập nhật"), card);
+    upd->setIcon(dung::ui::icon(QStringLiteral("update"), Qt::white));
+    upd->setObjectName(QStringLiteral("PrjPrimary"));
+    upd->setCursor(Qt::PointingHandCursor);
     upd->setToolTip(tr("Kiểm tra bản mới. Ứng dụng chỉ kết nối mạng khi bạn bấm; không tự cài."));
-    upd->setStyleSheet(QStringLiteral("QPushButton{background:#275DD6;color:white;border:0;border-radius:8px;padding:9px 18px;font-weight:700;}QPushButton:hover{background:#1A4CBE;}"));
     connect(upd, &QPushButton::clicked, this, [this] { UpdateDialog dlg(this); dlg.exec(); });
     auto* repo = new QPushButton(tr("Mã nguồn"), card);
+    repo->setObjectName(QStringLiteral("PrjGhost"));
+    repo->setIcon(dung::ui::icon(QStringLiteral("link"), QColor(0x28, 0x64, 0xBA)));
+    repo->setCursor(Qt::PointingHandCursor);
     connect(repo, &QPushButton::clicked, this, [] { QDesktopServices::openUrl(QUrl(QString::fromLatin1(kRepo))); });
     row->addWidget(upd);
     row->addWidget(repo);
@@ -104,7 +134,7 @@ QWidget* ProjectsPage::buildHeader() {
     QString okHtml, todoHtml;
     for (const Item& it : kOfficeItems) {
         ++total;
-        const QString line = QStringLiteral("<div style='margin:3px 0'>%1 %2</div>").arg(it.done ? QStringLiteral("✅") : QStringLiteral("⬜"), escapeHtml(tr(it.text)));
+        const QString line = QStringLiteral("<div style='margin:3px 0'>%1 %2</div>").arg(it.done ? QStringLiteral("<span style='color:#21866E'>•</span>") : QStringLiteral("<span style='color:#AF791D'>–</span>"), escapeHtml(tr(it.text)));
         if (it.done) { ++done; okHtml += line; } else todoHtml += line;
     }
     auto* sum = new QLabel(tr("<b>Tiến độ:</b> %1/%2 mục đạt").arg(done).arg(total), card);
@@ -123,7 +153,11 @@ QWidget* ProjectsPage::buildHeader() {
 QWidget* ProjectsPage::buildColumn(int i) {
     auto* card = new QFrame(this);
     card->setObjectName(QStringLiteral("PCol"));
-    card->setStyleSheet(QStringLiteral("QFrame#PCol{background:#fff;border:1px solid #DEE5F0;border-radius:12px;}"));
+    {
+        auto* sh = new QGraphicsDropShadowEffect(card);
+        sh->setBlurRadius(24); sh->setOffset(0, 4); sh->setColor(QColor(30, 60, 120, 30));
+        card->setGraphicsEffect(sh);
+    }
     auto* v = new QVBoxLayout(card);
     v->setContentsMargins(16, 16, 16, 16);
     Col& c = m_cols[i];
@@ -133,6 +167,7 @@ QWidget* ProjectsPage::buildColumn(int i) {
     c.avatar->setStyleSheet(QStringLiteral("background:#EAF0FF;border-radius:14px;color:#275DD6;font-size:36px;font-weight:700;"));
     v->addWidget(c.avatar, 0, Qt::AlignHCenter);
     auto* pick = new QPushButton(tr("Chọn ảnh đại diện"), card);
+    pick->setObjectName(QStringLiteral("PrjGhost"));
     connect(pick, &QPushButton::clicked, this, [this, i] { chooseImage(i); });
     v->addWidget(pick);
     c.name = new QLabel(card);
@@ -150,6 +185,7 @@ QWidget* ProjectsPage::buildColumn(int i) {
     });
     v->addWidget(c.link);
     auto* edit = new QPushButton(tr("Sửa tên và liên kết"), card);
+    edit->setObjectName(QStringLiteral("PrjGhost"));
     connect(edit, &QPushButton::clicked, this, [this, i] {
         QJsonObject p = m_projects[i].toObject();
         bool ok = false;
@@ -185,8 +221,12 @@ QWidget* ProjectsPage::buildColumn(int i) {
         refreshColumn(i);
     });
     auto* btns = new QHBoxLayout;
-    auto* add = new QPushButton(tr("+ Mục"), card);
+    auto* add = new QPushButton(tr("Thêm mục"), card);
     auto* del = new QPushButton(tr("Xoá mục"), card);
+    add->setObjectName(QStringLiteral("PrjGhost"));
+    del->setObjectName(QStringLiteral("PrjGhost"));
+    add->setIcon(dung::ui::icon(QStringLiteral("add"), QColor(0x28, 0x64, 0xBA)));
+    del->setIcon(dung::ui::icon(QStringLiteral("delete"), QColor(0xB9, 0x44, 0x49)));
     btns->addWidget(add);
     btns->addWidget(del);
     v->addLayout(btns);
@@ -265,7 +305,8 @@ void ProjectsPage::refreshColumn(int i) {
     for (int k = 0; k < items.size(); ++k) {
         const QJsonObject o = items[k].toObject();
         const bool done = o.value(QStringLiteral("done")).toBool();
-        auto* it = new QListWidgetItem((done ? QStringLiteral("✅ ") : QStringLiteral("⬜ ")) + o.value(QStringLiteral("text")).toString());
+        auto* it = new QListWidgetItem(dung::ui::icon(done ? QStringLiteral("check") : QStringLiteral("timer"), done ? QColor(0x21, 0x86, 0x6E) : QColor(0xAF, 0x79, 0x1D)),
+                                       o.value(QStringLiteral("text")).toString());
         it->setData(Qt::UserRole, k);
         c.list->addItem(it);
     }

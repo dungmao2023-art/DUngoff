@@ -35,15 +35,33 @@ SidePanel::SidePanel(QWidget* parent) : QWidget(parent) {
     auto* v = new QVBoxLayout(this);
     v->setContentsMargins(8, 8, 8, 8);
     auto* title = new QLabel(tr("Quản trị công việc"), this);
-    title->setStyleSheet(QStringLiteral("font-weight:700;color:#1F50BB;font-size:14px;"));
+    title->setObjectName(QStringLiteral("SpTitle"));
+    auto* desc = new QLabel(tr("Ghi chú · Lịch · Liên hệ"), this);
+    desc->setObjectName(QStringLiteral("SpDesc"));
     v->addWidget(title);
+    v->addWidget(desc);
+    setAttribute(Qt::WA_StyledBackground, true);
+    setStyleSheet(QStringLiteral(
+        "QWidget#SidePanel{background:#FFFFFF;border-left:1px solid #DEE5F0;}"
+        "QLabel#SpTitle{font-size:17px;font-weight:700;color:#17294D;}"
+        "QLabel#SpDesc{font-size:12px;color:#697992;margin-bottom:4px;}"
+        "QTabWidget::pane{border:1px solid #DEE5F0;border-radius:14px;background:#FFFFFF;top:-1px;}"
+        "QTabBar::tab{background:#F1F5FC;color:#4A5A7C;border:0;border-radius:10px;padding:6px 14px;margin:0 4px 6px 0;font-weight:600;}"
+        "QTabBar::tab:selected{background:#E8F0FF;color:#17294D;}"
+        "QTabBar::tab:hover{background:#EEF4FF;}"
+        "QListWidget,QTableWidget,QPlainTextEdit,QLineEdit,QComboBox{background:#F8FAFE;border:1px solid #E6ECF6;border-radius:10px;padding:4px;}"
+        "QListWidget::item{padding:5px 6px;border-radius:8px;}"
+        "QListWidget::item:selected{background:#E8F0FF;color:#17294D;}"
+        "QHeaderView::section{background:#F1F5FC;color:#4A5A7C;border:0;padding:5px;font-weight:600;}"
+        "QPushButton{background:#FFFFFF;color:#2864BA;border:1px solid #DEE5F0;border-radius:10px;padding:6px 12px;font-weight:600;}"
+        "QPushButton:hover{background:#EEF4FF;}"));
     m_tabs = new QTabWidget(this);
     m_tabs->addTab(buildNotes(), tr("Ghi chú"));
     m_tabs->addTab(buildCalendar(), tr("Lịch"));
     m_tabs->addTab(buildContacts(), tr("Liên hệ"));
     v->addWidget(m_tabs, 1);
     auto* foot = new QLabel(tr("Lưu trên máy bạn, không gửi lên mạng."), this);
-    foot->setStyleSheet(QStringLiteral("color:#697992;font-size:11px;"));
+    foot->setStyleSheet(QStringLiteral("QLabel{color:#697992;font-size:11px;border:0;background:transparent;}"));
     foot->setWordWrap(true);
     v->addWidget(foot);
 

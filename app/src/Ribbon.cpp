@@ -29,7 +29,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     m_tabs->setDrawBase(false);
     m_tabs->setExpanding(false);
     m_pages = new QStackedWidget(this);
-    m_pages->setFixedHeight(100);
+    m_pages->setFixedHeight(110);
     v->addWidget(m_tabs);
     v->addWidget(m_pages);
     connect(m_tabs, &QTabBar::currentChanged, m_pages, &QStackedWidget::setCurrentIndex);
@@ -275,13 +275,30 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             tb->setFocusPolicy(Qt::NoFocus); // không lấy focus khỏi tài liệu
             tb->setIcon(dung::ui::icon(dung::ui::iconNameForCommand(b.id), theme::kBlueDark));
             tb->setIconSize(QSize(22, 22));
-            tb->setText(b.label);
-            tb->setToolTip(b.label);
-            tb->setMinimumHeight(56);
-            {   // đo bằng đúng cỡ chữ 11px của QSS (font mặc định chưa áp QSS lúc này) để không cắt nhãn
+            {   // nhãn dài tách 2 dòng tại khoảng trắng gần giữa nhất; nút luôn rộng bằng dòng dài nhất (không cắt chữ)
                 QFont lf = tb->font();
                 lf.setPixelSize(11);
-                tb->setMinimumWidth(qMax(54, QFontMetrics(lf).horizontalAdvance(b.label) + 22));
+                const QFontMetrics fm(lf);
+                QString text = b.label;
+                const int sp = [&] {
+                    if (fm.horizontalAdvance(text) <= 64) return -1;
+                    int best = -1, bestDiff = 1 << 30;
+                    for (int i = 0; i < text.size(); ++i)
+                        if (text[i] == QLatin1Char(' ')) {
+                            const int d = qAbs(fm.horizontalAdvance(text.left(i)) - fm.horizontalAdvance(text.mid(i + 1)));
+                            if (d < bestDiff) { bestDiff = d; best = i; }
+                        }
+                    return best;
+                }();
+                if (sp >= 0) text = text.left(sp) + QLatin1Char('\n') + text.mid(sp + 1);
+                int w = 0;
+                for (const QString& line : text.split(QLatin1Char('\n'))) w = qMax(w, fm.horizontalAdvance(line));
+                tb->setText(text);
+                tb->setToolTip(b.label); // chú thích đầy đủ tiếng Việt
+                tb->setAccessibleName(b.label);
+                tb->setMinimumHeight(66);
+                tb->setMinimumWidth(qMax(54, w + 24));
+                tb->setProperty("dungLabelWidth", w);
             }
             const QString id = b.id;
             connect(tb, &QToolButton::clicked, this, [this, id, tb] {

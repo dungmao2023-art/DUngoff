@@ -2,6 +2,7 @@
 #include "TemplatesPage.h"
 
 #include "TemplateLibrary.h"
+#include "ui/Icons.h"
 
 #include <QDesktopServices>
 #include <QDialog>
@@ -9,8 +10,13 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGridLayout>
+#include <QListWidget>
+#include <QScrollArea>
+#include <QStyle>
+#include <QEvent>
+#include <QFrame>
 #include <QHBoxLayout>
-#include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -18,7 +24,6 @@
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTextBrowser>
-#include <QTreeWidget>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -31,111 +36,271 @@ QString prettyName(QString s) {
 }
 }  // namespace
 
+namespace {
+constexpr int kCardW = 210, kCardH = 128, kGap = 14;
+const char* kAll = "__all__";
+
+QString catOf(const QString& rel) {
+    const QStringList parts = rel.split(QLatin1Char('/'));
+    return parts.size() > 1 ? prettyName(parts.first()) : QObject::tr("Khác");
+}
+}  // namespace
+
 TemplatesPage::TemplatesPage(QWidget* parent) : QWidget(parent) {
+    setObjectName(QStringLiteral("TplPage"));
+    setStyleSheet(QStringLiteral(
+        "QWidget#TplPage{background:#F4F7FC;}"
+        "QLabel#TplTitle{font-size:24px;font-weight:700;color:#17294D;}"
+        "QLabel#TplDesc{font-size:13px;color:#697992;}"
+        "QLabel#TplWarn{background:#FFF7E6;color:#7A5B00;border:1px solid #F0DDAD;border-radius:12px;padding:8px 12px;font-size:12px;}"
+        "QFrame#TplSide{background:#FFFFFF;border:1px solid #DEE5F0;border-radius:16px;}"
+        "QLabel#TplSideTitle{font-size:11px;font-weight:700;color:#8A97B4;letter-spacing:1px;}"
+        "QListWidget#TplCats{background:transparent;border:none;outline:0;font-size:13px;color:#4A5A7C;}"
+        "QListWidget#TplCats::item{padding:7px 10px;border-radius:9px;margin:1px 0;}"
+        "QListWidget#TplCats::item:hover{background:#EEF4FF;}"
+        "QListWidget#TplCats::item:selected{background:#E8F0FF;color:#17294D;font-weight:700;}"
+        "QFrame#TplCard{background:#FFFFFF;border:1px solid #DEE5F0;border-radius:16px;}"
+        "QFrame#TplCard:hover{border-color:#9DB8EE;}"
+        "QFrame#TplCard[sel=\"true\"]{border:2px solid #2864BA;background:#F5F9FF;}"
+        "QLabel#TplCardName{font-size:13px;font-weight:700;color:#17294D;}"
+        "QLabel#TplCardMeta{font-size:11px;color:#697992;}"
+        "QLabel#TplBadge{border-radius:8px;color:white;font-size:10px;font-weight:700;padding:2px 8px;}"
+        "QLineEdit#TplSearch{background:#FFFFFF;border:1px solid #DEE5F0;border-radius:12px;padding:8px 12px;font-size:13px;}"
+        "QPushButton#TplPrimary{background:#2864BA;color:white;border:0;border-radius:12px;padding:9px 16px;font-weight:700;}"
+        "QPushButton#TplPrimary:disabled{background:#B9C7E2;}"
+        "QPushButton#TplGhost{background:#FFFFFF;color:#2864BA;border:1px solid #DEE5F0;border-radius:12px;padding:9px 14px;font-weight:600;}"
+        "QPushButton#TplGhost:hover{background:#EEF4FF;}"));
     auto* v = new QVBoxLayout(this);
-    v->setContentsMargins(24, 20, 24, 16);
-    auto* title = new QLabel(tr("Thư viện mẫu"), this);
-    title->setStyleSheet(QStringLiteral("font-size:22px;font-weight:700;color:#1C2940;"));
+    v->setContentsMargins(28, 22, 28, 18);
+    v->setSpacing(10);
+
+    auto* title = new QLabel(tr("Kho mẫu"), this);
+    title->setObjectName(QStringLiteral("TplTitle"));
     v->addWidget(title);
+    m_info = new QLabel(this);
+    m_info->setObjectName(QStringLiteral("TplDesc"));
+    m_info->setWordWrap(true);
+    v->addWidget(m_info);
     auto* warn = new QLabel(tr("<b>Lưu ý:</b> đây là mẫu soạn thảo tham khảo, không phải bản gốc do cơ quan nhà nước công bố. "
                                "Với thủ tục hành chính, hồ sơ sinh viên, biểu mẫu kế toán hãy lấy bản đang được cơ quan/trường công bố "
                                "(bấm \"Nguồn chính thức\")."), this);
+    warn->setObjectName(QStringLiteral("TplWarn"));
     warn->setWordWrap(true);
-    warn->setStyleSheet(QStringLiteral("background:#FFF7E6;color:#7A5B00;border:1px solid #F0DDAD;border-radius:8px;padding:8px 12px;"));
     v->addWidget(warn);
-    m_info = new QLabel(this);
-    m_info->setStyleSheet(QStringLiteral("color:#697992;"));
-    v->addWidget(m_info);
 
     auto* row = new QHBoxLayout;
+    row->setSpacing(8);
     m_search = new QLineEdit(this);
+    m_search->setObjectName(QStringLiteral("TplSearch"));
     m_search->setPlaceholderText(tr("Tìm mẫu: hợp đồng, đơn xin nghỉ, biên bản…"));
-    auto* use = new QPushButton(tr("Tạo bản làm việc từ mẫu"), this);
-    use->setStyleSheet(QStringLiteral("QPushButton{background:#275DD6;color:white;border:0;border-radius:8px;padding:8px 14px;font-weight:700;}"));
+    m_search->setClearButtonEnabled(true);
+    m_search->addAction(dung::ui::icon(QStringLiteral("search"), QColor(0x8A, 0x97, 0xB4)), QLineEdit::LeadingPosition);
+    m_use = new QPushButton(tr("Tạo bản làm việc từ mẫu"), this);
+    m_use->setObjectName(QStringLiteral("TplPrimary"));
+    m_use->setEnabled(false);
+    m_use->setCursor(Qt::PointingHandCursor);
     auto* src = new QPushButton(tr("Nguồn chính thức"), this);
+    src->setObjectName(QStringLiteral("TplGhost"));
+    src->setCursor(Qt::PointingHandCursor);
     auto* inst = new QPushButton(tr("Cài / cập nhật gói mẫu…"), this);
+    inst->setObjectName(QStringLiteral("TplGhost"));
+    inst->setCursor(Qt::PointingHandCursor);
     row->addWidget(m_search, 1);
-    row->addWidget(use);
+    row->addWidget(m_use);
     row->addWidget(src);
     row->addWidget(inst);
     v->addLayout(row);
 
-    m_tree = new QTreeWidget(this);
-    m_tree->setColumnCount(3);
-    m_tree->setHeaderLabels({tr("Mẫu"), tr("Định dạng"), tr("Tình trạng")});
-    m_tree->header()->setStretchLastSection(false);
-    m_tree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-    m_tree->setUniformRowHeights(true);
-    v->addWidget(m_tree, 1);
+    auto* body = new QHBoxLayout;
+    body->setSpacing(14);
+    auto* side = new QFrame(this);
+    side->setObjectName(QStringLiteral("TplSide"));
+    side->setFixedWidth(220);
+    auto* sv = new QVBoxLayout(side);
+    sv->setContentsMargins(12, 12, 12, 12);
+    auto* st = new QLabel(tr("DANH MỤC"), side);
+    st->setObjectName(QStringLiteral("TplSideTitle"));
+    sv->addWidget(st);
+    m_cats = new QListWidget(side);
+    m_cats->setObjectName(QStringLiteral("TplCats"));
+    m_cats->setFrameShape(QFrame::NoFrame);
+    m_cats->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_cats->setTextElideMode(Qt::ElideNone);
+    m_cats->setWordWrap(true);
+    sv->addWidget(m_cats, 1);
+    body->addWidget(side);
 
-    connect(m_search, &QLineEdit::textChanged, this, [this] { applyFilter(); });
-    connect(use, &QPushButton::clicked, this, [this] { useSelected(); });
-    connect(m_tree, &QTreeWidget::itemDoubleClicked, this, [this] { useSelected(); });
+    auto* right = new QVBoxLayout;
+    m_count = new QLabel(this);
+    m_count->setObjectName(QStringLiteral("TplDesc"));
+    right->addWidget(m_count);
+    m_scroll = new QScrollArea(this);
+    m_scroll->setFrameShape(QFrame::NoFrame);
+    m_scroll->setWidgetResizable(true);
+    m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_scroll->setStyleSheet(QStringLiteral("QScrollArea{background:transparent;}"));
+    m_gridHost = new QWidget;
+    m_gridHost->setObjectName(QStringLiteral("TplGridHost"));
+    m_gridHost->setStyleSheet(QStringLiteral("QWidget#TplGridHost{background:transparent;}"));
+    m_grid = new QGridLayout(m_gridHost);
+    m_grid->setContentsMargins(2, 2, 2, 2);
+    m_grid->setSpacing(kGap);
+    m_grid->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    m_scroll->setWidget(m_gridHost);
+    right->addWidget(m_scroll, 1);
+    m_empty = new QLabel(this);
+    m_empty->setObjectName(QStringLiteral("TplDesc"));
+    m_empty->setAlignment(Qt::AlignCenter);
+    m_empty->setWordWrap(true);
+    m_empty->hide();
+    right->addWidget(m_empty);
+    body->addLayout(right, 1);
+    v->addLayout(body, 1);
+
+    connect(m_search, &QLineEdit::textChanged, this, [this] { rebuildCards(); });
+    connect(m_cats, &QListWidget::currentRowChanged, this, [this] { rebuildCards(); });
+    connect(m_use, &QPushButton::clicked, this, [this] { useSelected(); });
     connect(src, &QPushButton::clicked, this, [this] { showSources(); });
     connect(inst, &QPushButton::clicked, this, [this] { installPackage(); });
     reload();
 }
 
 void TemplatesPage::reload() {
-    m_tree->clear();
+    m_cards.clear();
+    m_selected.clear();
+    m_use->setEnabled(false);
+    m_cats->blockSignals(true);
+    m_cats->clear();
     const tpl::LibInfo lib = tpl::installed();
     if (!lib.valid) {
         m_root.clear();
         m_info->setText(tr("Chưa có gói mẫu. Bấm \"Cài / cập nhật gói mẫu…\" và chọn tệp .zip hoặc thư mục gói mẫu."));
+        m_cats->blockSignals(false);
+        rebuildCards();
         return;
     }
     m_root = lib.root;
     const QList<tpl::Entry> list = tpl::entries(lib);
     m_info->setText(tr("Gói: %1  •  phiên bản %2  •  %3 mẫu").arg(lib.name, lib.version).arg(list.size()));
-    QHash<QString, QTreeWidgetItem*> dirs;
+    QStringList cats;
     for (const tpl::Entry& e : list) {
-        const QStringList parts = e.relPath.split(QLatin1Char('/'));
-        QTreeWidgetItem* parent = nullptr;
-        QString key;
-        for (int i = 0; i < parts.size() - 1; ++i) {
-            key += parts[i] + QLatin1Char('/');
-            QTreeWidgetItem*& d = dirs[key];
-            if (!d) {
-                d = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(m_tree);
-                d->setText(0, prettyName(parts[i]));
-                QFont f = d->font(0);
-                f.setBold(true);
-                d->setFont(0, f);
-            }
-            parent = d;
-        }
-        auto* it = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(m_tree);
-        it->setText(0, prettyName(parts.last()));
-        it->setText(1, e.format);
-        it->setText(2, e.status);
-        it->setData(0, Qt::UserRole, e.relPath);
+        Card c;
+        c.rel = e.relPath;
+        c.category = catOf(e.relPath);
+        c.name = prettyName(e.relPath.split(QLatin1Char('/')).last());
+        c.format = e.format;
+        c.status = e.status;
+        m_cards.append(c);
+        if (!cats.contains(c.category)) cats << c.category;
     }
-    // Thư mục kỹ thuật 00_ (hướng dẫn) không cần hiện nếu rỗng; mở sẵn cấp đầu.
-    for (int i = 0; i < m_tree->topLevelItemCount(); ++i) m_tree->topLevelItem(i)->setExpanded(true);
+    auto* all = new QListWidgetItem(tr("Tất cả mẫu (%1)").arg(m_cards.size()), m_cats);
+    all->setData(Qt::UserRole, QString::fromLatin1(kAll));
+    for (const QString& c : cats) {
+        int n = 0;
+        for (const Card& k : m_cards) n += k.category == c;
+        auto* it = new QListWidgetItem(QStringLiteral("%1 (%2)").arg(c).arg(n), m_cats);
+        it->setData(Qt::UserRole, c);
+    }
+    m_cats->blockSignals(false);
+    m_cats->setCurrentRow(0);   // phát tín hiệu → rebuildCards()
+    rebuildCards();
 }
 
-static bool filterItem(QTreeWidgetItem* it, const QString& q) {
-    bool any = false;
-    for (int i = 0; i < it->childCount(); ++i) any = filterItem(it->child(i), q) || any;
-    const bool leaf = it->childCount() == 0;
-    const bool match = q.isEmpty() || it->text(0).toLower().contains(q);
-    it->setHidden(leaf ? !match : !(any || match));
-    if (!q.isEmpty() && (any)) it->setExpanded(true);
-    return leaf ? match : (any || match);
-}
-
-void TemplatesPage::applyFilter() {
+void TemplatesPage::rebuildCards() {
+    for (Card& c : m_cards) {
+        if (c.frame) { m_grid->removeWidget(c.frame); c.frame->deleteLater(); c.frame = nullptr; }
+    }
     const QString q = m_search->text().trimmed().toLower();
-    for (int i = 0; i < m_tree->topLevelItemCount(); ++i) filterItem(m_tree->topLevelItem(i), q);
+    const auto* ci = m_cats->currentItem();
+    const QString cat = ci ? ci->data(Qt::UserRole).toString() : QString::fromLatin1(kAll);
+    int shown = 0;
+    for (Card& c : m_cards) {
+        if (cat != QLatin1String(kAll) && c.category != cat) continue;
+        if (!q.isEmpty() && !c.name.toLower().contains(q) && !c.category.toLower().contains(q)) continue;
+        auto* f = new QFrame(m_gridHost);
+        f->setObjectName(QStringLiteral("TplCard"));
+        f->setFixedSize(kCardW, kCardH);
+        f->setCursor(Qt::PointingHandCursor);
+        f->setProperty("rel", c.rel);
+        f->setProperty("sel", c.rel == m_selected);
+        f->setToolTip(c.name);
+        f->installEventFilter(this);
+        auto* fl = new QVBoxLayout(f);
+        fl->setContentsMargins(14, 12, 14, 12);
+        fl->setSpacing(4);
+        auto* top = new QHBoxLayout;
+        auto* badge = new QLabel(c.format.isEmpty() ? tr("MẪU") : c.format, f);
+        badge->setObjectName(QStringLiteral("TplBadge"));
+        const bool ppt = c.format.compare(QLatin1String("PPTX"), Qt::CaseInsensitive) == 0;
+        badge->setStyleSheet(QStringLiteral("background:%1;").arg(ppt ? QStringLiteral("#C45530") : QStringLiteral("#2864BA")));
+        badge->setAttribute(Qt::WA_TransparentForMouseEvents);
+        top->addWidget(badge);
+        top->addStretch(1);
+        fl->addLayout(top);
+        auto* nm = new QLabel(c.name, f);
+        nm->setObjectName(QStringLiteral("TplCardName"));
+        nm->setWordWrap(true);
+        nm->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+        nm->setAttribute(Qt::WA_TransparentForMouseEvents);
+        fl->addWidget(nm, 1);
+        auto* meta = new QLabel(c.status.isEmpty() ? c.category : c.status, f);
+        meta->setObjectName(QStringLiteral("TplCardMeta"));
+        meta->setWordWrap(true);
+        meta->setAttribute(Qt::WA_TransparentForMouseEvents);
+        fl->addWidget(meta);
+        c.frame = f;
+        ++shown;
+    }
+    m_count->setText(tr("%1 mẫu — bấm để chọn, bấm đúp để tạo bản làm việc").arg(shown));
+    m_empty->setVisible(shown == 0);
+    if (shown == 0)
+        m_empty->setText(m_root.isEmpty() ? tr("Chưa có mẫu nào.") : tr("Không có mẫu khớp. Thử từ khoá khác hoặc chọn \"Tất cả mẫu\"."));
+    m_scroll->setVisible(shown > 0);
+    relayout();
+}
+
+void TemplatesPage::relayout() {
+    const int avail = m_scroll->viewport()->width() - 4;
+    const int cols = qMax(1, (avail + kGap) / (kCardW + kGap));
+    int i = 0;
+    for (Card& c : m_cards) {
+        if (!c.frame) continue;
+        m_grid->addWidget(c.frame, i / cols, i % cols);
+        ++i;
+    }
+}
+
+void TemplatesPage::resizeEvent(QResizeEvent* e) {
+    QWidget::resizeEvent(e);
+    relayout();
+}
+
+bool TemplatesPage::eventFilter(QObject* o, QEvent* e) {
+    auto* f = qobject_cast<QFrame*>(o);
+    if (f && f->objectName() == QLatin1String("TplCard")) {
+        if (e->type() == QEvent::MouseButtonPress) { select(f->property("rel").toString()); return true; }
+        if (e->type() == QEvent::MouseButtonDblClick) { select(f->property("rel").toString()); useSelected(); return true; }
+    }
+    return QWidget::eventFilter(o, e);
+}
+
+void TemplatesPage::select(const QString& rel) {
+    m_selected = rel;
+    for (const Card& c : m_cards) {
+        if (!c.frame) continue;
+        c.frame->setProperty("sel", c.rel == rel);
+        c.frame->style()->unpolish(c.frame);
+        c.frame->style()->polish(c.frame);
+    }
+    m_use->setEnabled(!rel.isEmpty());
 }
 
 void TemplatesPage::useSelected() {
-    auto* it = m_tree->currentItem();
-    if (!it || it->data(0, Qt::UserRole).toString().isEmpty()) {
-        QMessageBox::information(this, tr("Thư viện mẫu"), tr("Hãy chọn một mẫu (không phải tên thư mục)."));
+    if (m_selected.isEmpty()) {
+        QMessageBox::information(this, tr("Thư viện mẫu"), tr("Hãy chọn một mẫu trước."));
         return;
     }
-    const QString rel = it->data(0, Qt::UserRole).toString();
+    const QString rel = m_selected;
     const QString src = m_root + QLatin1Char('/') + rel;
     const QString ext = QFileInfo(src).suffix();
     const QString base = prettyName(QFileInfo(src).fileName());

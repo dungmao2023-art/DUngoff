@@ -63,6 +63,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle(tr("Dũng Office"));
     setAcceptDrops(true);
     resize(1280, 800);
+    setMinimumSize(0, 0);
 
     auto* central = new QWidget(this);
     central->setObjectName(QStringLiteral("Central"));
@@ -115,6 +116,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_side = new SidePanel(content);
     ch->addWidget(m_side);
     m_side->setVisible(QSettings().value(QStringLiteral("ui/workPanel"), false).toBool());
+    central->setMinimumSize(700, 520); // cho phép thu nhỏ tới chế độ gọn (<840px)
     setCentralWidget(central);
 
     // ---- Thanh trạng thái ----
@@ -229,7 +231,7 @@ QWidget* MainWindow::buildSidebar() {
     side->setAttribute(Qt::WA_StyledBackground, true);
     side->setFixedWidth(241);
     auto* v = new QVBoxLayout(side);
-    v->setContentsMargins(12, 16, 12, 12);
+    v->setContentsMargins(12, 12, 12, 10);
     v->setSpacing(0);
 
     // ---- Logo ----
@@ -268,7 +270,7 @@ QWidget* MainWindow::buildSidebar() {
     scroll->setWidget(body);
     auto* bv = new QVBoxLayout(body);
     bv->setContentsMargins(0, 0, 0, 0);
-    bv->setSpacing(2);
+    bv->setSpacing(1);
     v->addWidget(scroll, 1);
 
     auto* group = new QButtonGroup(side);
@@ -283,7 +285,7 @@ QWidget* MainWindow::buildSidebar() {
         auto* b = new QPushButton(text, body);
         b->setObjectName(QStringLiteral("NavItem"));
         b->setIcon(shell::icon(pm));
-        b->setIconSize(QSize(28, 28));
+        b->setIconSize(QSize(26, 26));
         b->setCheckable(checkable);
         b->setCursor(Qt::PointingHandCursor);
         b->setFocusPolicy(Qt::TabFocus);
@@ -380,6 +382,10 @@ void MainWindow::applyCompact(bool compact) {
 void MainWindow::resizeEvent(QResizeEvent* e) {
     QMainWindow::resizeEvent(e);
     applyCompact(width() < 840);
+    // Thẻ riêng tư chỉ hiện khi đủ chỗ (cửa sổ thấp thì ưu tiên danh sách mục, không phải cuộn).
+    if (m_sideBar)
+        if (auto* card = m_sideBar->findChild<QFrame*>(QStringLiteral("PrivacyCard")))
+            card->setVisible(!m_compact && height() >= 700);
 }
 
 void MainWindow::showPalette() {
@@ -772,6 +778,7 @@ void MainWindow::dropEvent(QDropEvent* e) {
 #include <QDir>
 #include <QFile>
 #include <QGuiApplication>
+#include <QScrollBar>
 #include <QPixmap>
 #include <QTextStream>
 
@@ -824,18 +831,27 @@ int MainWindow::captureShots(const QString& dir) {
         {"templates", [this] { showTemplates(); }},
         {"toolbox", [this] { showToolbox(); }},
         {"projects", [this] { showProjects(); }},
+        {"work", [this] { showHome(); m_side->show(); }},   // bảng Công việc · Ghi chú · Lịch · Liên hệ
     };
-    const QSize sizes[] = {{1366, 768}, {1920, 1080}, {1100, 700}, {800, 600}};
+    const QSize sizes[] = {{1366, 768}, {1280, 720}, {1920, 1080}, {1100, 700}, {800, 600}, {700, 560}};
     for (const QSize& sz : sizes) {
         resize(sz);
         show();
         for (const Page& pg : pages) {
+            const bool sideWas = m_side->isVisible();
             pg.show();
             QApplication::processEvents();
             QApplication::processEvents();
             const QString tag = QStringLiteral("%1-%2x%3").arg(QLatin1String(pg.name)).arg(sz.width()).arg(sz.height());
             grab().save(dir + QStringLiteral("/ui-") + tag + QStringLiteral(".png"));
             check(this, tag);
+            // Thanh bên phải vừa đủ, không phải cuộn (kể cả cửa sổ 720–768px cao).
+            if (auto* sc = m_sideBar->findChild<QScrollArea*>(QStringLiteral("SideScroll")))
+                if (sc->verticalScrollBar()->maximum() > 0) {
+                    log << "SIDEBAR-CUON [" << tag << "] danh sách mục phải cuộn (" << sc->verticalScrollBar()->maximum() << "px)\n";
+                    ++problems;
+                }
+            if (QLatin1String(pg.name) == QLatin1String("work")) m_side->setVisible(sideWas);
         }
         // Palette Ctrl+K
         if (sz.width() == 1366) {
@@ -847,22 +863,44 @@ int MainWindow::captureShots(const QString& dir) {
         }
     }
 
-    // Ribbon ở 4 loại tài liệu (không cần engine): dựng riêng một Ribbon.
-    for (auto k : {DocKind::Text, DocKind::Spreadsheet, DocKind::Presentation, DocKind::Drawing}) {
-        QWidget host;
-        host.setObjectName(QStringLiteral("Central"));
-        auto* hv = new QVBoxLayout(&host);
-        hv->setContentsMargins(0, 0, 0, 0);
-        auto* rb = new Ribbon(&host);
-        hv->addWidget(rb);
-        hv->addStretch(1);
-        rb->setKind(k, false);
-        host.resize(1366, 200);
-        host.show();
-        QApplication::processEvents();
-        const QString nm = k == DocKind::Text ? QStringLiteral("word") : k == DocKind::Spreadsheet ? QStringLiteral("excel")
-                          : k == DocKind::Presentation ? QStringLiteral("ppt") : QStringLiteral("pdf");
-        host.grab().save(dir + QStringLiteral("/ui-ribbon-") + nm + QStringLiteral(".png"));
+    // Ribbon ở 4 loại tài liệu × 3 bề rộng (không cần engine): dựng riêng một Ribbon.
+    for (int rw : {1366, 1100, 800}) {
+        for (auto k : {DocKind::Text, DocKind::Spreadsheet, DocKind::Presentation, DocKind::Drawing}) {
+            QWidget host;
+            host.setObjectName(QStringLiteral("Central"));
+            auto* hv = new QVBoxLayout(&host);
+            hv->setContentsMargins(0, 0, 0, 0);
+            auto* rb = new Ribbon(&host);
+            hv->addWidget(rb);
+            hv->addStretch(1);
+            rb->setKind(k, false);
+            host.resize(rw, 220);
+            host.show();
+            QApplication::processEvents();
+            const QString nm = k == DocKind::Text ? QStringLiteral("word") : k == DocKind::Spreadsheet ? QStringLiteral("excel")
+                              : k == DocKind::Presentation ? QStringLiteral("ppt") : QStringLiteral("pdf");
+            // Mỗi dòng nhãn nút phải vừa trong nút (nút luôn rộng theo nhãn) và không có dấu '…' do bị cắt.
+            for (QToolButton* tb : host.findChildren<QToolButton*>(QStringLiteral("RibbonButton"))) {
+                if (!tb->isVisibleTo(&host)) continue;
+                const QFontMetrics fm(tb->font());
+                for (const QString& line : tb->text().split(QLatin1Char('\n'))) {
+                    if (fm.horizontalAdvance(line) > tb->width() - 6) {
+                        log << "CAT-NHAN-RIBBON [" << nm << "@" << rw << "] '" << tb->toolTip() << "' dòng '" << line << "' cần "
+                            << fm.horizontalAdvance(line) << "px, nút " << tb->width() << "px\n";
+                        ++problems;
+                    }
+                }
+                if (tb->text().contains(QChar(0x2026)) && !tb->toolTip().contains(QChar(0x2026))) {
+                    log << "CAT-NHAN-RIBBON [" << nm << "@" << rw << "] nhãn có '…' nhưng chú thích đầy đủ không có: '" << tb->text() << "'\n";
+                    ++problems;
+                }
+                if (tb->toolTip().trimmed().isEmpty()) {
+                    log << "THIEU-TOOLTIP [" << nm << "@" << rw << "] nút " << tb->text() << "\n";
+                    ++problems;
+                }
+            }
+            host.grab().save(dir + QStringLiteral("/ui-ribbon-") + nm + (rw == 1366 ? QString() : QStringLiteral("-%1").arg(rw)) + QStringLiteral(".png"));
+        }
     }
     log << "TONG: " << problems << " van de\n";
     return problems;
