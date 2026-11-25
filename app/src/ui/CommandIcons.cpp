@@ -47,6 +47,7 @@ QString iconNameForCommand(const QString& id) {
         {"xl:sheetAdd", "add"}, {"xl:sheetDelete", "delete"}, {"xl:sheetDup", "slide-duplicate"}, {"xl:sheetRename", "rename"},
         {"tableTools:clean", "clear-format"}, {"tableTools:compare", "compare"}, {"tableTools:dedup", "duplicate-files"},
         // PowerPoint
+        {".uno:AssignLayout", "template"}, {".uno:FontHeight", "font-size"}, {".uno:Color", "font-color"}, {".uno:InsertTable", "table"},
         {".uno:InsertPage", "slide-new"}, {".uno:DuplicatePage", "slide-duplicate"}, {".uno:DeletePage", "delete"},
         {".uno:MovePageUp", "move-up"}, {".uno:MovePageDown", "move-down"},
         {".uno:HideSlide", "eye-off"}, {".uno:ShowSlide", "eye"},
@@ -58,7 +59,9 @@ QString iconNameForCommand(const QString& id) {
         {"pdfTools:images", "image"}, {"pdfTools:blank", "new"}, {"pdfTools:number", "page-number"}, {"pdfTools:stamp", "stamp"},
         {"pdfTools:info", "info"},
     };
-    return m.value(id);
+    // Lệnh có tham số: ".uno:Color#{...}" -> tra theo phần trước dấu #.
+    const int hash = id.indexOf(QLatin1Char('#'));
+    return m.value(hash > 0 ? id.left(hash) : id);
 }
 
 } // namespace dung::ui
