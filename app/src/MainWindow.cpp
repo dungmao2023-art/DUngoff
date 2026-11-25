@@ -3,6 +3,7 @@
 #include "ppt/PptActions.h"
 
 #include "DocumentTab.h"
+#include "ui/Icons.h"
 #include "EngineHost.h"
 #include "recovery/RecoveryDialog.h"
 #include "recovery/RecoveryStore.h"
@@ -206,41 +207,38 @@ QWidget* MainWindow::buildSidebar() {
     v->addSpacing(10);
 
     auto* group = new QButtonGroup(side);
-    auto make = [&](const QString& text, char16_t mdl2, const QString& fallback, bool checkable) {
+    auto make = [&](const QString& text, const char* iconName, bool checkable) {
         auto* b = new QToolButton(side);
         b->setObjectName(QStringLiteral("SideButton"));
-        b->setText(theme::glyph(mdl2, fallback) + QLatin1Char('\n') + text);
-        if (!theme::iconFontFamily().isEmpty()) {
-            QFont f = b->font();
-            f.setFamilies({QStringLiteral("Segoe UI"), theme::iconFontFamily()});
-            b->setFont(f);
-        }
-        b->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        b->setText(text);
+        b->setIcon(dung::ui::icon(QString::fromLatin1(iconName), Qt::white));
+        b->setIconSize(QSize(24, 24));
+        b->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
         b->setCheckable(checkable);
         b->setCursor(Qt::PointingHandCursor);
-        b->setMinimumHeight(52);
+        b->setMinimumHeight(56);
         if (checkable) group->addButton(b);
         v->addWidget(b);
         return b;
     };
-    auto* home = make(tr("Trang chủ"), 0xE80F, QStringLiteral("⌂"), true);
-    auto* docs = make(tr("Tài liệu"), 0xE8A5, QStringLiteral("▤"), true);
-    auto* tmpl = make(tr("Mẫu"), 0xE8A5, QStringLiteral("▤"), true);
-    auto* proj = make(tr("Dự án"), 0xE8F1, QStringLiteral("▦"), true);
-    auto* tools = make(tr("Công cụ"), 0xE90F, QStringLiteral("🧰"), true);
+    auto* home = make(tr("Trang chủ"), "home", true);
+    auto* docs = make(tr("Tài liệu"), "folder", true);
+    auto* tmpl = make(tr("Mẫu"), "template", true);
+    auto* proj = make(tr("Dự án"), "organize", true);
+    auto* tools = make(tr("Công cụ"), "tools", true);
     v->addSpacing(8);
-    auto* word = make(tr("Word"), 0xE8A5, QStringLiteral("W"), false);
-    auto* excel = make(tr("Excel"), 0xE80A, QStringLiteral("X"), false);
-    auto* ppt = make(tr("PowerPoint"), 0xE786, QStringLiteral("P"), false);
-    auto* pdf = make(tr("PDF"), 0xEA90, QStringLiteral("PDF"), false);
+    auto* word = make(tr("Word"), "word", false);
+    auto* excel = make(tr("Excel"), "excel", false);
+    auto* ppt = make(tr("PowerPoint"), "ppt", false);
+    auto* pdf = make(tr("PDF"), "pdf", false);
     v->addStretch(1);
-    auto* work = make(tr("Công việc"), 0xE787, QStringLiteral("📅"), false);
+    auto* work = make(tr("Công việc"), "tasks", false);
     work->setCheckable(true);
     work->setChecked(true);
     work->setToolTip(tr("Hiện/ẩn bảng Ghi chú · Lịch · Liên hệ bên phải"));
     connect(work, &QToolButton::toggled, this, [this](bool on) { m_side->setVisible(on); });
-    auto* open = make(tr("Mở tệp"), 0xE8E5, QStringLiteral("📂"), false);
-    auto* about = make(tr("Giới thiệu"), 0xE946, QStringLiteral("i"), false);
+    auto* open = make(tr("Mở tệp"), "open", false);
+    auto* about = make(tr("Giới thiệu"), "info", false);
     home->setChecked(true);
     word->setToolTip(tr("Tạo tài liệu Word mới"));
     excel->setToolTip(tr("Tạo sổ làm việc Excel mới"));

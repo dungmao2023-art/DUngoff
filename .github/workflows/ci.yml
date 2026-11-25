@@ -80,6 +80,11 @@ jobs:
           set -o pipefail
           ./build/app/dung-shottest 2>&1 | tee report/linux-shottest.log
           QT_QPA_PLATFORM=offscreen ./build/app/dung-shotwidgettest 2>&1 | tee report/linux-shotwidgettest.log
+      - name: Kiểm thử hệ biểu tượng (vẽ được, khác nhau, Disabled, HiDPI) + tờ tổng hợp PNG
+        run: |
+          set -o pipefail
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-icontest report/icons 2>&1 | tee report/linux-icontest.log
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-ribbonicontest 2>&1 | tee report/linux-ribbonicontest.log
       - name: Kiểm thử công cụ tìm tệp (tên, nội dung, chỉ mục, đo thời gian và RAM)
         run: |
           set -o pipefail
@@ -348,6 +353,16 @@ jobs:
           & $e1.FullName *>&1 | Tee-Object report/windows-shottest.log
           if ($LASTEXITCODE) { exit 1 }
           & $e2.FullName *>&1 | Tee-Object report/windows-shotwidgettest.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm thử hệ biểu tượng trên Windows (cùng bộ kiểm thử + tờ tổng hợp PNG)
+        run: |
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $e1 = Get-ChildItem build/out -Recurse -Filter dung-icontest.exe | Select-Object -First 1
+          $e2 = Get-ChildItem build/out -Recurse -Filter dung-ribbonicontest.exe | Select-Object -First 1
+          if (-not $e1 -or -not $e2) { Write-Host "::error::Không thấy tệp kiểm thử biểu tượng"; exit 1 }
+          & $e1.FullName report/icons-windows *>&1 | Tee-Object report/windows-icontest.log
+          if ($LASTEXITCODE) { exit 1 }
+          & $e2.FullName *>&1 | Tee-Object report/windows-ribbonicontest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử điền tên hàng loạt trên Windows
         run: |

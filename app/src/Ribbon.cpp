@@ -2,6 +2,7 @@
 #include "Ribbon.h"
 
 #include "Theme.h"
+#include "ui/Icons.h"
 
 #include <QFrame>
 #include <QHBoxLayout>
@@ -15,35 +16,6 @@
 #include <QVBoxLayout>
 
 using dung::DocKind;
-
-// Vẽ biểu tượng từ glyph của font icon (Segoe Fluent/MDL2) hoặc ký tự thay thế.
-static QIcon glyphIcon(const QString& glyph, bool iconFont, qreal dpr) {
-    const int px = 22;
-    QPixmap pm(QSize(px, px) * dpr);
-    pm.setDevicePixelRatio(dpr);
-    pm.fill(Qt::transparent);
-    QPainter p(&pm);
-    p.setRenderHint(QPainter::TextAntialiasing);
-    QFont f = iconFont ? QFont(theme::iconFontFamily()) : QFont(QStringLiteral("Segoe UI"));
-    f.setPixelSize(iconFont ? 18 : (glyph.size() > 2 ? 10 : 15));
-    f.setBold(!iconFont);
-    p.setFont(f);
-    p.setPen(theme::kBlueDark);
-    p.drawText(QRect(0, 0, px, px), Qt::AlignCenter, glyph);
-    p.end();
-    QIcon icon(pm);
-    // Trạng thái vô hiệu: màu xám
-    QPixmap dis(pm.size());
-    dis.setDevicePixelRatio(dpr);
-    dis.fill(Qt::transparent);
-    QPainter d(&dis);
-    d.setFont(f);
-    d.setPen(QColor(0xA0, 0xAE, 0xC0));
-    d.drawText(QRect(0, 0, px, px), Qt::AlignCenter, glyph);
-    d.end();
-    icon.addPixmap(dis, QIcon::Disabled);
-    return icon;
-}
 
 Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     setObjectName(QStringLiteral("Ribbon"));
@@ -63,7 +35,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
 }
 
 QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
-    // Biểu tượng: mã Segoe MDL2/Fluent Icons + ký tự thay thế khi không có font biểu tượng.
+    // Biểu tượng: lấy từ dung::ui::iconNameForCommand(id) (app/src/ui/CommandIcons.cpp); 2 trường glyph cũ không còn dùng.
     const Group file{tr("Tệp"), {
         {QStringLiteral("save"), tr("Lưu"), 0xE74E, QStringLiteral("💾"), false},
         {QStringLiteral("saveAs"), tr("Lưu thành"), 0xE792, QStringLiteral("⇩"), false},
@@ -285,7 +257,6 @@ QWidget* Ribbon::buildPage(const Tab& t) {
     auto* h = new QHBoxLayout(page);
     h->setContentsMargins(0, 4, 0, 0);
     h->setSpacing(6);
-    const QString iconFont = theme::iconFontFamily();
     for (int gi = 0; gi < t.groups.size(); ++gi) {
         const Group& g = t.groups[gi];
         auto* gw = new QWidget(page);
@@ -301,8 +272,7 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             tb->setCheckable(b.checkable);
             tb->setAutoRaise(true);
             tb->setFocusPolicy(Qt::NoFocus); // không lấy focus khỏi tài liệu
-            const QString g1 = iconFont.isEmpty() ? b.fallback : QString(QChar(b.mdl2));
-            tb->setIcon(glyphIcon(g1, !iconFont.isEmpty(), devicePixelRatioF()));
+            tb->setIcon(dung::ui::icon(dung::ui::iconNameForCommand(b.id), theme::kBlueDark));
             tb->setIconSize(QSize(22, 22));
             tb->setText(b.label);
             tb->setToolTip(b.label);
@@ -371,4 +341,15 @@ void Ribbon::resetStates(const QHash<QString, QString>& states) {
     for (auto it = m_buttons.begin(); it != m_buttons.end(); ++it)
         if (it.value() && it.value()->isCheckable()) it.value()->setChecked(false);
     for (auto it = states.begin(); it != states.end(); ++it) setCommandState(it.key(), it.value());
+}
+
+QStringList Ribbon::commandIds() const {
+    QStringList ids;
+    for (DocKind k : {DocKind::Text, DocKind::Spreadsheet, DocKind::Presentation, DocKind::Drawing})
+        for (bool ro : {false, true})
+            for (const Tab& t : tabsFor(k, ro))
+                for (const Group& g : t.groups)
+                    for (const Btn& b : g.buttons)
+                        if (!ids.contains(b.id)) ids << b.id;
+    return ids;
 }

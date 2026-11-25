@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MPL-2.0
+// Ánh xạ mã lệnh (ribbon, thanh bên) -> tên biểu tượng. Một chỗ duy nhất để đổi hình của một nút.
+#include "Icons.h"
+
+#include <QHash>
+
+namespace dung::ui {
+
+QString iconNameForCommand(const QString& id) {
+    static const QHash<QString, QString> m = {
+        // Tệp / ứng dụng
+        {"save", "save"}, {"saveAs", "save-as"}, {"exportPdf", "pdf"}, {"print", "print"}, {"open", "open"}, {"close", "close"},
+        {"zoomIn", "zoom-in"}, {"zoomOut", "zoom-out"}, {"zoom100", "zoom-reset"},
+        // Bộ nhớ tạm / hoàn tác
+        {"paste", "paste"}, {"cut", "cut"}, {"copy", "copy"},
+        {".uno:SelectAll", "select-all"}, {".uno:FormatPaintbrush", "format-painter"},
+        {".uno:Undo", "undo"}, {".uno:Redo", "redo"},
+        // Phông chữ / đoạn
+        {".uno:Bold", "bold"}, {".uno:Italic", "italic"}, {".uno:Underline", "underline"}, {".uno:Strikeout", "strikethrough"},
+        {".uno:SubScript", "subscript"}, {".uno:SuperScript", "superscript"}, {".uno:ResetAttributes", "clear-format"},
+        {".uno:LeftPara", "align-left"}, {".uno:CenterPara", "align-center"}, {".uno:RightPara", "align-right"}, {".uno:JustifyPara", "justify"},
+        {".uno:DefaultBullet", "bullets"}, {".uno:DefaultNumbering", "numbering"},
+        {".uno:IncrementIndent", "indent"}, {".uno:DecrementIndent", "outdent"},
+        {".uno:SpacePara1", "line-spacing"}, {".uno:SpacePara15", "line-spacing"},
+        {".uno:InsertPagebreak", "page-break"}, {".uno:InsertPageNumberField", "page-number"},
+        // Word
+        {"word:style0", "text"}, {"word:style1", "heading"}, {"word:style2", "heading"}, {"word:style3", "heading"},
+        {"word:font", "font-name"}, {"word:size", "font-size"}, {"word:color", "font-color"},
+        {"word:find", "search"}, {"word:replace", "replace"}, {"word:table", "table"}, {"word:image", "image"}, {"word:link", "link"},
+        {"word:a4", "paper-size"}, {"word:landscape", "orientation"},
+        {"word:marginNarrow", "margins"}, {"word:marginNormal", "margins"}, {"word:marginVN", "margins"},
+        {"word:count", "word-count"}, {"word:back", "back"},
+        {"word:vnDate", "calendar"}, {"word:vnMoney", "currency"}, {"word:vnSyllable", "spell"}, {"word:vnTcvn3", "transfer"},
+        // Excel
+        {".uno:AlignLeft", "align-left"}, {".uno:AlignHorizontalCenter", "align-center"}, {".uno:AlignRight", "align-right"},
+        {".uno:AlignTop", "align-top"}, {".uno:AlignVCenter", "align-middle"}, {".uno:AlignBottom", "align-bottom"},
+        {".uno:AutoSum", "sum"}, {".uno:DataFilterAutoFilter", "filter"},
+        {".uno:DeleteColumns", "col-delete"}, {".uno:DeleteRows", "row-delete"},
+        {".uno:InsertColumnsBefore", "col-insert"}, {".uno:InsertRowsBefore", "row-insert"},
+        {".uno:FreezePanes", "freeze"}, {".uno:FreezePanesColumn", "freeze"}, {".uno:FreezePanesRow", "freeze"},
+        {".uno:NumberFormatDate", "calendar"}, {".uno:NumberFormatDecDecimals", "decimal-dec"}, {".uno:NumberFormatIncDecimals", "decimal-inc"},
+        {".uno:NumberFormatPercent", "percent"}, {".uno:NumberFormatStandard", "clear-format"}, {".uno:NumberFormatThousands", "thousands"},
+        {".uno:SetOptimalColumnWidth", "col-width"}, {".uno:SortAscending", "sort"}, {".uno:SortDescending", "sort"},
+        {".uno:ToggleMergeCells", "merge-cells"}, {".uno:WrapText", "wrap-text"},
+        {"xl:colWidth", "col-width"}, {"xl:rowHeight", "row-height"}, {"xl:fillColor", "fill-color"}, {"xl:textColor", "font-color"},
+        {"xl:find", "search"}, {"xl:replace", "replace"}, {"xl:fontName", "font-name"}, {"xl:fontSize", "font-size"},
+        {"xl:sheetAdd", "add"}, {"xl:sheetDelete", "delete"}, {"xl:sheetDup", "slide-duplicate"}, {"xl:sheetRename", "rename"},
+        {"tableTools:clean", "clear-format"}, {"tableTools:compare", "compare"}, {"tableTools:dedup", "duplicate-files"},
+        // PowerPoint
+        {".uno:InsertPage", "slide-new"}, {".uno:DuplicatePage", "slide-duplicate"}, {".uno:DeletePage", "delete"},
+        {".uno:MovePageUp", "move-up"}, {".uno:MovePageDown", "move-down"},
+        {".uno:HideSlide", "eye-off"}, {".uno:ShowSlide", "eye"},
+        {"ppt.image", "image"}, {"ppt.rect", "shape"}, {"ppt.textbox", "textbox"},
+        {"ppt.show", "play"}, {"ppt.showHere", "play"}, {"ppt.transitionNote", "transition"},
+        // PDF
+        {"pdfPrev", "move-up"}, {"pdfNext", "move-down"},
+        {"pdfTools:merge", "merge-pdf"}, {"pdfTools:split", "split"}, {"pdfTools:rotate", "rotate"}, {"pdfTools:compress", "compress"},
+        {"pdfTools:images", "image"}, {"pdfTools:blank", "new"}, {"pdfTools:number", "page-number"}, {"pdfTools:stamp", "stamp"},
+        {"pdfTools:info", "info"},
+    };
+    return m.value(id);
+}
+
+} // namespace dung::ui
