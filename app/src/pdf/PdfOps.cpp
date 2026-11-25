@@ -364,6 +364,20 @@ Result extract(const Input& in, const QString& pagesSpec, const QString& dest, b
     return res;
 }
 
+Result reorder(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace) {
+    Result res;
+    const auto inf = info(in.path, in.password);
+    if (!inf.ok) { res.error = inf.error; res.needPassword = inf.needPassword; return res; }
+    QString error;
+    const auto indexes = parsePages(pagesSpec, inf.pages, &error);
+    const QSet<int> unique(indexes.begin(), indexes.end());
+    if (indexes.size() != inf.pages || unique.size() != inf.pages) {
+        res.error = error.isEmpty() ? tr("Thứ tự phải chứa đủ mọi trang, mỗi trang đúng một lần.") : error;
+        return res;
+    }
+    return extract(in, pagesSpec, dest, allowReplace);
+}
+
 Result splitEach(const Input& in, const QString& outDir) {
     Result res;
     const Info inf = info(in.path, in.password);

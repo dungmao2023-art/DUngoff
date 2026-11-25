@@ -1,10 +1,14 @@
 #define LOK_USE_UNSTABLE_API
 #include "PptActions.h"
 #include "../DocumentTab.h"
+#include "../TileView.h"
 #include "../EngineHost.h"
 #include "SlideShow.h"
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <QFileDialog>
+#include <QInputDialog>
+#include <QColorDialog>
+#include "../word/WordCommands.h"
 #include <QMessageBox>
 #include <QUrl>
 
@@ -20,10 +24,31 @@ static void dragShape(dung::Document* d, const char* uno) {
 
 bool handlePptAction(DocumentTab* tab, const QString& id) {
     if (!id.startsWith(QLatin1String("ppt."))) return false;
+    if (!tab || tab->kind() != dung::DocKind::Presentation) return true;
     dung::Document* d = tab->document();
     if (id == QLatin1String("ppt.show") || id == QLatin1String("ppt.showHere")) {
+        tab->setPptNotesMode(false);
         const int start = id == QLatin1String("ppt.show") ? 0 : d->currentPart();
-        new SlideShow(d, start);
+        new SlideShow(d, start, tab);
+    } else if (id == QLatin1String("ppt.notes") || id == QLatin1String("ppt.normal")) {
+        tab->setPptNotesMode(id == QLatin1String("ppt.notes"));
+    } else if (id == QLatin1String("ppt.fontSize")) {
+        if (d->readOnly()) return true;
+        bool ok = false;
+        const double size = QInputDialog::getDouble(tab, QObject::tr("Cỡ chữ"), QObject::tr("Điểm (pt):"), 24, 1, 400, 1, &ok);
+        if (ok) { const auto cmd = dung::word::fontSize(size); d->command(cmd.first, cmd.second); }
+        tab->view()->setFocus();
+    } else if (id == QLatin1String("ppt.textColor")) {
+        if (d->readOnly()) return true;
+        const auto color = QColorDialog::getColor(Qt::black, tab, QObject::tr("Màu chữ"));
+        if (color.isValid()) { const auto cmd = dung::word::fontColor(color.rgb()); d->command(cmd.first, cmd.second); }
+        tab->view()->setFocus();
+    } else if (id == QLatin1String("ppt.goto")) {
+        const int n = d->partCount();
+        if (n < 1) return true;
+        bool ok = false;
+        const int page = QInputDialog::getInt(tab, QObject::tr("Đến trang chiếu"), QObject::tr("Trang:"), d->currentPart() + 1, 1, n, 1, &ok);
+        if (ok) tab->stepPart(page - 1 - d->currentPart());
     } else if (id == QLatin1String("ppt.textbox")) {
         dragShape(d, ".uno:Text");
     } else if (id == QLatin1String("ppt.rect")) {
