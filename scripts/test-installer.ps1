@@ -63,8 +63,12 @@ function InstallDirFromRegistry {
   try { (Get-ItemProperty $uninstKey -ErrorAction Stop).InstallLocation } catch { $null }
 }
 
-function RunInstalledApp($tag, $exe) {
-  Say "== Chạy app đã cài [$tag] với tệp .docx mẫu"
+function RunInstalledApp($tag, $exe, [switch]$CleanDiag) {
+  Say "== Chạy app đã cài [$tag] với tệp .docx mẫu$(if ($CleanDiag) { ' (CHẨN ĐOÁN: DUNG_EXIT_CLEAN=1, không thoát cứng)' })"
+  $trace = Join-Path $env:TEMP "dung-exit-$tag.log"
+  Remove-Item $trace -ErrorAction SilentlyContinue
+  $env:DUNG_TRACE_EXIT = $trace
+  if ($CleanDiag) { $env:DUNG_EXIT_CLEAN = '1' } else { Remove-Item Env:DUNG_EXIT_CLEAN -ErrorAction SilentlyContinue }
   $p = Start-Process $exe -ArgumentList "`"$Docx`"" -PassThru
   Start-Sleep 20
   Ok (-not $p.HasExited) "[$tag] app vẫn chạy sau 20 giây (nếu thiếu DLL sẽ thoát ngay; mã thoát nếu chết: $(if ($p.HasExited) { '0x{0:X}' -f $p.ExitCode } else { '-' }))"
@@ -87,15 +91,27 @@ function RunInstalledApp($tag, $exe) {
       Say "    [$tag] sau 8 giây chưa thoát; các cửa sổ cấp cao của tiến trình:"
       ListWindows $p | ForEach-Object { Say "      $_" }
     }
-    if (-not $p.WaitForExit(22000)) {
-      Note "[$tag] app không tự thoát sau CloseMainWindow 30 giây (có thể đang hiện hộp thoại hỏi) - buộc dừng"
-      Stop-Process $p -Force
-      $script:fails++
-      Say "[LỖI] [$tag] thoát không sạch"
+    $exited = $p.WaitForExit(22000)
+    Say "    [$tag] nhật ký điểm thoát (DUNG_TRACE_EXIT):"
+    if (Test-Path $trace) { Get-Content $trace | ForEach-Object { Say "      $_" } } else { Say "      (không có tệp nhật ký)" }
+    if (-not $exited) {
+      if ($CleanDiag) {
+        Note "[$tag] CHẨN ĐOÁN: đường thoát bình thường (không thoát cứng) treo - xem nhật ký trên để biết bước cuối; buộc dừng"
+        Stop-Process $p -Force
+      } else {
+        Note "[$tag] app không tự thoát sau CloseMainWindow 30 giây (có thể đang hiện hộp thoại hỏi) - buộc dừng"
+        Stop-Process $p -Force
+        $script:fails++
+        Say "[LỖI] [$tag] thoát không sạch"
+      }
+    } elseif ($CleanDiag) {
+      Note "[$tag] CHẨN ĐOÁN: đường thoát bình thường tự thoát, mã $($p.ExitCode)"
     } else {
       Ok ($p.ExitCode -eq 0) "[$tag] app thoát sạch, mã $($p.ExitCode)"
     }
   }
+  Remove-Item Env:DUNG_TRACE_EXIT -ErrorAction SilentlyContinue
+  Remove-Item Env:DUNG_EXIT_CLEAN -ErrorAction SilentlyContinue
 }
 
 function ListWindows($p) {
@@ -193,6 +209,7 @@ Ok (Test-Path -LiteralPath $desktopLnk) "[full] lối tắt màn hình nền"
 Ok ((LnkTarget $desktopLnk) -eq "$dir1\DungOffice.exe") "[full] lối tắt màn hình nền trỏ đúng"
 
 RunInstalledApp "full" "$dir1\DungOffice.exe"
+RunInstalledApp "fulldiag" "$dir1\DungOffice.exe" -CleanDiag
 
 # Gỡ
 Uninstall "full" $dir1

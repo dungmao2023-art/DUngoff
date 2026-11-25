@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 #define LOK_USE_UNSTABLE_API
+#include <atomic>
 #include "dung/Engine.h"
 
 #include <cassert>
@@ -671,7 +672,12 @@ std::unique_ptr<Document> Engine::createNew(DocKind kind, std::string* error) {
 }
 
 // ---------------------------------------------------------------- Document
+namespace { std::atomic<int> g_liveDocs{0}; }
+int liveDocumentCount() { return g_liveDocs.load(); }
+Document::Document() { ++g_liveDocs; }
+
 Document::~Document() {
+    --g_liveDocs;
     if (m_doc) {
         onEngine([&] {
             m_doc->registerCallback(nullptr, nullptr);

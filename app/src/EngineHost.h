@@ -30,6 +30,7 @@ signals:
 
 private:
     EngineHost() = default;
+    ~EngineHost() override;
     std::unique_ptr<dung::Engine> m_engine;
     QString m_error;
     QString m_programDir;
