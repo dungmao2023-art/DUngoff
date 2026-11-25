@@ -22,7 +22,8 @@ int main() {
     fs::remove_all(root, ec);
     fs::create_directories(root / "ok", ec);
     fs::create_directories(root / "lonely", ec);
-    fs::create_directories(root / "space dir" / "tiếng Việt", ec);
+    const fs::path vnDir = root / "space dir" / fs::u8path("ti\xE1\xBA\xBFng Vi\xE1\xBB\x87t");   // UTF-8 tường minh (MSVC không mặc định /utf-8)
+    fs::create_directories(vnDir, ec);
 
     check(dung::Engine::viDictionaryRegistryXml(root / "khong-co").empty(), "thư mục không tồn tại -> khối rỗng");
     check(dung::Engine::viDictionaryRegistryXml(fs::path()).empty(), "đường dẫn rỗng -> khối rỗng");
@@ -43,8 +44,8 @@ int main() {
     check(x.find("vi-DauCu") < x.find("vi-DauMoi"), "thứ tự xác định (DauCu trước)");
     check(!has(x, "README"), "không đăng ký tệp không phải từ điển");
 
-    touch(root / "space dir" / "tiếng Việt" / "vi_x&y.dic"); touch(root / "space dir" / "tiếng Việt" / "vi_x&y.aff");
-    const std::string y = dung::Engine::viDictionaryRegistryXml(root / "space dir" / "tiếng Việt");
+    touch(vnDir / "vi_x&y.dic"); touch(vnDir / "vi_x&y.aff");
+    const std::string y = dung::Engine::viDictionaryRegistryXml(vnDir);
     check(!y.empty(), "đường dẫn có dấu cách và tiếng Việt vẫn đăng ký");
     check(!has(y, "x&y") && !has(y, "& "), "ký tự & không lọt thô vào XML (đã mã hoá %26 trong URL)");
     check(has(y, "x%26y"), "tên có & được mã hoá URL");
