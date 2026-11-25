@@ -1,0 +1,82 @@
+name: macro1287
+# THÍ NGHIỆM (nhánh exp/macro-1287, KHÔNG merge): chẩn đoán runMacro lỗi 1287 trên engine Windows.
+on:
+  workflow_dispatch:
+  push:
+    branches: [exp/macro-1287]
+env:
+  QT_VERSION: "6.8.3"
+  NEW_TAG: "engine-26.8.3.2-headless"
+  NEW_SHA: "cb7664001dfb51a31467f2b1849e294e6564d607a91baea5c4efa215010ad492"
+  OLD_TAG: "engine-26.8.3.1-headless"
+  OLD_SHA: "03261237878855c27013ff81ba03d766fd794ff49f88d711a013747f7325cac1"
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Cài Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: win64_msvc2022_64
+          modules: qtpdf
+          cache: true
+      - name: Tải hai engine (mới và cũ)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force report | Out-Null
+          ./scripts/fetch-engine.ps1 -Tag $env:NEW_TAG -Sha256 $env:NEW_SHA -OutDir build/lo-new
+          ./scripts/fetch-engine.ps1 -Tag $env:OLD_TAG -Sha256 $env:OLD_SHA -OutDir build/lo-old
+          Get-ChildItem build/lo-new/engine/program/mergedlo.dll, build/lo-old/engine/program/mergedlo.dll | ForEach-Object { "{0} {1}" -f $_.FullName, $_.Length }
+      - name: Build dung-smoketest
+        run: |
+          cmake -S . -B build/out -G Ninja -DCMAKE_BUILD_TYPE=Release -DDUNG_ENGINE_ROOT="$PWD/build/lo-new/engine" *>&1 | Out-Null
+          cmake --build build/out --target dung-smoketest --parallel *>&1 | Select-Object -Last 15
+          if (-not (Test-Path build/out/dung-smoketest.exe)) { $x = Get-ChildItem build/out -Recurse -Filter dung-smoketest.exe | Select-Object -First 1; "tìm thấy: $($x.FullName)"; if (-not $x) { exit 1 } }
+      - name: Thí nghiệm ma trận (engine x mức bảo mật x URL x SAL_LOG)
+        continue-on-error: true
+        run: |
+          $exe = (Get-ChildItem build/out -Recurse -Filter dung-smoketest.exe | Select-Object -First 1).FullName
+          $variants = @(
+            @{n="new-base";      e="new"; sec="";     macro="";                                   log=$false},
+            @{n="old-base";      e="old"; sec="";     macro="";                                   log=$false},
+            @{n="new-secnone";   e="new"; sec="none"; macro="";                                   log=$false},
+            @{n="old-secnone";   e="old"; sec="none"; macro="";                                   log=$false},
+            @{n="new-sec0";      e="new"; sec="0";    macro="";                                   log=$false},
+            @{n="new-noop";      e="new"; sec="";     macro="macro:///Standard.DungApi.Noop";     log=$false},
+            @{n="new-noop-none"; e="new"; sec="none"; macro="macro:///Standard.DungApi.Noop";     log=$false},
+            @{n="new-alive-none";e="new"; sec="none"; macro="macro:///Standard.DungApi.Alive";    log=$true},
+            @{n="new-module1";   e="new"; sec="none"; macro="macro:///Standard.Module1.Main";     log=$false},
+            @{n="new-tools";     e="new"; sec="none"; macro="macro:///Tools.Misc.Wait?";         log=$false}
+          )
+          foreach ($v in $variants) {
+            "=================== $($v.n)" 
+            Remove-Item Env:DUNG_API_SECLEVEL, Env:DUNG_API_MACRO, Env:SAL_LOG -ErrorAction SilentlyContinue
+            if ($v.sec)   { $env:DUNG_API_SECLEVEL = $v.sec }
+            if ($v.macro) { $env:DUNG_API_MACRO = $v.macro }
+            if ($v.log)   { $env:SAL_LOG = "+WARN+INFO.sfx+INFO.basic+INFO.sfx.appl+INFO.desktop.lib" }
+            $out = "smoke-$($v.n)"; $lo = "$PWD/build/lo-$($v.e)/engine/program"
+            $p = Start-Process $exe -ArgumentList @("--program", $lo, "--api", "1", "--out", "$PWD/$out") -PassThru -NoNewWindow -RedirectStandardOutput "report/$($v.n).log" -RedirectStandardError "report/$($v.n).err.log"
+            if (-not $p.WaitForExit(150 * 1000)) { Stop-Process $p -Force; "TREO" }
+            "-- exit $($p.ExitCode); ĐẠT/LỖI đếm:"
+            $txt = Get-Content "report/$($v.n).log" -ErrorAction SilentlyContinue
+            "ĐẠT: " + @($txt | Where-Object { $_ -match '^\[ĐẠT\]' }).Count + "  LỖI: " + @($txt | Where-Object { $_ -match '^\[LỖI\]' }).Count
+            $txt | Where-Object { $_ -match 'ping' } | Select-Object -First 2 | ForEach-Object { $_.Substring(0, [Math]::Min(420, $_.Length)) }
+            foreach ($f in "basic-alive.txt","basic-error.txt","result.json") { $q = "$out/profile/user/dung-api/$f"; if (Test-Path $q) { "  [$f] " + ((Get-Content $q -TotalCount 3) -join ' | ') } else { "  (không có $f)" } }
+            "  hồ sơ basic: " + ((Get-ChildItem "$out/profile/user/basic" -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { "$($_.Name)=$($_.Length)" }) -join ' ')
+            if ($v.log) { "-- SAL_LOG (lọc, 60 dòng đầu)"; Get-Content "report/$($v.n).err.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'sfx|basic|macro|Macro|script|1287|security|Security' } | Select-Object -First 60 | ForEach-Object { $_.Substring(0, [Math]::Min(300, $_.Length)) } }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macro1287-report
+          path: report/

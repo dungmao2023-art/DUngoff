@@ -397,6 +397,17 @@ const char kBasicModule[] =
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
     "<!DOCTYPE script:module PUBLIC \"-//OpenOffice.org//DTD OfficeDocument 1.0//EN\" \"module.dtd\">\n"
     "<script:module xmlns:script=\"http://openoffice.org/2000/script\" script:name=\"DungApi\" script:language=\"StarBasic\">"
+    "Sub Noop\n"
+    "End Sub\n"
+    "Sub Alive\n"
+    "  Dim hb2 As Object, hu2 As String, hn2 As Integer\n"
+    "  hb2 = CreateUnoService(\"com.sun.star.util.PathSubstitution\")\n"
+    "  hu2 = hb2.substituteVariables(\"$(user)/dung-api/basic-alive.txt\", True)\n"
+    "  hn2 = FreeFile\n"
+    "  Open hu2 For Output As #hn2\n"
+    "  Print #hn2, \"vao Alive\"\n"
+    "  Close #hn2\n"
+    "End Sub\n"
     "Sub Run\n"
     "  On Error GoTo Fail\n"
     "  Dim hb As Object, hu As String, hn As Integer\n"
@@ -451,9 +462,13 @@ void installDungScripts(const fs::path& profileDir) {
     { std::ifstream f(xcu, std::ios::binary); cur.assign(std::istreambuf_iterator<char>(f), {}); }
     const std::string marker = "DUNG-MACRO-SECURITY";
     if (cur.find(marker) != std::string::npos) return;
+    // THÍ NGHIỆM (exp/macro-1287): DUNG_API_SECLEVEL = none | 0..3
+    std::string lvl = "3";
+    if (const char* e = std::getenv("DUNG_API_SECLEVEL"); e && *e) lvl = e;
+    if (lvl == "none") return;
     const std::string item =
         "<!-- " + marker + " --><item oor:path=\"/org.openoffice.Office.Common/Security/Scripting\" "
-        "oor:name=\"MacroSecurityLevel\" oor:op=\"fuse\"><value>3</value></item>\n";
+        "oor:name=\"MacroSecurityLevel\" oor:op=\"fuse\"><value>" + lvl + "</value></item>\n";
     const size_t at = cur.rfind("</oor:items>");
     if (cur.empty() || at == std::string::npos) {
         cur = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<oor:items xmlns:oor=\"http://openoffice.org/2001/registry\" "
@@ -1327,6 +1342,15 @@ ScriptResult Document::callScript(const std::string& fn, const std::string& args
                     "macro:///Standard.DungApi.Run",
                     "macro:///Standard.DungApi.Run()",
                     "vnd.sun.star.script:Standard.DungApi.Run?language=Basic&location=application"};
+                static const char* const kOverride = std::getenv("DUNG_API_MACRO");
+                if (kOverride && *kOverride) {
+                    const bool r = office->runMacro(kOverride);
+                    char* err = office->getError();
+                    *diag += std::string(kOverride) + " -> " + (r ? "true" : "false");
+                    if (err) { if (*err) *diag += std::string(" [") + err + "]"; std::free(err); }
+                    *diag += "; ";
+                    return r;
+                }
                 for (const char* u : urls) {
                     const bool r = office->runMacro(u);
                     char* err = office->getError();
