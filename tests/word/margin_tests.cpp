@@ -380,11 +380,21 @@ void roundTrip(dung::Engine& eng, dung::Document& src, const QString& tag, const
     check(!t0.isEmpty() ? t0 == t1 : true, "[" + tag + "] toàn bộ chữ trước/sau khi đặt lề giống hệt", QString("%1 / %2 ký tự").arg(t0.size()).arg(t1.size()));
 }
 
+// Thoát ngay, bỏ qua bước dọn dẹp của các DLL: trên Windows, ExitProcess (do std::_Exit gọi) chạy DLL_PROCESS_DETACH của
+// LibreOffice/Qt khi engine còn sống và làm tiến trình sập (0xC0000005) SAU khi mọi kiểm tra đã in kết quả (CI vòng 2 và 3).
+[[noreturn]] void hardExit(int code) {
+    std::cout.flush();
+#ifdef _WIN32
+    TerminateProcess(GetCurrentProcess(), UINT(code));
+#endif
+    std::_Exit(code);
+}
+
 void watchdog(int seconds) {
     std::thread([seconds] {
         std::this_thread::sleep_for(std::chrono::seconds(seconds));
         std::cout << "[LỖI]  TREO quá " << seconds << " giây\n\nKẾT QUẢ ĐẶT LỀ: CÓ LỖI (treo)" << std::endl;
-        std::_Exit(3);
+        hardExit(3);
     }).detach();
 }
 
@@ -456,7 +466,7 @@ int main(int argc, char** argv) {
         testEngine(program, out, realDocx);
         std::cout << (g_fail ? "\nKẾT QUẢ ĐẶT LỀ: CÓ LỖI\n" : "\nKẾT QUẢ ĐẶT LỀ: TẤT CẢ ĐẠT\n");
         std::cout.flush();
-        std::_Exit(g_fail ? 1 : 0);   // engine (LibreOffice) có thể treo khi huỷ: thoát thẳng
+        hardExit(g_fail ? 1 : 0);   // engine (LibreOffice) có thể treo/sập khi huỷ: thoát thẳng
     }
     std::cout << (g_fail ? "\nKẾT QUẢ ĐẶT LỀ: CÓ LỖI\n" : "\nKẾT QUẢ ĐẶT LỀ: TẤT CẢ ĐẠT\n");
     return g_fail ? 1 : 0;
