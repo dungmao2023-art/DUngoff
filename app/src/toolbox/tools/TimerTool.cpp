@@ -122,4 +122,4 @@ QWidget* createTimerWidget(QWidget* parent) { return new TimerWidget(parent); }
 } // namespace
 
 // Toàn bộ việc "thêm công cụ" nằm ở dòng này (+ 1 dòng trong toolbox.cmake).
-DUNG_REGISTER_TOOL(dong_ho, "Đồng hồ", "Bấm giờ và đếm ngược", "Tiện ích", "⏱", createTimerWidget)
+DUNG_REGISTER_TOOL(dong_ho, "Đồng hồ", "Bấm giờ và đếm ngược", "Tiện ích", "timer", createTimerWidget)

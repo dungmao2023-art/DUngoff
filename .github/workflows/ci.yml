@@ -80,6 +80,11 @@ jobs:
           set -o pipefail
           ./build/app/dung-shottest 2>&1 | tee report/linux-shottest.log
           QT_QPA_PLATFORM=offscreen ./build/app/dung-shotwidgettest 2>&1 | tee report/linux-shotwidgettest.log
+      - name: Kiểm thử hệ biểu tượng (vẽ được, khác nhau, Disabled, HiDPI) + tờ tổng hợp PNG
+        run: |
+          set -o pipefail
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-icontest report/icons 2>&1 | tee report/linux-icontest.log
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-ribbonicontest 2>&1 | tee report/linux-ribbonicontest.log
       - name: Kiểm thử công cụ tìm tệp (tên, nội dung, chỉ mục, đo thời gian và RAM)
         run: |
           set -o pipefail
@@ -196,6 +201,13 @@ jobs:
         run: |
           set -o pipefail
           QT_QPA_PLATFORM=offscreen ./build/app/dung-keymaptest 2>&1 | tee report/linux-keymaptest.log
+      - name: Kiểm thử con trỏ nhập liệu / khung ô (đơn vị + TileView thật trên engine, so điểm ảnh BẬT/TẮT)
+        run: |
+          set -o pipefail
+          mkdir -p caret-out
+          DUNG_TRACE_CARET="$PWD/caret-out/trace.log" QT_QPA_PLATFORM=offscreen ./build/app/dung-carettest --program /usr/lib/libreoffice/program --out caret-out \
+            --docx fixtures/mau-van-ban.docx --xlsx fixtures/mau-doanh-thu.xlsx --pptx fixtures/mau-trinh-chieu.pptx 2>&1 | tee report/linux-carettest.log
+          cp caret-out/trace.log report/linux-carettest-trace.log 2>/dev/null || true
       - name: Kiểm thử cập nhật (SHA-256, phiên bản, URL) và một phiên duy nhất
         run: |
           set -o pipefail
@@ -366,6 +378,16 @@ jobs:
           & $e1.FullName *>&1 | Tee-Object report/windows-shottest.log
           if ($LASTEXITCODE) { exit 1 }
           & $e2.FullName *>&1 | Tee-Object report/windows-shotwidgettest.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm thử hệ biểu tượng trên Windows (cùng bộ kiểm thử + tờ tổng hợp PNG)
+        run: |
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $e1 = Get-ChildItem build/out -Recurse -Filter dung-icontest.exe | Select-Object -First 1
+          $e2 = Get-ChildItem build/out -Recurse -Filter dung-ribbonicontest.exe | Select-Object -First 1
+          if (-not $e1 -or -not $e2) { Write-Host "::error::Không thấy tệp kiểm thử biểu tượng"; exit 1 }
+          & $e1.FullName report/icons-windows *>&1 | Tee-Object report/windows-icontest.log
+          if ($LASTEXITCODE) { exit 1 }
+          & $e2.FullName *>&1 | Tee-Object report/windows-ribbonicontest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử điền tên hàng loạt trên Windows
         run: |
@@ -560,6 +582,17 @@ jobs:
           $env:QT_QPA_PLATFORM = "offscreen"
           & $exe.FullName *>&1 | Tee-Object report/windows-keymaptest.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm thử con trỏ nhập liệu / khung ô trên Windows (engine thật, offscreen)
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-carettest.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host "::error::Không thấy dung-carettest.exe"; exit 1 }
+          New-Item -ItemType Directory -Force caret-out | Out-Null
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:DUNG_TRACE_CARET = "$PWD/caret-out/trace.log"
+          & $exe.FullName --program "$PWD/build/lo/engine/program" --out "$PWD/caret-out" --docx fixtures/mau-van-ban.docx --xlsx fixtures/mau-doanh-thu.xlsx --pptx fixtures/mau-trinh-chieu.pptx *>&1 | Tee-Object report/windows-carettest.log
+          $rc = $LASTEXITCODE
+          if (Test-Path caret-out/trace.log) { Copy-Item caret-out/trace.log report/windows-carettest-trace.log }
+          if ($rc) { exit 1 }
       - name: Kiểm thử cập nhật (SHA-256, phiên bản, URL) và một phiên duy nhất trên Windows
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-updatetest.exe | Select-Object -First 1

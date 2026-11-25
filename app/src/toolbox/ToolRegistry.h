@@ -17,7 +17,7 @@ struct ToolInfo {
     QString name;        // tên hiển thị
     QString description; // một dòng mô tả
     QString category;    // nhóm hiển thị
-    QString iconText;    // ký tự/emoji trên thẻ
+    QString iconText;    // tên icon của dung::ui (xem docs/ICONS.md); nếu không phải tên icon thì hiện như chữ
     std::function<QWidget*(QWidget*)> create; // tạo giao diện của công cụ (con của tham số)
     bool external = false;                    // true nếu là tool ngoài (tool.json)
 };
@@ -48,7 +48,7 @@ void clearForTest();
 } // namespace toolbox
 
 // Đăng ký một công cụ ngay trong tệp .cpp của nó. ID là một định danh C++ (chữ thường/số/_).
-// Ví dụ:  DUNG_REGISTER_TOOL(dem_gio, "Đồng hồ đếm giờ", "Bấm giờ và đếm ngược", "Tiện ích", "⏱", createTimerWidget)
+// Ví dụ:  DUNG_REGISTER_TOOL(dem_gio, "Đồng hồ đếm giờ", "Bấm giờ và đếm ngược", "Tiện ích", "timer", createTimerWidget)
 #define DUNG_REGISTER_TOOL(ID, NAME, DESC, CATEGORY, ICON, CREATE_FN)                                     \
     namespace {                                                                                            \
     const bool dungToolRegistered_##ID = toolbox::registerTool(                                            \

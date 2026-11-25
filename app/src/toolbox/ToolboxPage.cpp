@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
+#include "../Theme.h"
+#include "../ui/Icons.h"
 #include "ToolboxPage.h"
 
 #include "ExternalTool.h"
@@ -139,7 +141,7 @@ void ToolboxPage::rebuild() {
         ti.name = s.name;
         ti.description = s.description;
         ti.category = s.category;
-        ti.iconText = QStringLiteral("⚙");
+        ti.iconText = QStringLiteral("settings");
         ti.external = true;
         list << ti;
     }
@@ -166,10 +168,23 @@ void ToolboxPage::rebuild() {
         auto* cl = new QVBoxLayout(card);
         cl->setContentsMargins(14, 10, 34, 10);
         cl->setSpacing(2);
-        auto* nm = new QLabel(t.iconText + QStringLiteral("  ") + t.name, card);
+        const QIcon tic = dung::ui::iconOrEmpty(t.iconText, theme::kBlue);
+        auto* nm = new QLabel(card);
+        if (!tic.isNull()) {  // icon vector chung đặt cạnh tên
+            auto* row = new QHBoxLayout;
+            auto* il = new QLabel(card);
+            il->setPixmap(tic.pixmap(QSize(22, 22)));
+            il->setFixedSize(24, 24);
+            row->addWidget(il);
+            nm->setText(t.name);
+            row->addWidget(nm, 1);
+            cl->addLayout(row);
+        } else {
+            nm->setText(t.iconText + QStringLiteral("  ") + t.name);
+            cl->addWidget(nm);
+        }
         nm->setStyleSheet(QStringLiteral("font-weight:700;font-size:13px;color:#17294D;"));
         nm->setWordWrap(true);
-        cl->addWidget(nm);
         if (!t.description.isEmpty()) {
             auto* ds = new QLabel(t.description, card);
             ds->setStyleSheet(QStringLiteral("font-size:11px;color:#6B7A99;"));
