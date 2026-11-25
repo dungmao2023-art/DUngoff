@@ -397,7 +397,9 @@ jobs:
             $q = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--templates", "aptos-tpl", "--out", "$PWD/fontvar/$v") -PassThru -NoNewWindow `
                    -RedirectStandardOutput "report/windows-aptos-$v.log" -RedirectStandardError "report/windows-aptos-$v.err.log"
             if (-not $q.WaitForExit(10 * 60 * 1000)) { $q.Kill(); "TREO" | Add-Content report/windows-aptos-variants.log }
-            python tests/templates/check_aptos.py aptos-tpl "fontvar/$v" *>&1 | Tee-Object -Append report/windows-aptos-variants.log
+            # v5 (Always=false) là đối chứng âm tính: đã biết KHÔNG áp dụng thay phông; phủ chữ thấp là kết quả mong đợi
+            $ctl = @(); if ($v -eq "v5") { $ctl = @("--control") }
+            python tests/templates/check_aptos.py aptos-tpl "fontvar/$v" @ctl *>&1 | Tee-Object -Append report/windows-aptos-variants.log
           }
           python tests/templates/check_aptos.py aptos-tpl smoke-aptos *>&1 | Out-Null
           if ($LASTEXITCODE) { exit 1 }
