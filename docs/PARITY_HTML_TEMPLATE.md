@@ -6,7 +6,7 @@ Quy ước cột "Trạng thái": **Có** = có trong mã và có kiểm thử/t
 Không dòng nào dưới đây dựa vào giả định chưa kiểm: chỗ chưa chạy thật trên thiết bị được ghi "chưa thử trên máy thật".
 
 ## Lưu ý về bản HTML
-Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và coi một số hàm (FILTER, SORT, UNIQUE, TEXT, DATE, NETWORKDAYS, PMT, NPV, IRR, ROUNDUP, ROUNDDOWN) là `unsupported` — **chỉ vì bộ tính công thức viết bằng JS của HTML không có**. Ứng dụng Qt dùng bộ tính của LibreOffice nên đã có các hàm này; danh mục "Tôi muốn" đưa chúng vào, và bước CI `--excel` ghi kết quả thăm dò thật trên engine (xem `report/linux-excel.log`, mục "Thăm dò").
+Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và coi một số hàm (FILTER, SORT, UNIQUE, TEXT, DATE, NETWORKDAYS, PMT, NPV, IRR, ROUNDUP, ROUNDDOWN) là `unsupported` — **chỉ vì bộ tính công thức viết bằng JS của HTML không có**. Ứng dụng Qt dùng bộ tính của LibreOffice nên có sẵn hầu hết các hàm này. **Kết quả thăm dò thật** (CI run 45611673917, engine Linux của CI): chạy đúng SUM/IF (cả dấu `,` lẫn `;`), ROUNDUP, ROUNDDOWN, TEXT, DATE, NETWORKDAYS, DATEDIF, PMT, NPV, IRR, COUNTIF, SUMPRODUCT, VLOOKUP; **XLOOKUP, FILTER, SORT, UNIQUE trả `#NAME?`** (engine đó chưa có). Chưa thăm dò trên engine Windows 26.8.3 của bản cài. Danh mục đánh dấu 4 hàm này là "mới" và cảnh báo trong giao diện.
 
 ## Bảng đối chiếu
 

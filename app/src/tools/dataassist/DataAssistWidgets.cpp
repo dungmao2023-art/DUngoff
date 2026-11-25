@@ -93,7 +93,7 @@ private:
         if (r < 0 || r >= shown_.size()) return;
         cur_ = shown_[r];
         desc_->setText(QStringLiteral("<b>%1</b> (%2): %3<br>Ví dụ: <code>%4</code>%5").arg(cur_->name, categoryName(cur_->cat), cur_->description, cur_->example.toHtmlEscaped(),
-            cur_->newerEngineOnly ? QStringLiteral("<br><i>Hàm mới: tệp lưu .xlsx có thể không mở được trên Excel đời cũ.</i>") : QString()));
+            cur_->newerEngineOnly ? QStringLiteral("<br><i>Hàm mảng động/mới: engine kiểm thử Linux của dự án trả #NAME? cho hàm này; chưa kiểm trên engine Windows. Nếu ô báo #NAME? thì engine chưa hỗ trợ — không phải lỗi của bạn.</i>") : QString()));
         for (const ArgInfo &a : cur_->args) {
             auto *e = new QLineEdit; e->setPlaceholderText(a.hint);
             edits_.push_back(e);
