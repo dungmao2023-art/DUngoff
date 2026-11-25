@@ -5,6 +5,7 @@
 #include "dung/FormatPolicy.h"
 
 #include <QHash>
+#include <QStringList>
 #include <QPointer>
 #include <QWidget>
 
@@ -19,6 +20,7 @@ public:
     void setKind(dung::DocKind kind, bool readOnly);
     void setCommandState(const QString& cmd, const QString& value);
     void resetStates(const QHash<QString, QString>& states);
+    QStringList commandIds() const;  // mọi id nút trên mọi ribbon (dùng cho kiểm thử icon)
 
 signals:
     void unoCommand(const QString& cmd);

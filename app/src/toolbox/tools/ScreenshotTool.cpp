@@ -3,4 +3,4 @@
 #include "../ToolRegistry.h"
 #include "../../tools/screenshot/ScreenshotWidget.h"
 
-DUNG_REGISTER_TOOL(chup_man_hinh, "Chụp màn hình", "Chụp vùng/cửa sổ/toàn màn hình, chú thích, làm mờ thông tin nhạy cảm", "Tiện ích", "📷", createScreenshotWidget)
+DUNG_REGISTER_TOOL(chup_man_hinh, "Chụp màn hình", "Chụp vùng/cửa sổ/toàn màn hình, chú thích, làm mờ thông tin nhạy cảm", "Tiện ích", "screenshot", createScreenshotWidget)

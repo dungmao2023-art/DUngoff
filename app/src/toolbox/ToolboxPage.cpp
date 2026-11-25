@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
+#include "../Theme.h"
+#include "../ui/Icons.h"
 #include "ToolboxPage.h"
 
 #include "ExternalTool.h"
@@ -108,7 +110,7 @@ void ToolboxPage::rebuild() {
         ti.name = s.name;
         ti.description = s.description;
         ti.category = s.category;
-        ti.iconText = QStringLiteral("⚙");
+        ti.iconText = QStringLiteral("settings");
         ti.external = true;
         list << ti;
     }
@@ -130,8 +132,16 @@ void ToolboxPage::rebuild() {
         auto* wl = new QGridLayout(wrap);
         wl->setContentsMargins(0, 0, 0, 0);
         auto* card = new QToolButton(wrap);
-        card->setToolButtonStyle(Qt::ToolButtonTextOnly);
-        card->setText(t.iconText + QStringLiteral("  ") + t.name + (t.description.isEmpty() ? QString() : QStringLiteral("\n") + t.description));
+        const QIcon ic = dung::ui::iconOrEmpty(t.iconText, theme::kBlue);
+        if (!ic.isNull()) {
+            card->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+            card->setIcon(ic);
+            card->setIconSize(QSize(28, 28));
+            card->setText(QStringLiteral("  ") + t.name + (t.description.isEmpty() ? QString() : QStringLiteral("\n  ") + t.description));
+        } else {
+            card->setToolButtonStyle(Qt::ToolButtonTextOnly);
+            card->setText(t.iconText + QStringLiteral("  ") + t.name + (t.description.isEmpty() ? QString() : QStringLiteral("\n") + t.description));
+        }
         card->setCursor(Qt::PointingHandCursor);
         card->setMinimumSize(210, 74);
         card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);

@@ -2,6 +2,7 @@
 #include "HomePage.h"
 
 #include "Theme.h"
+#include "ui/Icons.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -11,11 +12,13 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
-static QPushButton* makeTile(const QString& title, const QString& sub, const QColor& accent, QWidget* parent) {
+static QPushButton* makeTile(const QString& title, const QString& sub, const QColor& accent, const char* iconName, QWidget* parent) {
     auto* b = new QPushButton(parent);
     b->setObjectName(QStringLiteral("Tile"));
     b->setCursor(Qt::PointingHandCursor);
     b->setText(title + QLatin1Char('\n') + sub);
+    b->setIcon(dung::ui::icon(QString::fromLatin1(iconName), accent));
+    b->setIconSize(QSize(32, 32));
     b->setStyleSheet(QStringLiteral("QPushButton#Tile{border-left:5px solid %1;}").arg(accent.name()));
     return b;
 }
@@ -40,10 +43,10 @@ HomePage::HomePage(QWidget* parent) : QWidget(parent) {
 
     auto* grid = new QGridLayout;
     grid->setHorizontalSpacing(14);
-    auto* excel = makeTile(tr("Excel"), tr("Sổ làm việc trống"), theme::kExcel, this);
-    auto* word = makeTile(tr("Word"), tr("Tài liệu trống"), theme::kWord, this);
-    auto* ppt = makeTile(tr("PowerPoint"), tr("Bản trình chiếu trống"), theme::kPowerPoint, this);
-    auto* pdf = makeTile(tr("PDF"), tr("Mở và xem tệp PDF"), theme::kPdf, this);
+    auto* excel = makeTile(tr("Excel"), tr("Sổ làm việc trống"), theme::kExcel, "excel", this);
+    auto* word = makeTile(tr("Word"), tr("Tài liệu trống"), theme::kWord, "word", this);
+    auto* ppt = makeTile(tr("PowerPoint"), tr("Bản trình chiếu trống"), theme::kPowerPoint, "ppt", this);
+    auto* pdf = makeTile(tr("PDF"), tr("Mở và xem tệp PDF"), theme::kPdf, "pdf", this);
     grid->addWidget(excel, 0, 0);
     grid->addWidget(word, 0, 1);
     grid->addWidget(ppt, 0, 2);
