@@ -1,0 +1,133 @@
+  -> khởi động engine
+  -> tạo bảng tính mới
+  -> sắp xếp
+No language allowlisted, turning off the language support.
+[ĐẠT]  Calc .uno:SortAscending  {1 2 3 4}
+SWEEP|Calc|.uno:SortAscending|ĐẠT|1 2 3 4
+[ĐẠT]  Calc .uno:SortDescending  {4 3 2 1}
+SWEEP|Calc|.uno:SortDescending|ĐẠT|4 3 2 1
+  -> chèn/xoá cột và hàng
+[ĐẠT]  Calc .uno:InsertColumnsBefore  {D2=X}
+SWEEP|Calc|.uno:InsertColumnsBefore|ĐẠT|D2=X
+[ĐẠT]  Calc .uno:DeleteColumns  {C2=X}
+SWEEP|Calc|.uno:DeleteColumns|ĐẠT|C2=X
+[ĐẠT]  Calc .uno:InsertRowsBefore(làm dịch hàng)  {A5=1}
+SWEEP|Calc|.uno:InsertRowsBefore(làm dịch hàng)|ĐẠT|A5=1
+[ĐẠT]  Calc .uno:DeleteRows  {A4=1 A5=}
+SWEEP|Calc|.uno:DeleteRows|ĐẠT|A4=1 A5=
+  -> căn lề ô
+[ĐẠT]  Calc .uno:AlignLeft  {state=true html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/}
+SWEEP|Calc|.uno:AlignLeft|ĐẠT|state=true html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/
+[ĐẠT]  Calc .uno:AlignRight  {state=true html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/}
+SWEEP|Calc|.uno:AlignRight|ĐẠT|state=true html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/
+[ĐẠT]  Calc .uno:AlignHorizontalCenter  {state=true html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/}
+SWEEP|Calc|.uno:AlignHorizontalCenter|ĐẠT|state=true html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/
+[ĐẠT]  Calc .uno:AlignTop  {state=(chưa báo) html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/}
+SWEEP|Calc|.uno:AlignTop|ĐẠT|state=(chưa báo) html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/
+[ĐẠT]  Calc .uno:AlignVCenter  {state=(chưa báo) html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/}
+SWEEP|Calc|.uno:AlignVCenter|ĐẠT|state=(chưa báo) html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/
+[ĐẠT]  Calc .uno:AlignBottom  {state=(chưa báo) html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/}
+SWEEP|Calc|.uno:AlignBottom|ĐẠT|state=(chưa báo) html=<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/
+  -> gộp ô
+[ĐẠT]  Calc .uno:ToggleMergeCells  {<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/html; charset=utf-8"}
+SWEEP|Calc|.uno:ToggleMergeCells|ĐẠT|<!DOCTYPE html>  <html> <head>    <meta http-equiv="content-type" content="text/html; charset=utf-8"
+  -> định dạng số
+[ĐẠT]  Calc .uno:NumberFormatPercent  {50.00%}
+SWEEP|Calc|.uno:NumberFormatPercent|ĐẠT|50.00%
+[ĐẠT]  Calc .uno:NumberFormatStandard  {0.5}
+SWEEP|Calc|.uno:NumberFormatStandard|ĐẠT|0.5
+[ĐẠT]  Calc .uno:NumberFormatIncDecimals  {0.50}
+SWEEP|Calc|.uno:NumberFormatIncDecimals|ĐẠT|0.50
+[ĐẠT]  Calc .uno:NumberFormatDecDecimals  {0.50 -> 0.5}
+SWEEP|Calc|.uno:NumberFormatDecDecimals|ĐẠT|0.50 -> 0.5
+[ĐẠT]  Calc .uno:NumberFormatDate  {03/15/23}
+SWEEP|Calc|.uno:NumberFormatDate|ĐẠT|03/15/23
+  -> vừa cột
+[ĐẠT]  Calc .uno:SetOptimalColumnWidth  {rộng 85 -> 258}
+SWEEP|Calc|.uno:SetOptimalColumnWidth|ĐẠT|rộng 85 -> 258
+  -> cố định ô
+[ĐẠT]  Calc .uno:FreezePanes  {state=true}
+SWEEP|Calc|.uno:FreezePanes|ĐẠT|state=true
+[ĐẠT]  Calc .uno:FreezePanes(tắt)  {state=false}
+SWEEP|Calc|.uno:FreezePanes(tắt)|ĐẠT|state=false
+[ĐẠT]  Calc .uno:FreezePanesColumn  {FreezePanes=true}
+SWEEP|Calc|.uno:FreezePanesColumn|ĐẠT|FreezePanes=true
+[ĐẠT]  Calc .uno:FreezePanesRow  {FreezePanes=true}
+SWEEP|Calc|.uno:FreezePanesRow|ĐẠT|FreezePanes=true
+  -> cắt
+[ĐẠT]  Calc .uno:Cut  {N1=}
+SWEEP|Calc|.uno:Cut|ĐẠT|N1=
+  -> chép định dạng
+[CHƯA KIỂM]  Calc .uno:FormatPaintbrush  {hiệu ứng cần chọn ô đích bằng chuột; kiểm trên máy thật}
+SWEEP|Calc|.uno:FormatPaintbrush|CHƯA KIỂM|hiệu ứng cần chọn ô đích bằng chuột; kiểm trên máy thật
+  -> tiêu đề hàng/cột
+[ĐẠT]  Calc .uno:ViewRowColumnHeaders  {{ "commandName": ".uno:ViewRowColumnHeaders", "rows": [ { "text": 0, "size": 0, "groupLevels": 0}, { "text": "1", "size": 17}, { "text": "2"}
+SWEEP|Calc|.uno:ViewRowColumnHeaders|ĐẠT|{ "commandName": ".uno:ViewRowColumnHeaders", "rows": [ { "text": 0, "size": 0, "groupLevels": 0}, { "text": "1", "size": 17}, { "text": "2"
+  -> cầu nối chèn công thức
+[ĐẠT]  Calc wire:chèn công thức vào ô trống  {kết quả=3}
+SWEEP|Calc|wire:chèn công thức vào ô trống|ĐẠT|kết quả=3
+[ĐẠT]  Calc wire:ô có dữ liệu → hỏi và KHÔNG ghi khi từ chối  {P2=1}
+SWEEP|Calc|wire:ô có dữ liệu → hỏi và KHÔNG ghi khi từ chối|ĐẠT|P2=1
+[ĐẠT]  Calc wire:đồng ý ghi đè  {cũ=1 mới=2}
+SWEEP|Calc|wire:đồng ý ghi đè|ĐẠT|cũ=1 mới=2
+[ĐẠT]  Calc wire:.uno:Undo hoàn tác lần ghi đè  {P2=1}
+SWEEP|Calc|wire:.uno:Undo hoàn tác lần ghi đè|ĐẠT|P2=1
+[ĐẠT]  Calc wire:lấy vùng đang chọn (TSV)  {1 2}
+SWEEP|Calc|wire:lấy vùng đang chọn (TSV)|ĐẠT|1 2
+  -> thăm dò hàm mới
+[THĂM DÒ: KHÔNG CHẠY]  Calc hàm XLOOKUP  {kết quả=#NAME?}
+SWEEP|Calc|hàm XLOOKUP|KHÔNG CHẠY|kết quả=#NAME?
+[THĂM DÒ: KHÔNG CHẠY]  Calc hàm FILTER  {kết quả=#NAME?}
+SWEEP|Calc|hàm FILTER|KHÔNG CHẠY|kết quả=#NAME?
+[THĂM DÒ: KHÔNG CHẠY]  Calc hàm SORT  {kết quả=#NAME?}
+SWEEP|Calc|hàm SORT|KHÔNG CHẠY|kết quả=#NAME?
+[THĂM DÒ: KHÔNG CHẠY]  Calc hàm UNIQUE  {kết quả=#NAME?}
+SWEEP|Calc|hàm UNIQUE|KHÔNG CHẠY|kết quả=#NAME?
+[ĐẠT]  Calc hàm INDEX/MATCH(thay XLOOKUP)  {kết quả=20}
+SWEEP|Calc|hàm INDEX/MATCH(thay XLOOKUP)|ĐẠT|kết quả=20
+[ĐẠT]  Calc hàm VLOOKUP  {kết quả=20}
+SWEEP|Calc|hàm VLOOKUP|ĐẠT|kết quả=20
+  -> điền (thay tay nắm điền)
+[ĐẠT]  Calc .uno:FillDown  {7 7 7 7}
+SWEEP|Calc|.uno:FillDown|ĐẠT|7 7 7 7
+[ĐẠT]  Calc .uno:FillRight  {5 5 5}
+SWEEP|Calc|.uno:FillRight|ĐẠT|5 5 5
+[ĐẠT]  Calc .uno:FillSeries  {1 2 3 4 5}
+SWEEP|Calc|.uno:FillSeries|ĐẠT|1 2 3 4 5
+  -> tạo văn bản mới
+  -> về đầu văn bản
+[ĐẠT]  Writer .uno:GoToStartOfDoc  {ZDong dau dong hai}
+SWEEP|Writer|.uno:GoToStartOfDoc|ĐẠT|ZDong dau dong hai
+  -> số trang
+[ĐẠT]  Writer .uno:InsertPageNumberField  {ZDong dau dong hai 1   html=<!DOCTYPE html> <html> <head>  <meta http-equiv="content-typ}
+SWEEP|Writer|.uno:InsertPageNumberField|ĐẠT|ZDong dau dong hai 1   html=<!DOCTYPE html> <html> <head>  <meta http-equiv="content-typ
+  -> đổi hoa/thường
+[ĐẠT]  Writer .uno:ChangeCaseToUpper  {HELLO WORLD. XIN CHAO}
+SWEEP|Writer|.uno:ChangeCaseToUpper|ĐẠT|HELLO WORLD. XIN CHAO
+[ĐẠT]  Writer .uno:ChangeCaseToLower  {hello world. xin chao}
+SWEEP|Writer|.uno:ChangeCaseToLower|ĐẠT|hello world. xin chao
+[ĐẠT]  Writer .uno:ChangeCaseToSentenceCase  {Hello world. Xin chao}
+SWEEP|Writer|.uno:ChangeCaseToSentenceCase|ĐẠT|Hello world. Xin chao
+[ĐẠT]  Writer .uno:ChangeCaseToTitleCase  {Hello World. Xin Chao}
+SWEEP|Writer|.uno:ChangeCaseToTitleCase|ĐẠT|Hello World. Xin Chao
+[ĐẠT]  Writer .uno:ChangeCaseToToggleCase  {hELLO WORLD. xIN CHAO}
+SWEEP|Writer|.uno:ChangeCaseToToggleCase|ĐẠT|hELLO WORLD. xIN CHAO
+  -> ký hiệu đặc biệt
+[ĐẠT]  Writer typeText(©)  {©}
+SWEEP|Writer|typeText(©)|ĐẠT|©
+[ĐẠT]  Writer .uno:InsertSymbol(€)  {€}
+SWEEP|Writer|.uno:InsertSymbol(€)|ĐẠT|€
+  -> hướng giấy
+[ĐẠT]  Writer hướng giấy ngang (UNO)  {rộng 12808 -> 10114 bằng {"AttributePageSize.Width":{"type":"long","value":"16838"},"AttributePageSize.Height":{"type":"long","value":"1}
+SWEEP|Writer|hướng giấy ngang (UNO)|ĐẠT|rộng 12808 -> 10114 bằng {"AttributePageSize.Width":{"type":"long","value":"16838"},"AttributePageSize.Height":{"type":"long","value":"1
+[CHƯA KIỂM]  Impress đổi chủ đề/bố cục chủ  {không có lệnh UNO nhận tham số trên engine này; cần kiểm bằng lưu .pptx rồi đọc XML}
+SWEEP|Impress|đổi chủ đề/bố cục chủ|CHƯA KIỂM|không có lệnh UNO nhận tham số trên engine này; cần kiểm bằng lưu .pptx rồi đọc XML
+[CHƯA KIỂM]  Impress chuyển cảnh  {hiệu ứng chỉ quan sát được qua XML <p:transition> sau khi lưu; chưa kiểm}
+SWEEP|Impress|chuyển cảnh|CHƯA KIỂM|hiệu ứng chỉ quan sát được qua XML <p:transition> sau khi lưu; chưa kiểm
+[CHƯA KIỂM]  Impress ghi chú diễn giả  {cần gõ ở chế độ trang ghi chú rồi đọc notesSlide trong .pptx; chưa kiểm}
+SWEEP|Impress|ghi chú diễn giả|CHƯA KIỂM|cần gõ ở chế độ trang ghi chú rồi đọc notesSlide trong .pptx; chưa kiểm
+  -> thăm dò chèn biểu đồ (cuối cùng, có thể treo)
+[ĐẠT]  Calc .uno:InsertObjectChart  {modified=1 html=<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN}
+SWEEP|Calc|.uno:InsertObjectChart|ĐẠT|modified=1 html=<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN
+
+KẾT QUẢ QUÉT LỆNH: TẤT CẢ ĐẠT (0 lỗi)

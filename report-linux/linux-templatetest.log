@@ -1,0 +1,24 @@
+[ĐẠT]  ban đầu chưa có gói
+[ĐẠT]  cài gói v2025.1
+[ĐẠT]  danh mục đọc đúng 2 mẫu (CSV có BOM, ngoặc kép)
+[ĐẠT]  trường CSV có dấu phẩy đọc đúng
+[ĐẠT]  đọc danh sách nguồn chính thức
+[ĐẠT]  cài gói v2026.1 thay gói cũ
+[ĐẠT]  mẫu bị thay thế đã biến mất
+[ĐẠT]  mẫu mới có mặt
+[ĐẠT]  danh mục chỉ còn 2 mẫu của gói mới
+[ĐẠT]  không còn thư mục tạm/bản cũ
+[ĐẠT]  cài gói cũ hơn bị chặn, hỏi xác nhận
+[ĐẠT]  gói đang cài vẫn là v2026.1 sau khi từ chối bản cũ
+[ĐẠT]  đồng ý hạ cấp thì thay được
+[ĐẠT]  tạo bản làm việc từ mẫu
+[ĐẠT]  không ghi đè bản làm việc đã có
+[ĐẠT]  thư mục không phải gói bị từ chối
+[ĐẠT]  gói hiện tại giữ nguyên khi cài thất bại
+[ĐẠT]  so sánh phiên bản theo số, không theo chuỗi
+       Đã thay gói mẫu cũ (2025.1) bằng gói mới (2026.1). Bản cũ đã bị xoá để tránh dùng nhầm.
+[ĐẠT]  cài gói mẫu thật từ tệp .zip
+[ĐẠT]  gói thật có phiên bản 2026.1
+[ĐẠT]  gói thật liệt kê từ 150 mẫu trở lên (đủ tệp, tên tiếng Việt)
+
+Đã chạy xong, 0 lỗi

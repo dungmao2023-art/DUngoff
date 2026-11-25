@@ -1,0 +1,19 @@
+[ĐẠT]  tên icon không trùng nhau (142 icon)
+[ĐẠT]  đủ 110 tên bắt buộc
+[ĐẠT]  tên lạ: hasIcon=false
+[ĐẠT]  tên lạ vẫn vẽ khung trống (không im lặng, không sập)
+[ĐẠT]  mọi icon vẽ ra có nét, không kín, đủ lớn ở 16/24/32 px
+[ĐẠT]  không có hai icon trùng hệt nhau
+[ĐẠT]  trạng thái Disabled khác Normal ở mọi icon
+[ĐẠT]  màu truyền vào được dùng để tô icon (đỏ không lẫn xanh)
+[ĐẠT]  icon trắng (thanh bên) vẽ được
+       thông tin: QIcon::pixmap(24x24, dpr=2) -> 96x96 vật lý, dpr=4.0, logic 24x24
+[ĐẠT]  DPR 2/3: ảnh đúng kích thước vật lý, có nét, qua cả QIcon::pixmap
+[ĐẠT]  QIcon::paint vẽ ra nét
+[ĐẠT]  icon không truyền màu dùng màu mặc định
+[ĐẠT]  iconOrEmpty: tên icon -> icon, chữ khác -> rỗng
+[ĐẠT]  iconNameForCommand: có/không có ánh xạ
+[ĐẠT]  ghi tờ tổng hợp: report/icons/icons-contact-sheet.png
+[ĐẠT]  ghi tờ cỡ nhỏ: report/icons/icons-small-sizes.png
+
+Tổng: 16 đạt, 0 lỗi, 0 cảnh báo

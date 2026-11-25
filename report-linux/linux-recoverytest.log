@@ -1,0 +1,29 @@
+ok: tạo thư mục tạm
+ok: begin phiên
+ok: begin lần hai vẫn ổn
+ok: commit khi chưa có dữ liệu bị từ chối
+ok: ghi dữ liệu
+ok: commit sau khi có dữ liệu
+ok: bản của phiên đang chạy không bị coi là mồ côi
+ok: discard xoá dữ liệu
+ok: còn chỗ
+ok: giới hạn dung lượng được tôn trọng
+ok: thoát bình thường xoá bản phục hồi
+ok: tiến trình con chạy xong
+ok: con báo READY
+ok: thấy 2 bản mồ côi sau sập
+ok: bản của tệp có sẵn đủ thông tin và dữ liệu
+ok: bản của tài liệu mới (tên tiếng Việt)
+ok: tìm lại vẫn còn (không tự xoá)
+ok: mô tả hỏng bị bỏ qua
+ok: mô tả hỏng được giữ lại (đổi tên)
+ok: mở phiên con còn sống
+ok: phiên con sẵn sàng
+ok: bản của phiên còn sống không bị liệt kê
+ok: phiên con kết thúc
+ok: phiên con thoát bình thường đã dọn bản của nó
+ok: bỏ một bản
+ok: còn 1 bản
+ok: dọn theo giới hạn dung lượng
+ok: sau dọn không còn bản
+RECOVERY: ĐẠT

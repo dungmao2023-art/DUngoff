@@ -1,0 +1,53 @@
+[ĐẠT]  HỒI QUY: con trỏ rộng 0 vẫn hợp lệ  {valid=1}
+[ĐẠT]  xác nhận nguyên nhân gốc: QRect rộng 0 báo isEmpty()==true
+[ĐẠT]  chấp nhận payload có cột/hàng kèm theo
+[ĐẠT]  JSON rectangle
+[ĐẠT]  EMPTY → không có con trỏ
+[ĐẠT]  chuỗi rỗng → không có
+[ĐẠT]  không phải số → không hợp lệ
+[ĐẠT]  0x0 → không hợp lệ
+[ĐẠT]  rộng âm → không hợp lệ
+[ĐẠT]  độ dày con trỏ theo DPI 100/125/150/200%
+[ĐẠT]  hình chữ nhật con trỏ khớp lưới điểm ảnh vật lý ở 100%
+[ĐẠT]  hình chữ nhật con trỏ khớp lưới điểm ảnh vật lý ở 125%
+[ĐẠT]  hình chữ nhật con trỏ khớp lưới điểm ảnh vật lý ở 150%
+[ĐẠT]  hình chữ nhật con trỏ khớp lưới điểm ảnh vật lý ở 175%
+[ĐẠT]  hình chữ nhật con trỏ khớp lưới điểm ảnh vật lý ở 200%
+[ĐẠT]  khởi động engine
+---- docx ----
+No language allowlisted, turning off the language support.
+[ĐẠT]  docx: mở tài liệu
+[GHI]   docx: focus=1
+[ĐẠT]  docx: engine báo con trỏ chữ và TileView ghi nhận (kể cả rộng 0)  {rect=154,158,1,26}
+[ĐẠT]  docx: con trỏ có chiều cao và nằm trong vùng nhìn
+[ĐẠT]  docx: pha BẬT + có focus → caretShownNow()
+[ĐẠT]  docx: pha TẮT → caretShownNow() sai
+[ĐẠT]  docx: điểm ảnh ở vị trí con trỏ KHÁC nhau giữa BẬT và TẮT  {khác trong hcn=26}
+[ĐẠT]  docx: ảnh BẬT có điểm ảnh màu tối của con trỏ
+[ĐẠT]  docx: ngoài vị trí con trỏ ảnh BẬT/TẮT giống hệt  {khác ngoài=0}
+[ĐẠT]  docx: mất focus → con trỏ ẩn
+[ĐẠT]  docx: lấy lại focus → con trỏ hiện ngay (pha BẬT)
+[ĐẠT]  docx: gõ chữ → con trỏ dịch sang phải  {154 → 166}
+[ĐẠT]  docx: ngay sau khi gõ/di chuyển con trỏ đặc (hiện, chưa vào pha tắt)
+---- xlsx ----
+[ĐẠT]  xlsx: mở tài liệu
+[GHI]   xlsx: focus=1
+[ĐẠT]  xlsx: engine báo khung ô (CELL_CURSOR) và TileView ghi nhận  {rect=46,42,151,20}
+[ĐẠT]  xlsx: khung ô có kích thước và nằm trong vùng nhìn
+[GHI]   xlsx: viền khung ô: 151/151 cột có điểm ảnh màu Excel ở cạnh trên
+[ĐẠT]  xlsx: khung ô Excel được VẼ ra điểm ảnh ở đúng toạ độ
+[GHI]   xlsx: ảnh chọn nhiều ô đã lưu (kiểm bằng mắt)
+---- pptx ----
+[ĐẠT]  pptx: mở tài liệu
+[GHI]   pptx: focus=1
+[GHI]   pptx: vào được ô chữ ở (340,280)
+[ĐẠT]  pptx: engine báo con trỏ chữ và TileView ghi nhận (kể cả rộng 0)  {rect=343,243,1,62}
+[ĐẠT]  pptx: con trỏ có chiều cao và nằm trong vùng nhìn
+[ĐẠT]  pptx: pha BẬT + có focus → caretShownNow()
+[ĐẠT]  pptx: pha TẮT → caretShownNow() sai
+[ĐẠT]  pptx: điểm ảnh ở vị trí con trỏ KHÁC nhau giữa BẬT và TẮT  {khác trong hcn=62}
+[ĐẠT]  pptx: ảnh BẬT có điểm ảnh màu tối của con trỏ
+[ĐẠT]  pptx: ngoài vị trí con trỏ ảnh BẬT/TẮT giống hệt  {khác ngoài=0}
+[ĐẠT]  pptx: mất focus → con trỏ ẩn
+[ĐẠT]  pptx: lấy lại focus → con trỏ hiện ngay (pha BẬT)
+Tổng: 42 đạt, 0 lỗi

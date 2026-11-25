@@ -1,0 +1,140 @@
+
+Bộ cài: D:\a\DUngoff\DUngoff\installer\Output\DungOffice-Setup-0.1.0-x64.exe (187 MB)
+Nguồn: 5452 tệp ứng dụng, 9 tệp từ điển
+[ĐẠT] nguồn đóng gói có đủ tệp
+== Cài [full]: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG="D:\a\DUngoff\DUngoff\report\setup-full.log" /COMPONENTS="main,dict_vi" /TASKS="desktopicon,startmenu,assoc_docx,assoc_xlsx,assoc_pptx,assoc_pdf"
+[ĐẠT] [full] bộ cài thoát mã 0 (thực tế 0)
+[ĐẠT] [full] mục gỡ cài đặt có InstallLocation: C:\Users\runneradmin\AppData\Local\Programs\DungOffice\
+[ĐẠT] [full] cài vào thư mục mặc định (C:\Users\runneradmin\AppData\Local\Programs\DungOffice)
+[ĐẠT] [full] có DungOffice.exe
+[ĐẠT] [full] đủ mọi tệp ứng dụng (thiếu 0)
+[ĐẠT] [full] có engine\program\*.dll
+[ĐẠT] [full] có qpdf\*
+[ĐẠT] [full] có Qt6Core.dll
+[ĐẠT] [full] dictionaries\vi có 9/9 tệp, gồm giấy phép GPL
+[ĐẠT] [full] có GPL-2.0.txt và GPL-3.0.txt
+[ĐẠT] [full] không có tệp từ điển vi nằm ngoài dictionaries\vi
+[ĐẠT] [full] mục gỡ cài: DisplayName = Dũng Office phiên bản 0.1.0
+[ĐẠT] [full] mục gỡ cài có UninstallString: "C:\Users\runneradmin\AppData\Local\Programs\DungOffice\unins000.exe"
+[ĐẠT] [full] Applications\DungOffice.exe\shell\open\command = "C:\Users\runneradmin\AppData\Local\Programs\DungOffice\DungOffice.exe" "%1"
+[ĐẠT] [full] .docx\OpenWithList\DungOffice.exe
+[ĐẠT] [full] ProgID DungOffice.docx có lệnh mở: "C:\Users\runneradmin\AppData\Local\Programs\DungOffice\DungOffice.exe" "%1"
+[ĐẠT] [full] .docx\OpenWithProgids có DungOffice.docx
+[ĐẠT] [full] .xlsx\OpenWithList\DungOffice.exe
+[ĐẠT] [full] ProgID DungOffice.xlsx có lệnh mở: "C:\Users\runneradmin\AppData\Local\Programs\DungOffice\DungOffice.exe" "%1"
+[ĐẠT] [full] .xlsx\OpenWithProgids có DungOffice.xlsx
+[ĐẠT] [full] .pptx\OpenWithList\DungOffice.exe
+[ĐẠT] [full] ProgID DungOffice.pptx có lệnh mở: "C:\Users\runneradmin\AppData\Local\Programs\DungOffice\DungOffice.exe" "%1"
+[ĐẠT] [full] .pptx\OpenWithProgids có DungOffice.pptx
+[ĐẠT] [full] .pdf\OpenWithList\DungOffice.exe
+[ĐẠT] [full] ProgID DungOffice.pdf có lệnh mở: "C:\Users\runneradmin\AppData\Local\Programs\DungOffice\DungOffice.exe" "%1"
+[ĐẠT] [full] .pdf\OpenWithProgids có DungOffice.pdf
+[ĐẠT] [full] giá trị mặc định .docx = DungOffice.docx (đuôi chưa có phần mềm khác) -> DungOffice.docx
+[ĐẠT] [full] giá trị mặc định .xlsx = DungOffice.xlsx (đuôi chưa có phần mềm khác) -> DungOffice.xlsx
+[ĐẠT] [full] giá trị mặc định .pptx = DungOffice.pptx (đuôi chưa có phần mềm khác) -> DungOffice.pptx
+[ĐẠT] [full] .pdf đã có phần mềm khác: KHÔNG bị đè (giá trị = OtherApp.pdf)
+[ĐẠT] [full] lối tắt Start Menu
+    (WScript.Shell trả TargetPath rỗng; đọc lại bằng Shell.Application -> 'C:\Users\runneradmin\AppData\Local\Programs\DungOffice\DungOffice.exe')
+    (WScript.Shell trả TargetPath rỗng; đọc lại bằng Shell.Application -> 'C:\Users\runneradmin\AppData\Local\Programs\DungOffice\DungOffice.exe')
+[ĐẠT] [full] lối tắt Start Menu trỏ đúng: C:\Users\runneradmin\AppData\Local\Programs\DungOffice\DungOffice.exe
+[ĐẠT] [full] lối tắt màn hình nền
+    (WScript.Shell trả TargetPath rỗng; đọc lại bằng Shell.Application -> 'C:\Users\runneradmin\AppData\Local\Programs\DungOffice\DungOffice.exe')
+[ĐẠT] [full] lối tắt màn hình nền trỏ đúng
+== Chạy app đã cài [full] với tệp .docx mẫu
+[ĐẠT] [full] app vẫn chạy sau 20 giây (nếu thiếu DLL sẽ thoát ngay; mã thoát nếu chết: -)
+[ĐẠT] [full] app nạp 59 mô-đun từ thư mục cài (Qt/engine nằm trong thư mục cài)
+[ĐẠT] [full] Qt6Core.dll được nạp
+    [full] cửa sổ chính: handle=393652 tiêu đề='mau-van-ban.docx — Dũng Office' phản hồi=True luồng=18
+    [full] CloseMainWindow trả về True
+    [full] nhật ký điểm thoát (DUNG_TRACE_EXIT):
+      [+0ms] main: vào vòng lặp sự kiện
+      [+18955ms] main: app.exec() trả về
+      [+18963ms] main: cửa sổ và các tab đã đóng
+      [+18964ms] main: recovery đã kết thúc phiên
+      [+18969ms] main: QSettings đã ghi
+      [+18969ms] main: thoát cứng (không còn tài liệu mở)
+[ĐẠT] [full] app thoát sạch, mã 0
+== Chạy app đã cài [fulldiag] với tệp .docx mẫu (CHẨN ĐOÁN: DUNG_EXIT_CLEAN=1, không thoát cứng)
+[ĐẠT] [fulldiag] app vẫn chạy sau 20 giây (nếu thiếu DLL sẽ thoát ngay; mã thoát nếu chết: -)
+[ĐẠT] [fulldiag] app nạp 59 mô-đun từ thư mục cài (Qt/engine nằm trong thư mục cài)
+[ĐẠT] [fulldiag] Qt6Core.dll được nạp
+    [fulldiag] cửa sổ chính: handle=328040 tiêu đề='mau-van-ban.docx — Dũng Office' phản hồi=True luồng=18
+    [fulldiag] CloseMainWindow trả về True
+    [fulldiag] sau 8 giây chưa thoát; các cửa sổ cấp cao của tiến trình:
+      hiện=False lớp='MtaOleReqWnd###' tiêu đề=''
+      hiện=False lớp='DDEMLEvent' tiêu đề=''
+      hiện=False lớp='DDEMLMom' tiêu đề=''
+      hiện=False lớp='IME' tiêu đề='Default IME'
+      hiện=False lớp='IME' tiêu đề='Default IME'
+    [fulldiag] nhật ký điểm thoát (DUNG_TRACE_EXIT):
+      [+0ms] main: vào vòng lặp sự kiện
+      [+19356ms] main: app.exec() trả về
+      [+19363ms] main: cửa sổ và các tab đã đóng
+      [+19364ms] main: recovery đã kết thúc phiên
+      [+19368ms] main: QSettings đã ghi
+      [+19369ms] main: DUNG_EXIT_CLEAN=1, thoát bình thường
+      [+19378ms] EngineHost: bắt đầu huỷ engine (lok destroy)
+[GHI CHÚ] [fulldiag] CHẨN ĐOÁN: đường thoát bình thường (không thoát cứng) treo - xem nhật ký trên để biết bước cuối; buộc dừng
+[ĐẠT] [full] có unins000.exe
+== Gỡ [full]
+[ĐẠT] [full] trình gỡ thoát mã 0 (thực tế 0)
+[ĐẠT] [full] mục gỡ cài đặt đã xoá
+[ĐẠT] [full] thư mục cài sạch sau khi gỡ (còn 0 tệp)
+[ĐẠT] [full] lối tắt Start Menu đã xoá
+[ĐẠT] [full] lối tắt màn hình nền đã xoá
+[ĐẠT] [full] khoá Applications\DungOffice.exe đã xoá
+[ĐẠT] [full] ProgID DungOffice.docx đã xoá
+[ĐẠT] [full] .docx\OpenWithList đã xoá
+[ĐẠT] [full] .docx\OpenWithProgids sạch
+[ĐẠT] [full] ProgID DungOffice.xlsx đã xoá
+[ĐẠT] [full] .xlsx\OpenWithList đã xoá
+[ĐẠT] [full] .xlsx\OpenWithProgids sạch
+[ĐẠT] [full] ProgID DungOffice.pptx đã xoá
+[ĐẠT] [full] .pptx\OpenWithList đã xoá
+[ĐẠT] [full] .pptx\OpenWithProgids sạch
+[ĐẠT] [full] ProgID DungOffice.pdf đã xoá
+[ĐẠT] [full] .pdf\OpenWithList đã xoá
+[ĐẠT] [full] .pdf\OpenWithProgids sạch
+[ĐẠT] [full] giá trị mặc định .docx đã gỡ
+[ĐẠT] [full] giá trị mặc định .xlsx đã gỡ
+[ĐẠT] [full] giá trị mặc định .pptx đã gỡ
+[ĐẠT] [full] .pdf vẫn là OtherApp.pdf sau khi gỡ
+[ĐẠT] [full] không còn khoá registry nào do bộ cài tạo (thừa 0)
+== Cài [compact]: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG="D:\a\DUngoff\DUngoff\report\setup-compact.log" /COMPONENTS="main" /TASKS="startmenu,assoc_docx" /DIR="D:\a\_temp\Thư mục có dấu cách\Dũng Office Cài đặt"
+[ĐẠT] [compact] bộ cài thoát mã 0 (thực tế 0)
+[ĐẠT] [compact] có DungOffice.exe trong đường dẫn có dấu cách và tiếng Việt: D:\a\_temp\Thư mục có dấu cách\Dũng Office Cài đặt
+[ĐẠT] [compact] đủ mọi tệp ứng dụng (thiếu 0)
+[ĐẠT] [compact] KHÔNG có thư mục dictionaries\vi khi không chọn từ điển
+[ĐẠT] [compact] không có tệp từ điển vi nào
+[ĐẠT] [compact] lệnh mở .docx đúng và có ngoặc kép quanh đường dẫn: "D:\a\_temp\Thư mục có dấu cách\Dũng Office Cài đặt\DungOffice.exe" "%1"
+[ĐẠT] [compact] không tạo liên kết .xlsx khi không chọn
+[ĐẠT] [compact] không có lối tắt màn hình nền khi không chọn
+    (WScript.Shell trả TargetPath rỗng; đọc lại bằng Shell.Application -> 'D:\a\_temp\Thư mục có dấu cách\Dũng Office Cài đặt\DungOffice.exe')
+    (WScript.Shell trả TargetPath rỗng; đọc lại bằng Shell.Application -> 'D:\a\_temp\Thư mục có dấu cách\Dũng Office Cài đặt\DungOffice.exe')
+[ĐẠT] [compact] lối tắt Start Menu trỏ đúng đường dẫn có dấu: D:\a\_temp\Thư mục có dấu cách\Dũng Office Cài đặt\DungOffice.exe
+== Chạy app đã cài [compact] với tệp .docx mẫu
+[ĐẠT] [compact] app vẫn chạy sau 20 giây (nếu thiếu DLL sẽ thoát ngay; mã thoát nếu chết: -)
+[ĐẠT] [compact] app nạp 59 mô-đun từ thư mục cài (Qt/engine nằm trong thư mục cài)
+[ĐẠT] [compact] Qt6Core.dll được nạp
+    [compact] cửa sổ chính: handle=3015108 tiêu đề='mau-van-ban.docx — Dũng Office' phản hồi=True luồng=18
+    [compact] CloseMainWindow trả về True
+    [compact] nhật ký điểm thoát (DUNG_TRACE_EXIT):
+      [+0ms] main: vào vòng lặp sự kiện
+      [+19293ms] main: app.exec() trả về
+      [+19300ms] main: cửa sổ và các tab đã đóng
+      [+19301ms] main: recovery đã kết thúc phiên
+      [+19307ms] main: QSettings đã ghi
+      [+19307ms] main: thoát cứng (không còn tài liệu mở)
+[ĐẠT] [compact] app thoát sạch, mã 0
+[ĐẠT] [compact] có unins000.exe
+== Gỡ [compact]
+[ĐẠT] [compact] trình gỡ thoát mã 0 (thực tế 0)
+[ĐẠT] [compact] mục gỡ cài đặt đã xoá
+[ĐẠT] [compact] thư mục cài sạch sau khi gỡ (còn 0 tệp)
+[ĐẠT] [compact] lối tắt Start Menu đã xoá
+[ĐẠT] [compact] không còn khoá registry thừa (0)
+[GHI CHÚ] dữ liệu người dùng còn lại sau khi gỡ (bộ cài không xoá, có chủ ý?): C:\Users\runneradmin\AppData\Roaming\DungOffice (168 tệp)
+[GHI CHÚ] dữ liệu người dùng còn lại sau khi gỡ (bộ cài không xoá, có chủ ý?): C:\Users\runneradmin\AppData\Local\DungOffice (41 tệp)
+[GHI CHÚ] khoá cài đặt của app còn lại: HKEY_CURRENT_USER\Software\DungOffice
+
+TỔNG KẾT: 0 lỗi

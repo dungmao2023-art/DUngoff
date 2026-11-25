@@ -1,0 +1,14 @@
+== BIẾN THỂ v3 ==
+Số mẫu: 2
+   phông trong PDF: /BAAAAA+Carlito-Bold, /CAAAAA+Carlito-Bold, /DAAAAA+Carlito, /EAAAAA+Carlito, /FAAAAA+Carlito-Bold, /GAAAAA+Carlito-Bold, /HAAAAA+Carlito-Bold, /IAAAAA+Carlito
+[ĐẠT] 01_Bao_cao_van_hanh_hien_dai.pptx: phủ chữ 100.0% (190 từ)
+   phông trong PDF: /BAAAAA+Carlito-Bold, /CAAAAA+Carlito-Bold, /DAAAAA+Carlito, /EAAAAA+Carlito, /FAAAAA+Carlito-Bold, /GAAAAA+Carlito-Bold, /HAAAAA+Carlito-Bold, /IAAAAA+Carlito
+[ĐẠT] 02_De_xuat_du_an_ky_thuat.pptx: phủ chữ 100.0% (190 từ)
+KẾT QUẢ: ĐẠT
+== BIẾN THỂ v5 ==
+Số mẫu: 2
+   phông trong PDF: /BAAAAA+TimesNewRomanPS-BoldMT, /CAAAAA+TimesNewRomanPS-BoldMT, /DAAAAA+PMingLiU, /EAAAAA+TimesNewRomanPSMT, /FAAAAA+PMingLiU, /GAAAAA+TimesNewRomanPS-BoldMT, /HAAAAA+TimesNewRomanPS-BoldMT, /IAAAAA+TimesNewRomanPS-BoldMT, /JAAAAA+PMingLiU
+[ĐỐI CHỨNG đúng kỳ vọng] 01_Bao_cao_van_hanh_hien_dai.pptx: phủ chữ 46.8% (190 từ) - đối chứng âm tính, kỳ vọng thấp
+   phông trong PDF: /BAAAAA+TimesNewRomanPS-BoldMT, /CAAAAA+TimesNewRomanPS-BoldMT, /DAAAAA+PMingLiU, /EAAAAA+TimesNewRomanPSMT, /FAAAAA+PMingLiU, /GAAAAA+TimesNewRomanPS-BoldMT, /HAAAAA+TimesNewRomanPS-BoldMT, /IAAAAA+TimesNewRomanPS-BoldMT, /JAAAAA+PMingLiU
+[ĐỐI CHỨNG đúng kỳ vọng] 02_De_xuat_du_an_ky_thuat.pptx: phủ chữ 46.8% (190 từ) - đối chứng âm tính, kỳ vọng thấp
+KẾT QUẢ: ĐỐI CHỨNG ĐẠT

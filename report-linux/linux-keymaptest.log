@@ -1,0 +1,19 @@
+[ĐẠT]  phím gõ ra 'ệ' -> charCode U+1EC7
+[ĐẠT]  AltGr + 'đ' vẫn gõ ra chữ (không bị nuốt)
+[ĐẠT]  Ctrl+C là phím tắt (không có ký tự)
+[ĐẠT]  Alt+F không phát ký tự
+[ĐẠT]  IME chốt 'Việt' -> 4 ký tự
+[ĐẠT]  IME thay 3 ký tự trước con trỏ -> 3 Backspace + 3 ký tự
+[ĐẠT]  thay 1 trước + 2 sau -> BS + 2 Delete + ký tự
+[ĐẠT]  thay phần sau con trỏ xa: báo không hỗ trợ, không xoá
+[ĐẠT]  imePlan: bắt đầu soạn 'd' -> Preedit, đang soạn
+[ĐẠT]  imePlan: cập nhật 'dư' -> chỉ Preedit
+[ĐẠT]  imePlan: chốt khi đang soạn -> Preedit(commit)+End, không Char
+[ĐẠT]  imePlan: chốt rồi soạn cụm mới
+[ĐẠT]  imePlan: huỷ khi đang soạn
+[ĐẠT]  imePlan: sự kiện rỗng khi không soạn -> không làm gì
+[ĐẠT]  imePlan: commit khi không soạn -> Char như imeToOps
+[ĐẠT]  imePlan: thay + chốt + soạn tiếp
+[ĐẠT]  imePlan: đang soạn mà thay thế -> bỏ phần thay, báo unsupported
+
+KẾT QUẢ: TẤT CẢ ĐẠT\n

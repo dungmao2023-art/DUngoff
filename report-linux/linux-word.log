@@ -1,0 +1,85 @@
+  -> khởi động engine
+[ĐẠT]  Khởi động engine 
+  -> tạo tài liệu Word mới
+No language allowlisted, turning off the language support.
+[ĐẠT]  Tạo tài liệu Word mới 
+  -> danh sách phông/kiểu từ engine
+[ĐẠT]  getCommandValues(CharFontName) trả về danh sách phông (214)  {DejaVu Math TeX Gyre}
+[ĐẠT]  getCommandValues(StyleApply) có kiểu Heading  {{     "commandName": ".uno:StyleApply",     "commandValues": {         "CharacterStyles": [             "Standard",     }
+  -> gõ văn bản
+[ĐẠT]  Gõ văn bản và chọn tất cả  {Xin chao Dũng Office}
+[ĐẠT]  Đếm từ (countWords) = 4 trên văn bản vừa gõ  {4}
+  -> bật/tắt .uno:Bold
+[ĐẠT]  Bật .uno:Bold  {trạng thái=true, html=có}
+[ĐẠT]  Tắt .uno:Bold  {trạng thái=false}
+  -> bật/tắt .uno:Italic
+[ĐẠT]  Bật .uno:Italic  {trạng thái=true, html=có}
+[ĐẠT]  Tắt .uno:Italic  {trạng thái=false}
+  -> bật/tắt .uno:Underline
+[ĐẠT]  Bật .uno:Underline  {trạng thái=true, html=có}
+[ĐẠT]  Tắt .uno:Underline  {trạng thái=false}
+  -> bật/tắt .uno:Strikeout
+[ĐẠT]  Bật .uno:Strikeout  {trạng thái=true, html=có}
+[ĐẠT]  Tắt .uno:Strikeout  {trạng thái=false}
+  -> đổi phông
+[ĐẠT]  Đổi phông sang 'DejaVu Math TeX Gyre'  {trạng thái=DejaVu Math TeX Gyre}
+  -> đổi cỡ chữ
+[ĐẠT]  Đổi cỡ chữ 20  {trạng thái=20}
+  -> màu chữ
+[ĐẠT]  Đổi màu chữ đỏ (.uno:Color)  {<!DOCTYPE html> <html> <head> 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/> 	<title></title> 	<meta name="generator" content="LibreOffice 24.2.7.2 (Linux)"/> 	<style type="text}
+  -> tô nền
+[ĐẠT]  Tô nền vàng (.uno:BackColor)  {<!DOCTYPE html> <html> <head> 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/> 	<title></title> 	<meta name="generator" content="LibreOffice 24.2.7.2 (Linux)"/> 	<style type="text}
+  -> chỉ số trên
+[ĐẠT]  Chỉ số trên (.uno:SuperScript)  {<!DOCTYPE html> <html> <head> 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/> 	<title></title> 	<meta name="generator" content="LibreOffice 24.2.7.2 (Linux)"/> 	<style type="text}
+  -> chỉ số dưới
+[ĐẠT]  Chỉ số dưới (.uno:SubScript)  {<!DOCTYPE html> <html> <head> 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/> 	<title></title> 	<meta name="generator" content="LibreOffice 24.2.7.2 (Linux)"/> 	<style type="text}
+  -> xoá định dạng
+[ĐẠT]  Xoá định dạng bỏ màu chữ và màu nền  {<!DOCTYPE html> <html> <head> 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/> 	<title></title> 	<meta name="generator" content="LibreOffice 24.2.7.2 (Linux)"/> 	<style type="text}
+  -> căn lề .uno:CenterPara
+[ĐẠT]  Căn lề .uno:CenterPara  {trạng thái=true}
+  -> căn lề .uno:RightPara
+[ĐẠT]  Căn lề .uno:RightPara  {trạng thái=true}
+  -> căn lề .uno:JustifyPara
+[ĐẠT]  Căn lề .uno:JustifyPara  {trạng thái=true}
+  -> căn lề .uno:LeftPara
+[ĐẠT]  Căn lề .uno:LeftPara  {trạng thái=true}
+  -> giãn dòng
+[ĐẠT]  Giãn dòng 1,5 (.uno:SpacePara15)  {trạng thái=true}
+  -> kiểu đoạn
+[ĐẠT]  Áp kiểu Tiêu đề 1  {trạng thái=Heading 1}
+[ĐẠT]  Áp kiểu Tiêu đề 2  {trạng thái=Heading 1}
+  -> danh sách
+[ĐẠT]  Gạch đầu dòng (.uno:DefaultBullet)  {trạng thái=Heading 2}
+[ĐẠT]  Đánh số (.uno:DefaultNumbering)  {trạng thái=true}
+  -> thụt lề
+[ĐẠT]  Tăng thụt lề làm đổi định dạng đoạn  {<!DOCTYPE html> <html> <head> 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/> 	<title></title> 	<m}
+  -> hoàn tác / làm lại
+[ĐẠT]  Hoàn tác rồi làm lại văn bản vừa gõ  {đã gõ=1, đã hoàn tác=1}
+  -> tìm và thay thế
+[ĐẠT]  Tìm 'bar' chọn đúng từ  {vùng chọn='bar'}
+[ĐẠT]  Thay tất cả 'foo' bằng 'baz'  { Them baz bar baz}
+  -> dán chữ Việt
+[ĐẠT]  Dán chuỗi tiếng Việt có dấu vào vị trí con trỏ  { Them baz bar bazMột triệu đồng chẵn ngày 05 tháng 02 năm 2026}
+  -> chèn bảng
+[ĐẠT]  Chèn bảng 3x2  {<!DOCTYPE html> <html> <head> 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/> 	<title></title> 	<m}
+  -> chèn ảnh
+libpng warning: IDAT: Extra compressed data
+libpng error: Not enough image data
+[ĐẠT]  Chèn ảnh từ tệp (.uno:InsertGraphic)  {<!DOCTYPE html> <html> <head> 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/> 	<title></title> 	<m}
+  -> ngắt trang
+[ĐẠT]  Ngắt trang làm tăng chiều cao tài liệu  {16408 -> 32532 twip}
+  -> chèn liên kết
+[ĐẠT]  Chèn liên kết (.uno:SetHyperlink)  {<!DOCTYPE html> <html> <head> 	<meta http-equiv="content-type" content="text/html; charset=utf-8"/> 	<title></title> 	<meta name="generator" content="LibreOffic}
+  -> khổ giấy A4
+       kích thước tài liệu: 12808x32532 -> 12474x34528 twip
+[ĐẠT]  Đặt khổ A4 (trang rộng 11906 twip + đệm xem)  {12474 twip}
+  -> hướng ngang
+[ĐẠT]  Đặt khổ ngang (trang rộng 16838 twip + đệm xem)  {17406 twip}
+  -> sao chép
+[ĐẠT]  Sao chép vùng chọn ra văn bản và HTML
+  -> dựng tài liệu mẫu và lưu DOCX
+[ĐẠT]  Tạo tài liệu mẫu 
+[ĐẠT]  Lưu tài liệu mẫu thành DOCX: Đã lưu: word-dinh-dang.docx
+       lệnh engine đã báo trạng thái (168): .uno:AcceptAllTrackedChanges .uno:AcceptTrackedChange .uno:ActualStyleFamily .uno:AlignCenter .uno:AlignDown .uno:AlignHorizontalCenter .uno:AlignLeft .uno:AlignMiddle .uno:AlignRight .uno:AlignUp .uno:BackColor .uno:BackgroundColor .uno:Bold .uno:BorderInner .uno:BorderOuter .uno:BringToFront .uno:CenterPara .uno:CharBackColor .uno:CharBackgroundExt .uno:CharFontName .uno:CharmapControl .uno:Color .uno:ContentControlProperties .uno:ControlCodes .uno:Copy .uno:Cut .uno:DecrementIndent .uno:DefaultBullet .uno:DefaultNumbering .uno:DeleteColumns .uno:DeleteRows .uno:DeleteTable .uno:DocumentRepair .uno:EditRegion .uno:EnterGroup .uno:EntireCell .uno:EntireColumn .uno:EntireRow .uno:FontColor .uno:FontDialog .uno:FontHeight .uno:FormatArea .uno:FormatColumns .uno:FormatGroup .uno:FormatLine .uno:FormatPaintbrush .uno:FrameLineColor .uno:HyperlinkDialog .uno:IncrementIndent .uno:InsertAnnotation .uno:InsertAuthoritiesEntry .uno:InsertBookmark .uno:InsertBreak .uno:InsertCaptionDialog .uno:InsertCheckboxContentControl .uno:InsertColumnBreak .uno:InsertColumnsAfter .uno:InsertColumnsBefore .uno:InsertContentControl .uno:InsertDateContentControl .uno:InsertDateField .uno:InsertDropdownContentControl .uno:InsertEndnote .uno:InsertField .uno:InsertFieldCtrl .uno:InsertFootnote .uno:InsertIndexesEntry .uno:InsertMode .uno:InsertMultiIndex .uno:InsertObjectChart .uno:InsertPageCountField .uno:InsertPageFooter .uno:InsertPageHeader .uno:InsertPageNumberField .uno:InsertPagebreak .uno:InsertPictureContentControl .uno:InsertPlainTextContentControl .uno:InsertReferenceField .uno:InsertRowsAfter .uno:InsertRowsBefore .uno:InsertSection .uno:InsertSymbol .uno:InsertTitleField .uno:Italic .uno:JustifyPara .uno:LanguageStatus .uno:LeaveGroup .uno:LeftPara .uno:LeftRightParaMargin .uno:MergeCells .uno:ModifiedStatus .uno:NextTrackedChange .uno:NumberFormatCurrency .uno:NumberFormatDate .uno:NumberFormatDecimal .uno:NumberFormatPercent .uno:ObjectAlignLeft .uno:ObjectAlignRight .uno:ObjectBackOne .uno:ObjectForwardOne .uno:OnlineAutoFormat .uno:Orientation .uno:OutlineBullet .uno:OutlineFont .uno:PageNumberWizard .uno:PageStyleName .uno:ParaLeftToRight .uno:ParaRightToLeft .uno:ParagraphDialog .uno:ParaspaceDecrease .uno:ParaspaceIncrease .uno:Paste .uno:Position .uno:PreviousTrackedChange .uno:Protect .uno:Redo .uno:RejectAllTrackedChanges .uno:RejectTrackedChange .uno:ResetAttributes .uno:RightPara .uno:RulerBorderDistance .uno:SelectAll .uno:SelectTable .uno:SelectionMode .uno:SendToBack .uno:Shadowed .uno:ShowResolvedAnnotations .uno:ShowTrackedChanges .uno:Sidebar .uno:Signature .uno:Size .uno:SpacePara1 .uno:SpacePara15 .uno:SpacePara2 .uno:SpellOnline .uno:SplitCell .uno:SplitTable .uno:StateAccessibilityCheck .uno:StatePageNumber .uno:StateTableCell .uno:StateWordCount .uno:Strikeout .uno:StyleApply .uno:SubScript .uno:SuperScript .uno:TableDialog .uno:ThesaurusDialog .uno:TrackChanges .uno:TrackedChangeIndex .uno:TransformDialog .uno:TransformHeight .uno:TransformPosX .uno:TransformPosY .uno:TransformWidth .uno:Underline .uno:Undo .uno:UnsetCellsReadOnly .uno:UpdateCurIndex .uno:ViewLayout .uno:Watermark .uno:WrapIdeal .uno:WrapLeft .uno:WrapOff .uno:WrapOn .uno:WrapRight .uno:WrapThrough .uno:Zoom .uno:ZoomSlider
+
+KẾT QUẢ WORD: TẤT CẢ ĐẠT

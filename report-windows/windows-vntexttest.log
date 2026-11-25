@@ -1,0 +1,113 @@
+[ĐẠT]  số 0 -> không
+[ĐẠT]  số 1 -> một
+[ĐẠT]  số 4 -> bốn
+[ĐẠT]  số 5 -> năm
+[ĐẠT]  số 10 -> mười
+[ĐẠT]  số 11 -> mười một
+[ĐẠT]  số 14 -> mười bốn
+[ĐẠT]  số 15 -> mười lăm
+[ĐẠT]  số 20 -> hai mươi
+[ĐẠT]  số 21 -> hai mươi mốt
+[ĐẠT]  số 24 -> hai mươi tư
+[ĐẠT]  số 24 -> hai mươi bốn
+[ĐẠT]  số 25 -> hai mươi lăm
+[ĐẠT]  số 99 -> chín mươi chín
+[ĐẠT]  số 100 -> một trăm
+[ĐẠT]  số 101 -> một trăm linh một
+[ĐẠT]  số 101 -> một trăm lẻ một
+[ĐẠT]  số 105 -> một trăm linh năm
+[ĐẠT]  số 110 -> một trăm mười
+[ĐẠT]  số 115 -> một trăm mười lăm
+[ĐẠT]  số 1000 -> một nghìn
+[ĐẠT]  số 1005 -> một nghìn không trăm linh năm
+[ĐẠT]  số 1015 -> một nghìn không trăm mười lăm
+[ĐẠT]  số 2025 -> hai nghìn không trăm hai mươi lăm
+[ĐẠT]  số 100000 -> một trăm nghìn
+[ĐẠT]  số 1000000 -> một triệu
+[ĐẠT]  số 1500000 -> một triệu năm trăm nghìn
+[ĐẠT]  số 2000005 -> hai triệu không trăm linh năm
+[ĐẠT]  số 1010000 -> một triệu không trăm mười nghìn
+[ĐẠT]  số 1000000000 -> một tỷ
+[ĐẠT]  số 1234567890 -> một tỷ hai trăm ba mươi tư triệu năm trăm sáu mươi bảy nghìn tám trăm chín mươi
+[ĐẠT]  số 1000000000000 -> một nghìn tỷ
+[ĐẠT]  số 999999999999999999 -> chín trăm chín mươi chín triệu tỷ chín trăm chín mươi chín nghìn tỷ chín trăm chín mươi chín tỷ chín trăm chín mươi chín triệu chín trăm chín mươi chín nghìn chín trăm chín mươi chín
+[ĐẠT]  tiền "1500000" -> Một triệu năm trăm nghìn đồng chẵn
+[ĐẠT]  tiền "1.500.000" -> Một triệu năm trăm nghìn đồng chẵn
+[ĐẠT]  tiền "1,500,000" -> Một triệu năm trăm nghìn đồng chẵn
+[ĐẠT]  tiền "1.500.000 đ" -> Một triệu năm trăm nghìn đồng chẵn
+[ĐẠT]  tiền "1.500.000,00" -> Một triệu năm trăm nghìn đồng chẵn
+[ĐẠT]  tiền "-1500" -> Âm một nghìn năm trăm đồng chẵn
+[ĐẠT]  tiền "0" -> Không đồng chẵn
+[ĐẠT]  tiền "007" -> Bảy đồng chẵn
+[ĐẠT]  tiền "2025" -> hai nghìn không trăm hai mươi lăm
+[ĐẠT]  tiền "1.5" bị từ chối (phần thập phân khác 0, không làm tròn)
+[ĐẠT]  tiền "1500000,50" bị từ chối (phần thập phân khác 0)
+[ĐẠT]  tiền "12a3" bị từ chối (ký tự lạ)
+[ĐẠT]  tiền "1.50.000" bị từ chối (dấu nghìn sai chỗ)
+[ĐẠT]  tiền "" bị từ chối (rỗng)
+[ĐẠT]  tiền "1234567890123456789" bị từ chối (quá 18 chữ số)
+[ĐẠT]  phần thập phân toàn 0 có cảnh báo
+[ĐẠT]  ngày theo NĐ 30: ngày<10 thêm 0, tháng 3 không thêm
+[ĐẠT]  ngày theo NĐ 30: tháng 2 thêm 0
+[ĐẠT]  ngày hai chữ số giữ nguyên
+[ĐẠT]  kiểu không thêm số 0
+[ĐẠT]  kiểu luôn 2 chữ số
+[ĐẠT]  dd/mm/yyyy
+[ĐẠT]  ngày bằng chữ
+[ĐẠT]  ngày bằng chữ (24/11)
+[ĐẠT]  đọc ngày "5/3/2026"
+[ĐẠT]  đọc ngày "05/03/2026"
+[ĐẠT]  đọc ngày "05-03-2026"
+[ĐẠT]  đọc ngày "5.3.2026"
+[ĐẠT]  đọc ngày "ngày 5 tháng 3 năm 2026"
+[ĐẠT]  đọc ngày "Ngày 05 tháng 03 năm 2026"
+[ĐẠT]  đọc ngày " 5/3/2026 "
+[ĐẠT]  đọc ngày "ngày 05 tháng 3 năm 2026"
+[ĐẠT]  29/02/2024 (năm nhuận) hợp lệ
+[ĐẠT]  từ chối ngày "29/02/2026"
+[ĐẠT]  từ chối ngày "31/04/2026"
+[ĐẠT]  từ chối ngày "00/01/2026"
+[ĐẠT]  từ chối ngày "5/13/2026"
+[ĐẠT]  từ chối ngày "5/3/26"
+[ĐẠT]  từ chối ngày "5/3/20266"
+[ĐẠT]  từ chối ngày "hôm nay"
+[ĐẠT]  từ chối ngày ""
+[ĐẠT]  từ chối ngày "ngày 5 tháng 3"
+[ĐẠT]  vòng tròn đọc -> viết ngày
+[ĐẠT]  TCVN3 -> Cộng hòa xã hội chủ nghĩa Việt Nam
+[ĐẠT]  TCVN3 -> Độc lập - Tự do - Hạnh phúc
+[ĐẠT]  TCVN3 -> Chương trình Thông tin
+[ĐẠT]  TCVN3 -> Sở Giáo dục và Đào tạo
+[ĐẠT]  không ép khi không chắc: été café
+[ĐẠT]  không ép khi không chắc: 5 µm
+[ĐẠT]  không ép khi không chắc: Hµ
+[ĐẠT]  không ép khi không chắc: naïve café à la carte
+[ĐẠT]  force: chuyển nhưng có cảnh báo
+[ĐẠT]  văn bản đã Unicode giữ nguyên
+[ĐẠT]  văn bản thuần ASCII: không có gì để chuyển
+[ĐẠT]  VNI-Windows: chưa hỗ trợ, không đoán dù force
+[ĐẠT]  âm tiết hợp lệ: việt
+[ĐẠT]  âm tiết hợp lệ: nam
+[ĐẠT]  âm tiết hợp lệ: nghĩa
+[ĐẠT]  âm tiết hợp lệ: trình
+[ĐẠT]  âm tiết hợp lệ: thông
+[ĐẠT]  âm tiết hợp lệ: chương
+[ĐẠT]  âm tiết hợp lệ: tạo
+[ĐẠT]  âm tiết hợp lệ: đào
+[ĐẠT]  âm tiết hợp lệ: học
+[ĐẠT]  âm tiết hợp lệ: ngoài
+[ĐẠT]  âm tiết hợp lệ: quốc
+[ĐẠT]  âm tiết hợp lệ: tiếng
+[ĐẠT]  âm tiết hợp lệ: người
+[ĐẠT]  âm tiết hợp lệ: yêu
+[ĐẠT]  âm tiết không hợp lệ: ộtộ
+[ĐẠT]  âm tiết không hợp lệ: caộ
+[ĐẠT]  âm tiết không hợp lệ: bàt
+[ĐẠT]  âm tiết không hợp lệ: việtt
+[ĐẠT]  âm tiết không hợp lệ: xyz
+[ĐẠT]  âm tiết không hợp lệ: kkà
+[ĐẠT]  bảng TCVN3 có 74 mã, trong đó ý (0xFD) trùng chính nó nên đổi được 73 mã
+[ĐẠT]  mọi mã chuyển ra một ký tự Unicode dựng sẵn
+[ĐẠT]  không có hai mã trùng ký tự đích
+
+KẾT QUẢ: TẤT CẢ ĐẠT (0 lỗi)
