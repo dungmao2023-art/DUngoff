@@ -41,12 +41,16 @@ public:
     int zoom() const;
     void adoptRecovered(const recovery::Entry& e);  // bản mở từ phục hồi: xoá bản cũ sau khi đã có bản tự lưu mới / đã lưu
     void stepPart(int delta);  // chuyển trang/slide trước (-1) hoặc sau (+1)
+    // Bản sao có lề mới (mở trong thẻ mới): nhớ tệp gốc thật để tự lưu/phục hồi và "Lưu thành" không đụng tệp gốc.
+    void setCopyOrigin(const QString& originalPath);
 
 signals:
     void titleChanged();
     void statusChanged();
     void commandStateChanged(const QString& cmd, const QString& value);
     void savedTo(const QString& path);
+    // Yêu cầu MainWindow mở tệp `patchedPath` (bản sao đã vá) trong thẻ mới; tệp tạm được xoá sau khi tín hiệu trả về.
+    void openCopyRequested(const QString& patchedPath, const QString& originalPath, const QString& displayName);
 
 private:
     void onEngineEvent(int type, const QString& payload);

@@ -157,6 +157,12 @@ jobs:
           pip install --quiet python-docx || true
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-word --word 1 2>&1 | tee report/linux-word.log
           python3 tests/word/verify_docx.py smoke-word/word-dinh-dang.docx 2>&1 | tee report/linux-word-docx.log
+      - name: Đặt lề bằng vá XML (Linux) — đơn vị, gói ZIP, .docx thật, engine thật
+        run: |
+          set -o pipefail
+          REAL=$(find templates -name '*.docx' | sort | head -1)
+          echo "tệp thật thử qua engine: $REAL"
+          ./build/dung-margintest --docx-dir templates --program /usr/lib/libreoffice/program --out smoke-margin --docx "$REAL" 2>&1 | tee report/linux-margin.log
       - name: Phục hồi sau sập + đường dẫn dài (Linux) — kho phục hồi và engine thật
         run: |
           set -o pipefail
@@ -468,6 +474,18 @@ jobs:
           if ($LASTEXITCODE) { exit 1 }
           & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --recover 1 --out "$PWD/smoke-recover" *>&1 | Tee-Object report/windows-recover.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: Đặt lề bằng vá XML trên Windows — đơn vị, gói ZIP, .docx thật, engine thật
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $mt = Get-ChildItem build/out -Recurse -Filter dung-margintest.exe | Select-Object -First 1
+          if (-not $mt) { Write-Host "::error::Không thấy dung-margintest.exe"; exit 1 }
+          $real = (Get-ChildItem templates -Recurse -Filter *.docx | Sort-Object FullName | Select-Object -First 1).FullName
+          Write-Host "tệp thật thử qua engine: $real"
+          $ErrorActionPreference = 'Continue'
+          & $mt.FullName --docx-dir "$PWD/templates" --program "$PWD/build/lo/engine/program" --out "$PWD/smoke-margin" --docx "$real" *>&1 | Tee-Object report/windows-margin.log
+          $code = $LASTEXITCODE
+          Write-Host "dung-margintest: mã thoát = $code"
+          if ($code) { exit 1 }
       - name: Chữ đang soạn (preedit) của bộ gõ trên Windows
         run: |
           & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --preedit 1 --out "$PWD/smoke-preedit" *>&1 | Tee-Object report/windows-preedit.log

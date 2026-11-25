@@ -168,6 +168,12 @@ void DocumentTab::adoptRecovered(const recovery::Entry& e) {
     m_dirtySinceAutosave = true;  // bản này chưa nằm trong phiên mới: tự lưu ngay ở nhịp tới
 }
 
+void DocumentTab::setCopyOrigin(const QString& originalPath) {
+    m_recOrigin = originalPath;
+    m_recOriginSet = true;
+    m_dirtySinceAutosave = true;  // bản sao chưa lưu ở đâu cả: tự lưu ngay ở nhịp tới
+}
+
 void DocumentTab::dropRecovery() {
     if (!m_recId.isEmpty()) recovery::Session::instance().discard(m_recId);
     m_recId.clear();

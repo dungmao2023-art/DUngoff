@@ -399,6 +399,21 @@ void MainWindow::addTab(DocumentTab* tab) {
         if (tab == current()) m_ribbon->setCommandState(c, v);
     });
     connect(tab, &DocumentTab::savedTo, this, &MainWindow::addRecent);
+    // Bản sao có lề mới (Word, Windows): mở trong thẻ mới, thẻ cũ giữ nguyên.
+    connect(tab, &DocumentTab::openCopyRequested, this, [this](const QString& path, const QString& original, const QString& name) {
+        QString err;
+        auto doc = EngineHost::instance().open(path, &err);
+        if (!doc) {
+            QMessageBox::warning(this, tr("Lề trang"),
+                tr("Không mở được bản sao có lề mới.\n%1\n\nTài liệu hiện tại và tệp gốc không bị đổi.").arg(err));
+            return;
+        }
+        doc->setRecoveredOrigin(toPath(original), ss(name));
+        doc->markModified();
+        auto* nt = new DocumentTab(std::move(doc));
+        nt->setCopyOrigin(original);
+        addTab(nt);
+    });
     connect(tab->view(), &TileView::zoomChanged, this, [this, tab](int z) {
         if (tab == current()) { QSignalBlocker b(m_zoom); m_zoom->setValue(z); m_zoomLabel->setText(QStringLiteral("%1%").arg(z)); }
     });
