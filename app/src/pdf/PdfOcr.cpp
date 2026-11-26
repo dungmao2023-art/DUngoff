@@ -31,18 +31,24 @@ QString findTesseract() {
     const auto local=bundledTesseract(QCoreApplication::applicationDirPath());
     return local.isEmpty()?QStandardPaths::findExecutable(QStringLiteral("tesseract")):local;
 }
-static OcrResult runTesseract(const QString& image, const QString& language, const QString& pdfBase = {}, int dpi = 300) {
+bool validOcrLayout(int layout) {
+    return layout == 3 || layout == 6 || layout == 7 || layout == 11;
+}
+static OcrResult runTesseract(const QString& image, const QString& language, int layout, const QString& pdfBase = {}, int dpi = 300) {
     auto fail = [](const QString& reason) { return OcrResult{false, {}, reason}; };
+    if (!validOcrLayout(layout)) return fail(QStringLiteral("Kiểu bố cục OCR không hợp lệ."));
+    if (QThread::currentThread()->isInterruptionRequested()) return fail(QStringLiteral("Đã hủy OCR."));
     if (language != QLatin1String("vie+eng") && language != QLatin1String("vie") && language != QLatin1String("eng"))
         return fail(QStringLiteral("Ngôn ngữ OCR không hợp lệ."));
-    if (!QFileInfo(image).isFile() || QFileInfo(image).size() > 100LL * 1024 * 1024)
+    const QFileInfo input(image);
+    if (!input.isFile() || input.size() <= 0 || input.size() > 100LL * 1024 * 1024)
         return fail(QStringLiteral("Ảnh OCR không tồn tại hoặc quá lớn."));
     const QString exe = findTesseract();
     if (exe.isEmpty()) return fail(QStringLiteral("Thiếu Tesseract: đặt gói OCR cạnh Dũng Office hoặc cài Tesseract vào PATH."));
     QProcess proc;
     proc.setProgram(exe);
-    QStringList args{image, pdfBase.isEmpty() ? QStringLiteral("stdout") : pdfBase,
-                     QStringLiteral("-l"), language, QStringLiteral("--psm"), QStringLiteral("3")};
+    QStringList args{input.absoluteFilePath(), pdfBase.isEmpty() ? QStringLiteral("stdout") : pdfBase,
+                     QStringLiteral("-l"), language, QStringLiteral("--psm"), QString::number(layout)};
     const auto bundled=bundledTesseract(QCoreApplication::applicationDirPath());
     if(!bundled.isEmpty() && exe==bundled) {
         const QString data=QDir(QFileInfo(exe).absolutePath()).filePath(QStringLiteral("tessdata"));
@@ -71,11 +77,11 @@ static OcrResult runTesseract(const QString& image, const QString& language, con
         return fail(QStringLiteral("Tesseract lỗi (kiểm tra gói ngôn ngữ): ") + QString::fromUtf8(proc.readAllStandardError()).left(1500));
     return {true, QString::fromUtf8(proc.readAllStandardOutput()).trimmed(), {}};
 }
-OcrResult recognizeImage(const QString& image, const QString& language) {
-    return runTesseract(image, language);
+OcrResult recognizeImage(const QString& image, const QString& language, int layout) {
+    return runTesseract(image, language, layout);
 }
 
-OcrResult searchableImagePdf(const QString& image, const QString& language, int dpi, const QString& destination) {
+OcrResult searchableImagePdf(const QString& image, const QString& language, int dpi, const QString& destination, int layout) {
     auto fail = [](const QString& reason) { return OcrResult{false, {}, reason}; };
     const QFileInfo dest(destination);
     if (dpi < 70 || dpi > 2400 || !destination.endsWith(QLatin1String(".pdf"),Qt::CaseInsensitive)
@@ -84,7 +90,7 @@ OcrResult searchableImagePdf(const QString& image, const QString& language, int 
     QTemporaryDir temp(QDir(dest.absolutePath()).filePath(QStringLiteral(".dung-ocr-XXXXXX")));
     if (!temp.isValid()) return fail(QStringLiteral("Không tạo được thư mục OCR tạm."));
     const QString base = temp.filePath(QStringLiteral("page"));
-    const auto result = runTesseract(image,language,base,dpi);
+    const auto result = runTesseract(image,language,layout,base,dpi);
     if (!result.ok) return result;
     if (QThread::currentThread()->isInterruptionRequested()) return fail(QStringLiteral("Đã hủy OCR."));
     const QString produced = base + QStringLiteral(".pdf");

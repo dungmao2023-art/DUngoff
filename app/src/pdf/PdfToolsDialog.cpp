@@ -793,6 +793,13 @@ QWidget* PdfToolsDialog::buildOcr() {
     form->addRow(tr("Từ trang:"), page);
     form->addRow(tr("Đến trang:"), last);
     form->addRow(tr("Ngôn ngữ:"), lang);
+    auto* layout = new QComboBox(w);
+    layout->addItem(tr("Tự động (nhiều cột/trang văn bản)"), 3);
+    layout->addItem(tr("Một khối văn bản"), 6);
+    layout->addItem(tr("Một dòng chữ"), 7);
+    layout->addItem(tr("Chữ rải rác (biểu mẫu, nhãn)"), 11);
+    layout->setToolTip(tr("Chọn theo bố cục ảnh. Không tự động nhận bảng hay khôi phục định dạng."));
+    form->addRow(tr("Bố cục nhận dạng:"), layout);
     root->addLayout(form);
     auto* note = new QLabel(tr("OCR cục bộ theo khoảng trang (tối đa 20 trang mỗi lượt): nhận dạng từ ảnh trang PDF, không gửi ra mạng, không sửa tệp nguồn. Cần cài Tesseract và dữ liệu ngôn ngữ tương ứng. Kết quả có thể sai, hãy đối chiếu bản gốc."), w);
     note->setWordWrap(true); root->addWidget(note);
@@ -819,6 +826,7 @@ QWidget* PdfToolsDialog::buildOcr() {
     connect(page, &QSpinBox::valueChanged, w, [=](int value) { if (last->value() < value) last->setValue(value); output->clear(); });
     connect(last, &QSpinBox::valueChanged, w, [=] { output->clear(); });
     connect(lang, &QComboBox::currentIndexChanged, w, [=] { output->clear(); });
+    connect(layout, &QComboBox::currentIndexChanged, w, [=] { output->clear(); });
     auto runOcr = [=](bool pdfMode) {
         if (!pdfMode) output->clear();
         if (m_ocrFile->text().isEmpty()) { status->setText(tr("Hãy chọn tệp PDF.")); return; }
@@ -829,6 +837,8 @@ QWidget* PdfToolsDialog::buildOcr() {
         const auto rangeError = dungpdf::validateOcrRange(first, end, inf.pages);
         if (!rangeError.isEmpty()) { status->setText(rangeError); return; }
         const QString language = lang->currentData().toString();
+        const int segmentation = layout->currentData().toInt();
+        if (!dungpdf::validOcrLayout(segmentation)) { status->setText(tr("Bố cục OCR không hợp lệ.")); return; }
         QString destination;
         if (pdfMode) {
             if (QMessageBox::question(this,tr("PDF có thể tìm kiếm"),
@@ -873,9 +883,9 @@ QWidget* PdfToolsDialog::buildOcr() {
             const QString pagePdf = temp.filePath(QStringLiteral("page-%1.pdf").arg(p));
             const int dpi = qBound(70,qRound(img.dotsPerMeterX()*0.0254),2400);
             QThread* worker = QThread::create([&] {
-                if (!pdfMode) result = dungpdf::recognizeImage(image, language);
+                if (!pdfMode) result = dungpdf::recognizeImage(image, language, segmentation);
                 else {
-                    result = dungpdf::searchableImagePdf(image, language, dpi, pagePdf);
+                    result = dungpdf::searchableImagePdf(image, language, dpi, pagePdf, segmentation);
                     if (result.ok) {
                         const auto verified = dungpdf::info(pagePdf);
                         if (!verified.ok || verified.pages != 1) result = {false,{},tr("PDF OCR một trang không qua kiểm tra.")};
@@ -884,6 +894,8 @@ QWidget* PdfToolsDialog::buildOcr() {
             });
             connect(worker, &QThread::finished, &loop, &QEventLoop::quit);
             connect(&progress, &QProgressDialog::canceled, worker, &QThread::requestInterruption);
+            // The progress dialog may have been cancelled before the worker started.
+            if (progress.wasCanceled()) { delete worker; break; }
             worker->start();
             loop.exec();
             worker->wait();
@@ -923,10 +935,17 @@ QWidget* PdfToolsDialog::buildOcr() {
         if (output->toPlainText().isEmpty()) { status->setText(tr("Chưa có văn bản để lưu.")); return; }
         const QString dest = QFileDialog::getSaveFileName(this, tr("Lưu văn bản OCR"), QStringLiteral("OCR.txt"), tr("Văn bản UTF-8 (*.txt)"));
         if (dest.isEmpty()) return;
-        if (!dest.endsWith(QLatin1String(".txt"), Qt::CaseInsensitive) || QFileInfo::exists(dest)) { status->setText(tr("Chọn tên TXT mới, không ghi đè tệp có sẵn.")); return; }
-        QSaveFile file(dest);
+        if (!dest.endsWith(QLatin1String(".txt"), Qt::CaseInsensitive) || QFileInfo::exists(dest) || QFileInfo(dest).isSymLink()) { status->setText(tr("Chọn tên TXT mới, không ghi đè tệp có sẵn.")); return; }
+        QFile file(dest);
         const QByteArray data = output->toPlainText().toUtf8();
-        if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) { status->setText(tr("Không lưu được văn bản.")); return; }
+        if (!file.open(QIODevice::WriteOnly | QIODevice::NewOnly)) { status->setText(tr("Không tạo được tệp TXT mới: %1").arg(file.errorString())); return; }
+        if (file.write(data) != data.size() || !file.flush()) {
+            file.close();
+            const bool removed = file.remove();
+            status->setText(removed ? tr("Không lưu được văn bản.") : tr("Ghi TXT không đầy đủ; không sử dụng tệp vừa tạo."));
+            return;
+        }
+        file.close();
         status->setText(tr("Đã lưu %1").arg(dest));
     });
     return w;
