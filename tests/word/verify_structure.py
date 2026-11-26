@@ -20,3 +20,17 @@ with zipfile.ZipFile(sys.argv[1]) as z:
         check(marker not in text(body), marker+" not accidentally inserted in body")
     for tag in ("headerReference", "footerReference", "footnoteReference", "endnoteReference"):
         check(any(True for _ in body.iter(W+tag)), "document has "+tag)
+
+# Verify native tracked insertions and comments in both initial save and reopen/save.
+from pathlib import Path
+for filename in ("word-review.docx", "word-review-roundtrip.docx"):
+    with zipfile.ZipFile(Path(sys.argv[1]).parent / filename) as review:
+        root = ET.fromstring(review.read("word/document.xml"))
+        check("ORIGINAL_MARKER" in text(root), filename + ": original text retained")
+        check(any("INSERTED_MARKER" in text(node) for node in root.iter(W+"ins")),
+              filename + ": inserted text is actual tracked insertion")
+        comments = ET.fromstring(review.read("word/comments.xml"))
+        comment_ids = {node.get(W+"id") for node in comments.iter(W+"comment")
+                       if "COMMENT_MARKER" in text(node)}
+        refs = {node.get(W+"id") for node in root.iter(W+"commentReference")}
+        check(bool(comment_ids & refs), filename + ": native comment linked to document")

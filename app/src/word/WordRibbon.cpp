@@ -96,6 +96,17 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
             }},
         }},
         {tr("Xem lại"), {
+            {tr("Theo dõi thay đổi"), {
+                {QStringLiteral(".uno:TrackChanges"), tr("Ghi thay đổi"), 0xE8D2, QStringLiteral("✎"), true},
+                {QStringLiteral(".uno:ShowTrackedChanges"), tr("Hiện thay đổi"), 0xE7B3, QStringLiteral("◉"), true},
+                {QStringLiteral(".uno:PreviousTrackedChange"), tr("Trước"), 0xE72B, QStringLiteral("←"), false},
+                {QStringLiteral(".uno:NextTrackedChange"), tr("Sau"), 0xE72A, QStringLiteral("→"), false},
+                {QStringLiteral(".uno:AcceptTrackedChange"), tr("Chấp nhận"), 0xE73E, QStringLiteral("✓"), false},
+                {QStringLiteral(".uno:RejectTrackedChange"), tr("Từ chối"), 0xE711, QStringLiteral("×"), false},
+            }},
+            {tr("Bình luận"), {
+                {QStringLiteral("word:addComment"), tr("Bình luận mới"), 0xE90A, QStringLiteral("+"), false},
+            }},
             {tr("Kiểm tra"), {
                 {QStringLiteral("word:reviewSyllable"), tr("Kiểm tra âm tiết"), 0xE8D2, QStringLiteral("Aa"), false},
                 {QStringLiteral("word:reviewCount"), tr("Đếm từ"), 0xE8EF, QStringLiteral("#"), false},

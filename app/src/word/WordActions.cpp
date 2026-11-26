@@ -99,7 +99,17 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
     if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
-    if (name == QLatin1String("headerEnable") || name == QLatin1String("footerEnable")) {
+    if (name == QLatin1String("addComment")) {
+        doc->waitInputIdle();
+        bool ok=false;
+        const QString comment=QInputDialog::getMultiLineText(parent,QObject::tr("Bình luận Word"),
+            QObject::tr("Nhập nội dung bình luận tại con trỏ hoặc vùng chữ đang chọn:"),QString(),&ok);
+        if(!ok||comment.trimmed().isEmpty())return true;
+        if(comment.size()>10000){QMessageBox::warning(parent,QObject::tr("Bình luận Word"),QObject::tr("Tối đa 10.000 ký tự."));return true;}
+        doc->command(".uno:InsertAnnotation",Document::stringArg("Text",ss(comment)));
+        doc->waitInputIdle();
+        tab->view()->setFocus();
+    } else if (name == QLatin1String("headerEnable") || name == QLatin1String("footerEnable")) {
         const bool header = name == QLatin1String("headerEnable");
         bool ok = false;
         const QString style = QInputDialog::getText(parent,
