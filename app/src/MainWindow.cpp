@@ -783,7 +783,7 @@ void MainWindow::onAppAction(const QString& id) {
             {QStringLiteral("info"), PdfToolsDialog::Info},
             {QStringLiteral("number"), PdfToolsDialog::Number}, {QStringLiteral("stamp"), PdfToolsDialog::Stamp},
             {QStringLiteral("images"), PdfToolsDialog::Images}, {QStringLiteral("blank"), PdfToolsDialog::Blank},
-            {QStringLiteral("reorder"), PdfToolsDialog::Reorder}};
+            {QStringLiteral("reorder"), PdfToolsDialog::Reorder}, {QStringLiteral("ocr"), PdfToolsDialog::Ocr}};
         QString path;
         if (docVisible && t->kind() == DocKind::Drawing && !t->document()->isNew()) path = QString::fromStdU16String(t->document()->originalPath().u16string());
         PdfToolsDialog::run(this, tabs.value(id.mid(9), PdfToolsDialog::Merge), path);

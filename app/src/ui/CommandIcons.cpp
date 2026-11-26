@@ -68,7 +68,7 @@ QString iconNameForCommand(const QString& id) {
         {"pdfPrev", "move-up"}, {"pdfNext", "move-down"},
         {"pdfTools:merge", "merge-pdf"}, {"pdfTools:split", "split"}, {"pdfTools:rotate", "rotate"}, {"pdfTools:compress", "compress"},
         {"pdfTools:images", "image"}, {"pdfTools:blank", "new"}, {"pdfTools:number", "page-number"}, {"pdfTools:stamp", "stamp"},
-        {"pdfTools:info", "info"}, {"pdfTools:reorder", "move-up"},
+        {"pdfTools:info", "info"}, {"pdfTools:reorder", "move-up"}, {"pdfTools:ocr", "text"},
     };
     // Lệnh có tham số: ".uno:Color#{...}" -> tra theo phần trước dấu #.
     const int hash = id.indexOf(QLatin1Char('#'));

@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "PdfToolsDialog.h"
+#include "PdfOcr.h"
+#include <QPlainTextEdit>
+#include <QApplication>
+#include <QClipboard>
+#include <QSaveFile>
 
 #include <QCheckBox>
 #include <QDesktopServices>
@@ -50,7 +55,7 @@ void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
     PdfToolsDialog dlg(parent);
     dlg.m_tabs->setCurrentIndex(tab);
     if (!initialPath.isEmpty()) {
-        for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile, dlg.m_numFile, dlg.m_stampFile, dlg.m_blankFile, dlg.m_orderFile})
+        for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile, dlg.m_numFile, dlg.m_stampFile, dlg.m_blankFile, dlg.m_orderFile, dlg.m_ocrFile})
             if (e) e->setText(initialPath);
         dlg.refreshPageCount(initialPath, dlg.m_splitInfo);
         dlg.refreshPageCount(initialPath, dlg.m_rotInfo);
@@ -78,6 +83,7 @@ PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     m_tabs->addTab(buildImages(), tr("Ảnh → PDF"));
     m_tabs->addTab(buildBlank(), tr("Trang trắng"));
     m_tabs->addTab(buildReorder(), tr("Sắp xếp"));
+    m_tabs->addTab(buildOcr(), tr("OCR → văn bản"));
     lay->addWidget(m_tabs);
     auto* note = new QLabel(tr("Tệp gốc không bao giờ bị sửa: kết quả luôn lưu thành tệp mới."), this);
     note->setStyleSheet("color:#555");
@@ -602,7 +608,18 @@ QWidget* PdfToolsDialog::buildStamp() {
     connect(clr, &QPushButton::clicked, this, [this] { m_stampImage->clear(); });
     m_stampPos = new QComboBox(w);
     fillPositions(m_stampPos, true);
+    m_stampPos->addItem(tr("Tùy chỉnh vị trí"), int(Position::Custom));
     f->addRow(tr("Vị trí:"), m_stampPos);
+    m_stampX = new QDoubleSpinBox(w); m_stampY = new QDoubleSpinBox(w);
+    for (auto* v : {m_stampX, m_stampY}) { v->setRange(0, 100); v->setValue(50); v->setSuffix(QStringLiteral(" %")); v->setEnabled(false); }
+    f->addRow(tr("Từ trái (0–100%):"), m_stampX);
+    f->addRow(tr("Từ trên (0–100%):"), m_stampY);
+    connect(m_stampPos, &QComboBox::currentIndexChanged, w, [this] {
+        const bool custom = m_stampPos->currentData().toInt() == int(Position::Custom);
+        m_stampX->setEnabled(custom); m_stampY->setEnabled(custom);
+    });
+    auto* overlayNote = new QLabel(tr("Chèn chữ/ảnh lên trang (lớp phủ). Không xóa hay sửa chữ gốc; không dùng để che dữ liệu mật."), w);
+    overlayNote->setWordWrap(true); f->addRow(overlayNote);
     m_stampSize = new QDoubleSpinBox(w);
     m_stampSize->setRange(6, 200);
     m_stampSize->setValue(48);
@@ -623,6 +640,7 @@ QWidget* PdfToolsDialog::buildStamp() {
         o.text = m_stampText->text(); o.imagePath = m_stampImage->text();
         o.pos = Position(m_stampPos->currentData().toInt()); o.fontSize = m_stampSize->value();
         o.opacity = m_stampOpacity->value(); o.widthPercent = m_stampWidth->value();
+        o.xPercent = m_stampX->value(); o.yPercent = m_stampY->value();
         o.pages = m_stampPages->text().trimmed().isEmpty() ? QStringLiteral("1-") : m_stampPages->text().trimmed();
         return o;
     };
@@ -633,7 +651,7 @@ QWidget* PdfToolsDialog::buildStamp() {
     root->addWidget(preview, 1);
     for (auto* e : {m_stampFile, m_stampText, m_stampImage, m_stampPages}) connect(e, &QLineEdit::textChanged, preview, [preview] { preview->changed(); });
     connect(m_stampPos, &QComboBox::currentIndexChanged, preview, [preview] { preview->changed(); });
-    for (auto* s : {m_stampSize, m_stampOpacity, m_stampWidth}) connect(s, &QDoubleSpinBox::valueChanged, preview, [preview] { preview->changed(); });
+    for (auto* s : {m_stampSize, m_stampOpacity, m_stampWidth, m_stampX, m_stampY}) connect(s, &QDoubleSpinBox::valueChanged, preview, [preview] { preview->changed(); });
     auto* go = new QPushButton(tr("Lưu PDF đóng dấu..."), w);
     f->addRow(go);
     connect(go, &QPushButton::clicked, this, [this] {
@@ -652,6 +670,7 @@ QWidget* PdfToolsDialog::buildStamp() {
         o.fontSize = m_stampSize->value();
         o.opacity = m_stampOpacity->value();
         o.widthPercent = m_stampWidth->value();
+        o.xPercent = m_stampX->value(); o.yPercent = m_stampY->value();
         o.pages = m_stampPages->text().trimmed().isEmpty() ? QStringLiteral("1-") : m_stampPages->text().trimmed();
         const QString dest = pickDest(this, src, tr("đóng dấu"));
         if (dest.isEmpty()) return;
@@ -751,6 +770,75 @@ QWidget* PdfToolsDialog::buildBlank() {
         const bool replace = QFileInfo::exists(dest);
         showResult(runWithPasswords({src}, [this, src, dest, replace] { return removeBlankPages(inputFor(src), dest, replace); }),
                    tr("Đã bỏ trang trắng"));
+    });
+    return w;
+}
+
+QWidget* PdfToolsDialog::buildOcr() {
+    auto* w = new QWidget(this);
+    auto* root = new QVBoxLayout(w);
+    auto* form = new QFormLayout;
+    auto* page = new QSpinBox(w); page->setRange(1, 100000);
+    auto* lang = new QComboBox(w);
+    lang->addItem(tr("Tiếng Việt + English"), QStringLiteral("vie+eng"));
+    lang->addItem(tr("Tiếng Việt"), QStringLiteral("vie"));
+    lang->addItem(tr("English"), QStringLiteral("eng"));
+    form->addRow(tr("PDF nguồn:"), fileRow(&m_ocrFile, {}));
+    form->addRow(tr("Trang cần nhận dạng:"), page);
+    form->addRow(tr("Ngôn ngữ:"), lang);
+    root->addLayout(form);
+    auto* note = new QLabel(tr("OCR cục bộ một trang: nhận dạng từ ảnh trang PDF, không gửi ra mạng, không sửa tệp nguồn. Cần cài Tesseract và dữ liệu ngôn ngữ tương ứng. Kết quả có thể sai, hãy đối chiếu bản gốc."), w);
+    note->setWordWrap(true); root->addWidget(note);
+    auto* status = new QLabel(w); status->setWordWrap(true); root->addWidget(status);
+    auto* row = new QHBoxLayout;
+    auto* go = new QPushButton(tr("Nhận dạng trang"), w);
+    auto* copy = new QPushButton(tr("Sao chép"), w);
+    auto* save = new QPushButton(tr("Lưu TXT…"), w);
+    row->addWidget(go); row->addWidget(copy); row->addWidget(save); row->addStretch(); root->addLayout(row);
+    auto* output = new QPlainTextEdit(w); output->setPlaceholderText(tr("Văn bản OCR sẽ hiện tại đây và có thể sửa.")); root->addWidget(output, 1);
+    const QString exe = dungpdf::findTesseract();
+    const bool ready = !exe.isEmpty() && printrender::available();
+    status->setText(ready ? tr("Tesseract: %1").arg(exe) : tr("Thiếu Tesseract trong PATH hoặc bộ vẽ QtPdf. Cài rồi mở lại công cụ."));
+    go->setEnabled(ready);
+    connect(m_ocrFile, &QLineEdit::textChanged, w, [=] {
+        output->clear();
+        const auto inf = printrender::pdfInfo(m_ocrFile->text());
+        if (inf.ok) { page->setMaximum(inf.pages); page->setValue(1); }
+        else { page->setMaximum(1); status->setText(inf.error); }
+    });
+    connect(page, &QSpinBox::valueChanged, w, [=] { output->clear(); });
+    connect(lang, &QComboBox::currentIndexChanged, w, [=] { output->clear(); });
+    connect(go, &QPushButton::clicked, w, [=] {
+        output->clear();
+        if (m_ocrFile->text().isEmpty()) { status->setText(tr("Hãy chọn tệp PDF.")); return; }
+        const auto source = m_ocrFile->text();
+        QString err;
+        const QImage img = printrender::renderPage(source, page->value(), QSize(3000, 3000), &err);
+        if (img.isNull()) { status->setText(err); return; }
+        QTemporaryDir temp;
+        const QString image = temp.filePath(QStringLiteral("ocr.png"));
+        if (!temp.isValid() || !img.save(image, "PNG")) { status->setText(tr("Không tạo được ảnh tạm.")); return; }
+        const QString language = lang->currentData().toString();
+        status->setText(tr("Đang nhận dạng…"));
+        dungpdf::OcrResult result;
+        QEventLoop loop;
+        QThread* worker = QThread::create([&] { result = dungpdf::recognizeImage(image, language); });
+        connect(worker, &QThread::finished, &loop, &QEventLoop::quit);
+        setEnabled(false); worker->start(); loop.exec(); worker->wait(); delete worker; setEnabled(true);
+        if (!result.ok) { status->setText(result.error); return; }
+        output->setPlainText(result.text);
+        status->setText(tr("Đã nhận dạng trang %1. Kiểm tra lại chữ và số trước khi sử dụng.").arg(page->value()));
+    });
+    connect(copy, &QPushButton::clicked, w, [=] { QApplication::clipboard()->setText(output->toPlainText()); });
+    connect(save, &QPushButton::clicked, w, [=] {
+        if (output->toPlainText().isEmpty()) { status->setText(tr("Chưa có văn bản để lưu.")); return; }
+        const QString dest = QFileDialog::getSaveFileName(this, tr("Lưu văn bản OCR"), QStringLiteral("OCR.txt"), tr("Văn bản UTF-8 (*.txt)"));
+        if (dest.isEmpty()) return;
+        if (!dest.endsWith(QLatin1String(".txt"), Qt::CaseInsensitive) || QFileInfo::exists(dest)) { status->setText(tr("Chọn tên TXT mới, không ghi đè tệp có sẵn.")); return; }
+        QSaveFile file(dest);
+        const QByteArray data = output->toPlainText().toUtf8();
+        if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) { status->setText(tr("Không lưu được văn bản.")); return; }
+        status->setText(tr("Đã lưu %1").arg(dest));
     });
     return w;
 }

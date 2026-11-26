@@ -2,6 +2,7 @@
 // Kiểm thử thao tác PDF (PdfOps) với qpdf thật. Không cần giao diện; tự tạo PDF mẫu.
 // Chạy: dung-pdftest   (đặt DUNG_QPDF nếu qpdf không nằm trong PATH)
 #include "pdf/PdfOps.h"
+#include "pdf/PdfOcr.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -360,6 +361,15 @@ int main(int argc, char** argv) {
         one.pos = Position::TopLeft;
         r = stamp({a, {}}, one, P(QStringLiteral("dau-t2.pdf")));
         CHECK(r.ok && qdfOf(P(QStringLiteral("dau-t2.pdf"))).count("(CHI TRANG 2) Tj") == 1, "đóng dấu trang '2': chữ xuất hiện đúng một lần");
+        StampOptions custom = one;
+        custom.pos = Position::Custom; custom.xPercent = 0; custom.yPercent = 0; custom.opacity = 1;
+        r = stamp({a, {}}, custom, P(QStringLiteral("dau-custom.pdf")));
+        CHECK(r.ok && qdfOf(P(QStringLiteral("dau-custom.pdf"))).count("(CHI TRANG 2) Tj") == 1, "lớp phủ tùy vị trí đúng trang");
+        custom.xPercent = 101;
+        CHECK(!stamp({a, {}}, custom, P(QStringLiteral("dau-bad-pos.pdf"))).ok && !QFileInfo::exists(P(QStringLiteral("dau-bad-pos.pdf"))), "từ chối vị trí ngoài phạm vi");
+        CHECK(readFile(a) == aBytes, "lớp phủ tùy vị trí giữ nguồn");
+        CHECK(!recognizeImage(pngA, QStringLiteral("invalid")).ok, "OCR từ chối ngôn ngữ không hỗ trợ");
+        CHECK(!recognizeImage(P(QStringLiteral("not-exist.png")), QStringLiteral("eng")).ok, "OCR từ chối ảnh không tồn tại");
         StampOptions si;
         si.imagePath = pngA;
         si.pos = Position::BottomRight;

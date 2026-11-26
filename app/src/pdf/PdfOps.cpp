@@ -946,7 +946,8 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
         return res;
     }
     if (opt.opacity <= 0 || opt.opacity > 1 || opt.gray < 0 || opt.gray > 1 || opt.fontSize < 4 || opt.fontSize > 400 ||
-        opt.widthPercent < 1 || opt.widthPercent > 100) {
+        opt.widthPercent < 1 || opt.widthPercent > 100 ||
+        !std::isfinite(opt.xPercent) || !std::isfinite(opt.yPercent) || opt.xPercent < 0 || opt.xPercent > 100 || opt.yPercent < 0 || opt.yPercent > 100) {
         res.error = tr("Thông số đóng dấu không hợp lệ (độ đậm 0–1, độ xám 0–1, cỡ chữ 4–400, bề rộng ảnh 1–100%).");
         return res;
     }
@@ -997,7 +998,11 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
                                  " cm BT /F1 " + num(opt.fontSize) + " Tf " + num(-tw / 2) + " " + num(-opt.fontSize * 0.35) + " Td " + pdfString(text) + " Tj ET Q";
                 } else {
                     double x, y;
-                    placeBox(opt.pos, op.w, op.h, tw, opt.fontSize, &x, &y);
+                    if (opt.pos == Position::Custom) {
+                        if (tw > op.w || opt.fontSize > op.h || geo[i].defaulted) { res.error = tr("Chữ không vừa trang hoặc không xác minh được kích thước trang."); return res; }
+                        x = (op.w - tw) * opt.xPercent / 100.0;
+                        y = (op.h - opt.fontSize) * (1.0 - opt.yPercent / 100.0);
+                    } else placeBox(opt.pos, op.w, op.h, tw, opt.fontSize, &x, &y);
                     op.content = "q " + color + "BT /F1 " + num(opt.fontSize) + " Tf " + num(x) + " " + num(y) + " Td " + pdfString(text) + " Tj ET Q";
                 }
             } else {
@@ -1010,7 +1015,11 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
                     op.content = "q /GS1 gs " + num(a) + " " + num(b) + " " + num(c) + " " + num(d) + " " + num(e) + " " + num(f) + " cm /Im1 Do Q";
                 } else {
                     double x, y;
-                    placeBox(opt.pos, op.w, op.h, w, h, &x, &y);
+                    if (opt.pos == Position::Custom) {
+                        if (geo[i].defaulted) { res.error = tr("Không xác minh được kích thước trang."); return res; }
+                        x = (op.w - w) * opt.xPercent / 100.0;
+                        y = (op.h - h) * (1.0 - opt.yPercent / 100.0);
+                    } else placeBox(opt.pos, op.w, op.h, w, h, &x, &y);
                     op.content = "q /GS1 gs " + num(w) + " 0 0 " + num(h) + " " + num(x) + " " + num(y) + " cm /Im1 Do Q";
                 }
             }

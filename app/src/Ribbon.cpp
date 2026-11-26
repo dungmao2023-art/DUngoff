@@ -95,7 +95,8 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 }},
                 {tr("Trang"), {
                     {QStringLiteral("pdfTools:number"), tr("Đánh số trang"), 0xE8EF, QStringLiteral("#"), false},
-                    {QStringLiteral("pdfTools:stamp"), tr("Đóng dấu"), 0xE7C3, QStringLiteral("◉"), false},
+                    {QStringLiteral("pdfTools:stamp"), tr("Chèn chữ/ảnh · đóng dấu"), 0xE7C3, QStringLiteral("◉"), false},
+                    {QStringLiteral("pdfTools:ocr"), tr("OCR → văn bản"), 0xE8D2, QStringLiteral("Aa"), false},
                     {QStringLiteral("pdfTools:images"), tr("Ảnh → PDF"), 0xE8B9, QStringLiteral("▣"), false},
                     {QStringLiteral("pdfTools:blank"), tr("Trang trắng"), 0xE74D, QStringLiteral("□"), false},
                 }},
