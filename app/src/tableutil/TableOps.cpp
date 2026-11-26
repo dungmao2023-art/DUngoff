@@ -6,6 +6,7 @@
 #include <QDate>
 #include <QRegularExpression>
 #include <QTextStream>
+#include <algorithm>
 
 namespace tbl {
 
@@ -426,6 +427,44 @@ CleanResult cleanTable(const Table &t, const QList<QPair<QString, ColumnKind>> &
         }
     }
     return res;
+}
+
+FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
+{
+    FilterSortResult result;
+    const auto valid = [&](int col) { return col == -1 || (col >= 0 && col < source.header.size()); };
+    if (!valid(spec.filterCol) || !valid(spec.sortCol)) {
+        result.error = QObject::tr("Cột lọc hoặc sắp xếp không hợp lệ.");
+        return result;
+    }
+    if (spec.filterCol >= 0 && spec.mode == FilterMode::Contains && spec.value.isEmpty()) {
+        result.error = QObject::tr("Nhập nội dung cần chứa, hoặc chọn lọc ô trống.");
+        return result;
+    }
+    const auto cs = spec.ignoreCase ? Qt::CaseInsensitive : Qt::CaseSensitive;
+    result.table.header = source.header;
+    for (const auto& row : source.rows) {
+        bool keep = true;
+        if (spec.filterCol >= 0) {
+            const auto cell = row.value(spec.filterCol);
+            switch (spec.mode) {
+                case FilterMode::Equal: keep = cell.compare(spec.value, cs) == 0; break;
+                case FilterMode::Contains: keep = cell.contains(spec.value, cs); break;
+                case FilterMode::Blank: keep = cell.isEmpty(); break;
+                case FilterMode::NotBlank: keep = !cell.isEmpty(); break;
+                default: result.error = QObject::tr("Kiểu lọc không hợp lệ."); return result;
+            }
+        }
+        if (keep) result.table.rows.append(row);
+    }
+    if (spec.sortCol >= 0)
+        std::stable_sort(result.table.rows.begin(), result.table.rows.end(),
+            [&](const QStringList& a, const QStringList& b) {
+                const int cmp = a.value(spec.sortCol).compare(b.value(spec.sortCol), cs);
+                return spec.descending ? cmp > 0 : cmp < 0;
+            });
+    result.ok = true;
+    return result;
 }
 
 } // namespace tbl
