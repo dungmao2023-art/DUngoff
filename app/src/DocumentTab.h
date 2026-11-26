@@ -71,6 +71,7 @@ private:
     QTabWidget* m_excelTools = nullptr;
     QWidget* m_rangeTools = nullptr;
     QWidget* m_formulaAssistant = nullptr;
+    unsigned m_pickGeneration = 0;
     QListWidget* m_slides = nullptr;
     QString m_savedPath;    // tệp mới mà người dùng đã "Lưu thành" trong phiên này
     QString m_cellAddress;

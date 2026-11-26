@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 #define LOK_USE_UNSTABLE_API
 #include "TileView.h"
+#include "tools/dataassist/ExcelBridge.h"
 #include <QGuiApplication>
 #include <QInputMethod>
 
@@ -469,7 +470,8 @@ QString TileView::selectedCellRange() {
     const auto rows = edges(m_rows, m_rowStartPx, area.y() / scale, (area.y() + area.height()) / scale);
     if (cols.first.isEmpty() || cols.second.isEmpty() || rows.first.isEmpty() || rows.second.isEmpty()) return {};
     const QString a = cols.first + rows.first, b = cols.second + rows.second;
-    return a == b ? a : a + QLatin1Char(':') + b;
+    const auto range = dataassist::bridgeRangeAddress((a + QLatin1Char(':') + b).toStdString());
+    return QString::fromStdString(range);
 }
 void TileView::mouseMoveEvent(QMouseEvent* e) {
     if (e->buttons() != Qt::NoButton) sendMouse(LOK_MOUSEEVENT_MOUSEMOVE, e, 1);

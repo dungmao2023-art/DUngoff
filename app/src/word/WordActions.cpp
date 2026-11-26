@@ -349,7 +349,7 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     } else if (name == QLatin1String("vnMoney")) {
         bool ok = false;
         doc->waitInputIdle();
-        const QString selected = qs(doc->selectionAs("text/plain;charset=utf-8")).trimmed();
+        const QString selected = QString::fromStdString(doc->selectionAs("text/plain;charset=utf-8")).trimmed();
         const QString in = QInputDialog::getText(parent, QObject::tr("Số → chữ"),
             QObject::tr("Số đang chọn (hoặc nhập số):"), QLineEdit::Normal, selected, &ok);
         if (!ok || in.trimmed().isEmpty()) return true;

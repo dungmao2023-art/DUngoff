@@ -134,8 +134,9 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         addTool(m_formulaAssistant, tr("ƒx · Tôi muốn"));
         connect(m_view, &TileView::cellSelectionFinished, this, [this] {
             const int part = m_doc->currentPart();
-            QTimer::singleShot(180, this, [this, part] {
-                if (!isVisible() || !m_formulaAssistant || !m_formulaAssistant->isVisible() || m_doc->currentPart() != part) return;
+            const unsigned generation = ++m_pickGeneration;
+            QTimer::singleShot(180, this, [this, part, generation] {
+                if (generation != m_pickGeneration || !isVisible() || !m_formulaAssistant || !m_formulaAssistant->isVisible() || m_doc->currentPart() != part) return;
                 m_doc->waitInputIdle(100, 700);
                 notifyFormulaSelection(m_formulaAssistant, m_view->selectedCellRange());
             });
@@ -320,6 +321,7 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
     }
     case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED:
     case LOK_CALLBACK_SET_PART:
+        ++m_pickGeneration;
         if ((m_sheets && m_sheets->count() != m_doc->partCount()) ||
             (m_slides && m_slides->count() != m_doc->partCount()) ||
             (m_sheets && m_sheets->currentIndex() != m_doc->currentPart()) ||
