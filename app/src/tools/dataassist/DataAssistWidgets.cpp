@@ -25,6 +25,8 @@
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QCheckBox>
+#include <QTreeWidget>
+#include "../../templates/TemplateLibrary.h"
 
 namespace dataassist {
 Hooks &hooks() { static Hooks h; return h; }
@@ -355,26 +357,44 @@ private:
 // ============================================================ Kho luật
 class LawLinks : public QWidget {
 public:
-    explicit LawLinks(QWidget *p) : QWidget(p)
-    {
-        struct L { const char16_t *id, *note, *url; };
-        static const L items[] = {
-            {u"TT99/2025/TT-BTC", u"Chế độ kế toán doanh nghiệp (hiệu lực theo phạm vi áp dụng)", u"https://www.mof.gov.vn/tin-tuc-tai-chinh/tin-chinh-sach-tai-chinh/quy-dinh-moi-ve-che-do-ke-toan-doanh-nghiep"},
-            {u"TT133/2016/TT-BTC", u"Kế toán doanh nghiệp nhỏ và vừa (nếu áp dụng chế độ này)", u"https://dangkykinhdoanh.gov.vn/vn/pages/ChiTietVanBan.aspx?TypeVB=1&vID=26957"},
-            {u"TT152/2025/TT-BTC", u"Kế toán hộ kinh doanh, cá nhân kinh doanh", u"https://vanban.chinhphu.vn/?docid=216533&pageid=27160"},
-            {u"Nghị định 30/2020/NĐ-CP", u"Thể thức văn bản hành chính", u"https://vanban.chinhphu.vn/?docid=199650&pageid=27160"},
-        };
-        auto *lay = new QVBoxLayout(this);
-        lay->addWidget(new QLabel(QStringLiteral("<b>Kho luật</b> — liên kết tới nguồn chính thức. Ứng dụng <b>không</b> lưu nội dung văn bản và <b>chưa xác minh</b> hiệu lực/sửa đổi mới nhất; hãy đối chiếu trên trang nguồn trước khi áp dụng.")));
-        for (const L &l : items) {
-            auto *b = new QPushButton(QStringLiteral("%1 — %2").arg(QString::fromUtf16(l.id), QString::fromUtf16(l.note)));
-            b->setStyleSheet(QStringLiteral("text-align:left;padding:8px"));
-            const QUrl u(QString::fromUtf16(l.url));
-            b->setToolTip(u.toString());
-            connect(b, &QPushButton::clicked, this, [u] { QDesktopServices::openUrl(u); });
-            lay->addWidget(b);
+    explicit LawLinks(QWidget *p) : QWidget(p) {
+        auto* lay = new QVBoxLayout(this);
+        auto* notice = new QLabel(QStringLiteral("<b>Kho luật và nguồn chính thức</b><br>Danh mục liên kết, không phải toàn văn. Chưa xác minh hiệu lực từng điều khoản; kiểm tra văn bản sửa đổi, lịch sử và phạm vi áp dụng tại nguồn."));
+        notice->setWordWrap(true); lay->addWidget(notice);
+        auto* search = new QLineEdit; search->setPlaceholderText(QStringLiteral("Tìm số hiệu, tên luật, chủ đề…")); lay->addWidget(search);
+        auto* group = new QComboBox; group->addItem(QStringLiteral("Tất cả lĩnh vực")); lay->addWidget(group);
+        auto* tree = new QTreeWidget; tree->setColumnCount(3); tree->setHeaderLabels({QStringLiteral("Lĩnh vực"), QStringLiteral("Văn bản / nguồn"), QStringLiteral("Hướng dẫn")});
+        tree->header()->setSectionResizeMode(1, QHeaderView::Stretch); tree->setRootIsDecorated(false); lay->addWidget(tree, 1);
+        auto* status = new QLabel; status->setWordWrap(true); lay->addWidget(status);
+        auto* open = new QPushButton(QStringLiteral("Mở nguồn chính thức")); lay->addWidget(open);
+        QList<tpl::Source> items = tpl::sources(tpl::installed());
+        if (items.isEmpty()) {
+            items << tpl::Source{QStringLiteral("Tra cứu chung"), QStringLiteral("Cơ sở dữ liệu quốc gia về văn bản pháp luật"), QStringLiteral("https://vbpl.vn/"), QStringLiteral("Tra cứu hiệu lực")}
+                  << tpl::Source{QStringLiteral("Tra cứu chung"), QStringLiteral("Cổng văn bản Chính phủ"), QStringLiteral("https://vanban.chinhphu.vn/"), QStringLiteral("Tải văn bản gốc")};
         }
-        lay->addStretch();
+        for (const auto& item : items) if (group->findText(item.group) < 0) group->addItem(item.group);
+        auto fill = [=] {
+            tree->clear();
+            const QString q = foldVietnamese(search->text().trimmed());
+            for (const auto& item : items) {
+                if (group->currentIndex() > 0 && item.group != group->currentText()) continue;
+                if (!foldVietnamese(item.group + QLatin1Char(' ') + item.document + QLatin1Char(' ') + item.guide).contains(q)) continue;
+                auto* row = new QTreeWidgetItem(tree, {item.group, item.document, item.guide});
+                row->setData(0, Qt::UserRole, item.url); row->setToolTip(1, item.url);
+            }
+            status->setText(QStringLiteral("%1 nguồn phù hợp. Kiểm tra hiệu lực trước khi áp dụng.").arg(tree->topLevelItemCount()));
+        };
+        auto launch = [=] {
+            const auto* row = tree->currentItem(); if (!row) return;
+            const QUrl url(row->data(0, Qt::UserRole).toString());
+            if (url.scheme() != QStringLiteral("https")) { status->setText(QStringLiteral("Chỉ mở liên kết HTTPS.")); return; }
+            if (!QDesktopServices::openUrl(url)) status->setText(QStringLiteral("Không mở được trình duyệt. ") + url.toString());
+        };
+        connect(search, &QLineEdit::textChanged, this, fill);
+        connect(group, &QComboBox::currentIndexChanged, this, fill);
+        connect(open, &QPushButton::clicked, this, launch);
+        connect(tree, &QTreeWidget::itemDoubleClicked, this, launch);
+        fill();
     }
 };
 }  // namespace

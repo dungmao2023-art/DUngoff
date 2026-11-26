@@ -86,7 +86,11 @@ int main(int argc, char** argv) {
         auto rz = tpl::installFromZip(zip, true);
         std::printf("       %s\n", rz.message.toUtf8().constData());
         CHECK(rz.ok, "cài gói mẫu thật từ tệp .zip");
-        CHECK(tpl::installed().version == QStringLiteral("2026.1"), "gói thật có phiên bản 2026.1");
+        CHECK(tpl::compareVersion(tpl::installed().version, QStringLiteral("2026.2")) >= 0, "gói thật phiên bản 2026.2 trở lên");
+        CHECK(tpl::sources(tpl::installed()).size() >= 35, "kho nguồn luật mở rộng");
+        int excelCount = 0;
+        for (const auto& e : tpl::entries(tpl::installed())) if (e.format == QStringLiteral("XLSX")) ++excelCount;
+        CHECK(excelCount >= 12, "có ít nhất 12 mẫu Excel");
         CHECK(tpl::entries(tpl::installed()).size() >= 150, "gói thật liệt kê từ 150 mẫu trở lên (đủ tệp, tên tiếng Việt)");
     }
     std::printf("\nĐã chạy xong, %d lỗi\n", g_fail);
