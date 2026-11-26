@@ -65,6 +65,7 @@ public:
         form_ = new QFormLayout; lay->addLayout(form_);
         connect(pairs_, &QSpinBox::valueChanged, this, [this](int) {
             if (!cur_ || !hasConditionPairs(*cur_)) return;
+            cancelPick();
             QStringList saved;
             for (auto* e : edits_) saved << e->text();
             while (form_->rowCount()) form_->removeRow(0);
@@ -74,23 +75,36 @@ public:
         auto* targetRow = new QHBoxLayout;
         target_ = new QLineEdit; target_->setPlaceholderText(QStringLiteral("VD: C6"));
         auto* useTarget = new QPushButton(QStringLiteral("Lấy ô"));
-        targetRow->addWidget(target_, 1); targetRow->addWidget(useTarget);
+        auto* pickTarget = new QPushButton(QStringLiteral("Chọn ô"));
+        pickTarget->setToolTip(QStringLiteral("Bấm rồi chọn đúng một ô kết quả trên bảng tính"));
+        targetRow->addWidget(target_, 1); targetRow->addWidget(useTarget); targetRow->addWidget(pickTarget);
+        connect(pickTarget,&QPushButton::clicked,this,[this]{armPick(target_);});
         lay->addWidget(new QLabel(QStringLiteral("Ô kết quả (sheet hiện tại)")));
         lay->addLayout(targetRow);
         connect(useTarget, &QPushButton::clicked, this, [this] {
             const QString addr = hooks().selectedCellAddress ? hooks().selectedCellAddress() : QString();
             if (addr.isEmpty()) { status_->setText(QStringLiteral("Chưa nhận được địa chỉ ô từ engine.")); return; }
+            cancelPick();
             target_->setText(addr);
         });
         result_ = new QLineEdit; result_->setPlaceholderText(QStringLiteral("Công thức sẽ hiện ở đây — sửa tự do được"));
         lay->addWidget(result_);
         auto* quick = new QFormLayout;
-        auto* qa = new QLineEdit; qa->setPlaceholderText(QStringLiteral("A1 hoặc số"));
-        auto* qb = new QLineEdit; qb->setPlaceholderText(QStringLiteral("B1 hoặc số"));
+        auto* qa = quickA_ = new QLineEdit; qa->setPlaceholderText(QStringLiteral("A1 hoặc số"));
+        auto* qb = quickB_ = new QLineEdit; qb->setPlaceholderText(QStringLiteral("B1 hoặc số"));
+        auto quickField = [this](QLineEdit* e) {
+            auto* field = new QWidget;
+            auto* row = new QHBoxLayout(field); row->setContentsMargins(0,0,0,0);
+            row->addWidget(e,1);
+            auto* pick = new QPushButton(QStringLiteral("Chọn ô"));
+            row->addWidget(pick);
+            connect(pick,&QPushButton::clicked,this,[this,e]{armPick(e);});
+            return field;
+        };
         auto* op = new QComboBox;
         for (const auto& s : {QStringLiteral("+"), QStringLiteral("-"), QStringLiteral("*"), QStringLiteral("/"), QStringLiteral("^"), QStringLiteral("Tỷ lệ %")}) op->addItem(s);
         auto* make = new QPushButton(QStringLiteral("Tạo phép tính nhanh"));
-        quick->addRow(QStringLiteral("Giá trị A"), qa); quick->addRow(QStringLiteral("Phép tính"), op); quick->addRow(QStringLiteral("Giá trị B"), qb);
+        quick->addRow(QStringLiteral("Giá trị A"), quickField(qa)); quick->addRow(QStringLiteral("Phép tính"), op); quick->addRow(QStringLiteral("Giá trị B"), quickField(qb));
         quick->addRow(make); lay->addLayout(quick);
         connect(make, &QPushButton::clicked, this, [this, qa, qb, op] {
             const auto a = qa->text().trimmed(), b = qb->text().trimmed();
@@ -110,6 +124,9 @@ public:
         btns->addWidget(insert_); btns->addWidget(copy_); btns->addStretch();
         lay->addLayout(btns);
         status_ = new QLabel; status_->setWordWrap(true); lay->addWidget(status_);
+        auto* cancel = new QPushButton(QStringLiteral("Hủy chọn ô/vùng"));
+        lay->addWidget(cancel);
+        connect(cancel,&QPushButton::clicked,this,[this]{cancelPick();status_->setText(QStringLiteral("Đã hủy chọn tham chiếu."));});
         connect(search_, &QLineEdit::textChanged, this, [this] { refill(); });
         connect(cat_, &QComboBox::currentIndexChanged, this, [this] { refill(); });
         connect(list_, &QListWidget::currentRowChanged, this, [this](int r) { select(r); });
@@ -132,19 +149,39 @@ public:
         insert_->setEnabled(true);
         refill();
     }
+    void sheetChanged(int part,const QString& name) {
+        if (sheetPart_==part && sheetName_==name) return;
+        const bool initial=sheetPart_<0;
+        sheetPart_=part; sheetName_=name;
+        if(initial)return;
+        cancelPick();
+        for(auto* e:edits_)e->clear();
+        target_->clear(); quickA_->clear(); quickB_->clear(); result_->clear();
+        status_->setText(QStringLiteral("Đã chuyển sheet. Chọn lại tham chiếu và ô kết quả để tránh ghi nhầm."));
+    }
     void selectedReference(const QString& reference) {
-        if (!isVisible() || !autoPick_->isChecked() || !cur_) return;
+        if (!isVisible() || !autoPick_->isChecked()) return;
         if (reference.isEmpty()) {
             status_->setText(QStringLiteral("Chưa xác minh được địa chỉ vùng; nhập địa chỉ thủ công nếu vùng nằm ngoài màn hình."));
             return;
         }
-        QLineEdit* e = nullptr;
-        for (auto* field : edits_) if (field->property("pickNext").toBool()) { e = field; break; }
-        if (!e) {
+        QLineEdit* e = pendingPick_;
+        if (e==target_ || e==quickA_ || e==quickB_) {
+            static const QRegularExpression cell(QStringLiteral("^\\$?[A-Z]{1,3}\\$?[1-9][0-9]*$"),QRegularExpression::CaseInsensitiveOption);
+            if(!cell.match(reference).hasMatch()) {
+                status_->setText(QStringLiteral("Chỉ chọn một ô, không chọn cả vùng."));
+                return;
+            }
+            cancelPick();
+            e->setText(reference);
+            status_->setText(QStringLiteral("Đã lấy ô %1.").arg(reference));
+            return;
+        }
+        if (!e && cur_) {
             for (auto* field : edits_) if (field->text().trimmed().isEmpty() && field->property("referenceArg").toBool()) { e = field; break; }
         }
         if (!e) return;
-        e->setProperty("pickNext", false);
+        cancelPick();
         e->setText(reference);
         for (auto* next : edits_) if (next->text().trimmed().isEmpty()) {
             status_->setText(QStringLiteral("Đã lấy %1. Đối số tiếp theo: %2").arg(reference, next->placeholderText()));
@@ -152,6 +189,12 @@ public:
         }
     }
 private:
+    void cancelPick() {pendingPick_=nullptr;}
+    void armPick(QLineEdit* field) {
+        pendingPick_=field;
+        autoPick_->setChecked(true);
+        status_->setText(QStringLiteral("Bây giờ chọn ô hoặc kéo vùng trên bảng tính."));
+    }
     void refill()
     {
         shown_.clear(); list_->clear();
@@ -167,7 +210,7 @@ private:
         }
         if (!shown_.isEmpty()) list_->setCurrentRow(0); else { desc_->setText(q.isEmpty() ? QString() : QStringLiteral("Không có hàm khớp “%1”.").arg(q)); clearForm(); }
     }
-    void clearForm() { cur_ = nullptr; pairs_->hide(); while (form_->rowCount()) form_->removeRow(0); edits_.clear(); result_->clear(); }
+    void clearForm() { cancelPick(); cur_ = nullptr; pairs_->hide(); while (form_->rowCount()) form_->removeRow(0); edits_.clear(); result_->clear(); }
     void select(int r)
     {
         clearForm();
@@ -193,10 +236,7 @@ private:
             pick->setToolTip(QStringLiteral("Bấm rồi chọn ô/vùng trên bảng; địa chỉ tự điền nếu xác minh được."));
             row->addWidget(pick);
             connect(pick, &QPushButton::clicked, this, [this, e] {
-                for (auto* field : edits_) field->setProperty("pickNext", false);
-                e->setProperty("pickNext", true);
-                autoPick_->setChecked(true);
-                status_->setText(QStringLiteral("Bây giờ chọn ô hoặc kéo vùng trên bảng tính."));
+                armPick(e);
             });
             form_->addRow(a.name + (a.optional ? QStringLiteral(" (tuỳ chọn)") : QString()), field);
             connect(e, &QLineEdit::textChanged, this, [this] { rebuild(); });
@@ -211,7 +251,9 @@ private:
         if (b.ok) { result_->setText(b.formula); status_->clear(); }
         else { result_->clear(); status_->setText(b.error); }
     }
-    QLineEdit *search_{}, *result_{}, *target_{};
+    QLineEdit *search_{}, *result_{}, *target_{}, *quickA_{}, *quickB_{}, *pendingPick_{};
+    int sheetPart_=-1;
+    QString sheetName_;
     QComboBox *cat_{};
     QSpinBox *pairs_{};
     QCheckBox *autoPick_{};
@@ -581,6 +623,7 @@ public:
 
 QWidget* createFormulaAssistantWidget(QWidget *p) { return new FormulaAssistant(p); }
 void notifyFormulaSelection(QWidget* w, const QString& ref) { if (auto* p = dynamic_cast<FormulaAssistant*>(w)) p->selectedReference(ref); }
+void notifyFormulaSheet(QWidget* w,int part,const QString& name) { if(auto* p=dynamic_cast<FormulaAssistant*>(w))p->sheetChanged(part,name); }
 QWidget* createRangeToolsWidget(QWidget *p) { return new RangeTools(p); }
 QWidget* createDocumentRangeToolsWidget(QWidget* p, std::function<QString()> readSelection) { return new RangeTools(p, std::move(readSelection)); }
 void notifyDocumentRangeTools(QWidget* widget) { if (auto* r = dynamic_cast<RangeTools*>(widget)) r->scheduleRefresh(); }
