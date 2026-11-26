@@ -149,23 +149,46 @@ QVector<const FuncInfo*> search(const QString &query, int maxResults)
     return r;
 }
 
+bool hasConditionPairs(const FuncInfo& f) {
+    return f.name == QLatin1String("SUMIFS") || f.name == QLatin1String("COUNTIFS") || f.name == QLatin1String("AVERAGEIFS");
+}
+QVector<ArgInfo> conditionArgs(const FuncInfo& f, int pairs) {
+    if (!hasConditionPairs(f)) return f.args;
+    QVector<ArgInfo> args;
+    if (f.name != QLatin1String("COUNTIFS")) args << f.args.first();
+    for (int n = 1; n <= qBound(1, pairs, 127); ++n) {
+        args << ArgInfo{QStringLiteral("Vùng điều kiện %1").arg(n), QStringLiteral("A2:A10"), false}
+             << ArgInfo{QStringLiteral("Điều kiện %1").arg(n), QStringLiteral("\">5\""), false};
+    }
+    return args;
+}
 BuildResult buildFormula(const FuncInfo &f, const QStringList &argValues, QChar sep)
 {
+    QVector<ArgInfo> args = f.args;
+    if (hasConditionPairs(f)) {
+        const int prefix = f.name == QLatin1String("COUNTIFS") ? 0 : 1;
+        const int count = int(argValues.size()) - prefix;
+        if (count < 2 || count % 2 || count > 254)
+            return {false, {}, QStringLiteral("Cần từ 1 đến 127 cặp vùng/điều kiện đầy đủ.")};
+        args = conditionArgs(f, count / 2);
+    } else if (argValues.size() > args.size()) {
+        return {false, {}, QStringLiteral("Có quá nhiều đối số.")};
+    }
     BuildResult r;
     QStringList used;
     int lastFilled = -1;
-    for (int i = 0; i < f.args.size(); ++i)
+    for (int i = 0; i < args.size(); ++i)
         if (i < argValues.size() && !argValues[i].trimmed().isEmpty()) lastFilled = i;
     for (int i = 0; i <= lastFilled; ++i) {
         const QString v = i < argValues.size() ? argValues[i].trimmed() : QString();
         if (v.isEmpty()) {
-            r.error = QStringLiteral("Thiếu đối số \"%1\"%2").arg(f.args[i].name, f.args[i].optional ? QStringLiteral(" (không thể bỏ trống khi đối số sau đã nhập)") : QString());
+            r.error = QStringLiteral("Thiếu đối số \"%1\"%2").arg(args[i].name, args[i].optional ? QStringLiteral(" (không thể bỏ trống khi đối số sau đã nhập)") : QString());
             return r;
         }
         used << v;
     }
-    for (int i = lastFilled + 1; i < f.args.size(); ++i)
-        if (!f.args[i].optional) { r.error = QStringLiteral("Thiếu đối số \"%1\"").arg(f.args[i].name); return r; }
+    for (int i = lastFilled + 1; i < args.size(); ++i)
+        if (!args[i].optional) { r.error = QStringLiteral("Thiếu đối số \"%1\"").arg(args[i].name); return r; }
     r.ok = true;
     r.formula = QLatin1Char('=') + f.name + QLatin1Char('(') + used.join(sep) + QLatin1Char(')');
     return r;

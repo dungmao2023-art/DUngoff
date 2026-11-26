@@ -25,6 +25,8 @@
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QCheckBox>
+#include <QSpinBox>
+#include <QTimer>
 #include <QTreeWidget>
 #include "../../templates/TemplateLibrary.h"
 
@@ -51,7 +53,17 @@ public:
         lay->addLayout(top);
         list_ = new QListWidget; lay->addWidget(list_, 1);
         desc_ = new QLabel; desc_->setWordWrap(true); lay->addWidget(desc_);
+        pairs_ = new QSpinBox; pairs_->setRange(1, 8); pairs_->setValue(2);
+        pairs_->setPrefix(QStringLiteral("Số cặp điều kiện: ")); pairs_->hide(); lay->addWidget(pairs_);
         form_ = new QFormLayout; lay->addLayout(form_);
+        connect(pairs_, &QSpinBox::valueChanged, this, [this](int) {
+            if (!cur_ || !hasConditionPairs(*cur_)) return;
+            QStringList saved;
+            for (auto* e : edits_) saved << e->text();
+            while (form_->rowCount()) form_->removeRow(0);
+            edits_.clear();
+            populateArgs(saved);
+        });
         auto* targetRow = new QHBoxLayout;
         target_ = new QLineEdit; target_->setPlaceholderText(QStringLiteral("VD: C6"));
         auto* useTarget = new QPushButton(QStringLiteral("Lấy ô"));
@@ -129,16 +141,22 @@ private:
         }
         if (!shown_.isEmpty()) list_->setCurrentRow(0); else { desc_->setText(q.isEmpty() ? QString() : QStringLiteral("Không có hàm khớp “%1”.").arg(q)); clearForm(); }
     }
-    void clearForm() { cur_ = nullptr; while (form_->rowCount()) form_->removeRow(0); edits_.clear(); result_->clear(); }
+    void clearForm() { cur_ = nullptr; pairs_->hide(); while (form_->rowCount()) form_->removeRow(0); edits_.clear(); result_->clear(); }
     void select(int r)
     {
         clearForm();
         if (r < 0 || r >= shown_.size()) return;
         cur_ = shown_[r];
+        pairs_->setVisible(hasConditionPairs(*cur_));
         desc_->setText(QStringLiteral("<b>%1</b> (%2): %3<br>Ví dụ: <code>%4</code>%5").arg(cur_->name, categoryName(cur_->cat), cur_->description, cur_->example.toHtmlEscaped(),
             cur_->newerEngineOnly ? QStringLiteral("<br><i>Hàm mảng động/mới: engine Windows 26.8.3.1 đã kiểm thử; engine Linux cũ trả #NAME?. Nếu ô báo #NAME? thì engine chưa hỗ trợ — không phải lỗi của bạn.</i>") : QString()));
-        for (const ArgInfo &a : cur_->args) {
+        populateArgs({});
+    }
+    void populateArgs(const QStringList& saved) {
+        const auto args = hasConditionPairs(*cur_) ? conditionArgs(*cur_, pairs_->value()) : cur_->args;
+        for (const ArgInfo &a : args) {
             auto *e = new QLineEdit; e->setPlaceholderText(a.hint);
+            if (edits_.size() < saved.size()) e->setText(saved.at(edits_.size()));
             edits_.push_back(e);
             auto* field = new QWidget;
             auto* row = new QHBoxLayout(field); row->setContentsMargins(0, 0, 0, 0);
@@ -166,6 +184,7 @@ private:
     }
     QLineEdit *search_{}, *result_{}, *target_{};
     QComboBox *cat_{};
+    QSpinBox *pairs_{};
     QListWidget *list_{};
     QLabel *desc_{}, *status_{};
     QFormLayout *form_{};
@@ -178,7 +197,7 @@ private:
 // ============================================================ Thống kê vùng / Lỗi / Biểu đồ nhanh
 class RangeTools : public QWidget {
 public:
-    explicit RangeTools(QWidget *p) : QWidget(p)
+    explicit RangeTools(QWidget *p, std::function<QString()> readSelection = {}) : QWidget(p), readSelection_(std::move(readSelection))
     {
         auto *lay = new QVBoxLayout(this);
         lay->addWidget(new QLabel(QStringLiteral("<b>Công cụ vùng dữ liệu</b><br>Dán vùng ô (từ Excel) hoặc mở CSV/XLSX. Chỉ đọc — dữ liệu gốc không bị sửa.")));
@@ -190,6 +209,14 @@ public:
         vi_ = new QCheckBox(QStringLiteral("Số kiểu Việt (1.234,5)")); vi_->setChecked(true);
         row->addWidget(open); row->addWidget(fromSel); row->addWidget(vi_); row->addStretch();
         lay->addLayout(row);
+        if (readSelection_) {
+            live_ = new QCheckBox(QStringLiteral("Tự cập nhật thống kê vùng chọn"));
+            live_->setToolTip(QStringLiteral("Chỉ đọc vùng khi panel đang hiện. Tắt nếu chọn vùng rất lớn."));
+            lay->addWidget(live_);
+            timer_ = new QTimer(this); timer_->setSingleShot(true); timer_->setInterval(220);
+            connect(timer_, &QTimer::timeout, this, [this] { if (isVisible() && live_->isChecked()) readAndSummarize(); });
+            connect(live_, &QCheckBox::toggled, this, [this](bool enabled) { if (enabled) scheduleRefresh(); else timer_->stop(); });
+        }
         auto *row2 = new QHBoxLayout;
         for (auto &pr : {std::pair<QString, int>{QStringLiteral("Thống kê"), 0}, {QStringLiteral("Kiểm tra lỗi công thức"), 1}, {QStringLiteral("Tìm dòng trùng"), 2}, {QStringLiteral("Biểu đồ nhanh (đếm theo cột 1)"), 3}}) {
             auto *b = new QPushButton(pr.first); const int id = pr.second;
@@ -200,12 +227,22 @@ public:
         out_ = new QPlainTextEdit; out_->setReadOnly(true); lay->addWidget(out_, 1);
         connect(open, &QPushButton::clicked, this, [this] { openFile(); });
         connect(fromSel, &QPushButton::clicked, this, [this] {
-            if (!hooks().selectedRangeText) { out_->setPlainText(QStringLiteral("Chưa nối với tab Excel đang mở — hãy dán vùng ô vào ô trên.")); return; }
-            input_->setPlainText(hooks().selectedRangeText());
-            run(0); // thống kê ngay khi người dùng lấy vùng, không tự polling engine
+            readAndSummarize();
         });
     }
+    void scheduleRefresh() { if (timer_ && live_->isChecked() && isVisible()) timer_->start(); }
 private:
+    void readAndSummarize() {
+        const auto reader = readSelection_ ? readSelection_ : hooks().selectedRangeText;
+        if (!reader) { out_->setPlainText(QStringLiteral("Chưa nối với bảng tính.")); return; }
+        const QString text = reader();
+        if (text.size() > 200000) {
+            input_->clear();
+            out_->setPlainText(QStringLiteral("Vùng quá lớn để thống kê nhanh. Hãy chọn vùng nhỏ hơn."));
+            return;
+        }
+        input_->setPlainText(text); run(0);
+    }
     void openFile()
     {
         const QString f = QFileDialog::getOpenFileName(this, QStringLiteral("Mở dữ liệu"), QString(), QStringLiteral("Bảng (*.csv *.xlsx)"));
@@ -248,7 +285,9 @@ private:
         out_->setPlainText(o.join(QLatin1Char('\n')));
     }
     QPlainTextEdit *input_{}, *out_{};
-    QCheckBox *vi_{};
+    QCheckBox *vi_{}, *live_{};
+    QTimer* timer_{};
+    std::function<QString()> readSelection_;
 };
 
 // ============================================================ Xuất theo mẫu
@@ -401,5 +440,7 @@ public:
 
 QWidget* createFormulaAssistantWidget(QWidget *p) { return new FormulaAssistant(p); }
 QWidget* createRangeToolsWidget(QWidget *p) { return new RangeTools(p); }
+QWidget* createDocumentRangeToolsWidget(QWidget* p, std::function<QString()> readSelection) { return new RangeTools(p, std::move(readSelection)); }
+void notifyDocumentRangeTools(QWidget* widget) { if (auto* r = dynamic_cast<RangeTools*>(widget)) r->scheduleRefresh(); }
 QWidget* createTemplateExportWidget(QWidget *p) { return new TemplateExportWidget(p); }
 QWidget* createLawLinksWidget(QWidget *p) { return new LawLinks(p); }
