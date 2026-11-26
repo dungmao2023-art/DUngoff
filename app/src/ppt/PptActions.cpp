@@ -129,10 +129,12 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         for (const auto& item : shapes) shape->addItem(QStringLiteral("%1 [ID %2]").arg(item.name).arg(item.id), item.id);
         auto* effect = new QComboBox; effect->addItems({QObject::tr("Xuất hiện ngay"), QObject::tr("Mờ dần vào")}); effect->setCurrentIndex(1);
         auto* duration = new QDoubleSpinBox; duration->setRange(0.1,10.0); duration->setDecimals(1); duration->setSingleStep(0.1); duration->setValue(0.5); duration->setSuffix(QObject::tr(" giây"));
+        auto* trigger=new QComboBox;
+        trigger->addItems({QObject::tr("Khi nhấp chuột"),QObject::tr("Cùng hiệu ứng trước"),QObject::tr("Sau hiệu ứng trước")});
         auto* delay = new QDoubleSpinBox; delay->setRange(0,30); delay->setDecimals(1); delay->setSingleStep(0.1); delay->setSuffix(QObject::tr(" giây"));
         QObject::connect(effect, &QComboBox::currentIndexChanged, duration, [duration](int n) { duration->setEnabled(n==1); });
         form->addRow(QObject::tr("Đối tượng"),shape); form->addRow(QObject::tr("Hiệu ứng"),effect);
-        form->addRow(QObject::tr("Thời lượng"),duration); form->addRow(QObject::tr("Trễ sau khi nhấp"),delay); root->addLayout(form);
+        form->addRow(QObject::tr("Bắt đầu"),trigger); form->addRow(QObject::tr("Thời lượng"),duration); form->addRow(QObject::tr("Độ trễ"),delay); root->addLayout(form);
         auto* buttons = new QHBoxLayout;
         auto* add = new QPushButton(QObject::tr("+ Thêm"), &dialog); add->setObjectName(QStringLiteral("AnimationPrimary"));
         auto* edit = new QPushButton(QObject::tr("Cập nhật dòng"), &dialog);
@@ -149,28 +151,36 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         auto* up = new QPushButton(QObject::tr("↑ Lên"), &dialog); auto* down = new QPushButton(QObject::tr("↓ Xuống"), &dialog);
         auto* remove = new QPushButton(QObject::tr("Xóa dòng"), &dialog);
         order->addWidget(up); order->addWidget(down); order->addStretch(); order->addWidget(remove); root->addLayout(order);
-        auto* note = new QLabel(QObject::tr("Kéo thả dòng để đổi thứ tự. Mỗi dòng phát khi nhấp chuột, theo thứ tự từ trên xuống. Một hiệu ứng xuất hiện cho mỗi đối tượng. Chỉ dùng slide chưa có timing; không sửa nguồn. Chưa có preview diễn hoạt trong app."), &dialog); note->setWordWrap(true); root->addWidget(note);
+        auto* note = new QLabel(QObject::tr("Kéo thả để đổi thứ tự. Dòng đầu phải là khi nhấp chuột. Các dòng sau có thể cùng/sau hiệu ứng trước. Thời gian tính từ lần nhấp của nhóm. Chỉ dùng slide chưa có timing; đây là timeline dự kiến, chưa phát thử trực tiếp."), &dialog); note->setWordWrap(true); root->addWidget(note);
         auto* bb = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel); bb->button(QDialogButtonBox::Ok)->setText(QObject::tr("Xuất PPTX mới…")); root->addWidget(bb);
         QList<ppttransition::AnimationOptions> effects;
         auto read = [&] {
             ppttransition::AnimationOptions o; o.shapeId=shape->currentData().toUInt(); o.fade=effect->currentIndex()==1;
-            o.durationMs=qRound(duration->value()*1000); o.delayMs=qRound(delay->value()*1000); return o;
+            o.durationMs=qRound(duration->value()*1000); o.delayMs=qRound(delay->value()*1000); o.trigger=ppttransition::AnimationTrigger(trigger->currentIndex()); return o;
+        };
+        auto updateTimeline=[&] {
+            QList<ppttransition::AnimationTiming> plan;
+            const auto result=ppttransition::planAnimation(effects,&plan);
+            for(int i=0;i<effects.size() && i<list->count();++i){
+                const auto& o=effects[i];const int ix=shape->findData(o.shapeId);
+                const QString time=result.ok?QObject::tr("Nhấp %1 · %2–%3 s").arg(plan[i].click)
+                    .arg(plan[i].startMs/1000.0,0,'f',2).arg(plan[i].endMs/1000.0,0,'f',2):QObject::tr("Chưa hợp lệ");
+                list->item(i)->setText(QObject::tr("%1. %2 · %3 · %4 · %5")
+                    .arg(i+1).arg(shape->itemText(ix)).arg(o.fade?QObject::tr("Mờ dần"):QObject::tr("Xuất hiện"))
+                    .arg(trigger->itemText(int(o.trigger)),time));
+            }
+            bb->button(QDialogButtonBox::Ok)->setEnabled(result.ok);
+            note->setText(effects.isEmpty()?QObject::tr("Thêm hiệu ứng; dòng đầu phải là khi nhấp chuột."):
+                result.ok?QObject::tr("Timeline dự kiến theo từng lần nhấp. Chưa phát thử trực tiếp; kiểm tra trong PowerPoint sau khi xuất."):result.error);
         };
         auto refresh = [&](int row) {
-            { QSignalBlocker block(list); list->clear();
-                for (int i=0; i<effects.size(); ++i) {
-                    const auto& o=effects[i];
-                    const int index=shape->findData(o.shapeId);
-                    list->addItem(QObject::tr("%1. %2  ·  %3  ·  %4 s  ·  trễ %5 s")
-                        .arg(i+1).arg(shape->itemText(index)).arg(o.fade ? QObject::tr("Mờ dần") : QObject::tr("Xuất hiện"))
-                        .arg(o.fade ? o.durationMs/1000.0 : 0.0,0,'f',1).arg(o.delayMs/1000.0,0,'f',1));
-                    list->item(i)->setData(Qt::UserRole,o.shapeId);
-                }
+            { QSignalBlocker block(list);list->clear();
+              for(const auto& o:effects){auto* item=new QListWidgetItem(list);item->setData(Qt::UserRole,o.shapeId);}
+              updateTimeline();
             }
             list->setCurrentRow(row);
-            bb->button(QDialogButtonBox::Ok)->setEnabled(!effects.isEmpty());
-            edit->setEnabled(row>=0); remove->setEnabled(row>=0);
-            up->setEnabled(row>0); down->setEnabled(row>=0 && row+1<effects.size());
+            edit->setEnabled(row>=0);remove->setEnabled(row>=0);
+            up->setEnabled(row>0);down->setEnabled(row>=0&&row+1<effects.size());
         };
         // Read stable shape IDs after the model finishes moving a row; never use displayed row numbers.
         QObject::connect(list->model(), &QAbstractItemModel::rowsMoved, &dialog,
@@ -182,12 +192,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
                     for(const auto& o:effects) if(o.shapeId==id) {ordered.append(o);break;}
                 }
                 if(ordered.size()==effects.size()) effects=ordered;
-                for(int i=0;i<list->count();++i) {
-                    auto* item=list->item(i);
-                    const QString old=item->text();
-                    const int dot=old.indexOf(QStringLiteral(". "));
-                    if(dot>=0)item->setText(QString::number(i+1)+old.mid(dot));
-                }
+                updateTimeline();
                 up->setEnabled(selected>0);
                 down->setEnabled(selected>=0 && selected+1<effects.size());
             });
@@ -199,7 +204,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             edit->setEnabled(row>=0); remove->setEnabled(row>=0); up->setEnabled(row>0); down->setEnabled(row>=0 && row+1<effects.size());
             if (row<0 || row>=effects.size()) return;
             const auto& o=effects[row]; shape->setCurrentIndex(shape->findData(o.shapeId)); effect->setCurrentIndex(o.fade?1:0);
-            duration->setValue(o.durationMs/1000.0); delay->setValue(o.delayMs/1000.0);
+            duration->setValue(o.durationMs/1000.0); delay->setValue(o.delayMs/1000.0); trigger->setCurrentIndex(int(o.trigger));
         });
         QObject::connect(add,&QPushButton::clicked,&dialog,[&] {
             const auto o=read();
