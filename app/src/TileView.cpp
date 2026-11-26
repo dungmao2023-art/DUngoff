@@ -110,7 +110,7 @@ void TileView::setZoom(int percent) {
 }
 
 void TileView::resetForPartChange() {
-    m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear();
+    m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear(); m_pickValid = false;
     m_tiles.clear();
     m_selection.clear();
     m_cellArea = QRect();
@@ -435,7 +435,13 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 }
 
 void TileView::mousePressEvent(QMouseEvent* e) {
-    if (m_isCalc) m_cellArea = QRect();
+    if (m_isCalc) {
+        m_cellArea = QRect();
+        const QPoint pos = e->position().toPoint();
+        const QPoint h = headerSize();
+        m_pickValid = e->button() == Qt::LeftButton && pos.x() >= h.x() && pos.y() >= h.y();
+        m_pickStart = toTwips(pos);
+    }
     cancelComposition();
     setFocus();
     restartBlink();
@@ -446,12 +452,16 @@ void TileView::mousePressEvent(QMouseEvent* e) {
 void TileView::mouseReleaseEvent(QMouseEvent* e) {
     sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, e, m_clickCount);
     m_clickCount = 1;
-    if (m_isCalc && e->button() == Qt::LeftButton) emit cellSelectionFinished();
+    if (m_isCalc && e->button() == Qt::LeftButton && m_pickValid) {
+        m_pickEnd = toTwips(e->position().toPoint());
+        emit cellSelectionFinished();
+    }
 }
-QString TileView::selectedCellRange() {
+QString TileView::selectedCellRange(bool verifyGesture) {
     if (!m_isCalc || !m_hasCell) return {};
     const QRect area = !m_cellArea.isEmpty() ? m_cellArea : m_cellCursor;
     if (area.isEmpty()) return {};
+    if (verifyGesture && (!m_pickValid || !area.contains(m_pickStart) || !area.contains(m_pickEnd))) return {};
     requestHeaders(); // engine trả tên hàng/cột theo viewport hiện tại
     const double scale = twipsPerPx();
     auto edges = [](const QVector<Header>& headers, int start, double lo, double hi) -> QPair<QString, QString> {

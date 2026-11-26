@@ -138,7 +138,7 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
             QTimer::singleShot(180, this, [this, part, generation] {
                 if (generation != m_pickGeneration || !isVisible() || !m_formulaAssistant || !m_formulaAssistant->isVisible() || m_doc->currentPart() != part) return;
                 m_doc->waitInputIdle(100, 700);
-                notifyFormulaSelection(m_formulaAssistant, m_view->selectedCellRange());
+                notifyFormulaSelection(m_formulaAssistant, m_view->selectedCellRange(true));
             });
         });
         m_rangeTools = createDocumentRangeToolsWidget(this, [this] { return qs(m_doc->selectionAs("text/plain;charset=utf-8")); });

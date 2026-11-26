@@ -26,6 +26,7 @@
 #include <QVBoxLayout>
 #include <QCheckBox>
 #include <QSpinBox>
+#include <QRegularExpression>
 #include <QTimer>
 #include <QTreeWidget>
 #include "../../templates/TemplateLibrary.h"
@@ -141,6 +142,10 @@ public:
         if (!e) return;
         e->setProperty("pickNext", false);
         e->setText(reference);
+        for (auto* next : edits_) if (next->text().trimmed().isEmpty()) {
+            status_->setText(QStringLiteral("Đã lấy %1. Đối số tiếp theo: %2").arg(reference, next->placeholderText()));
+            break;
+        }
     }
 private:
     void refill()
@@ -173,7 +178,8 @@ private:
         const auto args = hasConditionPairs(*cur_) ? conditionArgs(*cur_, pairs_->value()) : cur_->args;
         for (const ArgInfo &a : args) {
             auto *e = new QLineEdit; e->setPlaceholderText(a.hint);
-            e->setProperty("referenceArg", a.hint.contains(QLatin1Char(':')) || a.hint.contains(QStringLiteral("A1")) || a.hint.contains(QStringLiteral("A2")) || a.hint.contains(QStringLiteral("B2")));
+            static const QRegularExpression referenceHint(QStringLiteral("\\b[A-Z]{1,3}[1-9][0-9]*\\b"), QRegularExpression::CaseInsensitiveOption);
+            e->setProperty("referenceArg", referenceHint.match(a.hint).hasMatch());
             if (edits_.size() < saved.size()) e->setText(saved.at(edits_.size()));
             edits_.push_back(e);
             auto* field = new QWidget;

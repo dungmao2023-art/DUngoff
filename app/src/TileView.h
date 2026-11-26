@@ -25,7 +25,7 @@ public:
     bool hasCaret() const { return m_hasCaret; }
     bool hasCellCursor() const { return m_hasCell; }
     QRect caretViewRect() const;        // con trỏ chữ trong toạ độ viewport (rỗng nếu chưa có)
-    QString selectedCellRange(); // chỉ trả về địa chỉ khi khớp hình học vùng engine và header
+    QString selectedCellRange(bool verifyGesture = false); // chỉ trả về địa chỉ khi khớp hình học vùng engine và header
     QRect cellCursorViewRect() const;   // khung ô hiện hành trong toạ độ viewport
     bool caretShownNow() const;         // con trỏ chữ đang được vẽ ở khung hình này
     // Khoá pha nhấp nháy (bật/tắt) để so khung hình; unfreeze trả về nhấp nháy bình thường.
@@ -100,5 +100,7 @@ private:
     void refreshAllTiles();
     int m_pressButtons = 0;
     int m_clickCount = 1;
+    QPoint m_pickStart, m_pickEnd;
+    bool m_pickValid = false;
     bool m_fitted = false;
 };
