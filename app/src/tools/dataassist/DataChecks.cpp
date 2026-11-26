@@ -43,7 +43,7 @@ NumParse parseNumber(const QString &sIn, bool vi)
     QString intPart = s, decPart;
     const int di = s.indexOf(dec);
     if (di >= 0) {
-        if (s.indexOf(dec, di + 1) >= 0) return r;
+        if (di==s.size()-1 || s.indexOf(dec, di + 1) >= 0) return r;
         intPart = s.left(di); decPart = s.mid(di + 1);
         if (decPart.contains(thou)) return r;
     }
@@ -56,11 +56,12 @@ NumParse parseNumber(const QString &sIn, bool vi)
         // số thuần
     }
     // "1.234" kiểu Việt = 1234 nhưng người dùng Anh sẽ hiểu 1,234 => đây là phép đọc theo cài đặt, nhưng đánh dấu mơ hồ khi chỉ có MỘT nhóm 3 chữ số.
-    if (sIn.count(thou) == 1 && di < 0 && intPart.size() >= 4 && s.size() - s.indexOf(thou) - 1 == 3) r.ambiguous = true;
+    if (s.count(thou)==1 && di<0 && intPart.size()>=4 && s.size()-s.indexOf(thou)-1==3) r.ambiguous=true;
+    if (di>=1 && di<=3 && !intPart.contains(thou) && !s.contains(thou) && decPart.size()==3) r.ambiguous=true;
     if (intPart.isEmpty()) intPart = QStringLiteral("0");
     bool ok = false;
     const double v = (intPart + (decPart.isEmpty() ? QString() : QStringLiteral(".") + decPart)).toDouble(&ok);
-    if (!ok) return r;
+    if (!ok || !std::isfinite(v)) return r;
     r.ok = true;
     r.value = (neg ? -v : v) / (pct ? 100.0 : 1.0);
     return r;
@@ -140,6 +141,7 @@ RangeStats rangeStats(const QVector<QStringList> &grid, bool vi)
 ChartData groupForChart(const QVector<QStringList> &grid, int labelCol, int valueCol, bool hasHeader, bool vi, int maxPoints)
 {
     ChartData d;
+    if(maxPoints<1){d.warnings<<QStringLiteral("Giới hạn số nhóm không hợp lệ.");return d;}
     QMap<QString, int> idx;
     QVector<ChartPoint> pts;
     int bad = 0;
@@ -168,6 +170,43 @@ ChartData groupForChart(const QVector<QStringList> &grid, int labelCol, int valu
     }
     d.points = pts;
     return d;
+}
+
+GroupSummary summarizeGroups(const QVector<QStringList>& grid,int labelCol,int valueCol,bool hasHeader,bool vi) {
+    GroupSummary result;
+    if(grid.isEmpty() || labelCol<0 || valueCol< -1 || grid.size()>100001) {
+        result.error=QStringLiteral("Vùng dữ liệu hoặc lựa chọn cột không hợp lệ (tối đa 100.000 dòng dữ liệu).");return result;
+    }
+    int width=0;
+    for(const auto& row:grid)width=qMax(width,int(row.size()));
+    if(labelCol>=width || valueCol>=width) {result.error=QStringLiteral("Cột không tồn tại.");return result;}
+    QMap<QString,int> indices;
+    int missing=0,invalid=0,ambiguous=0;
+    for(int r=hasHeader?1:0;r<grid.size();++r) {
+        const auto& row=grid[r];
+        const QString label=row.value(labelCol).trimmed();
+        if(label.isEmpty()){++missing;continue;}
+        if(!indices.contains(label)){
+            if(result.groups.size()>=5000){result.groups.clear();result.error=QStringLiteral("Quá 5.000 nhóm; hãy lọc bớt dữ liệu.");return result;}
+            indices.insert(label,int(result.groups.size()));GroupSummaryRow entry;entry.label=label;result.groups.append(entry);
+        }
+        auto& group=result.groups[indices.value(label)];++group.rows;
+        if(valueCol<0)continue;
+        const QString raw=row.value(valueCol);
+        const auto number=looksLikeProtectedCode(raw)?NumParse{}:parseNumber(raw,vi);
+        if(!number.ok){++invalid;continue;}
+        if(number.ambiguous)++ambiguous;
+        if(!group.numbers)group.min=group.max=number.value;
+        else {group.min=qMin(group.min,number.value);group.max=qMax(group.max,number.value);}
+        group.sum+=number.value;++group.numbers;
+        if(!std::isfinite(group.sum)){result.groups.clear();result.error=QStringLiteral("Tổng vượt phạm vi số hỗ trợ.");return result;}
+    }
+    if(missing)result.warnings<<QStringLiteral("%1 dòng thiếu nhãn nhóm, đã bỏ qua.").arg(missing);
+    if(invalid)result.warnings<<QStringLiteral("%1 ô trống, lỗi, mã số hoặc không phải số không được cộng.").arg(invalid);
+    if(ambiguous)result.warnings<<QStringLiteral("%1 ô có dấu phân cách mơ hồ; đọc theo kiểu số đang chọn.").arg(ambiguous);
+    result.ok=!result.groups.isEmpty();
+    if(!result.ok)result.error=QStringLiteral("Không có nhóm dữ liệu hợp lệ.");
+    return result;
 }
 
 }  // namespace dataassist
