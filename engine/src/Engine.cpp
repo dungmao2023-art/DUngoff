@@ -124,7 +124,7 @@ bool looksValid(const fs::path& p, const std::string& ext, std::string& why) {
     std::vector<char> head(8, 0);
     f.read(head.data(), 8);
     const bool zipBased = ext == "xlsx" || ext == "docx" || ext == "pptx" || ext == "ods" ||
-                          ext == "odt" || ext == "odp";
+                          ext == "odt" || ext == "odp" || ext == "odg";
     if (zipBased) {
         if (std::memcmp(head.data(), "PK\x03\x04", 4) != 0) { why = "không phải gói ZIP hợp lệ"; return false; }
         // Tìm End Of Central Directory trong 64 KB cuối.
@@ -800,6 +800,7 @@ std::string Document::recoveryExt() const {
     switch (m_kind) {
     case DocKind::Spreadsheet: return "xlsx";
     case DocKind::Presentation: return "pptx";
+    case DocKind::Drawing: return "odg";
     default: return "docx";
     }
 }
@@ -1139,6 +1140,11 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
     if (!isPdf && !m_featureLoss.empty() && !opts.allowFeatureLoss) {
         r.message = "Bản lưu sẽ KHÔNG giữ các thành phần sau của tệp gốc:\n" + describeFeatureLoss(m_featureLoss) +
                     "Cần xác nhận trước khi lưu. Tệp gốc sẽ không bị thay đổi.";
+        return r;
+    }
+    if (m_kind == DocKind::Drawing && !m_recoveredOrigin.empty() &&
+        samePath(target, m_recoveredOrigin)) {
+        r.message = "Không ghi đè PDF nguồn của bản sao chỉnh sửa. Chọn tên mới.";
         return r;
     }
     const bool targetIsOriginal = !isNew() && samePath(target, m_original);

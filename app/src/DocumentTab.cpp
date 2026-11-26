@@ -404,6 +404,11 @@ bool DocumentTab::doSave(const QString& path, bool confirmedReplace) {
     const bool isPdf = path.endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive);
     const QString original = m_doc->isNew() ? QString() : fromPath(m_doc->originalPath());
 
+    if (m_doc->kind() == DocKind::Drawing && m_recOriginSet && !m_recOrigin.isEmpty() && samePathUi(path, m_recOrigin)) {
+        QMessageBox::warning(this, tr("Bảo vệ PDF gốc"), tr("Chọn tên mới, không ghi đè PDF nguồn của bản sao chỉnh sửa."));
+        return false;
+    }
+
     if (isPdf) {
         if (QMessageBox::question(this, tr("Xuất PDF"),
                 tr("Bản PDF chỉ là bản in: không giữ công thức và không chỉnh sửa lại được như tài liệu gốc.\n"

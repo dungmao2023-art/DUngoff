@@ -1,0 +1,2 @@
+# PDF: bản sao chỉnh sửa ODG
+PDF gốc tiếp tục mở chỉ đọc. Nút Tạo bản chỉnh sửa nhập qua Draw thành bản ODG mới, mở tab riêng, chỉ chấp nhận cùng số trang. Cho phép thao tác nội dung engine nhận dạng, lưu ODG, undo, xem trước in PDF kết xuất, xuất PDF tên mới. Không phải sửa stream PDF gốc; ảnh scan không thành chữ, bố cục/font/form/chữ ký/liên kết có thể mất. Bảo vệ nguồn ở UI và engine, kiểm smoke nhập/lưu/mở lại, thay đổi hình ảnh render và so từng byte nguồn. Cần thử GUI và chất lượng bố cục thực tế. Không đổi runtime LibreOffice; chỉ thay wrapper/app.

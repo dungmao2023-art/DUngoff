@@ -414,6 +414,44 @@ int main(int argc, char** argv) {
             renderCheck(*d, "pdf");
             auto r = d->saveAs(out / "pdf-sua.pdf");
             check(!r.ok, "PDF: không ghi lại khi chưa xác nhận: " + r.message);
+            step("PDF: tạo bản sao ODG chỉnh sửa");
+            const auto bytes = readAll(pdfPath);
+            const fs::path editable = out / "pdf-editable.odg";
+            fs::remove(editable, ec);
+            std::string copyErr;
+            const bool copied = d->saveRecoveryCopy(editable, &copyErr);
+            check(copied, "PDF nhập ODG: " + copyErr);
+            auto edit = copied ? engine->open(editable, &copyErr) : std::unique_ptr<Document>();
+            check(edit && edit->kind() == DocKind::Drawing && !edit->readOnly() && edit->partCount() == d->partCount(),
+                "Mở ODG chỉnh sửa, số trang đúng: " + copyErr);
+            if (edit) {
+                edit->setRecoveredOrigin(pdfPath, "pdf-editable.odg");
+                check(edit->recoveryExt() == "odg", "ODG dùng định dạng phục hồi đúng");
+                long width = 0, height = 0; edit->documentSize(width, height);
+                auto render = [&] {
+                    std::vector<uint8_t> pixels(384 * 384 * 4, 0);
+                    edit->paintTile(pixels.data(),384,384,0,0,(int)width,(int)height);
+                    return pixels;
+                };
+                const auto before = render();
+                const int x1 = int(width/4), y1 = int(height/4), x2 = int(width/2), y2 = int(height/3);
+                edit->command(".uno:Text");
+                edit->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,x1,y1,1,1,0);
+                edit->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,x2,y2,1,1,0);
+                edit->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,x2,y2,1,1,0);
+                edit->typeText(u"PDF EDIT TEST");
+                edit->postKey(LOK_KEYEVENT_KEYINPUT,0,1281); edit->postKey(LOK_KEYEVENT_KEYUP,0,1281);
+                edit->waitInputIdle(350,4000);
+                check(render() != before,"ODG: nội dung hiển thị đổi sau khi chèn chữ");
+                SaveOptions exportOpts; exportOpts.allowLossyExport = true; exportOpts.allowOverwriteOriginal = true;
+                check(!edit->saveAs(pdfPath, exportOpts).ok,"Không ghi đè PDF nguồn kể cả yêu cầu ghi đè");
+                const fs::path newPdf = out / "pdf-edited-export.pdf";
+                fs::remove(newPdf,ec);
+                check(edit->saveAs(newPdf,exportOpts).ok,"ODG: xuất PDF đã chỉnh sửa");
+                auto reopened = engine->open(newPdf,&copyErr);
+                check(reopened && reopened->kind()==DocKind::Drawing && reopened->partCount()==edit->partCount(),"PDF xuất mở lại đúng số trang");
+            }
+            check(readAll(pdfPath)==bytes,"PDF nguồn giữ nguyên từng byte");
         }
     }
 

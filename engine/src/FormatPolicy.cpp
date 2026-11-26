@@ -35,9 +35,11 @@ const std::vector<FormatInfo>& table() {
         {"odp",  DocKind::Presentation, Fidelity::Native, "impress8", "Trình chiếu OpenDocument (.odp)", ""},
         {"ppt",  DocKind::Presentation, Fidelity::ReadOnly, "", "PowerPoint 97-2003 (.ppt)",
          "Định dạng .ppt cũ: mở ở chế độ chỉ đọc. Hãy Lưu thành .pptx để chỉnh sửa an toàn."},
+        // ---- Bản vẽ chỉnh sửa (PDF nhập thành bản sao) ----
+        {"odg", DocKind::Drawing, Fidelity::Native, "draw8", "Bản vẽ OpenDocument (.odg)", ""},
         // ---- PDF ----
         {"pdf",  DocKind::Drawing, Fidelity::ReadOnly, "", "PDF (.pdf)",
-         "PDF được mở để xem. Chỉnh sửa PDF trực tiếp chưa được hỗ trợ vì có thể làm sai bố cục; tệp gốc không bị thay đổi."},
+         "PDF được mở để xem. Có thể tạo bản sao ODG chỉnh sửa; nhập lại bố cục có thể sai khác, nhất là font, ảnh quét và biểu mẫu. Tệp PDF gốc giữ nguyên."},
     };
     return t;
 }
