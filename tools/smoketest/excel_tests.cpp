@@ -244,6 +244,37 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
         info("Không có tệp stress — bỏ qua phần 5000 dòng");
     }
 
+    // Native multi-cell paste used by the Vietnamese number-to-words panel.
+    // A formula inside the selected range must be restored by a single Undo.
+    step("Số thành chữ — thay vùng trực tiếp và hoàn tác");
+    auto words=engine->createNew(DocKind::Spreadsheet,&err);
+    check(bool(words),"Tạo bảng tính kiểm thử thay vùng: "+err);
+    if(words) {
+        words->setClientView(512,512,7680,7680,0,0,7680,7680);
+        auto put=[&](const std::string& ref,const std::u16string& value){
+            gotoCell(*words,ref);words->typeText(value);
+            words->postKey(LOK_KEYEVENT_KEYINPUT,13,1280);
+            words->postKey(LOK_KEYEVENT_KEYUP,13,1280);
+            words->waitInputIdle();
+        };
+        put("B2",u"1");put("C2",u"=1+1");put("B3",u"3");put("C3",u"4");
+        put("D2",u"OUTSIDE_SENTINEL");
+        words->command(".uno:GoToCell",Document::stringArg("ToPoint","B2:C3"));
+        words->waitInputIdle();settle();
+        const auto source=words->selectionAs("text/plain;charset=utf-8");
+        check(source.find("1\t2")!=std::string::npos && source.find("3\t4")!=std::string::npos,
+              "Chọn đúng vùng 2x2 trước paste");
+        const bool pasted=words->paste("text/plain;charset=utf-8","Một\tHai\nBa\tBốn");
+        words->waitInputIdle();
+        check(pasted,"Engine nhận một lần paste lưới chữ Unicode");
+        auto saved=words->saveAs(out/"excel-range-words.xlsx");
+        check(saved.ok,"Lưu vùng chữ: "+saved.message);
+        words->command(".uno:Undo");
+        words->waitInputIdle();
+        auto undone=words->saveAs(out/"excel-range-words-undo.xlsx");
+        check(undone.ok,"Lưu sau đúng một lần Undo: "+undone.message);
+    }
+
     std::cout << (g_fail ? "\nKẾT QUẢ EXCEL: CÓ LỖI\n" : "\nKẾT QUẢ EXCEL: ĐẠT\n");
     std::cout.flush();
     std::_Exit(g_fail ? 1 : 0);
