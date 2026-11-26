@@ -82,7 +82,14 @@ MoneyResult moneyToWords(const QString &amountIn, const MoneyOptions &opt) {
     //  - chỉ một loại dấu: nếu khớp mẫu nhóm 3 chữ số (1.000 / 12,345,678) thì là dấu nghìn, ngược lại (1,5) là thập phân.
     const int lastDot = s.lastIndexOf(QLatin1Char('.')), lastComma = s.lastIndexOf(QLatin1Char(','));
     QChar dec, thou;
-    if (lastDot >= 0 && lastComma >= 0) {
+    if (!opt.decimalSeparator.isNull()) {
+        if (opt.decimalSeparator != QLatin1Char('.') && opt.decimalSeparator != QLatin1Char(',')) {
+            r.error = QObject::tr("Dấu thập phân không hợp lệ."); return r;
+        }
+        const QChar other = opt.decimalSeparator == QLatin1Char('.') ? QLatin1Char(',') : QLatin1Char('.');
+        if (s.contains(opt.decimalSeparator)) dec = opt.decimalSeparator;
+        if (s.contains(other)) thou = other;
+    } else if (lastDot >= 0 && lastComma >= 0) {
         if (lastDot > lastComma) { dec = QLatin1Char('.'); thou = QLatin1Char(','); }
         else { dec = QLatin1Char(','); thou = QLatin1Char('.'); }
     } else if (lastDot >= 0 || lastComma >= 0) {
@@ -107,9 +114,11 @@ MoneyResult moneyToWords(const QString &amountIn, const MoneyOptions &opt) {
     if (!digits.match(ip).hasMatch() || (!fp.isEmpty() && !digits.match(fp).hasMatch())) {
         r.error = QObject::tr("Số tiền không hợp lệ."); return r;
     }
-    if (!fp.isEmpty()) {
+    if (!fp.isEmpty() && opt.currency) {
         if (!allZero(fp)) { r.error = QObject::tr("VNĐ không có phần thập phân; không làm tròn âm thầm. Hãy tự xác nhận số nguyên đồng."); return r; }
         r.warnings << QObject::tr("Đã bỏ phần thập phân toàn số 0.");
+    } else if (fp.size() > 18) {
+        r.error = QObject::tr("Phần thập phân tối đa 18 chữ số; không làm tròn."); return r;
     }
     const QString before = ip;
     ip.remove(QRegularExpression(QStringLiteral("^0+(?=\\d)")));
@@ -118,11 +127,47 @@ MoneyResult moneyToWords(const QString &amountIn, const MoneyOptions &opt) {
 
     const quint64 n = ip.toULongLong();
     QString w = numberToWords(n, opt.useLe, opt.useTu);
-    if (neg && n != 0) w = QStringLiteral("âm ") + w;
+    if (!opt.currency && !fp.isEmpty()) {
+        w += QStringLiteral(" phẩy");
+        for (const QChar digit : fp) w += QLatin1Char(' ') + dg(digit.digitValue());
+    }
+    if (neg && (n != 0 || (!opt.currency && !allZero(fp)))) w = QStringLiteral("âm ") + w;
     if (opt.currency) { w += QStringLiteral(" đồng"); if (opt.chan) w += QStringLiteral(" chẵn"); }
     if (opt.capitalize && !w.isEmpty()) w[0] = w.at(0).toUpper();
     r.ok = true; r.text = w;
     return r;
+}
+
+RangeWordsResult rangeToWords(const QString& tsv, int rows, int cols, const MoneyOptions& opt) {
+    RangeWordsResult result;
+    if (rows < 1 || cols < 1 || qint64(rows) * cols > 5000 || tsv.size() > 200000) {
+        result.error = QObject::tr("Tối đa 5.000 ô và 200.000 ký tự mỗi lần."); return result;
+    }
+    QString normalized = tsv;
+    normalized.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
+    if (normalized.contains(QLatin1Char('\r')) || normalized.contains(QLatin1Char('"'))) {
+        result.error = QObject::tr("Vùng có ô nhiều dòng hoặc dấu ngoặc kép; hãy chọn vùng chỉ gồm số/ô trống."); return result;
+    }
+    QStringList lines = normalized.split(QLatin1Char('\n'), Qt::KeepEmptyParts);
+    if (lines.size() == rows + 1 && lines.last().isEmpty()) lines.removeLast();
+    if (lines.size() != rows) { result.error = QObject::tr("Số hàng đọc từ engine không khớp vùng chọn."); return result; }
+    QStringList output;
+    int converted = 0, warnings = 0;
+    for (int row = 0; row < rows; ++row) {
+        const auto fields = lines.at(row).split(QLatin1Char('\t'), Qt::KeepEmptyParts);
+        if (fields.size() != cols) { result.error = QObject::tr("Số cột ở hàng %1 không khớp vùng chọn.").arg(row+1); return result; }
+        QStringList words;
+        for (int col = 0; col < cols; ++col) {
+            if (fields.at(col).trimmed().isEmpty()) { words << QString(); continue; }
+            const auto r = moneyToWords(fields.at(col), opt);
+            if (!r.ok) { result.error = QObject::tr("Hàng %1, cột %2: %3").arg(row+1).arg(col+1).arg(r.error); return result; }
+            words << r.text; ++converted; if (!r.warnings.isEmpty()) ++warnings;
+        }
+        output << words.join(QLatin1Char('\t'));
+    }
+    if (!converted) { result.error = QObject::tr("Vùng không có số."); return result; }
+    result.ok = true; result.converted = converted; result.warnings = warnings;
+    result.text = output.join(QLatin1Char('\n')); return result;
 }
 
 // ======================= 2. Ngày =======================

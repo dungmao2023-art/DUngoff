@@ -12,7 +12,7 @@
 namespace vntext {
 
 // ---------- 1. Số -> chữ ----------
-// Giới hạn: tối đa 18 chữ số (dưới 10^18, đơn vị cao nhất "triệu tỷ"). Không có phần thập phân.
+// Giới hạn phần nguyên: tối đa 18 chữ số (dưới 10^18). numberToWords chỉ nhận số nguyên.
 QString numberToWords(quint64 n, bool useLe = false /* "lẻ" thay vì "linh" */, bool useTu = true /* 24 = "hai mươi tư" */);
 
 struct MoneyOptions {
@@ -21,6 +21,7 @@ struct MoneyOptions {
     bool currency = true;     // thêm "đồng"
     bool chan = true;         // thêm "chẵn" sau "đồng" (thông lệ chứng từ)
     bool capitalize = true;   // viết hoa chữ cái đầu
+    QChar decimalSeparator;   // null: quy tắc cũ; dấu phẩy/chấm: chọn rõ định dạng số
 };
 
 struct MoneyResult {
@@ -31,8 +32,18 @@ struct MoneyResult {
 };
 
 // Nhận chuỗi số tiền: "1500000", "1.500.000", "1,500,000", "-250000", "1.500.000 đ", "1.500.000,00".
-// Phần thập phân khác 0 -> TỪ CHỐI (không làm tròn âm thầm). Dấu '.'/',' mơ hồ được giải theo quy tắc nêu trong .cpp.
+// Với tiền đồng: từ chối phần thập phân khác 0. Với số thường: đọc từng chữ số sau dấu phẩy, giữ số 0. Chọn decimalSeparator rõ khi mơ hồ.
 MoneyResult moneyToWords(const QString &amount, const MoneyOptions &opt = {});
+
+// Chuyển lưới TSV số đơn giản thành TSV chữ, giữ số hàng/cột, giữ ô trống.
+// Từ chối toàn bộ khi ô không hợp lệ, kích thước sai, ô nhiều dòng/quoted hoặc vùng quá lớn.
+// Chỉ dùng cho xem trước/sao chép kết quả, không tự ghi đè công thức.
+struct RangeWordsResult {
+    bool ok = false;
+    QString text, error;
+    int converted = 0, warnings = 0;
+};
+RangeWordsResult rangeToWords(const QString& tsv, int rows, int cols, const MoneyOptions& opt);
 
 // ---------- 2. Ngày ----------
 enum class DateStyle {

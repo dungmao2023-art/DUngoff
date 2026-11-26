@@ -67,6 +67,21 @@ int main() {
     rejectMoney("1234567890123456789", "quá 18 chữ số");
     { const auto r = moneyToWords(QStringLiteral("1.500.000,00")); check(r.ok && !r.warnings.isEmpty(), "phần thập phân toàn 0 có cảnh báo"); }
 
+    { MoneyOptions o; o.currency = false; o.decimalSeparator = QLatin1Char(',');
+      eqMoney("-0,005", "Âm không phẩy không không năm", o);
+      eqMoney("1.234,50", "Một nghìn hai trăm ba mươi tư phẩy năm không", o);
+      eqMoney("0,00", "Không phẩy không không", o);
+      o.decimalSeparator = QLatin1Char('.');
+      eqMoney("1.234", "Một phẩy hai ba bốn", o);
+      const auto range = rangeToWords(QStringLiteral("12\t\r\n-0.25\t5\r\n"), 2, 2, o);
+      check(range.ok && range.converted == 3 && range.text == QStringLiteral("Mười hai\t\nÂm không phẩy hai năm\tNăm"), "chuyển vùng TSV, giữ ô trống và bố cục");
+      check(!rangeToWords(QStringLiteral("1\tABC"), 1, 2, o).ok, "không xuất vùng khi có ô không phải số");
+      check(!rangeToWords(QStringLiteral("1\t2"), 2, 2, o).ok, "từ chối kích thước vùng không khớp");
+      check(!rangeToWords(QStringLiteral("1"), 1000, 1000, o).ok, "giới hạn kích thước vùng");
+      o.currency = true;
+      check(!rangeToWords(QStringLiteral("1.5"), 1, 1, o).ok, "tiền đồng không làm tròn");
+    }
+
     // ---- 2. Ngày ----
     const QDate d1(2026, 3, 5), d2(2026, 2, 5), d3(2026, 11, 24);
     check(formatDateVn(d1) == QString::fromUtf8("ngày 05 tháng 3 năm 2026"), "ngày theo NĐ 30: ngày<10 thêm 0, tháng 3 không thêm", formatDateVn(d1));
