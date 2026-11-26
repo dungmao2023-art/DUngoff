@@ -290,7 +290,14 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         if (!ok || what.isEmpty()) return true;
         if (name == QLatin1String("find")) { send(tab, findNext(ss(what), false)); return true; }
         const QString with = QInputDialog::getText(parent, QObject::tr("Thay thế"), QObject::tr("Thay bằng:"), QLineEdit::Normal, QString(), &ok);
-        if (ok) send(tab, replaceAll(ss(what), ss(with)));
+        if (!ok) return true;
+        if (QMessageBox::question(parent, QObject::tr("Thay thế tất cả"),
+            QObject::tr("Thay tất cả lần xuất hiện của nội dung tìm kiếm trong tài liệu? Thao tác có thể thay đổi nhiều đoạn văn bản."),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return true;
+        if (tab->readOnly() || tab->document() != doc) return true;
+        doc->waitInputIdle();
+        send(tab, replaceAll(ss(what), ss(with)));
+        doc->waitInputIdle();
     } else if (name == QLatin1String("a4") || name == QLatin1String("landscape")) {
         // Đơn vị 1/100 mm (đã kiểm chứng trong word_tests.cpp).
         const bool land = name == QLatin1String("landscape");
