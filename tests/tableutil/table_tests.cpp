@@ -217,6 +217,27 @@ int main(int argc, char **argv)
         Table t2; CHECK(readCsv(outp, t2, er) && t2 == t1, "bản sao đọc lại nguyên vẹn");
     }
 
+    // ---- Exact decimal group aggregation ----
+    {
+        const Table src=T({"ID","Amount"},{{"001","0.1"},{"001","0.2"},{"1","-0.0001"},{"",""},{"A","1.2345"},{"A","-1.2345"}});
+        const Table before=src;
+        auto r=groupCsv(src,0,1);
+        CHECK(r.ok && r.table.rows.size()==4 && r.table.rows.value(0).value(3)=="0.3","exact decimal sum");
+        CHECK(r.table.rows.value(1).value(0)=="1" && r.table.rows.value(1).value(3)=="-0.0001","preserve key and negative fraction");
+        CHECK(r.table.rows.value(2).value(0).isEmpty() && r.table.rows.value(2).value(2)=="0" && r.table.rows.value(2).value(3).isEmpty(),"blank key grouped, blank value excluded");
+        CHECK(r.table.rows.value(3).value(3)=="0" && src==before,"cancellation exact, source unchanged");
+        auto count=groupCsv(src,0);
+        CHECK(count.ok && count.table.rows.value(0).value(1)=="2" && count.table.header.size()==2,"count only");
+        for(const QString& bad:QStringList{"001","1,2","1.00001","1e2"," 1","999999999999999","=1+2"}) {
+            CHECK(!groupCsv(T({"ID","Amount"},{{"A",bad}}),0,1).ok,"reject noncanonical or out of range number");
+        }
+        CHECK(!groupCsv(T({"ID","Amount"},{{"A"}}),0,1).ok,"reject ragged input");
+        CHECK(!groupCsv(src,0,0).ok && !groupCsv(src,99,1).ok,"reject invalid columns");
+        Table huge=T({"ID","Amount"},{});
+        for(int i=0;i<10;++i)huge.rows.append(QStringList{"A","99999999999999.9999"});
+        CHECK(!groupCsv(huge,0,1).ok,"reject sum overflow");
+    }
+
     std::cout << "\nKẾT QUẢ: " << (g_fail ? "CÓ LỖI" : "TẤT CẢ ĐẠT") << "  (đạt " << g_pass << ", lỗi " << g_fail << ")\n";
     return g_fail ? 1 : 0;
 }
