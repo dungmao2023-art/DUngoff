@@ -244,7 +244,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     ch->addWidget(m_stack, 1);
     m_side = new SidePanel(content);
     ch->addWidget(m_side);
-    m_side->setVisible(QSettings().value(QStringLiteral("ui/workPanel"), false).toBool());
+
     setCentralWidget(central);
 
     // ---- Thanh trạng thái ----
@@ -436,11 +436,6 @@ QWidget* MainWindow::buildSidebar() {
     auto* excel = make(tr("Bảng tính Excel"), app(QStringLiteral("X"), theme::kExcel), false);
     auto* ppt = make(tr("PowerPoint"), app(QStringLiteral("P"), theme::kPowerPoint), false);
     auto* pdf = make(tr("Công cụ PDF"), app(QStringLiteral("PDF"), theme::kPdf), false);
-    section(tr("LỊCH & CÔNG VIỆC"));
-    auto* work = make(tr("Công việc · Ghi chú"), sym("work"), false);
-    work->setCheckable(true);
-    work->setChecked(QSettings().value(QStringLiteral("ui/workPanel"), false).toBool()); // mặc định ẩn như thiết kế
-    work->setToolTip(tr("Hiện/ẩn bảng Ghi chú · Lịch · Liên hệ bên phải"));
     section(tr("TẬP TIN & DỰ ÁN"));
     auto* tmpl = make(tr("Kho mẫu"), sym("templates"), true);
     auto* proj = make(tr("Dự án"), sym("projects"), true);
@@ -462,10 +457,6 @@ QWidget* MainWindow::buildSidebar() {
     v->addWidget(card);
     m_navFullOnly << card;
 
-    connect(work, &QPushButton::toggled, this, [this](bool on) {
-        m_side->setVisible(on);
-        QSettings().setValue(QStringLiteral("ui/workPanel"), on);
-    });
     home->setChecked(true);
     word->setToolTip(tr("Tạo tài liệu Word mới"));
     excel->setToolTip(tr("Tạo sổ làm việc Excel mới"));
@@ -487,7 +478,6 @@ QWidget* MainWindow::buildSidebar() {
     side->setProperty("projBtn", QVariant::fromValue<QObject*>(proj));
     side->setProperty("tmplBtn", QVariant::fromValue<QObject*>(tmpl));
     side->setProperty("toolBtn", QVariant::fromValue<QObject*>(tools));
-    side->setProperty("workBtn", QVariant::fromValue<QObject*>(work));
     setProperty("sidebar", QVariant::fromValue<QObject*>(side));
     return side;
 }
@@ -628,7 +618,7 @@ void MainWindow::runCommand(const QString& id) {
     else if (id == QLatin1String("templates")) showTemplates();
     else if (id == QLatin1String("tools")) showToolbox();
     else if (id == QLatin1String("projects")) showProjects();
-    else if (id == QLatin1String("work")) { if (auto* b = sideBtn("workBtn")) b->setChecked(!b->isChecked()); }
+    else if (id == QLatin1String("work")) m_side->toggleContent();
     else if (id == QLatin1String("newDoc")) newDoc(DocKind::Text);
     else if (id == QLatin1String("newXlsx")) newDoc(DocKind::Spreadsheet);
     else if (id == QLatin1String("newPpt")) newDoc(DocKind::Presentation);

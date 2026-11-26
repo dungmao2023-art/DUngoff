@@ -17,11 +17,15 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QTableWidget>
-#include <QTabWidget>
+#include <QStackedWidget>
+#include <QScrollArea>
+#include <QFrame>
 #include <QTextCharFormat>
 #include <QVector>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QVariantAnimation>
+#include <QEasingCurve>
 
 namespace {
 const QStringList kStatuses = {QObject::tr("Mới"), QObject::tr("Đang liên hệ"), QObject::tr("Chờ phản hồi"),
@@ -30,28 +34,150 @@ const QStringList kStatuses = {QObject::tr("Mới"), QObject::tr("Đang liên h�
 
 SidePanel::SidePanel(QWidget* parent) : QWidget(parent) {
     setObjectName(QStringLiteral("SidePanel"));
-    setMinimumWidth(300);
-    setMaximumWidth(380);
-    auto* v = new QVBoxLayout(this);
-    v->setContentsMargins(8, 8, 8, 8);
-    auto* title = new QLabel(tr("Quản trị công việc"), this);
-    title->setStyleSheet(QStringLiteral("font-weight:700;color:#1F50BB;font-size:14px;"));
-    v->addWidget(title);
-    m_tabs = new QTabWidget(this);
-    m_tabs->addTab(buildNotes(), tr("Ghi chú"));
-    m_tabs->addTab(buildCalendar(), tr("Lịch"));
-    m_tabs->addTab(buildContacts(), tr("Liên hệ"));
+    setAttribute(Qt::WA_StyledBackground, true);
+    auto* outer = new QHBoxLayout(this);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
+
+    m_content = new QWidget(this);
+    m_content->setObjectName(QStringLiteral("WorkContent"));
+    m_content->setAttribute(Qt::WA_StyledBackground, true);
+    m_content->setFixedWidth(360);
+    auto* v = new QVBoxLayout(m_content);
+    v->setContentsMargins(12, 12, 12, 12);
+    v->setSpacing(10);
+    auto* heading = new QHBoxLayout;
+    m_title = new QLabel(tr("Ghi chú"), m_content);
+    m_title->setObjectName(QStringLiteral("WorkTitle"));
+    heading->addWidget(m_title, 1);
+    auto* close = new QPushButton(tr("×"), m_content);
+    close->setObjectName(QStringLiteral("WorkClose"));
+    close->setFixedSize(30, 30);
+    close->setToolTip(tr("Thu gọn quản trị công việc"));
+    close->setAccessibleName(close->toolTip());
+    heading->addWidget(close);
+    v->addLayout(heading);
+    m_tabs = new QStackedWidget(m_content);
+    for (QWidget* page : {buildNotes(), buildCalendar(), buildContacts()}) {
+        auto* scroll = new QScrollArea(m_tabs);
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setWidget(page);
+        m_tabs->addWidget(scroll);
+    }
     v->addWidget(m_tabs, 1);
-    auto* foot = new QLabel(tr("Lưu trên máy bạn, không gửi lên mạng."), this);
-    foot->setStyleSheet(QStringLiteral("color:#697992;font-size:11px;"));
+    auto* foot = new QLabel(tr("Lưu cục bộ · Không gửi lên mạng"), m_content);
+    foot->setObjectName(QStringLiteral("WorkHint"));
     foot->setWordWrap(true);
     v->addWidget(foot);
+    outer->addWidget(m_content);
+
+    auto* rail = new QWidget(this);
+    rail->setObjectName(QStringLiteral("WorkRail"));
+    rail->setAttribute(Qt::WA_StyledBackground, true);
+    rail->setFixedWidth(72);
+    auto* rv = new QVBoxLayout(rail);
+    rv->setContentsMargins(4, 8, 4, 8);
+    rv->setSpacing(4);
+    const QStringList labels{tr("Ghi chú"), tr("Lịch"), tr("Liên hệ")};
+    const QStringList glyphs{QStringLiteral("✎"), QStringLiteral("▦"), QStringLiteral("♙")};
+    for (int i = 0; i < labels.size(); ++i) {
+        auto* button = new QPushButton(glyphs[i] + QLatin1Char('\n') + labels[i], rail);
+        button->setObjectName(QStringLiteral("WorkTab"));
+        button->setCheckable(true);
+        button->setFixedHeight(58);
+        button->setToolTip(labels[i]);
+        button->setAccessibleName(labels[i]);
+        button->setCursor(Qt::PointingHandCursor);
+        m_buttons.append(button);
+        rv->addWidget(button);
+        connect(button, &QPushButton::clicked, this, [this, i] {
+            showPage(m_openPage == i ? -1 : i);
+        });
+    }
+    rv->addStretch(1);
+    outer->addWidget(rail);
+    connect(close, &QPushButton::clicked, this, [this] { showPage(-1); });
+    setStyleSheet(QStringLiteral(R"(
+QWidget#SidePanel, QWidget#WorkRail { background: #FBFCFF; }
+QWidget#WorkRail { border-left: 1px solid #DCE5F2; }
+QWidget#WorkContent { background: #F4F8FF; border-left: 1px solid #DCE5F2; }
+QLabel#WorkTitle { font-size: 17px; font-weight: 700; color: #17294D; }
+QLabel#WorkHint { font-size: 11px; color: #6B7A99; }
+QPushButton#WorkTab { background: transparent; border: none; border-right: 3px solid transparent; border-radius: 8px; font-size: 11px; color: #4A5A7C; }
+QPushButton#WorkTab:hover, QPushButton#WorkTab:focus { background: #EEF4FF; }
+QPushButton#WorkTab:checked { background: #E8F0FF; border-right: 3px solid #2864BA; color: #1B4A90; font-weight: 700; }
+QWidget#WorkContent QPushButton { background: white; border: 1px solid #DCE5F2; border-radius: 8px; padding: 5px 8px; color: #1B4A90; }
+QWidget#WorkContent QPushButton:hover, QWidget#WorkContent QPushButton:focus { background: #EEF4FF; border-color: #2864BA; }
+QWidget#WorkContent QPushButton#WorkPrimary { background: #2864BA; color: white; font-weight: 600; }
+QWidget#WorkContent QPushButton#WorkPrimary:hover { background: #1B4A90; }
+QWidget#WorkContent QPushButton#WorkClose { padding: 0; font-size: 18px; }
+QWidget#WorkContent QPlainTextEdit, QWidget#WorkContent QListWidget, QWidget#WorkContent QTableWidget { background: white; border: 1px solid #DCE5F2; border-radius: 8px; padding: 4px; selection-background-color: #E8F0FF; selection-color: #17294D; }
+QWidget#WorkContent QPlainTextEdit:focus, QWidget#WorkContent QLineEdit:focus { border-color: #2864BA; }
+QWidget#WorkContent QListWidget::item { padding: 6px; border-radius: 4px; }
+QWidget#WorkContent QHeaderView::section { background: #EEF4FF; border: none; padding: 6px; font-weight: 600; color: #4A5A7C; }
+QWidget#WorkContent QComboBox { background: white; border: 1px solid #DCE5F2; border-radius: 6px; padding: 4px; }
+QWidget#WorkContent QCalendarWidget { background: white; border: 1px solid #DCE5F2; border-radius: 8px; }
+QWidget#WorkContent QCalendarWidget QToolButton { color: #1B4A90; background: #EEF4FF; border: none; padding: 3px; }
+QWidget#WorkContent QCalendarWidget QWidget#qt_calendar_navigationbar { background: #EEF4FF; }
+QWidget#WorkContent QCalendarWidget QAbstractItemView { selection-background-color: #2864BA; selection-color: white; }
+)"));
+    m_content->setFixedWidth(0);
+    m_content->hide();
+    setFixedWidth(72);
+    showPage(-1);
 
     m_saveTimer = new QTimer(this);
     m_saveTimer->setSingleShot(true);
     m_saveTimer->setInterval(800);
     connect(m_saveTimer, &QTimer::timeout, this, &SidePanel::saveNow);
     load();
+}
+
+void SidePanel::showPage(int index) {
+    const int from = m_content->isHidden() ? 0 : m_content->width();
+    if (index < 0 || index >= m_buttons.size()) {
+        m_openPage = -1;
+    } else {
+        m_openPage = m_lastPage = index;
+        m_tabs->setCurrentIndex(index);
+        m_title->setText(m_buttons[index]->accessibleName());
+    }
+    for (int i = 0; i < m_buttons.size(); ++i)
+        m_buttons[i]->setChecked(i == m_openPage);
+
+    // Animate just the content; the right-hand rail never moves off screen.
+    auto* anim = findChild<QVariantAnimation*>(QStringLiteral("WorkPanelWidth"), Qt::FindDirectChildrenOnly);
+    if (!anim) {
+        anim = new QVariantAnimation(this);
+        anim->setObjectName(QStringLiteral("WorkPanelWidth"));
+        anim->setEasingCurve(QEasingCurve::OutCubic);
+        connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
+            const int width = value.toInt();
+            m_content->setFixedWidth(width);
+            setFixedWidth(72 + width);
+        });
+        connect(anim, &QVariantAnimation::finished, this, [this] {
+            if (m_openPage < 0) m_content->hide();
+        });
+    }
+    anim->stop();
+    const int to = m_openPage < 0 ? 0 : 360;
+    m_content->setFixedWidth(from);
+    setFixedWidth(72 + from);
+    if (m_openPage >= 0) m_content->show();
+    if (from == to) {
+        if (m_openPage < 0) m_content->hide();
+        return;
+    }
+    anim->setDuration(qBound(80, 220 * qAbs(to - from) / 360, 220));
+    anim->setStartValue(from);
+    anim->setEndValue(to);
+    anim->start();
+}
+
+void SidePanel::toggleContent() {
+    showPage(m_openPage < 0 ? m_lastPage : -1);
 }
 
 void SidePanel::flush() {
@@ -96,6 +222,7 @@ QWidget* SidePanel::buildNotes() {
     auto* v = new QVBoxLayout(w);
     auto* row = new QHBoxLayout;
     auto* add = new QPushButton(tr("+ Ghi chú mới"), w);
+    add->setObjectName(QStringLiteral("WorkPrimary"));
     auto* del = new QPushButton(tr("Xoá"), w);
     row->addWidget(add);
     row->addWidget(del);
@@ -193,6 +320,7 @@ QWidget* SidePanel::buildCalendar() {
     m_eventTitle = new QLineEdit(w);
     m_eventTitle->setPlaceholderText(tr("Việc / hạn chót cho ngày đang chọn"));
     auto* add = new QPushButton(tr("Thêm"), w);
+    add->setObjectName(QStringLiteral("WorkPrimary"));
     row->addWidget(m_eventTitle, 1);
     row->addWidget(add);
     v->addLayout(row);
@@ -202,6 +330,7 @@ QWidget* SidePanel::buildCalendar() {
     v->addWidget(del);
     auto* hint = new QLabel(tr("Nhấp đúp vào một việc để đánh dấu xong / chưa xong."), w);
     hint->setStyleSheet(QStringLiteral("color:#697992;font-size:11px;"));
+    hint->setWordWrap(true);
     v->addWidget(hint);
 
     auto addEvent = [this] {
@@ -287,8 +416,8 @@ QWidget* SidePanel::buildContacts() {
     m_filter->addItem(tr("Mọi trạng thái"));
     m_filter->addItems(kStatuses);
     top->addWidget(m_search, 1);
-    top->addWidget(m_filter);
     v->addLayout(top);
+    v->addWidget(m_filter);
     m_table = new QTableWidget(0, 4, w);
     m_table->setHorizontalHeaderLabels({tr("Tên"), tr("Điện thoại"), tr("Email"), tr("Trạng thái")});
     m_table->horizontalHeader()->setStretchLastSection(true);
@@ -298,6 +427,7 @@ QWidget* SidePanel::buildContacts() {
     v->addWidget(m_table, 1);
     auto* row = new QHBoxLayout;
     auto* add = new QPushButton(tr("+ Liên hệ"), w);
+    add->setObjectName(QStringLiteral("WorkPrimary"));
     auto* del = new QPushButton(tr("Xoá"), w);
     row->addWidget(add);
     row->addWidget(del);
@@ -305,6 +435,7 @@ QWidget* SidePanel::buildContacts() {
     auto* sum = new QLabel(w);
     sum->setObjectName(QStringLiteral("ContactSummary"));
     sum->setStyleSheet(QStringLiteral("color:#697992;font-size:11px;"));
+    sum->setWordWrap(true);
     v->addWidget(sum);
 
     connect(add, &QPushButton::clicked, this, [this] {
