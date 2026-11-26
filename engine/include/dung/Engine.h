@@ -154,6 +154,7 @@ public:
     // Ở chế độ nhúng, engine dùng clipboard nội bộ; giao diện chuyển qua lại với clipboard hệ thống.
     std::string selectionAs(const std::string& mimeType);   // vd. "text/plain;charset=utf-8", "text/html"
     bool paste(const std::string& mimeType, const std::string& data);
+    bool pasteTextOnly(const std::string& utf8Tsv); // native Calc Paste Only Text, retain destination formatting
     // Đợi engine xử lý xong phím/lệnh vừa gửi (phím và lệnh UNO được engine xếp hàng xử lý sau, còn dán thì chạy ngay).
     // Đợi cho tới khi đã yên lặng quietMs tính từ lần gửi phím/lệnh cuối VÀ từ sự kiện thật cuối cùng của engine
     // (không tính sự kiện giả "SYNTH"); tối đa maxMs. Không đợi nếu không có gì mới được gửi gần đây.
