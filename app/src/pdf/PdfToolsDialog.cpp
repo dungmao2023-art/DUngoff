@@ -85,7 +85,7 @@ PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     m_tabs->addTab(buildImages(), tr("Ảnh → PDF"));
     m_tabs->addTab(buildBlank(), tr("Trang trắng"));
     m_tabs->addTab(buildReorder(), tr("Sắp xếp"));
-    m_tabs->addTab(buildOcr(), tr("OCR → văn bản"));
+    m_tabs->addTab(buildOcr(), tr("OCR · TXT / PDF"));
     lay->addWidget(m_tabs);
     auto* note = new QLabel(tr("Tệp gốc không bao giờ bị sửa: kết quả luôn lưu thành tệp mới."), this);
     note->setStyleSheet("color:#555");
@@ -796,14 +796,17 @@ QWidget* PdfToolsDialog::buildOcr() {
     auto* status = new QLabel(w); status->setWordWrap(true); root->addWidget(status);
     auto* row = new QHBoxLayout;
     auto* go = new QPushButton(tr("Nhận dạng khoảng trang"), w);
+    auto* pdf = new QPushButton(tr("Tạo PDF tìm kiếm được…"), w);
     auto* copy = new QPushButton(tr("Sao chép"), w);
     auto* save = new QPushButton(tr("Lưu TXT…"), w);
-    row->addWidget(go); row->addWidget(copy); row->addWidget(save); row->addStretch(); root->addLayout(row);
+    row->addWidget(go); row->addWidget(pdf); row->addWidget(copy); row->addWidget(save); row->addStretch(); root->addLayout(row);
     auto* output = new QPlainTextEdit(w); output->setPlaceholderText(tr("Văn bản OCR sẽ hiện tại đây và có thể sửa.")); root->addWidget(output, 1);
     const QString exe = dungpdf::findTesseract();
     const bool ready = !exe.isEmpty() && printrender::available();
     status->setText(ready ? tr("Tesseract: %1").arg(exe) : tr("Thiếu Tesseract trong PATH hoặc bộ vẽ QtPdf. Cài rồi mở lại công cụ."));
     go->setEnabled(ready);
+    pdf->setEnabled(ready);
+    pdf->setToolTip(tr("Tạo bản sao ảnh trang với lớp chữ OCR ẩn; không giữ cấu trúc vector hoặc liên kết."));
     connect(m_ocrFile, &QLineEdit::textChanged, w, [=] {
         output->clear();
         const auto inf = printrender::pdfInfo(m_ocrFile->text());
@@ -813,8 +816,8 @@ QWidget* PdfToolsDialog::buildOcr() {
     connect(page, &QSpinBox::valueChanged, w, [=](int value) { if (last->value() < value) last->setValue(value); output->clear(); });
     connect(last, &QSpinBox::valueChanged, w, [=] { output->clear(); });
     connect(lang, &QComboBox::currentIndexChanged, w, [=] { output->clear(); });
-    connect(go, &QPushButton::clicked, w, [=] {
-        output->clear();
+    auto runOcr = [=](bool pdfMode) {
+        if (!pdfMode) output->clear();
         if (m_ocrFile->text().isEmpty()) { status->setText(tr("Hãy chọn tệp PDF.")); return; }
         const auto source = m_ocrFile->text();
         const auto inf = printrender::pdfInfo(source);
@@ -823,10 +826,24 @@ QWidget* PdfToolsDialog::buildOcr() {
         const auto rangeError = dungpdf::validateOcrRange(first, end, inf.pages);
         if (!rangeError.isEmpty()) { status->setText(rangeError); return; }
         const QString language = lang->currentData().toString();
+        QString destination;
+        if (pdfMode) {
+            if (QMessageBox::question(this,tr("PDF có thể tìm kiếm"),
+                tr("Tạo PDF mới chỉ gồm khoảng trang đã chọn, dưới dạng ảnh kèm lớp chữ OCR ẩn. "
+                   "Chữ có thể nhận sai; kích thước trang gần đúng, mất vector, liên kết, biểu mẫu, chữ ký và nội dung tương tác. "
+                   "Tệp nguồn không đổi. Tiếp tục?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return;
+            destination = QFileDialog::getSaveFileName(this,tr("Lưu PDF OCR mới"),suggestOutputPath(source,tr("OCR")),tr("PDF (*.pdf)"));
+            if (destination.isEmpty()) return;
+            if (!destination.endsWith(QLatin1String(".pdf"),Qt::CaseInsensitive)) destination += QStringLiteral(".pdf");
+            if (QFileInfo::exists(destination) || QFileInfo(destination).isSymLink()) {
+                status->setText(tr("Chọn tệp PDF mới chưa tồn tại.")); return;
+            }
+        }
         QTemporaryDir temp;
         if (!temp.isValid()) { status->setText(tr("Không tạo được thư mục tạm.")); return; }
         const QString image = temp.filePath(QStringLiteral("ocr.png"));
         QStringList recognized;
+        QList<Input> pdfPages;
         QString failure;
         const int count = end - first + 1;
         // Separate modal progress window: keep the source dialog disabled throughout.
@@ -850,7 +867,18 @@ QWidget* PdfToolsDialog::buildOcr() {
             }
             dungpdf::OcrResult result;
             QEventLoop loop;
-            QThread* worker = QThread::create([&] { result = dungpdf::recognizeImage(image, language); });
+            const QString pagePdf = temp.filePath(QStringLiteral("page-%1.pdf").arg(p));
+            const int dpi = qBound(70,qRound(img.dotsPerMeterX()*0.0254),2400);
+            QThread* worker = QThread::create([&] {
+                if (!pdfMode) result = dungpdf::recognizeImage(image, language);
+                else {
+                    result = dungpdf::searchableImagePdf(image, language, dpi, pagePdf);
+                    if (result.ok) {
+                        const auto verified = dungpdf::info(pagePdf);
+                        if (!verified.ok || verified.pages != 1) result = {false,{},tr("PDF OCR một trang không qua kiểm tra.")};
+                    }
+                }
+            });
             connect(worker, &QThread::finished, &loop, &QEventLoop::quit);
             connect(&progress, &QProgressDialog::canceled, worker, &QThread::requestInterruption);
             worker->start();
@@ -859,17 +887,34 @@ QWidget* PdfToolsDialog::buildOcr() {
             delete worker;
             if (progress.wasCanceled()) break;
             if (!result.ok) { failure = tr("Trang %1: %2").arg(p).arg(result.error); break; }
-            recognized.append(count == 1 ? result.text : tr("===== Trang %1 =====\n%2").arg(p).arg(result.text));
-            progress.setValue(recognized.size());
+            if (pdfMode) pdfPages.append(Input{pagePdf,{}});
+            else recognized.append(count == 1 ? result.text : tr("===== Trang %1 =====\n%2").arg(p).arg(result.text));
+            progress.setValue(pdfMode ? pdfPages.size() : recognized.size());
         }
         const bool cancelled = progress.wasCanceled();
         progress.hide();
         setEnabled(true);
+        if (pdfMode) {
+            if (cancelled || !failure.isEmpty() || pdfPages.size()!=count) {
+                status->setText(cancelled ? tr("Đã hủy. Không tạo PDF đầu ra.") : tr("Không tạo PDF: %1").arg(failure));
+                return;
+            }
+            QStringList paths;
+            for (const auto& in : pdfPages) paths << in.path;
+            const auto result = runWithPasswords(paths,[&] {
+                if (pdfPages.size()==1) return dungpdf::extract(pdfPages.first(),QStringLiteral("1"),destination,false);
+                return dungpdf::merge(pdfPages,destination,false);
+            });
+            status->setText(result.ok ? tr("Đã lưu PDF OCR %1 trang: %2. Kiểm tra lại chữ nhận dạng.").arg(count).arg(destination) : result.error);
+            return;
+        }
         output->setPlainText(recognized.join(QStringLiteral("\n\n")));
         if (cancelled) status->setText(tr("Đã dừng. Giữ lại %1/%2 trang đã nhận dạng.").arg(recognized.size()).arg(count));
         else if (!failure.isEmpty()) status->setText(tr("%1 · Giữ lại %2/%3 trang đã nhận dạng.").arg(failure).arg(recognized.size()).arg(count));
         else status->setText(tr("Đã nhận dạng %1/%2 trang. Kiểm tra lại chữ và số trước khi sử dụng.").arg(recognized.size()).arg(count));
-    });
+    };
+    connect(go,&QPushButton::clicked,w,[=]{runOcr(false);});
+    connect(pdf,&QPushButton::clicked,w,[=]{runOcr(true);});
     connect(copy, &QPushButton::clicked, w, [=] { QApplication::clipboard()->setText(output->toPlainText()); });
     connect(save, &QPushButton::clicked, w, [=] {
         if (output->toPlainText().isEmpty()) { status->setText(tr("Chưa có văn bản để lưu.")); return; }

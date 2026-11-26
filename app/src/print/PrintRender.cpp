@@ -52,6 +52,10 @@ QImage renderPage(const QString& path, int page1, const QSize& box, QString* err
     out.fill(Qt::white);
     QPainter p(&out);
     p.drawImage(0, 0, img);
+    p.end();
+    // Record physical resolution for OCR PDF output (pixel dimensions unchanged).
+    const int dpm = qRound(k * 72.0 / 0.0254);
+    if (dpm > 0) { out.setDotsPerMeterX(dpm); out.setDotsPerMeterY(dpm); }
     return out;
 }
 

@@ -5,6 +5,9 @@
 #include <QPainter>
 #include <QFont>
 #include <QTemporaryDir>
+#include <QFile>
+#include <QProcess>
+#include <QStandardPaths>
 #include <iostream>
 
 static bool sample(const QString& dest, const QStringList& lines) {
@@ -32,5 +35,23 @@ int main(int argc, char** argv) {
     std::cout << a.error.toStdString() << '\n' << a.text.toStdString() << '\n' << b.error.toStdString() << '\n' << b.text.toStdString() << '\n';
     const bool good = a.ok && a.text.contains(QStringLiteral("DUNG OFFICE"), Qt::CaseInsensitive) && a.text.contains(QStringLiteral("12345")) &&
         b.ok && bt.contains(QStringLiteral("VIỆT NAM"), Qt::CaseInsensitive) && bt.contains(QStringLiteral("12345"));
-    return good ? 0 : 1;
+    const QString pdf = temp.filePath(QStringLiteral("searchable.pdf"));
+    const auto generated = dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,pdf);
+    QFile file(pdf);
+    const bool header = file.open(QIODevice::ReadOnly) && file.read(5) == "%PDF-";
+    file.close();
+    const bool refusesOverwrite = !dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,pdf).ok;
+    const bool refusesBadDpi = !dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),0,temp.filePath(QStringLiteral("invalid.pdf"))).ok;
+    bool searchable = false;
+    const QString extractor = QStandardPaths::findExecutable(QStringLiteral("pdftotext"));
+    if (!extractor.isEmpty() && generated.ok) {
+        QProcess proc; proc.start(extractor,{pdf,QStringLiteral("-")});
+        if (proc.waitForStarted(3000) && proc.waitForFinished(15000) && proc.exitCode()==0) {
+            const auto text = QString::fromUtf8(proc.readAllStandardOutput()).normalized(QString::NormalizationForm_C);
+            searchable = text.contains(QStringLiteral("VIỆT NAM"),Qt::CaseInsensitive) && text.contains(QStringLiteral("12345"));
+            std::cout << text.toStdString() << '\n';
+        }
+    }
+    std::cout << "Searchable PDF: " << generated.error.toStdString() << " text layer=" << searchable << '\n';
+    return good && generated.ok && header && refusesOverwrite && refusesBadDpi && searchable ? 0 : 1;
 }
