@@ -117,7 +117,7 @@ void enter(Document& d, const std::string& ref, const std::u16string& v) {
 std::string range(Document& d, const std::string& ref) { gotoCell(d, ref); return text(d); }
 }  // namespace
 
-int runSweepTests(const fs::path& program, const fs::path& out) {
+int runSweepTests(const fs::path& program, const fs::path& out,const fs::path& pivotFixture) {
     std::error_code ec;
     fs::create_directories(out, ec);
     watchdog(120);
@@ -462,6 +462,28 @@ int runSweepTests(const fs::path& program, const fs::path& out) {
     unchecked("Impress", "chuyển cảnh", "hiệu ứng chỉ quan sát được qua XML <p:transition> sau khi lưu; chưa kiểm");
     unchecked("Impress", "ghi chú diễn giả", "cần gõ ở chế độ trang ghi chú rồi đọc notesSlide trong .pptx; chưa kiểm");
 
+    if(!pivotFixture.empty()){
+        step("PivotTable native — đổi nguồn và cập nhật bảng có sẵn");
+        auto pivot=engine->open(pivotFixture,&err);
+        result("Calc","pivot-open",bool(pivot),err);
+        if(pivot){
+            pivot->setClientView(512,512,7680,7680,0,0,7680,7680);
+            pivot->setPart(0);
+            gotoCell(*pivot,"D2");
+            const auto old=trim(text(*pivot));
+            enter(*pivot,"D2",u"225000");
+            gotoCell(*pivot,"D2");
+            const auto changed=trim(text(*pivot));
+            result("Calc","pivot-source-edit",old!=changed,old+" -> "+changed);
+            gotoCell(*pivot,"G4");
+            run(*pivot,".uno:RecalcPivotTable");
+            settle(1000);
+            const fs::path dest=out/"native-pivot.xlsx";
+            fs::remove(dest,ec);
+            const auto saved=pivot->saveAs(dest);
+            result("Calc","pivot-save",saved.ok,saved.message);
+        }
+    }
     step("chèn biểu đồ native vào sheet hiện tại");
     {
         auto xc=engine->createNew(DocKind::Spreadsheet,&err);
