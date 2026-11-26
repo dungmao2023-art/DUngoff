@@ -68,6 +68,16 @@ inline std::string bridgeCellAddress(std::string s) {
     return col + row;
 }
 
+// Kiểm địa chỉ tham chiếu vùng (không dùng cho ô ghi kết quả).
+inline std::string bridgeRangeAddress(const std::string& s) {
+    const auto colon = s.find(':');
+    if (colon == std::string::npos) return bridgeCellAddress(s);
+    const auto a = bridgeCellAddress(s.substr(0, colon));
+    const auto b = bridgeCellAddress(s.substr(colon + 1));
+    if (a.empty() || b.empty()) return {};
+    return a == b ? a : a + ":" + b;
+}
+
 // Chờ callback mới để xác minh địa chỉ đích; không suy đoán từ vùng chọn cũ.
 // Luôn xác nhận trước khi ghi, kể cả khi giá trị hiển thị rỗng (ô có thể chứa công thức).
 inline InsertOutcome bridgeInsertFormulaAt(dung::Document& d, const std::string& target, const std::string& formula,
