@@ -81,9 +81,19 @@ public:
 
     void setPath(const QString& p) {
         m_path->setText(p);
+        m_loadedBytes = false;
+        m_raw.clear();
         QFile f(p);
-        if (!f.open(QIODevice::ReadOnly)) { m_raw.clear(); m_reason->setText(tr("Không mở được tệp: %1").arg(f.errorString())); m_preview->clear(); return; }
+        if (!f.open(QIODevice::ReadOnly)) {
+            m_reason->setText(tr("Không mở được tệp: %1").arg(f.errorString()));
+            m_preview->clear(); if (onLoaded) onLoaded(); return;
+        }
         m_raw = f.readAll();
+        if (f.error() != QFileDevice::NoError) {
+            m_raw.clear(); m_reason->setText(f.errorString()); m_preview->clear();
+            if (onLoaded) onLoaded(); return;
+        }
+        m_loadedBytes = true;
         m_guess = detectCsvEncoding(m_raw);
         QSignalBlocker b(m_enc);
         const int idx = m_enc->findData(int(m_guess.enc == Encoding::Utf8Bom ? Encoding::Utf8 : m_guess.enc));
@@ -96,14 +106,26 @@ public:
     // Đọc bảng. false + lý do nếu chưa chọn tệp, chưa xác nhận, hoặc giải mã lỗi.
     bool load(Table& out, QString& err) const {
         if (path().isEmpty()) { err = tr("Chưa chọn tệp CSV."); return false; }
-        if (m_guess.needsUserChoice && !m_confirm->isChecked()) { err = tr("Bảng mã chưa chắc chắn: hãy xem trước và tích xác nhận."); return false; }
-        return readCsvWith(path(), encoding(), out, err, QChar(m_sep->currentData().toInt()));
+        if (!m_loadedBytes) { err = tr("Tệp chưa đọc được."); return false; }
+        if (needsConfirmation() && !m_confirm->isChecked()) { err = tr("Bảng mã chưa chắc chắn: hãy xem trước và tích xác nhận."); return false; }
+        return readCsvBytes(m_raw, encoding(), out, err, QChar(m_sep->currentData().toInt()));
     }
 
 private:
     Encoding encoding() const { return Encoding(m_enc->currentData().toInt()); }
 
+    bool needsConfirmation() const {
+        return m_guess.needsUserChoice || (encoding() != m_guess.enc &&
+            !(m_guess.enc == Encoding::Utf8Bom && encoding() == Encoding::Utf8));
+    }
+
     void refreshPreview() {
+        if (!m_loadedBytes) { if (onLoaded) onLoaded(); return; }
+        {
+            QSignalBlocker block(m_confirm);
+            m_confirm->setVisible(needsConfirmation());
+            m_confirm->setChecked(!needsConfirmation());
+        }
         QString text, err;
         if (!decodeText(m_raw, encoding(), text, err)) {
             m_preview->setPlainText(err);
@@ -121,7 +143,7 @@ private:
     }
 
     QLineEdit* m_path; QComboBox* m_enc; QComboBox* m_sep; QLabel* m_reason; QCheckBox* m_confirm; QPlainTextEdit* m_preview;
-    QByteArray m_raw; EncodingGuess m_guess;
+    QByteArray m_raw; EncodingGuess m_guess; bool m_loadedBytes = false;
 };
 
 QString defaultOut(const QString& src, const QString& suffix) {
@@ -138,6 +160,9 @@ struct TableToolsDialog::Impl {
     QListWidget* dupCols = nullptr; QCheckBox* fold = nullptr;
     QList<QComboBox*> kindBoxes; QWidget* kindHost = nullptr; QComboBox* money = nullptr;
     QComboBox* keyCol = nullptr;
+    QComboBox* filterCol = nullptr; QComboBox* sortCol = nullptr;
+    QComboBox* filterMode = nullptr; QLineEdit* filterValue = nullptr;
+    QCheckBox* ignoreCase = nullptr; QCheckBox* descending = nullptr;
     QPlainTextEdit* report = nullptr;
     Table tableA;
     bool haveA = false;
@@ -184,6 +209,32 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     auto* run3 = new QPushButton(tr("So sánh và lưu bảng khác biệt…")); l3->addWidget(run3);
     d->tabs->addTab(w3, tr("So sánh hai CSV"));
 
+    auto* w4 = new QWidget; auto* l4 = new QVBoxLayout(w4);
+    auto* form4 = new QFormLayout;
+    d->filterCol = new QComboBox; d->sortCol = new QComboBox;
+    d->filterMode = new QComboBox;
+    d->filterMode->addItem(tr("Bằng"), int(FilterMode::Equal));
+    d->filterMode->addItem(tr("Chứa"), int(FilterMode::Contains));
+    d->filterMode->addItem(tr("Ô trống"), int(FilterMode::Blank));
+    d->filterMode->addItem(tr("Ô không trống"), int(FilterMode::NotBlank));
+    d->filterValue = new QLineEdit;
+    d->ignoreCase = new QCheckBox(tr("Không phân biệt hoa/thường"));
+    d->descending = new QCheckBox(tr("Giảm dần"));
+    form4->addRow(tr("Lọc theo cột:"), d->filterCol);
+    form4->addRow(tr("Điều kiện:"), d->filterMode);
+    form4->addRow(tr("Nội dung:"), d->filterValue);
+    form4->addRow(tr("Sắp xếp theo cột (chữ):"), d->sortCol);
+    form4->addRow(d->ignoreCase); form4->addRow(d->descending);
+    l4->addLayout(form4);
+    auto* run4 = new QPushButton(tr("Xem trước kết quả lọc và sắp xếp…"));
+    l4->addWidget(run4);
+    auto* recipes = new QHBoxLayout;
+    auto* saveRecipe = new QPushButton(tr("Lưu cấu hình…"));
+    auto* loadRecipe = new QPushButton(tr("Nạp cấu hình…"));
+    recipes->addWidget(saveRecipe); recipes->addWidget(loadRecipe);
+    l4->addLayout(recipes);
+    d->tabs->addTab(w4, tr("Lọc và sắp xếp"));
+
     d->report = new QPlainTextEdit; d->report->setReadOnly(true); d->report->setPlaceholderText(tr("Báo cáo sẽ hiện ở đây."));
     d->report->setMinimumHeight(110);
     root->addWidget(d->report, 1);
@@ -195,11 +246,19 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         QString err; Table t;
         d->haveA = d->a->load(t, err);
         d->dupCols->clear(); d->keyCol->clear();
+        d->filterCol->clear(); d->sortCol->clear();
+        d->filterCol->addItem(tr("Không lọc"), -1);
+        d->sortCol->addItem(tr("Giữ thứ tự gốc"), -1);
         auto* form = qobject_cast<QFormLayout*>(d->kindHost->layout());
         while (form->rowCount() > 0) form->removeRow(0);
         d->kindBoxes.clear();
         if (!d->haveA) { if (!err.isEmpty() && !d->a->path().isEmpty()) d->report->setPlainText(err); return; }
         d->tableA = t;
+        for (int i = 0; i < t.header.size(); ++i) {
+            const auto label = tr("%1 · %2").arg(i + 1).arg(t.header[i]);
+            d->filterCol->addItem(label, i);
+            d->sortCol->addItem(label, i);
+        }
         d->report->setPlainText(tr("Đã đọc %1 cột, %2 dòng dữ liệu.").arg(t.header.size()).arg(t.rows.size()));
         for (const QString& h : t.header) {
             auto* it = new QListWidgetItem(h); it->setFlags(it->flags() | Qt::ItemIsUserCheckable); it->setCheckState(Qt::Unchecked); d->dupCols->addItem(it);
@@ -263,6 +322,76 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         const QString out = askSave(defaultOut(d->a->path(), tr("đã làm sạch")));
         if (out.isEmpty()) { d->report->setPlainText(rep + tr("\n(Chưa lưu.)")); return; }
         save(out, r.cleaned, rep);
+        d->report->setPlainText(rep);
+    });
+
+    auto recipeSpec = [this] {
+        FilterSortSpec spec;
+        spec.filterCol = d->filterCol->currentData().toInt();
+        spec.sortCol = d->sortCol->currentData().toInt();
+        spec.mode = FilterMode(d->filterMode->currentData().toInt());
+        spec.value = d->filterValue->text();
+        spec.ignoreCase = d->ignoreCase->isChecked();
+        spec.descending = d->descending->isChecked();
+        return spec;
+    };
+    connect(saveRecipe, &QPushButton::clicked, this, [this, needA, recipeSpec] {
+        if (!needA()) return;
+        const auto spec = recipeSpec();
+        const auto validated = filterSort(Table{d->tableA.header, {}}, spec);
+        if (!validated.ok) { QMessageBox::warning(this, tr("Cấu hình"), validated.error); return; }
+        const auto path = QFileDialog::getSaveFileName(this, tr("Lưu cấu hình (có tên cột và điều kiện lọc)"), QString(), tr("Cấu hình JSON (*.json)"));
+        if (path.isEmpty()) return;
+        QFile f(path);
+        if (!f.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
+            QMessageBox::warning(this, tr("Cấu hình"), tr("Không tạo được tệp mới: %1").arg(f.errorString())); return;
+        }
+        const auto bytes = encodeFilterSortRecipe(d->tableA.header, spec);
+        if (f.write(bytes) != bytes.size() || !f.flush()) {
+            QMessageBox::warning(this, tr("Cấu hình"), tr("Ghi không đầy đủ. Không sử dụng tệp cấu hình vừa tạo.")); return;
+        }
+        d->report->setPlainText(tr("Đã lưu cấu hình. Không lưu đường dẫn hoặc các dòng dữ liệu nguồn."));
+    });
+    connect(loadRecipe, &QPushButton::clicked, this, [this, needA] {
+        if (!needA()) return;
+        const auto path = QFileDialog::getOpenFileName(this, tr("Nạp cấu hình lọc và sắp xếp"), QString(), tr("Cấu hình JSON (*.json)"));
+        if (path.isEmpty()) return;
+        QFile f(path);
+        if (!f.open(QIODevice::ReadOnly) || f.size() > 1024 * 1024) {
+            QMessageBox::warning(this, tr("Cấu hình"), tr("Không đọc được tệp hoặc tệp lớn hơn 1 MB.")); return;
+        }
+        FilterSortSpec spec; QString error;
+        if (!decodeFilterSortRecipe(f.read(1024 * 1024 + 1), d->tableA.header, spec, error)) {
+            QMessageBox::warning(this, tr("Cấu hình"), error); return;
+        }
+        d->filterCol->setCurrentIndex(d->filterCol->findData(spec.filterCol));
+        d->sortCol->setCurrentIndex(d->sortCol->findData(spec.sortCol));
+        d->filterMode->setCurrentIndex(d->filterMode->findData(int(spec.mode)));
+        d->filterValue->setText(spec.value);
+        d->ignoreCase->setChecked(spec.ignoreCase);
+        d->descending->setChecked(spec.descending);
+        d->report->setPlainText(tr("Đã nạp cấu hình. Bấm Xem trước để chạy với dữ liệu hiện tại."));
+    });
+    connect(run4, &QPushButton::clicked, this, [this, askSave, save, needA, recipeSpec] {
+        if (!needA()) return;
+        const auto r = filterSort(d->tableA, recipeSpec());
+        if (!r.ok) { QMessageBox::warning(this, tr("Lọc và sắp xếp"), r.error); return; }
+        QString rep = tr("Kết quả: %1 / %2 dòng. Sắp xếp dạng chữ, không ép kiểu; nguồn không bị sửa.")
+            .arg(r.table.rows.size()).arg(d->tableA.rows.size());
+        rep += QStringLiteral("\n") + r.table.header.join(QStringLiteral(" | "));
+        for (int i = 0; i < r.table.rows.size() && i < 20; ++i)
+            rep += QStringLiteral("\n") + r.table.rows[i].join(QStringLiteral(" | "));
+        QDialog preview(this); preview.setWindowTitle(tr("Xem trước · tối đa 20 dòng")); preview.resize(700, 420);
+        auto* layout = new QVBoxLayout(&preview);
+        auto* report = new QPlainTextEdit(rep, &preview); report->setReadOnly(true); layout->addWidget(report);
+        auto* output = new QPushButton(tr("Lưu bản sao CSV…"), &preview);
+        auto* cancel = new QPushButton(tr("Hủy"), &preview);
+        layout->addWidget(output); layout->addWidget(cancel);
+        connect(output, &QPushButton::clicked, &preview, &QDialog::accept);
+        connect(cancel, &QPushButton::clicked, &preview, &QDialog::reject);
+        if (preview.exec() != QDialog::Accepted) return;
+        const auto out = askSave(defaultOut(d->a->path(), tr("đã lọc")));
+        if (!out.isEmpty()) save(out, r.table, rep);
         d->report->setPlainText(rep);
     });
 

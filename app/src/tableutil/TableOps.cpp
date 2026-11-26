@@ -6,6 +6,10 @@
 #include <QDate>
 #include <QRegularExpression>
 #include <QTextStream>
+#include <algorithm>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 namespace tbl {
 
@@ -13,21 +17,37 @@ namespace tbl {
 static QVector<QStringList> parseCsv(const QString &text, QChar sep, QString &err)
 {
     QVector<QStringList> rows;
-    QStringList row; QString cell; bool inQ = false, any = false;
-    for (int i = 0; i < text.size(); ++i) {
-        const QChar c = text[i];
-        if (inQ) {
-            if (c == QLatin1Char('"')) {
-                if (i + 1 < text.size() && text[i + 1] == QLatin1Char('"')) { cell += c; ++i; } else inQ = false;
-            } else cell += c;
-        } else if (c == QLatin1Char('"')) { inQ = true; any = true; }
-        else if (c == sep) { row << cell; cell.clear(); any = true; }
-        else if (c == QLatin1Char('\r')) { /* bỏ qua, xử lý ở \n */ }
-        else if (c == QLatin1Char('\n')) { row << cell; rows << row; row.clear(); cell.clear(); any = false; }
-        else { cell += c; any = true; }
+    QStringList row;
+    QString cell;
+    enum class State { Start, Bare, Quoted, Closed };
+    State state = State::Start;
+    bool any = false;
+    auto finishCell = [&] { row << cell; cell.clear(); state = State::Start; };
+    for (qsizetype i = 0; i < text.size(); ++i) {
+        const QChar ch = text[i];
+        if (state == State::Quoted) {
+            if (ch == QLatin1Char('"')) {
+                if (i + 1 < text.size() && text[i + 1] == QLatin1Char('"')) {
+                    cell += ch; ++i;
+                } else state = State::Closed;
+            } else cell += ch;
+            continue;
+        }
+        if (ch == sep) { finishCell(); any = true; }
+        else if (ch == QLatin1Char('\r') || ch == QLatin1Char('\n')) {
+            if (ch == QLatin1Char('\r') && i + 1 < text.size() && text[i + 1] == QLatin1Char('\n')) ++i;
+            finishCell(); rows << row; row.clear(); any = false;
+        } else if (state == State::Closed || (state == State::Bare && ch == QLatin1Char('"'))) {
+            err = QObject::tr("Dấu nháy sai vị trí tại bản ghi %1. Không đọc dữ liệu để tránh mất nội dung.").arg(rows.size() + 1);
+            return {};
+        } else if (ch == QLatin1Char('"')) {
+            state = State::Quoted; any = true;
+        } else {
+            state = State::Bare; cell += ch; any = true;
+        }
     }
-    if (inQ) { err = QObject::tr("Dấu nháy đóng chưa khớp trong CSV."); return {}; }
-    if (any || !cell.isEmpty() || !row.isEmpty()) { row << cell; rows << row; }
+    if (state == State::Quoted) { err = QObject::tr("Dấu nháy đóng chưa khớp trong CSV."); return {}; }
+    if (any || !cell.isEmpty() || !row.isEmpty()) { finishCell(); rows << row; }
     return rows;
 }
 
@@ -190,20 +210,30 @@ QChar guessSeparator(const QString &t)
     return QLatin1Char(',');
 }
 
-bool readCsvWith(const QString &path, Encoding enc, Table &out, QString &error, QChar sep)
+bool readCsvBytes(const QByteArray& raw, Encoding enc, Table& out, QString& error, QChar sep)
 {
-    error.clear(); // tránh dùng lại thông báo lỗi cũ của lần gọi trước
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) { error = QObject::tr("Không mở được tệp: ") + f.errorString(); return false; }
+    error.clear();
+    if (sep != QLatin1Char(',') && sep != QLatin1Char(';') && sep != QLatin1Char('\t')) {
+        error = QObject::tr("Dấu phân cách không được hỗ trợ."); return false;
+    }
     QString text;
-    if (!decodeText(f.readAll(), enc, text, error)) return false;
+    if (!decodeText(raw, enc, text, error)) return false;
     auto rows = parseCsv(text, sep, error);
     if (!error.isEmpty()) return false;
-    out = Table();
-    if (rows.isEmpty()) return true;
-    out.header = rows.takeFirst();
-    out.rows = rows;
+    Table parsed;
+    if (!rows.isEmpty()) { parsed.header = rows.takeFirst(); parsed.rows = rows; }
+    out = parsed;
     return true;
+}
+
+bool readCsvWith(const QString &path, Encoding enc, Table &out, QString &error, QChar sep)
+{
+    error.clear();
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) { error = QObject::tr("Không mở được tệp: ") + f.errorString(); return false; }
+    const auto bytes = f.readAll();
+    if (f.error() != QFileDevice::NoError) { error = f.errorString(); return false; }
+    return readCsvBytes(bytes, enc, out, error, sep);
 }
 
 bool readCsv(const QString &path, Table &out, QString &error, QChar sep)
@@ -222,19 +252,32 @@ static QString csvEscape(const QString &s, QChar sep)
 
 bool writeCsvCopy(const QString &path, const Table &t, QString &error, QChar sep)
 {
-    if (QFile::exists(path)) { error = QObject::tr("Tệp đích đã tồn tại; không ghi đè. Hãy chọn tên khác."); return false; }
+    error.clear();
+    if (sep != QLatin1Char(',') && sep != QLatin1Char(';') && sep != QLatin1Char('\t')) {
+        error = QObject::tr("Dấu phân cách không được hỗ trợ."); return false;
+    }
+    if (t.header.isEmpty()) { error = QObject::tr("Bảng không có tiêu đề."); return false; }
+    // NewOnly performs the no-overwrite check atomically at open, unlike exists()+WriteOnly.
     QFile f(path);
-    if (!f.open(QIODevice::WriteOnly)) { error = f.errorString(); return false; }
-    QString out;
-    auto line = [&](const QStringList &r) {
-        QStringList e; for (const QString &c : r) e << csvEscape(c, sep);
-        out += e.join(sep) + QLatin1Char('\n');
+    if (!f.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
+        error = QObject::tr("Không tạo được tệp mới: %1").arg(f.errorString()); return false;
+    }
+    auto fail = [&] {
+        error = QObject::tr("Ghi CSV không đầy đủ: %1").arg(f.errorString());
+        f.close();
+        if (!f.remove()) error += QObject::tr(" Không xóa được tệp kết quả lỗi; không sử dụng tệp này.");
+        return false;
     };
-    line(t.header);
-    for (const auto &r : t.rows) line(r);
-    f.write("\xEF\xBB\xBF"); // BOM để Excel đọc đúng tiếng Việt
-    f.write(out.toUtf8());
-    if (!f.flush()) { error = f.errorString(); return false; }
+    auto line = [&](const QStringList &r) {
+        QStringList escaped;
+        for (const QString &cell : r) escaped << csvEscape(cell, sep);
+        const auto bytes = (escaped.join(sep) + QLatin1Char('\n')).toUtf8();
+        return f.write(bytes) == bytes.size();
+    };
+    if (f.write("\xEF\xBB\xBF", 3) != 3 || !line(t.header)) return fail();
+    for (const auto &row : t.rows) if (!line(row)) return fail();
+    if (!f.flush()) return fail();
+    f.close();
     return true;
 }
 
@@ -426,6 +469,84 @@ CleanResult cleanTable(const Table &t, const QList<QPair<QString, ColumnKind>> &
         }
     }
     return res;
+}
+
+FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
+{
+    FilterSortResult result;
+    const auto valid = [&](int col) { return col == -1 || (col >= 0 && col < source.header.size()); };
+    if (!valid(spec.filterCol) || !valid(spec.sortCol)) {
+        result.error = QObject::tr("Cột lọc hoặc sắp xếp không hợp lệ.");
+        return result;
+    }
+    if (spec.filterCol >= 0 && spec.mode == FilterMode::Contains && spec.value.isEmpty()) {
+        result.error = QObject::tr("Nhập nội dung cần chứa, hoặc chọn lọc ô trống.");
+        return result;
+    }
+    const auto cs = spec.ignoreCase ? Qt::CaseInsensitive : Qt::CaseSensitive;
+    result.table.header = source.header;
+    for (const auto& row : source.rows) {
+        bool keep = true;
+        if (spec.filterCol >= 0) {
+            const auto cell = row.value(spec.filterCol);
+            switch (spec.mode) {
+                case FilterMode::Equal: keep = cell.compare(spec.value, cs) == 0; break;
+                case FilterMode::Contains: keep = cell.contains(spec.value, cs); break;
+                case FilterMode::Blank: keep = cell.isEmpty(); break;
+                case FilterMode::NotBlank: keep = !cell.isEmpty(); break;
+                default: result.error = QObject::tr("Kiểu lọc không hợp lệ."); return result;
+            }
+        }
+        if (keep) result.table.rows.append(row);
+    }
+    if (spec.sortCol >= 0)
+        std::stable_sort(result.table.rows.begin(), result.table.rows.end(),
+            [&](const QStringList& a, const QStringList& b) {
+                const int cmp = a.value(spec.sortCol).compare(b.value(spec.sortCol), cs);
+                return spec.descending ? cmp > 0 : cmp < 0;
+            });
+    result.ok = true;
+    return result;
+}
+
+QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpec& spec)
+{
+    QJsonObject obj{
+        {"version", 1}, {"header", QJsonArray::fromStringList(header)},
+        {"filterCol", spec.filterCol}, {"sortCol", spec.sortCol},
+        {"mode", int(spec.mode)}, {"value", spec.value},
+        {"ignoreCase", spec.ignoreCase}, {"descending", spec.descending}
+    };
+    return QJsonDocument(obj).toJson(QJsonDocument::Indented);
+}
+
+bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, FilterSortSpec& spec, QString& error)
+{
+    error.clear();
+    auto fail = [&] { error = QObject::tr("Cấu hình không hợp lệ hoặc cấu trúc cột đã thay đổi."); return false; };
+    if (json.size() > 1024 * 1024) return fail();
+    QJsonParseError parseError;
+    const auto doc = QJsonDocument::fromJson(json, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return fail();
+    const auto obj = doc.object();
+    if (obj.value("version").toInt(-1) != 1 || !obj.value("header").isArray()
+        || obj.value("header").toArray() != QJsonArray::fromStringList(header)) return fail();
+    const int filter = obj.value("filterCol").toInt(-2);
+    const int sort = obj.value("sortCol").toInt(-2);
+    const int mode = obj.value("mode").toInt(-1);
+    if (filter < -1 || filter >= header.size() || sort < -1 || sort >= header.size()
+        || mode < int(FilterMode::Equal) || mode > int(FilterMode::NotBlank)
+        || !obj.value("value").isString() || !obj.value("ignoreCase").isBool()
+        || !obj.value("descending").isBool()) return fail();
+    FilterSortSpec candidate;
+    candidate.filterCol = filter; candidate.sortCol = sort; candidate.mode = FilterMode(mode);
+    candidate.value = obj.value("value").toString();
+    candidate.ignoreCase = obj.value("ignoreCase").toBool();
+    candidate.descending = obj.value("descending").toBool();
+    const auto checked = filterSort(Table{header, {}}, candidate);
+    if (!checked.ok) { error = checked.error; return false; }
+    spec = candidate;
+    return true;
 }
 
 } // namespace tbl

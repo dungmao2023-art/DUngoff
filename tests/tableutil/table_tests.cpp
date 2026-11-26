@@ -42,6 +42,43 @@ int main(int argc, char **argv)
     CHECK(!removeDuplicates(t, {}, false).ok && !removeDuplicates(t, {9}, false).ok, "khoá sai bị từ chối");
     CHECK(t.rows[0][2] == "0912345678" && d1.cleaned.rows[0][2] == "0912345678", "số điện thoại giữ số 0 đầu");
 
+    // ---- Lọc và sắp xếp dạng chữ, không sửa nguồn ----
+    {
+        const Table src = T({"ID", "City", "Phone"}, {
+            {"010", "An Khê", "0912345678"}, {"002", "an khê", "0123"},
+            {"002", "An Khê", "0456"}, {"001", "Huế", "9999999999999999"},
+            {"003", "", "0000"}});
+        FilterSortSpec spec; spec.filterCol = 1; spec.value = QStringLiteral("an khê");
+        spec.ignoreCase = true; spec.sortCol = 0;
+        auto r = filterSort(src, spec);
+        CHECK(r.ok && r.table.rows.size() == 3, "lọc Unicode không phân biệt hoa thường");
+        CHECK(r.table.rows.value(0).value(2) == "0123" && r.table.rows.value(1).value(2) == "0456", "sort ổn định, giữ số 0 đầu");
+        CHECK(r.table.rows.value(2).value(0) == "010" && src.rows.value(0).value(0) == "010", "không sửa nguồn");
+        spec.descending = true; r = filterSort(src, spec);
+        CHECK(r.table.rows.value(0).value(0) == "010", "sort giảm dần");
+        spec.mode = FilterMode::Blank; r = filterSort(src, spec);
+        CHECK(r.ok && r.table.rows.size() == 1 && r.table.rows.value(0).value(2) == "0000", "lọc ô trống giữ mã");
+        spec.mode = FilterMode::Contains; spec.value.clear();
+        CHECK(!filterSort(src, spec).ok, "không chấp nhận contains rỗng");
+        spec.filterCol = 99;
+        CHECK(!filterSort(src, spec).ok, "từ chối chỉ số cột lỗi");
+        spec.filterCol = -1; spec.sortCol = -1;
+        CHECK(filterSort(src, spec).table == src, "không chọn bước thì giữ nguyên bảng");
+        spec.filterCol = 1; spec.sortCol = 0; spec.mode = FilterMode::Equal;
+        spec.value = QStringLiteral("An Khê"); spec.descending = true;
+        const auto json = encodeFilterSortRecipe(src.header, spec);
+        FilterSortSpec loaded; QString error;
+        CHECK(decodeFilterSortRecipe(json, src.header, loaded, error), "nạp lại cấu hình JSON");
+        CHECK(filterSort(src, loaded).table == filterSort(src, spec).table, "chạy lại cho kết quả giống hệt");
+        CHECK(!json.contains("0912345678"), "cấu hình không chứa dòng dữ liệu");
+        const QStringList reordered{"City", "ID", "Phone"};
+        CHECK(!decodeFilterSortRecipe(json, reordered, loaded, error), "từ chối cột đổi thứ tự");
+        CHECK(!decodeFilterSortRecipe(QByteArray("{bad"), src.header, loaded, error), "từ chối JSON hỏng");
+        CHECK(loaded.filterCol == spec.filterCol && loaded.value == spec.value, "cấu hình lỗi không ghi đè lựa chọn hiện tại");
+        auto invalid = json; invalid.replace("\"version\": 1", "\"version\": 2");
+        CHECK(!decodeFilterSortRecipe(invalid, src.header, loaded, error), "từ chối phiên bản không hỗ trợ");
+    }
+
     // ---- So sánh ----
     Table a = T({"Ma", "Ten", "Tien"}, {{"1", "An", "1000"}, {"2", "Bình", "2000"}, {"3", "Chi", "3000"}, {"3", "Chi trùng", "3"}});
     Table b = T({"Ma", "Ten", "Tien", "GhiChu"}, {{"1", "An", "1000", ""}, {"2", "Bình", "2500", ""}, {"4", "Dũng", "4000", ""}});
@@ -105,6 +142,26 @@ int main(int argc, char **argv)
     CHECK(writeCsvCopy(p2, rd, err), "ghi bản sao CSV");
     Table rd2; CHECK(readCsv(p2, rd2, err) && rd2 == rd, "ghi rồi đọc lại == nguyên vẹn");
     CHECK(!writeCsvCopy(p2, rd, err) && !err.isEmpty(), "không ghi đè tệp đã có");
+    Table existing; CHECK(readCsv(p2, existing, err) && existing == rd, "tệp có sẵn không đổi sau từ chối ghi");
+    {
+        Table parsed;
+        CHECK(readCsvBytes("ID,Name\r001,An\r002,Binh\r", Encoding::Utf8, parsed, err)
+            && parsed.rows.size() == 2 && parsed.rows.value(1).value(0) == "002", "CSV xuống dòng CR đơn");
+        const Table before = parsed;
+        CHECK(!readCsvBytes("ID,Name\n001,a\"b\"\n", Encoding::Utf8, parsed, err) && parsed == before,
+            "từ chối dấu nháy giữa ô, giữ kết quả cũ");
+        CHECK(!readCsvBytes("ID,Name\n001,\"An\"x\n", Encoding::Utf8, parsed, err) && parsed == before,
+            "từ chối chữ sau dấu nháy đóng");
+        CHECK(!readCsvBytes("ID,Name\n001,\"An\n", Encoding::Utf8, parsed, err) && parsed == before,
+            "từ chối dấu nháy chưa đóng");
+        CHECK(readCsvBytes("ID,Name\r\n001,\"a\r\nb\"\r\n", Encoding::Utf8, parsed, err)
+            && parsed.rows.value(0).value(1) == "a\r\nb", "giữ nguyên CRLF bên trong ô");
+        const auto p3 = dir.filePath("crlf.csv");
+        CHECK(writeCsvCopy(p3, parsed, err) && err.isEmpty(), "ghi bản sao xóa lỗi cũ");
+        Table round; CHECK(readCsv(p3, round, err) && round == parsed, "roundtrip CRLF và số 0 đầu");
+        CHECK(!writeCsvCopy(dir.filePath("empty.csv"), Table{}, err), "không xuất bảng thiếu tiêu đề");
+        CHECK(!readCsvBytes("ID|Name", Encoding::Utf8, parsed, err, QLatin1Char('|')), "từ chối phân cách không hỗ trợ");
+    }
     QFile bad(dir.filePath("hong.csv")); bad.open(QIODevice::WriteOnly); bad.write("Ma\n\xFF\xFE\xFD\n"); bad.close();
     Table rb; CHECK(!readCsv(dir.filePath("hong.csv"), rb, err), "CSV không phải UTF-8: từ chối, không đoán bảng mã");
     CHECK(!readCsv(dir.filePath("khong-co.csv"), rb, err), "tệp không tồn tại báo lỗi");

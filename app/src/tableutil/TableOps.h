@@ -2,6 +2,7 @@
 // Mọi thao tác trả về BẢN MỚI; bảng gốc không bị sửa, tệp gốc không bị ghi đè.
 #pragma once
 #include <QString>
+#include <QByteArray>
 #include <QStringList>
 #include <QVector>
 #include <QList>
@@ -37,6 +38,8 @@ QStringList previewLines(const QString &decodedText, int maxLines = 20);
 QChar guessSeparator(const QString &decodedText); // ',' ';' hoặc tab; mặc định ','
 // Đọc CSV theo bảng mã người dùng đã chọn. Không sửa tệp gốc.
 bool readCsvWith(const QString &path, Encoding enc, Table &out, QString &error, QChar sep = QLatin1Char(','));
+// Parse the exact bytes already previewed; leave out unchanged on any error.
+bool readCsvBytes(const QByteArray& raw, Encoding enc, Table& out, QString& error, QChar sep = QLatin1Char(','));
 
 // ---- 1. Dòng trùng ----
 struct RemovedRow { int originalIndex; QStringList cells; int keptIndex; };
@@ -82,5 +85,20 @@ struct CleanResult {
 };
 // kinds: theo tên cột; cột không có trong map = Keep.
 CleanResult cleanTable(const Table &t, const QList<QPair<QString, ColumnKind>> &kinds, MoneyLocale loc = MoneyLocale::VN);
+
+// Read-only filter then stable text sort. -1 disables a step; no implicit numeric conversion.
+enum class FilterMode { Equal, Contains, Blank, NotBlank };
+struct FilterSortSpec {
+    int filterCol = -1, sortCol = -1;
+    FilterMode mode = FilterMode::Equal;
+    QString value;
+    bool ignoreCase = false, descending = false;
+};
+struct FilterSortResult { bool ok = false; Table table; QString error; };
+FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec);
+
+// JSON recipe stores only schema and options, never the source path or rows.
+QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpec& spec);
+bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, FilterSortSpec& spec, QString& error);
 
 } // namespace tbl
