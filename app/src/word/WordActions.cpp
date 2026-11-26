@@ -99,7 +99,27 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
     if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
-    if (name == QLatin1String("font")) {
+    if (name == QLatin1String("headerEnable") || name == QLatin1String("footerEnable")) {
+        const bool header = name == QLatin1String("headerEnable");
+        bool ok = false;
+        const QString style = QInputDialog::getText(parent,
+            header ? QObject::tr("Bật đầu trang") : QObject::tr("Bật chân trang"),
+            QObject::tr("Tên kiểu trang (Page Style) của phần cần sửa. Với tài liệu mới, thường là Default Page Style. "
+                        "Lệnh chỉ bật, không tắt hay xóa nội dung đã có. Sau khi bật, bấm vào vùng đầu/chân trang để nhập chữ hoặc trường số trang."),
+            QLineEdit::Normal, QStringLiteral("Default Page Style"), &ok).trimmed();
+        if (!ok || style.isEmpty()) return true;
+        doc->waitInputIdle();
+        send(tab, enablePageBand(header, ss(style)));
+        tab->view()->setFocus();
+    } else if (name == QLatin1String("footnote") || name == QLatin1String("endnote")) {
+        if (!doc->selectionAs("text/plain;charset=utf-8").empty()) {
+            QMessageBox::information(parent, QObject::tr("Chú thích"), QObject::tr("Đặt con trỏ sau từ cần chú thích, bỏ vùng bôi đen rồi thực hiện lại."));
+            return true;
+        }
+        doc->waitInputIdle();
+        send(tab, insertFootnote(name == QLatin1String("endnote")));
+        tab->view()->setFocus();
+    } else if (name == QLatin1String("font")) {
         const auto fonts = parseFontList(doc->commandValues(".uno:CharFontName"));
         QStringList items;
         for (const auto& f : fonts) items << QString::fromUtf8(f.c_str());

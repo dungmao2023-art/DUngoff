@@ -25,6 +25,9 @@ Call fontColor(unsigned rgb);       // màu chữ
 Call backColor(unsigned rgb);       // tô nền ký tự
 Call paragraphStyle(const std::string& styleName);
 Call insertTable(int columns, int rows);
+// Explicit On=true: never toggle off or delete existing page headers/footers.
+Call enablePageBand(bool header, const std::string& pageStyle);
+Call insertFootnote(bool endnote);
 Call insertImage(const std::string& fileUrl);          // file:///...
 Call hyperlink(const std::string& text, const std::string& url);
 Call findNext(const std::string& text, bool backward);

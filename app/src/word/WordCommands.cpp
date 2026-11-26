@@ -61,6 +61,10 @@ Call paragraphStyle(const std::string& s) {
     return {".uno:StyleApply", join({argString("Style", s), argString("FamilyName", "ParagraphStyles")})};
 }
 Call insertTable(int c, int r) { return {".uno:InsertTable", join({argLong("Columns", c), argLong("Rows", r)})}; }
+Call enablePageBand(bool header, const std::string& pageStyle) {
+    return {header ? ".uno:InsertPageHeader" : ".uno:InsertPageFooter", join({argString("PageStyle", pageStyle), argBool("On", true)})};
+}
+Call insertFootnote(bool endnote) { return {endnote ? ".uno:InsertEndnote" : ".uno:InsertFootnote", ""}; }
 Call insertImage(const std::string& url) { return {".uno:InsertGraphic", argString("FileName", url)}; }
 Call hyperlink(const std::string& text, const std::string& url) {
     return {".uno:SetHyperlink", join({argString("Hyperlink.Text", text), argString("Hyperlink.URL", url)})};

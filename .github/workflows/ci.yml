@@ -202,6 +202,12 @@ jobs:
           pip install --quiet python-docx || true
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-word --word 1 2>&1 | tee report/linux-word.log
           python3 tests/word/verify_docx.py smoke-word/word-dinh-dang.docx 2>&1 | tee report/linux-word-docx.log
+      - name: Word đầu trang/chân trang/chú thích — kiểm DOCX thật (Linux)
+        timeout-minutes: 4
+        run: |
+          set -o pipefail
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-word-structure --word-structure 1 2>&1 | tee report/linux-word-structure.log
+          python3 tests/word/verify_structure.py smoke-word-structure/word-structure.docx 2>&1 | tee -a report/linux-word-structure.log
       - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Linux)
         timeout-minutes: 5
         run: |
@@ -565,6 +571,16 @@ jobs:
             if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "REPAINT $($m[0]): LỖI quá thời gian" | Add-Content $outf }
             Get-Content $outf | Select-String "^REPAINT" | ForEach-Object { $_.Line }
           }
+      - name: Word đầu trang/chân trang/chú thích — kiểm DOCX thật (Windows)
+        timeout-minutes: 4
+        run: |
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--word-structure", "1", "--out", "$PWD/smoke-word-structure") -PassThru -NoNewWindow `
+                 -RedirectStandardOutput report/windows-word-structure.log -RedirectStandardError report/windows-word-structure.err.log
+          if (-not $p.WaitForExit(180000)) { Stop-Process $p -Force; exit 1 }
+          Get-Content report/windows-word-structure.log
+          if ($p.ExitCode) { exit 1 }
+          python tests/word/verify_structure.py smoke-word-structure/word-structure.docx
+          if ($LASTEXITCODE) { exit 1 }
       - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Windows)
         timeout-minutes: 6
         run: |
