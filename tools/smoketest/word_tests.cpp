@@ -502,6 +502,43 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
     fs::remove(output,ec);
     auto result=d.saveAs(output);
     check(result.ok, "Lưu cấu trúc Word: " + result.message);
+    doc.reset();
+
+    // Native Writer review: use the same UNO commands as the ribbon and inspect
+    // the exported DOCX rather than inferring success from the modified flag.
+    step("Word Review — ghi thay đổi và bình luận native");
+    auto review=engine->createNew(DocKind::Text,&error);
+    if(!review){check(false,"Tạo tài liệu review "+error);return 1;}
+    review->setClientView(512,512,7680,7680,0,0,7680,7680);
+    review->typeText(u"ORIGINAL_MARKER ");
+    review->waitInputIdle();
+    run(*review,".uno:TrackChanges");
+    review->waitInputIdle();
+    review->typeText(u"INSERTED_MARKER");
+    review->waitInputIdle();
+    run(*review,".uno:TrackChanges");
+    review->waitInputIdle();
+    run(*review,w::findNext("ORIGINAL_MARKER",false));
+    review->waitInputIdle();
+    check(has(selText(*review),"ORIGINAL_MARKER"),"Chọn đúng chữ để bình luận");
+    review->command(".uno:InsertAnnotation",Document::stringArg("Text","COMMENT_MARKER"));
+    review->waitInputIdle();
+    const fs::path pending=out/"word-review.docx";
+    fs::remove(pending,ec);
+    const auto saved=review->saveAs(pending);
+    check(saved.ok,"Lưu DOCX có review thật: "+saved.message);
+    review.reset();
+    if(saved.ok){
+        step("Mở lại DOCX có review");
+        auto reopened=engine->open(pending,&error);
+        check(bool(reopened),"Mở lại Word review: "+error);
+        if(reopened){
+            const fs::path roundtrip=out/"word-review-roundtrip.docx";
+            fs::remove(roundtrip,ec);
+            auto rt=reopened->saveAs(roundtrip);
+            check(rt.ok,"Roundtrip review DOCX: "+rt.message);
+        }
+    }
     std::cout.flush();
     std::_Exit(g_fail ? 1 : 0);
 }
