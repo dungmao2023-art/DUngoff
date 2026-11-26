@@ -8,7 +8,7 @@
 class SlideShow : public QWidget {
     Q_OBJECT
 public:
-    SlideShow(dung::Document* doc, int startPart, QWidget* parent = nullptr);
+    SlideShow(dung::Document* doc, int startPart, QWidget* parent = nullptr, bool fullscreen = true);
 
 protected:
     void paintEvent(QPaintEvent*) override;

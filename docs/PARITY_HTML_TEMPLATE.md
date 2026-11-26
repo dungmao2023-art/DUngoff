@@ -101,9 +101,8 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 - SUMIFS/COUNTIFS/AVERAGEIFS: 1–8 cặp trong UI, lõi kiểm tối đa 127; giữ dữ liệu khi tăng cặp, từ chối cặp thiếu/trống. Test dựng công thức, engine vẫn tính.
 - Panel vùng có tùy chọn tự cập nhật từ callback của engine, debounce 220ms, đọc đúng tài liệu chứa panel, giới hạn xử lý 200000 ký tự sau khi đọc. Không polling; chưa xác nhận vùng rất lớn hoặc thao tác trên Windows thật. Chưa làm kéo lấy địa chỉ vùng vào đối số.
 
-## Nhóm thao tác tài liệu, số thành chữ, PDF kết quả
-- Nhóm tài liệu Word/Excel/PPT/PDF có lọc riêng, chọn Tất cả; giữ tab đang mở. Word số thành chữ lấy vùng chọn, chọn số thường/tiền; Excel chọn một ô, xem trước/copy hoặc xác nhận thay ô. Tự điền vùng tham chiếu vào đối số qua sự kiện chuột, dùng hình học engine/header khớp ranh giới; từ chối khi không xác minh được. Chưa kiểm GUI máy thật, vùng ngoài viewport chưa hỗ trợ.
-- PDF mở kết quả bằng trình xem hệ thống sau thao tác qpdf, chưa chỉnh chữ gốc/OCR/preview trong app. PowerPoint animation vẫn chưa hỗ trợ; không thêm nút giả.
-- CI main 45748288776 Linux/Windows PASS: qpdf, bộ tiện ích dữ liệu/bảng, tìm tệp, vntext, hộp công cụ (manifest, xác nhận, chạy/dừng), file utilities; không chứng minh từng tool người dùng cài. Thẻ tool ngoài hiển thị thiếu chương trình hoặc chưa kiểm thử.
-
-- CI PR #8 run 45759370278: Linux/Windows lỗi biên dịch ExcelUi.cpp dòng 80–81 vì thiếu khai báo đầy đủ QPushButton khi so với QAbstractButton. Windows bước kiểm cố định ô thiếu artifact do build dừng. Đã thêm include QPushButton và QSignalBlocker tường minh; cần CI mới, chưa nghiệm thu UI.
+## Thao tác của PR #8 và PR #9
+- Có thể lọc tab Word, Excel, PowerPoint và PDF. Word lấy đoạn số đang chọn để đổi thành chữ. Excel hỗ trợ lấy ô hoặc vùng cho đối số qua sự kiện chuột và yêu cầu xác nhận trước khi thay số trong ô.
+- PDF dùng qpdf tạo bản xem trước cho đánh số và đóng dấu. Qt PDF hiển thị trang đã xử lý trong hộp thoại. Sau khi lưu cũng có thể mở kết quả bằng trình xem hệ thống.
+- Trong PowerPoint, chọn công cụ rồi kéo để đặt khung chữ hoặc hình. Trình xem slide có chế độ cửa sổ và toàn màn hình.
+- Hộp công cụ kiểm tra chương trình cần thiết lúc nạp danh sách. Kiểm thử từng công cụ của người dùng vẫn phụ thuộc chương trình cài trên máy.

@@ -11,25 +11,32 @@
 #include "../word/WordCommands.h"
 #include <QMessageBox>
 #include <QUrl>
+#include <QMainWindow>
+#include <QStatusBar>
+#include <QToolTip>
+#include <QCursor>
 
-static void dragShape(dung::Document* d, const char* uno) {
+static void armShape(DocumentTab* tab, const char* uno) {
+    auto* d = tab->document();
+    if (d->readOnly()) return;
+    tab->setPptNotesMode(false);
+    d->waitInputIdle();
     d->command(uno);
-    long w = 0, h = 0;
-    d->documentSize(w, h);
-    // Kéo một vùng ở giữa trang để tạo đối tượng
-    d->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, int(w * 0.30), int(h * 0.35), 1, 1, 0);
-    d->postMouse(LOK_MOUSEEVENT_MOUSEMOVE, int(w * 0.50), int(h * 0.50), 1, 1, 0);
-    d->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, int(w * 0.70), int(h * 0.65), 1, 1, 0);
+    tab->view()->setFocus();
+    const QString hint = QObject::tr("Kéo chuột trên slide để đặt đối tượng đúng vị trí và kích thước; Esc để hủy.");
+    if (auto* window = qobject_cast<QMainWindow*>(tab->window()))
+        window->statusBar()->showMessage(hint, 7000);
+    QToolTip::showText(QCursor::pos(), hint, tab->view());
 }
 
 bool handlePptAction(DocumentTab* tab, const QString& id) {
     if (!id.startsWith(QLatin1String("ppt."))) return false;
     if (!tab || tab->kind() != dung::DocKind::Presentation) return true;
     dung::Document* d = tab->document();
-    if (id == QLatin1String("ppt.show") || id == QLatin1String("ppt.showHere")) {
+    if (id == QLatin1String("ppt.show") || id == QLatin1String("ppt.showHere") || id == QLatin1String("ppt.preview")) {
         tab->setPptNotesMode(false);
         const int start = id == QLatin1String("ppt.show") ? 0 : d->currentPart();
-        new SlideShow(d, start, tab);
+        new SlideShow(d, start, tab, id != QLatin1String("ppt.preview"));
     } else if (id == QLatin1String("ppt.notes") || id == QLatin1String("ppt.normal")) {
         tab->setPptNotesMode(id == QLatin1String("ppt.notes"));
     } else if (id == QLatin1String("ppt.fontSize")) {
@@ -50,9 +57,9 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         const int page = QInputDialog::getInt(tab, QObject::tr("Đến trang chiếu"), QObject::tr("Trang:"), d->currentPart() + 1, 1, n, 1, &ok);
         if (ok) tab->stepPart(page - 1 - d->currentPart());
     } else if (id == QLatin1String("ppt.textbox")) {
-        dragShape(d, ".uno:Text");
+        armShape(tab, ".uno:Text");
     } else if (id == QLatin1String("ppt.rect")) {
-        dragShape(d, ".uno:BasicShapes.rectangle");
+        armShape(tab, ".uno:BasicShapes.rectangle");
     } else if (id == QLatin1String("ppt.image")) {
         const QString f = QFileDialog::getOpenFileName(tab, QObject::tr("Chèn ảnh"), QString(),
                                                        QObject::tr("Ảnh (*.png *.jpg *.jpeg *.bmp *.gif)"));

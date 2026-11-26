@@ -6,15 +6,17 @@
 #include <QString>
 #include <algorithm>
 
-SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent)
+SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool fullscreen)
     : QWidget(parent, Qt::Window), m_doc(doc), m_part(startPart), m_count(doc->partCount()) {
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowTitle(tr("Trình chiếu"));
     setFocusPolicy(Qt::StrongFocus);
-    setCursor(Qt::BlankCursor);
+    if (fullscreen) setCursor(Qt::BlankCursor);
     m_doc->documentSize(m_w, m_h);
     if (m_part < 0 || m_part >= m_count) m_part = 0;
-    showFullScreen();
+    if (fullscreen) showFullScreen();
+    else { setWindowTitle(tr("Xem trước slide — mũi tên để chuyển trang, Esc để đóng")); resize(960, 600); show(); }
+    render();
 }
 
 bool SlideShow::hidden(int part) {

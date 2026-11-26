@@ -63,6 +63,7 @@ QString iconNameForCommand(const QString& id) {
         {"ppt.image", "image"}, {"ppt.rect", "shape"}, {"ppt.textbox", "textbox"},
         {"ppt.notes", "text"}, {"ppt.normal", "template"}, {"ppt.goto", "page-number"}, {"ppt.fontSize", "font-size"}, {"ppt.textColor", "font-color"},
         {"ppt.show", "play"}, {"ppt.showHere", "play"}, {"ppt.transitionNote", "transition"},
+        {"ppt.preview", "play"},
         // PDF
         {"pdfPrev", "move-up"}, {"pdfNext", "move-down"},
         {"pdfTools:merge", "merge-pdf"}, {"pdfTools:split", "split"}, {"pdfTools:rotate", "rotate"}, {"pdfTools:compress", "compress"},
