@@ -292,7 +292,7 @@ CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol)
     struct Group { QString key; qsizetype rows=0,numbers=0; qint64 sum=0; };
     QList<Group> groups; QHash<QString,qsizetype> indices;
     // No thousands separators, leading-zero codes, exponents or implicit rounding.
-    static const QRegularExpression canonical(QStringLiteral(R"(^-?(?:0|[1-9][0-9]{0,13})(?:\.[0-9]{1,4})?$)"));
+    static const QRegularExpression canonical(QStringLiteral(R"(^-?(?:0|[1-9][0-9]{0,13})(?:\.[0-9]{1,4})?\z)"));
     for(qsizetype i=0;i<source.rows.size();++i) {
         const auto& row=source.rows[i];
         if(row.size()!=source.header.size()) { r.error=QObject::tr("Bản ghi %1 sai số cột.").arg(i+2); return r; }
@@ -315,8 +315,8 @@ CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol)
         if(!ok) { r.error=QObject::tr("Số không hợp lệ.");return r; }
         const qint64 fraction=parts.size()==2?parts[1].leftJustified(4,QLatin1Char('0')).toLongLong():0;
         const qint64 scaled=(integer*10000+fraction)*(negative?-1:1);
-        if((scaled>0 && g.sum>std::numeric_limits<qint64>::max()-scaled) ||
-           (scaled<0 && g.sum<std::numeric_limits<qint64>::min()-scaled)) {
+        if((scaled>0 && g.sum>(std::numeric_limits<qint64>::max)()-scaled) ||
+           (scaled<0 && g.sum<(std::numeric_limits<qint64>::min)()-scaled)) {
             r.error=QObject::tr("Tổng nhóm vượt phạm vi số hỗ trợ; không xuất kết quả sai.");return r;
         }
         g.sum+=scaled;++g.numbers;
