@@ -555,15 +555,28 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
         run(*toc,w::paragraphStyle("Text Body"));
         toc->typeText(u"TOC_BODY_MARKER\n");toc->waitInputIdle();
         run(*toc,".uno:GoToEndOfDoc");
-        const bool api=toc->supportsNativeWindows();
-        check(api,"Runtime có API cửa sổ native LOK");
-        if(api){
+        const bool bitmap=toc->supportsNativeWindows(),js=toc->supportsDialogEvents();
+        check(bitmap||js,"Runtime có API hộp thoại LOK");
+        if(bitmap||js){
             toc->clearEvents();
             toc->command(".uno:InsertMultiIndex");
-            unsigned id=0;int width=0,height=0;std::string payload;
-            const bool appeared=toc->waitFor(LOK_CALLBACK_WINDOW,[&](const std::string& p){
-                if(p.find("created")==std::string::npos||p.find("dialog")==std::string::npos)return false;
+            unsigned id=0;unsigned long long jsId=0;int width=0,height=0;std::string payload;
+            bool isJs=false;
+            const bool appeared=toc->waitForEvent([&](int type,const std::string& p){
+                if(type!=LOK_CALLBACK_WINDOW && type!=LOK_CALLBACK_JSDIALOG)return false;
+                std::cout<<"[TIN] TOC callback "<<type<<": "<<p.substr(0,16000)<<std::endl;
                 std::smatch m;
+                if(type==LOK_CALLBACK_JSDIALOG && js){
+                    // Only accept a real TOC dialog carrying its OK widget; do not click
+                    // another message box, sidebar or arbitrary window.
+                    if(p.find("Table of Contents")==std::string::npos && p.find("tocdialog")==std::string::npos &&
+                       p.find("Mục lục")==std::string::npos)return false;
+                    if(!std::regex_search(p,std::regex(R"re("id"\s*:\s*"ok")re")))return false;
+                    if(!std::regex_search(p,m,std::regex(R"re("id"\s*:\s*"?([0-9]{1,19})"?(?=\s*[,}]))re")))return false;
+                    jsId=std::stoull(m[1].str());isJs=jsId!=0;payload=p;
+                    return isJs;
+                }
+                if(type!=LOK_CALLBACK_WINDOW||!bitmap||p.find("created")==std::string::npos||p.find("dialog")==std::string::npos)return false;
                 if(!std::regex_search(p,m,std::regex(R"re("id"\s*:\s*"?([0-9]{1,9}))re")))return false;
                 id=unsigned(std::stoul(m[1].str()));payload=p;
                 if(std::regex_search(p,m,std::regex(R"re("size"\s*:\s*"(\d+)\s*,\s*(\d+)")re"))){
@@ -571,8 +584,19 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                 }
                 return id!=0;
             },10000);
-            check(appeared,"Mục lục: nhận callback created dialog",payload);
-            if(appeared){
+            check(appeared,"Mục lục: nhận bitmap dialog hoặc JSDialog thật",payload.substr(0,1000));
+            if(appeared&&isJs){
+                const bool sent=toc->clickNativeDialogButton(jsId,"ok");
+                check(sent,"Gửi click OK qua JSDialog native");
+                if(sent){
+                    toc->waitInputIdle(500,5000);
+                    run(*toc,".uno:UpdateAllIndexes");
+                    const fs::path target=out/"word-native-toc.docx";
+                    fs::remove(target,ec);
+                    auto sr=toc->saveAs(target);
+                    check(sr.ok,"Lưu DOCX mục lục JSDialog: "+sr.message);
+                }
+            }else if(appeared){
                 const bool sizeOk=width>0&&height>0&&width<=4096&&height<=4096;
                 check(sizeOk,"Kích thước dialog hợp lệ",std::to_string(width)+"x"+std::to_string(height));
                 if(sizeOk){
