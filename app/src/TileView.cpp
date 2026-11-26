@@ -16,6 +16,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPainter>
+#include <QRegion>
 #include <QScrollBar>
 #include <QWheelEvent>
 #include <cmath>
@@ -209,17 +210,27 @@ void TileView::paintEvent(QPaintEvent* ev) {
         }
     }
     // ---- Lớp phủ: vùng chọn, con trỏ ô, con trỏ văn bản ----
-    QColor sel = theme::kBlue;
-    sel.setAlpha(50);
-    for (const QRect& r : m_selection) p.fillRect(toView(r), sel);
-    if (m_selection.isEmpty() && !m_cellArea.isEmpty()) p.fillRect(toView(m_cellArea), sel);
-    if (m_hasCell) {
-        const QRect area = m_isCalc && !m_cellArea.isEmpty() ? m_cellArea : m_cellCursor;
-        const QRect v = toView(area);
+    const QRect area = cellOutlineTwips();
+    const QRect outline = area.isEmpty() ? QRect() : toView(area);
+    const bool multiCell = m_isCalc && !outline.isEmpty() && area != m_cellCursor;
+    if (multiCell) {
+        QColor tint = theme::kExcel; tint.setAlpha(32);
+        QRegion shade(outline);
+        if (m_hasCell) shade -= QRegion(toView(m_cellCursor));
+        p.save(); p.setClipRegion(shade, Qt::IntersectClip);
+        p.fillRect(outline, tint); p.restore();
+    } else {
+        // Text selections (including editing a Calc cell) retain the text-selection color.
+        QColor sel = theme::kBlue; sel.setAlpha(50);
+        for (const QRect& r : m_selection) p.fillRect(toView(r), sel);
+    }
+    if (!outline.isEmpty()) {
         p.setPen(QPen(theme::kExcel, 2));
         p.setBrush(Qt::NoBrush);
-        p.drawRect(v.adjusted(0, 0, -1, -1));
-        p.fillRect(QRect(v.right() - 3, v.bottom() - 3, 6, 6), theme::kExcel); // tay nắm
+        p.drawRect(outline.adjusted(0, 0, -1, -1));
+        // Preserve the existing handle only for an explicitly identified cell/range.
+        if (!m_cellArea.isEmpty() || area == m_cellCursor)
+            p.fillRect(QRect(outline.right() - 3, outline.bottom() - 3, 6, 6), theme::kExcel);
     }
     drawCaret(p);
     p.restore();
@@ -264,6 +275,28 @@ bool TileView::caretShownNow() const {
 
 QRect TileView::caretViewRect() const { return m_hasCaret ? toView(m_caret) : QRect(); }
 QRect TileView::cellCursorViewRect() const { return m_hasCell ? toView(m_cellCursor) : QRect(); }
+
+QRect TileView::cellOutlineTwips() const {
+    if (!m_isCalc) return {};
+    if (!m_cellArea.isEmpty()) return m_cellArea;
+    if (!m_hasCell) return {};
+    // Some engine versions report a selected rectangle through TEXT_SELECTION.
+    // Use only a contiguous rectangle containing the active cell, and only for
+    // painting. Do NOT promote this fallback to selectedCellRange()/write targets.
+    if (!(m_hasCaret && m_caretVisible) && !m_selection.isEmpty()) {
+        QRegion cells;
+        for (const auto& r : m_selection) if (!r.isEmpty()) cells |= QRegion(r);
+        const QRect bounds = cells.boundingRect();
+        if (!bounds.isEmpty() && bounds.contains(m_cellCursor) && cells == QRegion(bounds))
+            return bounds;
+    }
+    return m_cellCursor;
+}
+
+QRect TileView::cellSelectionViewRect() const {
+    const QRect r=cellOutlineTwips();
+    return r.isEmpty() ? QRect() : toView(r);
+}
 
 void TileView::drawCaret(QPainter& p) {
     if (carettrace::enabled()) {
@@ -438,6 +471,8 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 void TileView::mousePressEvent(QMouseEvent* e) {
     if (m_isCalc) {
         m_cellArea = QRect();
+        m_selection.clear(); // do not paint the previous range while a new gesture starts
+        viewport()->update();
         const QPoint pos = e->position().toPoint();
         const QPoint h = headerSize();
         m_pickValid = e->button() == Qt::LeftButton && pos.x() >= h.x() && pos.y() >= h.y();
