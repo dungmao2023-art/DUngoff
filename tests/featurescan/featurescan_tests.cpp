@@ -72,6 +72,14 @@ int main(int argc, char** argv) {
         CHECK(find(classifyEntries({"xl/slicers/slicer1.xml", "xl/slicerCaches/slicerCache1.xml"}), "slicer")->count == 2);
         CHECK(find(classifyEntries({"xl/timelines/timeline1.xml"}), "timeline") != nullptr);
         CHECK(find(classifyEntries({"xl/model/item.data"}), "mo-hinh-du-lieu") != nullptr);
+        {
+            auto v=classifyEntries({"xl/connections.xml","xl/queryTables/queryTable1.xml","xl/queryTables/_rels/queryTable1.xml.rels",
+                                    "xl/externalLinks/externalLink1.xml","_xmlsignatures/sig1.xml"});
+            auto* q=find(v,"ket-noi-du-lieu");
+            CHECK(q && q->count==2 && q->blocking && !q->certain);
+            CHECK(find(v,"lien-ket-ngoai") && find(v,"lien-ket-ngoai")->blocking);
+            CHECK(find(v,"chu-ky-ooxml") && find(v,"chu-ky-ooxml")->blocking);
+        }
         CHECK(find(classifyEntries({"word/activeX/activeX1.xml"}), "activex")->certain == false);
         CHECK(classifyEntries({"ppt/slideMasters/slideMaster1.xml"}).empty());  // một master: không cảnh báo
         CHECK(classifyEntries({"ppt/slideMasters/slideMaster1.xml", "ppt/slideLayouts/slideLayout1.xml"}).empty());  // 1 bố cục: không báo
@@ -138,6 +146,14 @@ int main(int argc, char** argv) {
         auto bad5 = tmpFile("badoff.zip", c);
         CHECK(!scanFeatureLoss(bad5).scanned);
         fs::remove(bad5);
+        auto duplicate=tmpFile("duplicate.zip",makeZip({"xl/connections.xml","XL/Connections.xml"}));
+        CHECK(!scanFeatureLoss(duplicate).scanned);fs::remove(duplicate);
+        auto comment=good;
+        comment[comment.size()-2]=char(22);
+        comment+=std::string("PK\x05\x06",4)+std::string(18,'\0');
+        auto fake=tmpFile("fake-eocd.zip",comment);
+        CHECK(!scanFeatureLoss(fake).scanned || find(scanFeatureLoss(fake).items,"font-nhung")!=nullptr);
+        fs::remove(fake);
         CHECK(!scanFeatureLoss(fs::temp_directory_path() / "dung-fs-khong-ton-tai.zip").scanned);
     }
 

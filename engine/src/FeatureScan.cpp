@@ -4,13 +4,14 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <unordered_set>
 
 namespace fs = std::filesystem;
 
 namespace dung {
 namespace {
 
-uint32_t rd32(const unsigned char* p) { return p[0] | (p[1] << 8) | (p[2] << 16) | (uint32_t(p[3]) << 24); }
+uint32_t rd32(const unsigned char* p) { return uint32_t(p[0]) | (uint32_t(p[1]) << 8) | (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24); }
 uint16_t rd16(const unsigned char* p) { return uint16_t(p[0] | (p[1] << 8)); }
 
 std::string lower(std::string s) {
@@ -41,22 +42,29 @@ bool listZipNames(const fs::path& zipFile, std::vector<std::string>& names, std:
     if (!f) return fail("không đọc được cuối tệp");
     long long eocd = -1;
     for (long long i = tailLen - 22; i >= 0; --i)
-        if (rd32(&tail[static_cast<size_t>(i)]) == 0x06054b50u) { eocd = i; break; }
+        if (rd32(&tail[static_cast<size_t>(i)]) == 0x06054b50u &&
+            i+22+rd16(&tail[static_cast<size_t>(i)+20])==tailLen) { eocd = i; break; }
     if (eocd < 0) return fail("không thấy cấu trúc zip");
     const unsigned char* e = &tail[static_cast<size_t>(eocd)];
     const uint32_t count = rd16(e + 10), cdSize = rd32(e + 12), cdOff = rd32(e + 16);
     if (count == 0xFFFFu || cdSize == 0xFFFFFFFFu || cdOff == 0xFFFFFFFFu) return fail("zip64 chưa được quét");
-    if (static_cast<long long>(cdOff) + cdSize > size) return fail("danh mục zip không hợp lệ");
+    if (rd16(e+4)!=0 || rd16(e+6)!=0 || rd16(e+8)!=count) return fail("zip nhiều đĩa chưa hỗ trợ");
+    if (count==0 || cdSize>64u*1024*1024 || static_cast<long long>(cdOff)+cdSize>size-tailLen+eocd ||
+        uint64_t(count)*46>cdSize) return fail("danh mục zip không hợp lệ hoặc quá lớn");
     std::vector<unsigned char> cd(cdSize);
     f.seekg(cdOff);
     f.read(reinterpret_cast<char*>(cd.data()), cdSize);
     if (!f) return fail("không đọc được danh mục zip");
     size_t pos = 0;
+    std::unordered_set<std::string> seen;
     for (uint32_t i = 0; i < count; ++i) {
         if (pos + 46 > cd.size() || rd32(&cd[pos]) != 0x02014b50u) return fail("danh mục zip bị hỏng");
         const size_t nl = rd16(&cd[pos + 28]), xl = rd16(&cd[pos + 30]), cl = rd16(&cd[pos + 32]);
         if (pos + 46 + nl + xl + cl > cd.size()) return fail("danh mục zip bị hỏng");
-        names.emplace_back(reinterpret_cast<const char*>(&cd[pos + 46]), nl);
+        std::string name(reinterpret_cast<const char*>(&cd[pos+46]),nl);
+        if(name.empty() || name.find('\0')!=std::string::npos || !seen.insert(lower(name)).second)
+            return fail("tên mục ZIP trống, trùng hoặc không hợp lệ");
+        names.push_back(std::move(name));
         pos += 46 + nl + xl + cl;
     }
     return true;
@@ -64,6 +72,7 @@ bool listZipNames(const fs::path& zipFile, std::vector<std::string>& names, std:
 
 std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawNames) {
     int fonts = 0, macro = 0, formctl = 0, activex = 0, smartart = 0, slicers = 0, timelines = 0, model = 0, ink = 0, masters = 0, layouts = 0;
+    int connections=0, signatures=0, external=0;
     for (const auto& raw : rawNames) {
         const std::string n = lower(raw);
         if ((startsWith(n, "word/fonts/") && endsWith(n, ".odttf")) ||
@@ -83,6 +92,12 @@ std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawName
             ++timelines;
         else if (startsWith(n, "xl/model/") && !endsWith(n, "/"))
             ++model;
+        else if (n=="xl/connections.xml" || (startsWith(n,"xl/querytables/querytable") && endsWith(n,".xml")))
+            ++connections;
+        else if (startsWith(n,"_xmlsignatures/") && endsWith(n,".xml"))
+            ++signatures;
+        else if (startsWith(n,"xl/externallinks/externallink") && endsWith(n,".xml"))
+            ++external;
         else if (contains(n, "/ink/") && endsWith(n, ".xml"))
             ++ink;
         else if (startsWith(n, "ppt/slidemasters/slidemaster") && endsWith(n, ".xml"))
@@ -115,6 +130,12 @@ std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawName
         "Timeline không được giữ.", timelines, true);
     add("mo-hinh-du-lieu", "Mô hình dữ liệu / Power Query",
         "Mô hình dữ liệu và truy vấn Power Query không được giữ.", model, true);
+    add("ket-noi-du-lieu", "Kết nối dữ liệu / QueryTable",
+        "Chưa xác nhận khả năng giữ hoặc làm mới kết nối, kể cả Power Query. Có thể mất truy vấn hoặc thông tin kết nối khi lưu. Giữ tệp gốc, chỉ lưu bản sao.",connections,false);
+    add("lien-ket-ngoai", "Liên kết sổ tính bên ngoài",
+        "Tham chiếu và dữ liệu liên kết ngoài có thể thay đổi khi lưu; chưa xác nhận refresh. Giữ bản gốc.",external,false);
+    add("chu-ky-ooxml", "Chữ ký số tài liệu",
+        "Sửa nội dung có thể làm mất hiệu lực chữ ký. Không dùng bản xuất làm tài liệu đã ký; giữ nguyên bản gốc.",signatures,false);
     add("muc-ve-tay", "Nét vẽ tay (ink)",
         "Nét vẽ tay có thể bị mất hoặc đổi thành hình.", ink, false);
     if (masters >= 2)
