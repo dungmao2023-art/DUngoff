@@ -2,6 +2,8 @@
 #include "PdfToolsDialog.h"
 
 #include <QCheckBox>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QSpinBox>
@@ -154,7 +156,16 @@ void PdfToolsDialog::showResult(const Result& r, const QString& okTitle) {
                                                             : r.files.join('\n'));
     if (!r.backup.isEmpty()) msg += tr("\n\nBản cũ đã được sao lưu tại:\n%1").arg(r.backup);
     if (!r.warnings.isEmpty()) msg += tr("\n\nLưu ý:\n%1").arg(r.warnings.join('\n'));
-    QMessageBox::information(this, okTitle, msg);
+    QMessageBox box(this);
+    box.setWindowTitle(okTitle); box.setText(msg);
+    auto* open = box.addButton(r.files.size() == 1 ? tr("Xem bản PDF kết quả") : tr("Mở thư mục kết quả"), QMessageBox::ActionRole);
+    box.addButton(QMessageBox::Ok);
+    open->setEnabled(!r.files.isEmpty());
+    box.exec();
+    if (box.clickedButton() == open && !r.files.isEmpty()) {
+        const QString path = r.files.size() == 1 ? r.files.first() : QFileInfo(r.files.first()).absolutePath();
+        if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) QMessageBox::warning(this, tr("Xem kết quả"), tr("Không mở được tệp hoặc thư mục."));
+    }
 }
 
 void PdfToolsDialog::refreshPageCount(const QString& path, QLabel* label) {

@@ -8,6 +8,9 @@
 #include "ToolRegistry.h"
 
 #include <QDesktopServices>
+#include <QFileInfo>
+#include <QDir>
+#include <QStandardPaths>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -139,7 +142,10 @@ void ToolboxPage::rebuild() {
         toolbox::ToolInfo ti;
         ti.id = QStringLiteral("ngoai:") + s.id;
         ti.name = s.name;
-        ti.description = s.description;
+        const bool available = s.command.contains(QLatin1Char('/')) ? QFileInfo(QDir(s.dir).filePath(s.command)).isFile() : !QStandardPaths::findExecutable(s.command).isEmpty();
+        ti.description = s.description + QStringLiteral("\n") + (available
+            ? tr("Có chương trình chạy · chưa kiểm thử tool này")
+            : tr("Thiếu chương trình: %1").arg(s.command));
         ti.category = s.category;
         ti.iconText = QStringLiteral("settings");
         ti.external = true;

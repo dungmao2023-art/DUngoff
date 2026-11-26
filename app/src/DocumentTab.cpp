@@ -130,7 +130,16 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
             scroll->setWidget(tool);
             m_excelTools->addTab(scroll, title);
         };
-        addTool(createFormulaAssistantWidget(), tr("ƒx · Tôi muốn"));
+        m_formulaAssistant = createFormulaAssistantWidget();
+        addTool(m_formulaAssistant, tr("ƒx · Tôi muốn"));
+        connect(m_view, &TileView::cellSelectionFinished, this, [this] {
+            const int part = m_doc->currentPart();
+            QTimer::singleShot(180, this, [this, part] {
+                if (!isVisible() || !m_formulaAssistant || !m_formulaAssistant->isVisible() || m_doc->currentPart() != part) return;
+                m_doc->waitInputIdle(100, 700);
+                notifyFormulaSelection(m_formulaAssistant, m_view->selectedCellRange());
+            });
+        });
         m_rangeTools = createDocumentRangeToolsWidget(this, [this] { return qs(m_doc->selectionAs("text/plain;charset=utf-8")); });
         addTool(m_rangeTools, tr("Vùng dữ liệu"));
         connect(m_excelTools, &QTabWidget::currentChanged, this, [this](int) { notifyDocumentRangeTools(m_rangeTools); });

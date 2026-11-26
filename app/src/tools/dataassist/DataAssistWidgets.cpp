@@ -55,6 +55,8 @@ public:
         desc_ = new QLabel; desc_->setWordWrap(true); lay->addWidget(desc_);
         pairs_ = new QSpinBox; pairs_->setRange(1, 8); pairs_->setValue(2);
         pairs_->setPrefix(QStringLiteral("Số cặp điều kiện: ")); pairs_->hide(); lay->addWidget(pairs_);
+        autoPick_ = new QCheckBox(QStringLiteral("Tự lấy vùng khi chọn trên bảng tính"));
+        autoPick_->setChecked(true); lay->addWidget(autoPick_);
         form_ = new QFormLayout; lay->addLayout(form_);
         connect(pairs_, &QSpinBox::valueChanged, this, [this](int) {
             if (!cur_ || !hasConditionPairs(*cur_)) return;
@@ -125,6 +127,21 @@ public:
         insert_->setEnabled(true);
         refill();
     }
+    void selectedReference(const QString& reference) {
+        if (!isVisible() || !autoPick_->isChecked() || !cur_) return;
+        if (reference.isEmpty()) {
+            status_->setText(QStringLiteral("Chưa xác minh được địa chỉ vùng; nhập địa chỉ thủ công nếu vùng nằm ngoài màn hình."));
+            return;
+        }
+        QLineEdit* e = nullptr;
+        for (auto* field : edits_) if (field->property("pickNext").toBool()) { e = field; break; }
+        if (!e) {
+            for (auto* field : edits_) if (field->text().trimmed().isEmpty() && field->property("referenceArg").toBool()) { e = field; break; }
+        }
+        if (!e) return;
+        e->setProperty("pickNext", false);
+        e->setText(reference);
+    }
 private:
     void refill()
     {
@@ -156,18 +173,20 @@ private:
         const auto args = hasConditionPairs(*cur_) ? conditionArgs(*cur_, pairs_->value()) : cur_->args;
         for (const ArgInfo &a : args) {
             auto *e = new QLineEdit; e->setPlaceholderText(a.hint);
+            e->setProperty("referenceArg", a.hint.contains(QLatin1Char(':')) || a.hint.contains(QStringLiteral("A1")) || a.hint.contains(QStringLiteral("A2")) || a.hint.contains(QStringLiteral("B2")));
             if (edits_.size() < saved.size()) e->setText(saved.at(edits_.size()));
             edits_.push_back(e);
             auto* field = new QWidget;
             auto* row = new QHBoxLayout(field); row->setContentsMargins(0, 0, 0, 0);
             row->addWidget(e, 1);
-            auto* pick = new QPushButton(QStringLiteral("Lấy ô"));
-            pick->setToolTip(QStringLiteral("Chọn ô trong bảng tính rồi bấm để điền địa chỉ. Với vùng nhiều ô, nhập A1:B10."));
+            auto* pick = new QPushButton(QStringLiteral("Chọn vùng"));
+            pick->setToolTip(QStringLiteral("Bấm rồi chọn ô/vùng trên bảng; địa chỉ tự điền nếu xác minh được."));
             row->addWidget(pick);
             connect(pick, &QPushButton::clicked, this, [this, e] {
-                const QString addr = hooks().selectedCellAddress ? hooks().selectedCellAddress() : QString();
-                if (addr.isEmpty()) { status_->setText(QStringLiteral("Chưa nhận được địa chỉ ô từ engine.")); return; }
-                e->setText(addr);
+                for (auto* field : edits_) field->setProperty("pickNext", false);
+                e->setProperty("pickNext", true);
+                autoPick_->setChecked(true);
+                status_->setText(QStringLiteral("Bây giờ chọn ô hoặc kéo vùng trên bảng tính."));
             });
             form_->addRow(a.name + (a.optional ? QStringLiteral(" (tuỳ chọn)") : QString()), field);
             connect(e, &QLineEdit::textChanged, this, [this] { rebuild(); });
@@ -185,6 +204,7 @@ private:
     QLineEdit *search_{}, *result_{}, *target_{};
     QComboBox *cat_{};
     QSpinBox *pairs_{};
+    QCheckBox *autoPick_{};
     QListWidget *list_{};
     QLabel *desc_{}, *status_{};
     QFormLayout *form_{};
@@ -439,6 +459,7 @@ public:
 }  // namespace
 
 QWidget* createFormulaAssistantWidget(QWidget *p) { return new FormulaAssistant(p); }
+void notifyFormulaSelection(QWidget* w, const QString& ref) { if (auto* p = dynamic_cast<FormulaAssistant*>(w)) p->selectedReference(ref); }
 QWidget* createRangeToolsWidget(QWidget *p) { return new RangeTools(p); }
 QWidget* createDocumentRangeToolsWidget(QWidget* p, std::function<QString()> readSelection) { return new RangeTools(p, std::move(readSelection)); }
 void notifyDocumentRangeTools(QWidget* widget) { if (auto* r = dynamic_cast<RangeTools*>(widget)) r->scheduleRefresh(); }

@@ -109,6 +109,7 @@ void TileView::setZoom(int percent) {
 }
 
 void TileView::resetForPartChange() {
+    m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear();
     m_tiles.clear();
     m_selection.clear();
     m_cellArea = QRect();
@@ -433,6 +434,7 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 }
 
 void TileView::mousePressEvent(QMouseEvent* e) {
+    if (m_isCalc) m_cellArea = QRect();
     cancelComposition();
     setFocus();
     restartBlink();
@@ -443,6 +445,31 @@ void TileView::mousePressEvent(QMouseEvent* e) {
 void TileView::mouseReleaseEvent(QMouseEvent* e) {
     sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, e, m_clickCount);
     m_clickCount = 1;
+    if (m_isCalc && e->button() == Qt::LeftButton) emit cellSelectionFinished();
+}
+QString TileView::selectedCellRange() {
+    if (!m_isCalc || !m_hasCell) return {};
+    const QRect area = !m_cellArea.isEmpty() ? m_cellArea : m_cellCursor;
+    if (area.isEmpty()) return {};
+    requestHeaders(); // engine trả tên hàng/cột theo viewport hiện tại
+    const double scale = twipsPerPx();
+    auto edges = [](const QVector<Header>& headers, int start, double lo, double hi) -> QPair<QString, QString> {
+        QString first, last;
+        int prev = start;
+        for (const auto& h : headers) {
+            if (h.endPx > prev) {
+                if (qAbs(double(prev) - lo) <= 2.0) first = h.text;
+                if (qAbs(double(h.endPx) - hi) <= 2.0) last = h.text;
+            }
+            prev = h.endPx;
+        }
+        return {first, last};
+    };
+    const auto cols = edges(m_cols, m_colStartPx, area.x() / scale, (area.x() + area.width()) / scale);
+    const auto rows = edges(m_rows, m_rowStartPx, area.y() / scale, (area.y() + area.height()) / scale);
+    if (cols.first.isEmpty() || cols.second.isEmpty() || rows.first.isEmpty() || rows.second.isEmpty()) return {};
+    const QString a = cols.first + rows.first, b = cols.second + rows.second;
+    return a == b ? a : a + QLatin1Char(':') + b;
 }
 void TileView::mouseMoveEvent(QMouseEvent* e) {
     if (e->buttons() != Qt::NoButton) sendMouse(LOK_MOUSEEVENT_MOUSEMOVE, e, 1);
