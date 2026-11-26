@@ -64,6 +64,20 @@ Mốc rà soát 26/11/2026: main 212e757d78e3a36e3afcabeb159a7ee68f5ced0a. Đây
 - [ ] E05 Hộp công cụ ngoài: kiểm từng tính năng, dependency, checksum, giấy phép, khi thiếu báo rõ, không chạy lệnh ngoài trái phép.
 - [ ] E06 Hướng dẫn tiếng Việt, onboarding, lỗi rõ, hỗ trợ update, bộ cài ổn định; macOS sau Windows.
 
+## Chiến lược tận dụng mã nguồn mở (chủ dự án đồng ý 26/11/2026)
+Ưu tiên thư viện miễn phí, giấy phép phù hợp, hoạt động offline, thay vì viết lại engine. Không có nghĩa được phép bỏ qua LICENSE, NOTICE, quyền phân phối font/dữ liệu hay dependency bắc cầu. Chỉ tích hợp bản release/commit ghim phiên bản và checksum; có inventory/SBOM, kiểm thử bảo toàn file, đo RAM/kích thước, phương án bỏ module nếu không đạt. Không tự tải/chạy binary khi người dùng mở tài liệu. Không dùng SDK trial, license thương mại bắt buộc hay API tính phí. Dùng engine LibreOffice hiện tại trước khi thêm engine khác.
+
+| Mục | Ứng viên / nguồn chính thức | Hướng kỹ thuật và giới hạn |
+|---|---|---|
+| D04/D05 | [PoDoFo](https://github.com/podofo/podofo) (library LGPL-2.0-or-later hoặc MPL-2.0), [PDFium](https://pdfium.googlesource.com/pdfium/) (BSD-style, kiểm third-party notices) | Prototype thao tác PDF page objects trên bản sao, text Unicode/font nhúng, giữ vector và kiểm qpdf; không cam kết sửa tùy ý mọi PDF. PoDoFo tools có thể khác license library. Chưa tích hợp. |
+| D06 | [Tesseract](https://github.com/tesseract-ocr/tesseract) (Apache-2.0), [tessdata](https://github.com/tesseract-ocr/tessdata) | Engine OCR đã dùng; kiểm license/nguồn cụ thể runtime Windows và vie/eng, đóng gói offline hoặc gói tùy chọn, kiểm PDF searchable. |
+| X10/X11 | [DuckDB](https://duckdb.org/) (MIT), [C API](https://duckdb.org/docs/current/clients/c/overview.html) | Ưu tiên thử xử lý dữ liệu lớn và join/group; giữ reader XLSX hiện tại để không tự ép kiểu ID, không tải extension tự động, không thực thi SQL tùy ý; chưa hỗ trợ M. Đo kích thước/tốc độ trước quyết định. |
+| X12/X13 | [LibreOffice VBA support](https://help.libreoffice.org/latest/en-US/text/sbasic/shared/vbasupport.html) | Tận dụng hỗ trợ VBA giới hạn, test giữ vbaProject.bin và macro vô hại; mặc định không thực thi macro. Không rebuild engine nếu không cần. |
+| W04 | [Hunspell](https://github.com/hunspell/hunspell) (LGPL/GPL/MPL) | Dùng tích hợp engine hiện có nếu khả thi; kiểm riêng license từ điển tiếng Việt và hiệu quả gợi ý. |
+| P04/P06 | LibreOffice Impress + OOXML hiện có | Ưu tiên hỗ trợ sẵn của engine; không dựng engine trình chiếu thứ hai nếu chưa có lý do. |
+
+Các ứng viên chưa tích hợp phải ghi rõ là nghiên cứu/đánh giá, không đánh dấu hoàn thành. Khi chọn module mới, lập PR độc lập kèm license, nguồn, version, phạm vi và test.
+ 
 ## Quy trình mỗi lượt
 1. Đọc checklist và HEAD main + PR mở. Phân biệt chưa làm / có mã / CI đang chạy / CI đạt / merge / GUI đạt.
 2. Ưu tiên blocker P0, nếu CI còn chạy thì chọn mục độc lập; không lặp lại báo cáo mà không hành động nếu còn việc khả thi. Chia nhánh theo nhóm, không force push.
