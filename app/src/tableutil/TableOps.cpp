@@ -7,6 +7,9 @@
 #include <QRegularExpression>
 #include <QTextStream>
 #include <algorithm>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 namespace tbl {
 
@@ -465,6 +468,46 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
             });
     result.ok = true;
     return result;
+}
+
+QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpec& spec)
+{
+    QJsonObject obj{
+        {"version", 1}, {"header", QJsonArray::fromStringList(header)},
+        {"filterCol", spec.filterCol}, {"sortCol", spec.sortCol},
+        {"mode", int(spec.mode)}, {"value", spec.value},
+        {"ignoreCase", spec.ignoreCase}, {"descending", spec.descending}
+    };
+    return QJsonDocument(obj).toJson(QJsonDocument::Indented);
+}
+
+bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, FilterSortSpec& spec, QString& error)
+{
+    error.clear();
+    auto fail = [&] { error = QObject::tr("Cấu hình không hợp lệ hoặc cấu trúc cột đã thay đổi."); return false; };
+    if (json.size() > 1024 * 1024) return fail();
+    QJsonParseError parseError;
+    const auto doc = QJsonDocument::fromJson(json, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return fail();
+    const auto obj = doc.object();
+    if (obj.value("version").toInt(-1) != 1 || !obj.value("header").isArray()
+        || obj.value("header").toArray() != QJsonArray::fromStringList(header)) return fail();
+    const int filter = obj.value("filterCol").toInt(-2);
+    const int sort = obj.value("sortCol").toInt(-2);
+    const int mode = obj.value("mode").toInt(-1);
+    if (filter < -1 || filter >= header.size() || sort < -1 || sort >= header.size()
+        || mode < int(FilterMode::Equal) || mode > int(FilterMode::NotBlank)
+        || !obj.value("value").isString() || !obj.value("ignoreCase").isBool()
+        || !obj.value("descending").isBool()) return fail();
+    FilterSortSpec candidate;
+    candidate.filterCol = filter; candidate.sortCol = sort; candidate.mode = FilterMode(mode);
+    candidate.value = obj.value("value").toString();
+    candidate.ignoreCase = obj.value("ignoreCase").toBool();
+    candidate.descending = obj.value("descending").toBool();
+    const auto checked = filterSort(Table{header, {}}, candidate);
+    if (!checked.ok) { error = checked.error; return false; }
+    spec = candidate;
+    return true;
 }
 
 } // namespace tbl
