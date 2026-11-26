@@ -898,12 +898,27 @@ bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const S
         *error=tr("Không xác minh được kích thước trang cho lớp chữ Unicode.");return false;
     }
     if(geo.isEmpty() || geo.size()>2000){*error=tr("Lớp chữ Unicode hỗ trợ tối đa 2.000 trang mỗi tệp.");return false;}
-    QFont font=QFontDatabase::systemFont(QFontDatabase::GeneralFont);
-    font.setPixelSize(qRound(opt.fontSize*2));
-    const QFontMetricsF metrics(font);
-    for(const auto cp:text.toUcs4()) if(!metrics.inFontUcs4(cp)) {
-        *error=tr("Phông hệ thống thiếu ký tự trong chữ đóng dấu. Hãy chọn chữ khác hoặc sử dụng ảnh.");return false;
+    // Offscreen and native Qt platform plugins can expose different font inventories.
+    // Choose a real installed family with coverage for the whole string.
+    const auto chars=text.toUcs4();
+    QStringList families{QStringLiteral("Arial"),QStringLiteral("Segoe UI"),QStringLiteral("DejaVu Sans"),
+                         QStringLiteral("Noto Sans"),QFontDatabase::systemFont(QFontDatabase::GeneralFont).family()};
+    families.append(QFontDatabase::families());families.removeDuplicates();
+    const auto installed=QFontDatabase::families();
+    QFont font;bool found=false;
+    for(const auto& family:families) {
+        if(!installed.contains(family,Qt::CaseInsensitive))continue;
+        QFont candidate(family);candidate.setPixelSize(qRound(opt.fontSize*2));
+        const QFontMetricsF fm(candidate);
+        bool covers=true;
+        for(const auto cp:chars)if(!fm.inFontUcs4(cp)){covers=false;break;}
+        if(covers){font=candidate;found=true;break;}
     }
+    if(!found){
+        *error=tr("Không tìm thấy phông hỗ trợ toàn bộ chữ đóng dấu (số họ phông Qt: %1).").arg(installed.size());
+        return false;
+    }
+    const QFontMetricsF metrics(font);
     QRectF bounds=metrics.boundingRect(text);
     if(bounds.isEmpty()) {*error=tr("Chữ đóng dấu rỗng.");return false;}
     QByteArray bytes;
