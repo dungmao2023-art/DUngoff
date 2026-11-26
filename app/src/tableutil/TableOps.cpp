@@ -17,21 +17,37 @@ namespace tbl {
 static QVector<QStringList> parseCsv(const QString &text, QChar sep, QString &err)
 {
     QVector<QStringList> rows;
-    QStringList row; QString cell; bool inQ = false, any = false;
-    for (int i = 0; i < text.size(); ++i) {
-        const QChar c = text[i];
-        if (inQ) {
-            if (c == QLatin1Char('"')) {
-                if (i + 1 < text.size() && text[i + 1] == QLatin1Char('"')) { cell += c; ++i; } else inQ = false;
-            } else cell += c;
-        } else if (c == QLatin1Char('"')) { inQ = true; any = true; }
-        else if (c == sep) { row << cell; cell.clear(); any = true; }
-        else if (c == QLatin1Char('\r')) { /* bỏ qua, xử lý ở \n */ }
-        else if (c == QLatin1Char('\n')) { row << cell; rows << row; row.clear(); cell.clear(); any = false; }
-        else { cell += c; any = true; }
+    QStringList row;
+    QString cell;
+    enum class State { Start, Bare, Quoted, Closed };
+    State state = State::Start;
+    bool any = false;
+    auto finishCell = [&] { row << cell; cell.clear(); state = State::Start; };
+    for (qsizetype i = 0; i < text.size(); ++i) {
+        const QChar ch = text[i];
+        if (state == State::Quoted) {
+            if (ch == QLatin1Char('"')) {
+                if (i + 1 < text.size() && text[i + 1] == QLatin1Char('"')) {
+                    cell += ch; ++i;
+                } else state = State::Closed;
+            } else cell += ch;
+            continue;
+        }
+        if (ch == sep) { finishCell(); any = true; }
+        else if (ch == QLatin1Char('\r') || ch == QLatin1Char('\n')) {
+            if (ch == QLatin1Char('\r') && i + 1 < text.size() && text[i + 1] == QLatin1Char('\n')) ++i;
+            finishCell(); rows << row; row.clear(); any = false;
+        } else if (state == State::Closed || (state == State::Bare && ch == QLatin1Char('"'))) {
+            err = QObject::tr("Dấu nháy sai vị trí tại bản ghi %1. Không đọc dữ liệu để tránh mất nội dung.").arg(rows.size() + 1);
+            return {};
+        } else if (ch == QLatin1Char('"')) {
+            state = State::Quoted; any = true;
+        } else {
+            state = State::Bare; cell += ch; any = true;
+        }
     }
-    if (inQ) { err = QObject::tr("Dấu nháy đóng chưa khớp trong CSV."); return {}; }
-    if (any || !cell.isEmpty() || !row.isEmpty()) { row << cell; rows << row; }
+    if (state == State::Quoted) { err = QObject::tr("Dấu nháy đóng chưa khớp trong CSV."); return {}; }
+    if (any || !cell.isEmpty() || !row.isEmpty()) { finishCell(); rows << row; }
     return rows;
 }
 
@@ -194,20 +210,30 @@ QChar guessSeparator(const QString &t)
     return QLatin1Char(',');
 }
 
-bool readCsvWith(const QString &path, Encoding enc, Table &out, QString &error, QChar sep)
+bool readCsvBytes(const QByteArray& raw, Encoding enc, Table& out, QString& error, QChar sep)
 {
-    error.clear(); // tránh dùng lại thông báo lỗi cũ của lần gọi trước
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) { error = QObject::tr("Không mở được tệp: ") + f.errorString(); return false; }
+    error.clear();
+    if (sep != QLatin1Char(',') && sep != QLatin1Char(';') && sep != QLatin1Char('\t')) {
+        error = QObject::tr("Dấu phân cách không được hỗ trợ."); return false;
+    }
     QString text;
-    if (!decodeText(f.readAll(), enc, text, error)) return false;
+    if (!decodeText(raw, enc, text, error)) return false;
     auto rows = parseCsv(text, sep, error);
     if (!error.isEmpty()) return false;
-    out = Table();
-    if (rows.isEmpty()) return true;
-    out.header = rows.takeFirst();
-    out.rows = rows;
+    Table parsed;
+    if (!rows.isEmpty()) { parsed.header = rows.takeFirst(); parsed.rows = rows; }
+    out = parsed;
     return true;
+}
+
+bool readCsvWith(const QString &path, Encoding enc, Table &out, QString &error, QChar sep)
+{
+    error.clear();
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) { error = QObject::tr("Không mở được tệp: ") + f.errorString(); return false; }
+    const auto bytes = f.readAll();
+    if (f.error() != QFileDevice::NoError) { error = f.errorString(); return false; }
+    return readCsvBytes(bytes, enc, out, error, sep);
 }
 
 bool readCsv(const QString &path, Table &out, QString &error, QChar sep)
@@ -226,19 +252,32 @@ static QString csvEscape(const QString &s, QChar sep)
 
 bool writeCsvCopy(const QString &path, const Table &t, QString &error, QChar sep)
 {
-    if (QFile::exists(path)) { error = QObject::tr("Tệp đích đã tồn tại; không ghi đè. Hãy chọn tên khác."); return false; }
+    error.clear();
+    if (sep != QLatin1Char(',') && sep != QLatin1Char(';') && sep != QLatin1Char('\t')) {
+        error = QObject::tr("Dấu phân cách không được hỗ trợ."); return false;
+    }
+    if (t.header.isEmpty()) { error = QObject::tr("Bảng không có tiêu đề."); return false; }
+    // NewOnly performs the no-overwrite check atomically at open, unlike exists()+WriteOnly.
     QFile f(path);
-    if (!f.open(QIODevice::WriteOnly)) { error = f.errorString(); return false; }
-    QString out;
-    auto line = [&](const QStringList &r) {
-        QStringList e; for (const QString &c : r) e << csvEscape(c, sep);
-        out += e.join(sep) + QLatin1Char('\n');
+    if (!f.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
+        error = QObject::tr("Không tạo được tệp mới: %1").arg(f.errorString()); return false;
+    }
+    auto fail = [&] {
+        error = QObject::tr("Ghi CSV không đầy đủ: %1").arg(f.errorString());
+        f.close();
+        if (!f.remove()) error += QObject::tr(" Không xóa được tệp kết quả lỗi; không sử dụng tệp này.");
+        return false;
     };
-    line(t.header);
-    for (const auto &r : t.rows) line(r);
-    f.write("\xEF\xBB\xBF"); // BOM để Excel đọc đúng tiếng Việt
-    f.write(out.toUtf8());
-    if (!f.flush()) { error = f.errorString(); return false; }
+    auto line = [&](const QStringList &r) {
+        QStringList escaped;
+        for (const QString &cell : r) escaped << csvEscape(cell, sep);
+        const auto bytes = (escaped.join(sep) + QLatin1Char('\n')).toUtf8();
+        return f.write(bytes) == bytes.size();
+    };
+    if (f.write("\xEF\xBB\xBF", 3) != 3 || !line(t.header)) return fail();
+    for (const auto &row : t.rows) if (!line(row)) return fail();
+    if (!f.flush()) return fail();
+    f.close();
     return true;
 }
 
