@@ -38,6 +38,8 @@ QStringList previewLines(const QString &decodedText, int maxLines = 20);
 QChar guessSeparator(const QString &decodedText); // ',' ';' hoặc tab; mặc định ','
 // Đọc CSV theo bảng mã người dùng đã chọn. Không sửa tệp gốc.
 bool readCsvWith(const QString &path, Encoding enc, Table &out, QString &error, QChar sep = QLatin1Char(','));
+// Parse the exact bytes already previewed; leave out unchanged on any error.
+bool readCsvBytes(const QByteArray& raw, Encoding enc, Table& out, QString& error, QChar sep = QLatin1Char(','));
 
 // ---- 1. Dòng trùng ----
 struct RemovedRow { int originalIndex; QStringList cells; int keptIndex; };
