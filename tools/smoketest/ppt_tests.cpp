@@ -368,13 +368,19 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
     else unsupported(".uno:BasicShapes.rectangle + kéo chuột: trang không đổi");
 
     step("chèn hộp văn bản");
+    // End rectangle creation before arming the text tool. Match the UI input-idle sequence.
+    d->postKey(LOK_KEYEVENT_KEYINPUT, 0, 1281);
+    d->postKey(LOK_KEYEVENT_KEYUP, 0, 1281);
+    d->waitInputIdle(350,4000);
     const auto xb = renderHash(*d, 0);
     d->command(".uno:Text");
+    d->waitInputIdle(350,4000);
     d->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, 4000, 3500, 1, 1, 0);
     d->postMouse(LOK_MOUSEEVENT_MOUSEMOVE, 6500, 4300, 1, 1, 0);
     d->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, 6500, 4300, 1, 1, 0);
+    d->waitInputIdle(350,4000);
     d->typeText(u"Hop van ban");
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    d->waitInputIdle(350,4000);
     d->postKey(LOK_KEYEVENT_KEYINPUT, 0, 1281);
     d->postKey(LOK_KEYEVENT_KEYUP, 0, 1281);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
