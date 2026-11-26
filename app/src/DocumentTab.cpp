@@ -336,6 +336,7 @@ QTabWidget#ExcelTools QTabBar::tab:selected { background:white; color:#2864BA; b
             m_excelTools->addTab(scroll, title);
         };
         m_formulaAssistant = createFormulaAssistantWidget();
+        notifyFormulaSheet(m_formulaAssistant,m_doc->currentPart(),qs(m_doc->partName(m_doc->currentPart())));
         addTool(m_formulaAssistant, tr("ƒx · Tôi muốn"));
         connect(m_view, &TileView::cellSelectionFinished, this, [this] {
             const int part = m_doc->currentPart();
@@ -482,7 +483,9 @@ QLabel#AssistantGroup { color:#6B7A99; font-size:11px; font-weight:700; padding-
         connect(m_sheets, &QTabBar::customContextMenuRequested, this, [this](const QPoint& p) { excelSheetMenu(p); });
         connect(m_sheets, &QTabBar::currentChanged, this, [this](int idx) {
             if (m_rebuildingParts || idx < 0 || idx == m_doc->currentPart()) return;
+            ++m_pickGeneration;
             m_doc->setPart(idx);
+            notifyFormulaSheet(m_formulaAssistant,m_doc->currentPart(),qs(m_doc->partName(m_doc->currentPart())));
             m_view->resetForPartChange();
             emit statusChanged();
         });
@@ -659,6 +662,7 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
     case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED:
     case LOK_CALLBACK_SET_PART:
         ++m_pickGeneration;
+        if(m_formulaAssistant) notifyFormulaSheet(m_formulaAssistant,m_doc->currentPart(),qs(m_doc->partName(m_doc->currentPart())));
         refreshPdfComparison();
         if ((m_sheets && m_sheets->count() != m_doc->partCount()) ||
             (m_slides && m_slides->count() != m_doc->partCount()) ||
