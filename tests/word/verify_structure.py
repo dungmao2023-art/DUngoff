@@ -60,3 +60,13 @@ with zipfile.ZipFile(Path(sys.argv[1]).parent / "word-toc-updated.docx") as z:
     check(any("HEADING_AFTER" in value and "STALE_TOC" not in value for value in found),
           "real TOC field result updated to new heading")
     check("HEADING_BEFORE" not in text(root), "old heading absent")
+
+# Native TOC must contain a real TOC field and generated heading entries.
+with zipfile.ZipFile(Path(sys.argv[1]).parent / "word-native-toc.docx") as z:
+    root = ET.fromstring(z.read("word/document.xml"))
+    instructions = " ".join(node.text or "" for node in root.iter(W+"instrText"))
+    instructions += " ".join(node.get(W+"instr","") for node in root.iter(W+"fldSimple"))
+    check("TOC" in instructions, "native TOC field")
+    check(text(root).count("TOC_HEADING_ONE") >= 2 and text(root).count("TOC_HEADING_TWO") >= 2,
+          "native TOC generated both heading entries and retained originals")
+    check("TOC_BODY_MARKER" in text(root), "native TOC retained body")
