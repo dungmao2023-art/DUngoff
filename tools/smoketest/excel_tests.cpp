@@ -204,6 +204,39 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
     check(r.ok, "Lưu thành excel-ket-qua.xlsx: " + r.message);
     doc.reset();
 
+    // Native range paste used by the Vietnamese number-to-words UI.
+    step("Số thành chữ — thay vùng 2x2, lưu và Undo");
+    auto words = engine->createNew(DocKind::Spreadsheet,&err);
+    check(bool(words),"Tạo workbook kiểm thử vùng "+err);
+    if(words) {
+        words->setClientView(512,512,7680,7680,0,0,7680,7680);
+        auto enter=[&](const std::string& cell,const char16_t* value){
+            gotoCell(*words,cell);words->typeText(value);
+            words->postKey(LOK_KEYEVENT_KEYINPUT,13,1280);
+            words->postKey(LOK_KEYEVENT_KEYUP,13,1280);
+            words->waitInputIdle();
+        };
+        enter("A1",u"12");enter("B1",u"=2+3");enter("A2",u"7");enter("B2",u"9");
+        enter("C1",u"OUTSIDE");enter("A3",u"BELOW");
+        words->command(".uno:GoToCell", "{\"ToPoint\":{\"type\":\"string\",\"value\":\"A1:B2\"}}");
+        words->waitInputIdle();settle();
+        const auto selected=words->selectionAs("text/plain;charset=utf-8");
+        check(selected.find("12\t5")!=std::string::npos && selected.find("7\t9")!=std::string::npos,"Chọn đúng 4 ô nguồn");
+        if(selected.find("12\t5")!=std::string::npos && selected.find("7\t9")!=std::string::npos){
+            const bool pasted=words->paste("text/plain;charset=utf-8","Mười hai\tNăm\nBảy\tChín");
+            check(pasted,"Engine nhận một lần dán vùng Unicode");
+            words->waitInputIdle();settle();
+            const auto after=out/"words-range.xlsx";fs::remove(after,ec);
+            const auto saved=words->saveAs(after);
+            check(saved.ok,"Lưu vùng đã đổi: "+saved.message);
+            words->command(".uno:Undo");words->waitInputIdle();settle();
+            const auto undone=out/"words-range-undo.xlsx";fs::remove(undone,ec);
+            const auto savedUndo=words->saveAs(undone);
+            check(savedUndo.ok,"Lưu sau Undo: "+savedUndo.message);
+        }
+    }
+    words.reset();
+
     // ======================= Tệp stress 5000 dòng =======================
     if (!stress.empty() && fs::exists(stress)) {
         fs::path s2 = out / "stress-goc.xlsx";
