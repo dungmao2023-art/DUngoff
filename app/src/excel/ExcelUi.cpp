@@ -59,10 +59,19 @@ void DocumentTab::excelSheetMenu(const QPoint& pos) {
 
 void DocumentTab::excelAction(const QString& id) {
     if (readOnly() || !m_doc || m_doc->kind() != dung::DocKind::Spreadsheet) return;
+    m_doc->waitInputIdle();
+    if (readOnly() || !m_sheets || !m_view) return;
     const QString a = id.mid(3);
     auto cmd = [this](const char* c, const std::string& args = std::string()) { m_doc->command(c, args); };
     const int cur = m_doc->currentPart();
     const int n = m_doc->partCount();
+    const auto* originalDoc = m_doc.get();
+    const auto originalSheet = m_doc->partName(cur);
+    auto sameSheet = [&] {
+        if (readOnly() || m_doc.get() != originalDoc) return false;
+        m_doc->waitInputIdle();
+        return m_doc->currentPart() == cur && m_doc->partCount() == n && m_doc->partName(cur) == originalSheet;
+    };
 
     if (a == QLatin1String("insertChart")) {
         m_doc->waitInputIdle();
@@ -131,7 +140,7 @@ void DocumentTab::excelAction(const QString& id) {
             }
             if (QMessageBox::question(this, tr("Thay số hoặc công thức?"), tr("Thay %1 bằng chữ? Công thức gốc (nếu có) sẽ bị thay thế.").arg(range), QMessageBox::Yes|QMessageBox::No, QMessageBox::No) == QMessageBox::Yes) {
                 m_doc->waitInputIdle();
-                if (m_doc->currentPart() != cur || m_view->selectedCellRange() != range ||
+                if (!sameSheet() || m_view->selectedCellRange() != range ||
                     qs(m_doc->selectionAs("text/plain;charset=utf-8")).trimmed() != value) {
                     QMessageBox::warning(this, tr("Số → chữ"), tr("Ô hoặc giá trị đã đổi trong lúc xác nhận; chưa ghi dữ liệu.")); return;
                 }
@@ -141,16 +150,19 @@ void DocumentTab::excelAction(const QString& id) {
     } else if (a == QLatin1String("sheetAdd")) {
         QString name;
         if (!askName(this, tr("Thêm sheet"), tr("Sheet%1").arg(n + 1), &name, m_sheets, -1)) return;
+        if (!sameSheet()) return;
         cmd(".uno:Insert", ex::sheetInsert(ss(name), n + 1)); // thêm vào cuối
     } else if (a == QLatin1String("sheetRename")) {
         QString name;
         if (!askName(this, tr("Đổi tên sheet"), qs(m_doc->partName(cur)), &name, m_sheets, cur)) return;
+        if (!sameSheet()) return;
         cmd(".uno:RenameTable", ex::sheetRename(ss(name)));
     } else if (a == QLatin1String("sheetDelete")) {
         if (n <= 1) { QMessageBox::information(this, tr("Xoá sheet"), tr("Không thể xoá sheet duy nhất của tệp.")); return; }
         if (QMessageBox::question(this, tr("Xoá sheet"),
-                tr("Xoá sheet \"%1\" cùng toàn bộ dữ liệu, công thức, ghi chú trong đó?\nBản gốc trên đĩa không bị ảnh hưởng cho đến khi bạn Lưu thành.")
+                tr("Xoá sheet \"%1\" cùng toàn bộ dữ liệu, công thức, ghi chú trong đó?\nThao tác sẽ thay đổi tài liệu đang mở. Kiểm tra lại trước khi lưu.")
                     .arg(qs(m_doc->partName(cur))), QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        if (!sameSheet()) { QMessageBox::warning(this, tr("Xoá sheet"), tr("Sheet đã thay đổi; chưa xoá dữ liệu.")); return; }
         cmd(".uno:Remove", ex::sheetRemove(cur + 1));
     } else if (a == QLatin1String("sheetDup")) {
         const QString stem = fromPath(m_doc->workingCopy().stem());
@@ -186,12 +198,14 @@ void DocumentTab::excelAction(const QString& id) {
         if (QMessageBox::question(this, tr("Tìm và thay thế"),
                 tr("Thay tất cả \"%1\" bằng \"%2\" trong giá trị và văn bản của sheet này.\nCông thức KHÔNG bị thay đổi. Tiếp tục?").arg(f, r),
                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        if (!sameSheet()) { QMessageBox::warning(this, tr("Tìm và thay thế"), tr("Sheet đã thay đổi; chưa thay dữ liệu.")); return; }
         cmd(".uno:ExecuteSearch", ex::replaceAll(ss(f), ss(r)));
+        m_doc->waitInputIdle();
     } else if (a == QLatin1String("find")) {
         bool ok = false;
         const QString f = QInputDialog::getText(this, tr("Tìm"), tr("Tìm:"), QLineEdit::Normal, QString(), &ok);
         if (ok && !f.isEmpty()) cmd(".uno:ExecuteSearch", ex::findNext(ss(f)));
     }
-    if (a.startsWith(QLatin1String("sheet"))) { rebuildParts(); m_view->resetForPartChange(); emit statusChanged(); }
+    if (a.startsWith(QLatin1String("sheet"))) { m_doc->waitInputIdle(); rebuildParts(); m_view->resetForPartChange(); emit statusChanged(); }
     m_view->setFocus();
 }
