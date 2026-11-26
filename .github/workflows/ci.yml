@@ -217,9 +217,10 @@ jobs:
         timeout-minutes: 5
         run: |
           set -o pipefail
-          ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-sweep --sweep 1 2>&1 | tee report/linux-sweep.log
+          ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-sweep --sweep 1 --pivot-fixture tests/fixtures/features/features-pivot.xlsx 2>&1 | tee report/linux-sweep.log
           python3 tests/calc/check_freeze.py smoke-sweep 2>&1 | tee report/linux-freeze-file.log
           python3 tests/calc/check_native_chart.py smoke-sweep/native-chart.xlsx 2>&1 | tee report/linux-native-chart.log
+          python3 tests/calc/check_native_pivot.py smoke-sweep/native-pivot.xlsx 2>&1 | tee report/linux-native-pivot.log
       - name: Đặt lề bằng vá XML (Linux) — đơn vị, gói ZIP, .docx thật, engine thật
         run: |
           set -o pipefail
@@ -678,7 +679,7 @@ jobs:
         timeout-minutes: 6
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--sweep", "1", "--out", "$PWD/smoke-sweep") -PassThru -NoNewWindow `
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--sweep", "1", "--pivot-fixture", "tests/fixtures/features/features-pivot.xlsx", "--out", "$PWD/smoke-sweep") -PassThru -NoNewWindow `
                  -RedirectStandardOutput report/windows-sweep.log -RedirectStandardError report/windows-sweep.err.log
           if (-not $p.WaitForExit(180000)) { Stop-Process $p -Force; "quá thời gian" | Add-Content report/windows-sweep.log; exit 1 }
           Get-Content report/windows-sweep.log
@@ -690,6 +691,8 @@ jobs:
           python tests/calc/check_freeze.py smoke-sweep 2>&1 | Tee-Object report/windows-freeze-file.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python tests/calc/check_native_chart.py smoke-sweep/native-chart.xlsx 2>&1 | Tee-Object report/windows-native-chart.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python tests/calc/check_native_pivot.py smoke-sweep/native-pivot.xlsx 2>&1 | Tee-Object report/windows-native-pivot.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Phục hồi sau sập + đường dẫn dài trên Windows (250-259, 262, 300 ký tự)
         run: |

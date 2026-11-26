@@ -34,7 +34,7 @@ int runWordStructureTests(const std::filesystem::path& program, const std::files
 int runWordTests(const std::filesystem::path& program, const std::filesystem::path& out);   // word_tests.cpp
 int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path& stress, const fs::path& out); // excel_tests.cpp
 
-int runSweepTests(const fs::path& program, const fs::path& out);   // sweep_tests.cpp
+int runSweepTests(const fs::path& program, const fs::path& out,const fs::path& pivotFixture);   // sweep_tests.cpp
 
 static int g_fail = 0;
 static std::mutex g_stepMutex;
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 #else
     std::vector<std::string> args(argv, argv + argc);
 #endif
-    fs::path program, xlsx, csv, out, docx, pptx, featureDocx;
+    fs::path program, xlsx, csv, out, docx, pptx, featureDocx, pivotFixture;
     std::vector<fs::path> extraSheets; // --sheet <tệp>: định dạng bảng tính khác (xls, ods, xlsm...)
     fs::path roundtrip;                // --roundtrip <tệp>: chỉ mở, render mọi sheet, lưu bản sao (không sửa)
     bool wordStructureMode = false;
@@ -147,13 +147,14 @@ int main(int argc, char** argv) {
         else if (args[i] == "--ppt") pptTests = fromUtf8(args[i + 1]);
         else if (args[i] == "--templates") templatesDir = fromUtf8(args[i + 1]);
         else if (args[i] == "--preedit") preeditMode = (args[i + 1] == "1");
+        else if (args[i] == "--pivot-fixture") pivotFixture = fromUtf8(args[i + 1]);
         else if (args[i] == "--sweep") sweepMode = (args[i + 1] == "1");
         else if (args[i] == "--recover") recoverMode = (args[i + 1] == "1");
         else if (args[i] == "--excel") excelMode = (args[i + 1] == "1");
         else if (args[i] == "--stress") stressFile = fromUtf8(args[i + 1]);
         else if (args[i] == "--chi-mo") basicOnly = (args[i + 1] == "1"); // chỉ mở + hiển thị, bỏ nhập liệu/lưu
     }
-    if (sweepMode && !program.empty() && !out.empty()) return runSweepTests(program, out);
+    if (sweepMode && !program.empty() && !out.empty()) return runSweepTests(program, out,pivotFixture);
     if (preeditMode && !program.empty() && !out.empty()) return dungRunPreeditTests(program, out);
     if (recoverMode && !program.empty() && !out.empty()) return dungRunRecoverTests(program, out);
     if (wordStructureMode && !program.empty() && !out.empty()) return runWordStructureTests(program, out);
