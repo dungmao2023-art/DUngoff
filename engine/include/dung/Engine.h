@@ -91,6 +91,7 @@ public:
 private:
     Engine() = default;
     std::unique_ptr<lok::Office> m_office;
+    void* m_nativeOffice = nullptr; // borrowed from m_office; ABI handle for optional LOK calls
     fs::path m_workDir;
     int m_counter = 0;
     friend class Document;
