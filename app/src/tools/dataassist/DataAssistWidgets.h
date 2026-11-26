@@ -18,7 +18,8 @@ Hooks &hooks();
 
 }  // namespace dataassist
 
-QWidget* createFormulaAssistantWidget(QWidget *parent = nullptr);   // ƒx · Tôi muốn
+QWidget* createFormulaAssistantWidget(QWidget *parent = nullptr);
+void notifyFormulaSelection(QWidget* widget, const QString& reference);   // ƒx · Tôi muốn
 QWidget* createRangeToolsWidget(QWidget *parent = nullptr);
 // Embedded in one document: scoped read hook and event-driven refresh, never a global polling timer.
 QWidget* createDocumentRangeToolsWidget(QWidget* parent, std::function<QString()> readSelection);

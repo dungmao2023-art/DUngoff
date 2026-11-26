@@ -11,7 +11,12 @@
 #include <QInputDialog>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QTabBar>
+#include <QApplication>
+#include <QClipboard>
+#include "../vntext/VnText.h"
+#include "../tools/dataassist/ExcelBridge.h"
 
 namespace ex = dung::excel;
 
@@ -54,7 +59,34 @@ void DocumentTab::excelAction(const QString& id) {
     const int cur = m_doc->currentPart();
     const int n = m_doc->partCount();
 
-    if (a == QLatin1String("sheetAdd")) {
+    if (a == QLatin1String("vnMoney")) {
+        m_doc->waitInputIdle();
+        const QString range = m_view->selectedCellRange();
+        if (dataassist::bridgeCellAddress(ss(range)).empty()) {
+            QMessageBox::information(this, tr("Số → chữ"), tr("Hãy chọn đúng một ô số trên màn hình.")); return;
+        }
+        const QString value = qs(m_doc->selectionAs("text/plain;charset=utf-8")).trimmed();
+        bool ok = false;
+        const auto mode = QInputDialog::getItem(this, tr("Số → chữ"), tr("Giá trị: %1. Kiểu đọc:").arg(value), {tr("Số tiền (đồng chẵn)"), tr("Số thường")}, 0, false, &ok);
+        if (!ok) return;
+        vntext::MoneyOptions options; options.currency = mode == tr("Số tiền (đồng chẵn)"); options.chan = options.currency;
+        const auto result = vntext::moneyToWords(value, options);
+        if (!result.ok) { QMessageBox::warning(this, tr("Số → chữ"), result.error); return; }
+        QMessageBox box(this);
+        box.setWindowTitle(tr("Số → chữ")); box.setText(result.text);
+        box.setInformativeText(tr("Sao chép để dán vào ô khác (giữ nguyên số/công thức nguồn), hoặc thay ô đang chọn."));
+        auto* copy = box.addButton(tr("Sao chép"), QMessageBox::AcceptRole);
+        auto* replace = box.addButton(tr("Thay ô"), QMessageBox::DestructiveRole);
+        box.addButton(QMessageBox::Cancel); box.setDefaultButton(copy); box.exec();
+        if (box.clickedButton() == copy) QApplication::clipboard()->setText(result.text);
+        else if (box.clickedButton() == replace) {
+            if (m_doc->currentPart() != cur || m_view->selectedCellRange() != range || qs(m_doc->selectionAs("text/plain;charset=utf-8")).trimmed() != value) {
+                QMessageBox::warning(this, tr("Số → chữ"), tr("Vùng chọn đã đổi. Chưa ghi dữ liệu.")); return;
+            }
+            if (QMessageBox::question(this, tr("Thay số hoặc công thức?"), tr("Thay %1 bằng chữ? Công thức gốc (nếu có) sẽ bị thay thế.").arg(range), QMessageBox::Yes|QMessageBox::No, QMessageBox::No) == QMessageBox::Yes)
+                if (!m_doc->paste("text/plain;charset=utf-8", ss(result.text))) QMessageBox::warning(this, tr("Số → chữ"), tr("Engine chưa xác nhận chèn."));
+        }
+    } else if (a == QLatin1String("sheetAdd")) {
         QString name;
         if (!askName(this, tr("Thêm sheet"), tr("Sheet%1").arg(n + 1), &name, m_sheets, -1)) return;
         cmd(".uno:Insert", ex::sheetInsert(ss(name), n + 1)); // thêm vào cuối

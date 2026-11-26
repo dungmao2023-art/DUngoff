@@ -6,6 +6,7 @@
 
 class QStackedWidget;
 class QTabWidget;
+class QComboBox;
 class QLabel;
 class QSlider;
 class Ribbon;
@@ -47,6 +48,8 @@ private:
     void showTemplates();
     void showToolbox();
     void onCurrentTabChanged();
+    void selectDocumentTab(int index);
+    void refreshDocumentGroups();
     void onAppAction(const QString& id);
     void addRecent(const QString& path);
     QStringList recent() const;
@@ -62,6 +65,8 @@ private:
     QWidget* m_docArea;
     Ribbon* m_ribbon;
     QTabWidget* m_tabs;
+    QComboBox* m_docGroup = nullptr;
+    bool m_groupChanging = false;
     QLabel* m_status;
     QLabel* m_roLabel;
     QLabel* m_toolLabel;

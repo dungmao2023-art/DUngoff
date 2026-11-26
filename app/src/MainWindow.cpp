@@ -43,11 +43,13 @@
 #include <QScrollArea>
 #include <QFrame>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QSlider>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QHash>
 #include <QTabBar>
+#include <QComboBox>
 #include "pdf/PdfToolsDialog.h"
 #include "tableutil/TableToolsDialog.h"
 #include <QTabWidget>
@@ -103,8 +105,32 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_tabs->setDocumentMode(true);
     m_tabs->tabBar()->setElideMode(Qt::ElideRight); // tên dài cắt phần cuối, giữ phần đầu
     m_tabs->tabBar()->setUsesScrollButtons(true);
+    auto* groupRow = new QHBoxLayout;
+    groupRow->setContentsMargins(8, 3, 8, 3);
+    groupRow->addWidget(new QLabel(tr("Tài liệu:"), m_docArea));
+    m_docGroup = new QComboBox(m_docArea);
+    for (const auto& name : {tr("Word"), tr("Excel"), tr("PowerPoint"), tr("PDF"), tr("Khác"), tr("Tất cả")}) m_docGroup->addItem(name);
+    groupRow->addWidget(m_docGroup); groupRow->addStretch(1);
+    dv->addLayout(groupRow);
     dv->addWidget(m_ribbon);
     dv->addWidget(m_tabs, 1);
+    connect(m_docGroup, &QComboBox::currentIndexChanged, this, [this](int group) {
+        if (m_groupChanging) return;
+        int match = -1;
+        if (group == 5) { refreshDocumentGroups(); return; }
+        for (int n = 0; n < m_tabs->count(); ++n) {
+            auto* tab = qobject_cast<DocumentTab*>(m_tabs->widget(n));
+            if (!tab) continue;
+            const auto k = tab->kind();
+            const int rank = k == DocKind::Text ? 0 : k == DocKind::Spreadsheet ? 1 : k == DocKind::Presentation ? 2 : k == DocKind::Drawing ? 3 : 4;
+            if (rank == group) { match = n; break; }
+        }
+        if (match >= 0) selectDocumentTab(match);
+        else {
+            QSignalBlocker block(m_docGroup); m_docGroup->setCurrentIndex(5); refreshDocumentGroups();
+            statusBar()->showMessage(tr("Chưa có tài liệu thuộc nhóm này."), 4000);
+        }
+    });
     m_stack->addWidget(m_home);
     m_stack->addWidget(m_docArea);
     m_projects = new ProjectsPage(m_stack);
@@ -484,7 +510,7 @@ void MainWindow::activateKind(const QString& kind) {
     for (int i = 0; i < m_tabs->count(); ++i) {
         auto* t = qobject_cast<DocumentTab*>(m_tabs->widget(i));
         if (t && t->document()->kind() == want) {
-            m_tabs->setCurrentIndex(i);
+            selectDocumentTab(i);
             showDocuments();
             return;
         }
@@ -558,7 +584,7 @@ void MainWindow::openPath(const QString& path) {
         auto* t = qobject_cast<DocumentTab*>(m_tabs->widget(i));
         if (t && !t->document()->isNew() &&
             QFileInfo(fromPath(t->document()->originalPath())).canonicalFilePath() == QFileInfo(path).canonicalFilePath()) {
-            m_tabs->setCurrentIndex(i);
+            selectDocumentTab(i);
             showDocuments();
             return;
         }
@@ -647,7 +673,7 @@ void MainWindow::addTab(DocumentTab* tab) {
     connect(tab->view(), &TileView::zoomChanged, this, [this, tab](int z) {
         if (tab == current()) { QSignalBlocker b(m_zoom); m_zoom->setValue(z); m_zoomLabel->setText(QStringLiteral("%1%").arg(z)); }
     });
-    m_tabs->setCurrentIndex(idx);
+    selectDocumentTab(idx);
     showDocuments();
     onCurrentTabChanged();
 }
@@ -659,11 +685,37 @@ bool MainWindow::closeTab(int index) {
     m_tabs->removeTab(index);
     delete t; // giải phóng tài liệu trong engine và xoá bản làm việc tạm
     if (m_tabs->count() == 0) showHome();
+    else if (!current() || !m_tabs->isTabVisible(m_tabs->currentIndex())) selectDocumentTab(0);
+    else onCurrentTabChanged();
     return true;
 }
 
+void MainWindow::selectDocumentTab(int index) {
+    if (index < 0 || index >= m_tabs->count()) return;
+    m_groupChanging = true;
+    m_tabs->setTabVisible(index, true);
+    m_tabs->setCurrentIndex(index);
+    m_groupChanging = false;
+    onCurrentTabChanged();
+}
+void MainWindow::refreshDocumentGroups() {
+    if (!m_docGroup || m_groupChanging) return;
+    m_groupChanging = true;
+    const int group = m_docGroup->currentIndex();
+    for (int n = 0; n < m_tabs->count(); ++n) {
+        auto* tab = qobject_cast<DocumentTab*>(m_tabs->widget(n));
+        m_tabs->setTabVisible(n, group == 5 || n == m_tabs->currentIndex() || (tab && kindRank(tab->kind()) == group));
+    }
+    m_groupChanging = false;
+}
 void MainWindow::onCurrentTabChanged() {
+    if (m_groupChanging) return;
     auto* t = current();
+    if (t && m_docGroup && m_docGroup->currentIndex() != 5) {
+        QSignalBlocker b(m_docGroup);
+        m_docGroup->setCurrentIndex(kindRank(t->kind()));
+    }
+    refreshDocumentGroups();
     if (!t) { refreshStatus(); return; }
     m_ribbon->setKind(t->kind(), t->readOnly());
     m_ribbon->resetStates(t->states());
@@ -733,7 +785,7 @@ void MainWindow::onAppAction(const QString& id) {
             {QStringLiteral("images"), PdfToolsDialog::Images}, {QStringLiteral("blank"), PdfToolsDialog::Blank},
             {QStringLiteral("reorder"), PdfToolsDialog::Reorder}};
         QString path;
-        if (docVisible && t->document() && !t->document()->isNew()) path = QString::fromStdU16String(t->document()->originalPath().u16string());
+        if (docVisible && t->kind() == DocKind::Drawing && !t->document()->isNew()) path = QString::fromStdU16String(t->document()->originalPath().u16string());
         PdfToolsDialog::run(this, tabs.value(id.mid(9), PdfToolsDialog::Merge), path);
     }
     else if (id.startsWith(QLatin1String("tableTools:"))) {
@@ -796,7 +848,7 @@ void MainWindow::closeEvent(QCloseEvent* e) {
     m_side->flush();
     m_projects->flush();
     while (m_tabs->count() > 0) {
-        m_tabs->setCurrentIndex(0);
+        selectDocumentTab(0);
         showDocuments();
         if (!closeTab(0)) { e->ignore(); return; }
     }

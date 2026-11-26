@@ -101,6 +101,8 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 - SUMIFS/COUNTIFS/AVERAGEIFS: 1–8 cặp trong UI, lõi kiểm tối đa 127; giữ dữ liệu khi tăng cặp, từ chối cặp thiếu/trống. Test dựng công thức, engine vẫn tính.
 - Panel vùng có tùy chọn tự cập nhật từ callback của engine, debounce 220ms, đọc đúng tài liệu chứa panel, giới hạn xử lý 200000 ký tự sau khi đọc. Không polling; chưa xác nhận vùng rất lớn hoặc thao tác trên Windows thật. Chưa làm kéo lấy địa chỉ vùng vào đối số.
 
-## PDF xem trước đầu ra và PowerPoint thao tác trực quan
-- Đánh số/đóng dấu: panel xem trước dùng chính qpdf tạo PDF tạm rồi QtPdf render trang; tùy chọn tự cập nhật debounce 700ms, chỉ tự chạy với nguồn <=10MB, <=30 trang, không mã hóa; tệp lớn xem thủ công. Không sửa nguồn. Chưa có sửa chữ gốc, OCR hoặc kéo vị trí dấu.
-- PowerPoint: chèn hộp chữ/hình bằng cách chọn công cụ rồi kéo trên slide (không tự tạo ở giữa); xem trước slide trong cửa sổ riêng bằng renderer thật. Cần kiểm thử tương tác GUI; trình xem này tĩnh, không diễn hoạt animation, chưa có editor animation/master.
+## Thao tác của PR #8 và PR #9
+- Có thể lọc tab Word, Excel, PowerPoint và PDF. Word lấy đoạn số đang chọn để đổi thành chữ. Excel hỗ trợ lấy ô hoặc vùng cho đối số qua sự kiện chuột và yêu cầu xác nhận trước khi thay số trong ô.
+- PDF dùng qpdf tạo bản xem trước cho đánh số và đóng dấu. Qt PDF hiển thị trang đã xử lý trong hộp thoại. Sau khi lưu cũng có thể mở kết quả bằng trình xem hệ thống.
+- Trong PowerPoint, chọn công cụ rồi kéo để đặt khung chữ hoặc hình. Trình xem slide có chế độ cửa sổ và toàn màn hình.
+- Hộp công cụ kiểm tra chương trình cần thiết lúc nạp danh sách. Kiểm thử từng công cụ của người dùng vẫn phụ thuộc chương trình cài trên máy.

@@ -165,6 +165,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 {tr("Trợ lý"), {
                     B("xl:formulaAssistant", tr("Tôi muốn"), 0xE8EF, "ƒx", false),
                     B("xl:rangeTools", tr("Công cụ vùng"), 0xE8B9, "▦", false),
+                    B("xl:vnMoney", tr("Số → chữ"), 0xE8EF, "đ", false),
                     B(".uno:AutoSum", tr("Tổng tự động"), 0xE8EF, "Σ", false),
                 }},
             }},
