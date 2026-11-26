@@ -94,3 +94,5 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 
 ## Kho mẫu và luật — mở rộng danh mục nguồn
 - Bổ sung 34 văn bản và 4 cổng tra cứu vào CSV nguồn; tìm theo tiếng Việt, lọc lĩnh vực, mở HTTPS. Đối chiếu danh tính văn bản qua Cổng Chính phủ, không khẳng định hiệu lực từng điều. Chưa lưu toàn văn; còn cần cập nhật định kỳ.
+
+- Gói 2026.2 thêm 12 XLSX có 40 dòng công thức/mẫu; 8 quản trị doanh nghiệp, 2 kỹ thuật, 1 gia đình, 1 sinh viên. Mẫu nội bộ, không tự tính thuế/BHXH. Test cấu trúc ZIP/XML/công thức và cài gói; cần mở/lưu thực tế trong engine. Bổ sung TT133, TT152 vào nguồn chính thức.
