@@ -27,6 +27,7 @@ public:
     QRect caretViewRect() const;        // con trỏ chữ trong toạ độ viewport (rỗng nếu chưa có)
     QString selectedCellRange(bool verifyGesture = false); // chỉ trả về địa chỉ khi khớp hình học vùng engine và header
     QRect cellCursorViewRect() const;   // khung ô hiện hành trong toạ độ viewport
+    QRect cellSelectionViewRect() const; // visual outline only; not a write target
     bool caretShownNow() const;         // con trỏ chữ đang được vẽ ở khung hình này
     // Khoá pha nhấp nháy (bật/tắt) để so khung hình; unfreeze trả về nhấp nháy bình thường.
     void freezeBlink(bool on) { m_blinkFrozen = true; m_blinkOn = on; viewport()->update(); }
@@ -81,6 +82,7 @@ private:
     bool m_blinkFrozen = false;
     void restartBlink();           // hiện ngay rồi mới nhấp nháy lại (gõ/di chuyển/lấy focus)
     void drawCaret(QPainter& p);
+    QRect cellOutlineTwips() const;
     void cancelComposition();       // huỷ chữ đang soạn (mất focus / Escape / bấm chuột)
     bool m_composing = false;       // engine đang giữ chữ đang soạn (preedit)
     bool m_caretVisible = false;

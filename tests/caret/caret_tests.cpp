@@ -141,9 +141,32 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
         QMouseEvent rl(QEvent::MouseButtonRelease, QPoint(330, 130), vp->mapToGlobal(QPoint(330, 130)), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
         QApplication::sendEvent(vp, &rl);
         pump(1500);
-        const QImage multi = vp->grab().toImage();
+        const QImage multi = vp->grab().toImage().scaled(vp->size()).convertToFormat(QImage::Format_RGB32);
         multi.save(outDir + "/" + label + "-multi.png");
-        note(label + ": ảnh chọn nhiều ô đã lưu (kiểm bằng mắt)");
+        const QRect selection = view.cellSelectionViewRect();
+        const QRect cell = view.cellCursorViewRect();
+        const bool covers = selection.width() > cell.width() && selection.height() > cell.height() &&
+            selection.contains(QPoint(120,60)) && selection.contains(QPoint(330,130));
+        check(covers, label + ": viền chọn phủ cả điểm bắt đầu và kết thúc kéo, không chỉ ô đầu",
+              QString("%1,%2 %3x%4").arg(selection.x()).arg(selection.y()).arg(selection.width()).arg(selection.height()));
+        if (covers) {
+            const QColor ex(0x1E,0x8E,0x4F);
+            auto green=[&](int x,int y) {
+                if(!multi.rect().contains(x,y))return false;
+                const auto rgb=multi.pixel(x,y);
+                return qAbs(qRed(rgb)-ex.red())<40 && qAbs(qGreen(rgb)-ex.green())<40 && qAbs(qBlue(rgb)-ex.blue())<40;
+            };
+            int bottom=0,right=0;
+            for(int x=selection.left()+4;x<selection.right()-4;++x)
+                if(green(x,selection.bottom())||green(x,selection.bottom()-1)||green(x,selection.bottom()-2))++bottom;
+            for(int y=selection.top()+4;y<selection.bottom()-4;++y)
+                if(green(selection.right(),y)||green(selection.right()-1,y)||green(selection.right()-2,y))++right;
+            check(bottom>selection.width()/2 && right>selection.height()/2,
+                  label + ": viền xanh ở cạnh phải và dưới vùng kéo thật",
+                  QString("bottom=%1 right=%2").arg(bottom).arg(right));
+        }
+        click(vp,QPoint(120,60));pump(500);
+        check(view.cellSelectionViewRect()==view.cellCursorViewRect(),label + ": click một ô xóa viền vùng cũ");
     }
     if (wantCaret) {
         bool ok = false;
