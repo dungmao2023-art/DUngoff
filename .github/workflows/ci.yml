@@ -35,7 +35,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libreoffice-calc libreoffice-writer libreoffice-impress libreoffice-draw \
             qt6-base-dev qt6-base-private-dev libgl-dev cmake ninja-build python3-openpyxl python3-pip \
-            xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils qpdf tesseract-ocr tesseract-ocr-eng tesseract-ocr-vie
+            xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils qpdf tesseract-ocr tesseract-ocr-eng tesseract-ocr-vie poppler-utils
           pip3 install --break-system-packages python-docx python-pptx
           mkdir -p report
           # Qt PDF cho xem trước/in: thử cài, ghi lại kết quả (không làm hỏng cả job nếu gói không có)
