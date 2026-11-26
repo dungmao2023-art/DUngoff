@@ -15,7 +15,7 @@ const auto relNs=QStringLiteral("http://schemas.openxmlformats.org/officeDocumen
 const auto packageNs=QStringLiteral("http://schemas.openxmlformats.org/package/2006/relationships");
 bool fail(QString& error,const QString& why){error=why;return false;}
 bool safeXml(const QByteArray& bytes){
-    return !bytes.isEmpty() && bytes.size()<=32*1024*1024 && !bytes.contains("<!DOCTYPE") && !bytes.contains("<!ENTITY");
+    return !bytes.isEmpty() && bytes.size()<=32*1024*1024 && !bytes.contains(char(0)) && !bytes.contains("<!DOCTYPE") && !bytes.contains("<!ENTITY");
 }
 bool readPart(const ft::ZipReader& zip,const QString& path,QByteArray& bytes,QString& error,bool optional=false){
     const ft::ZipEntryInfo* found=nullptr;
@@ -148,6 +148,7 @@ bool parseXlsxTable(const QByteArray& sheet,const QByteArray& shared,Table& tabl
     if(!safeXml(sheet))return fail(error,QObject::tr("XML sheet không hợp lệ."));
     QStringList strings;if(!sharedStrings(shared,strings,error))return false;
     QMap<int,QMap<int,QString>> rows;int maxRow=0,maxCol=0;
+    qint64 totalChars=0, actualCells=0;
     QXmlStreamReader x(sheet);
     if(!x.readNextStartElement()||x.namespaceUri()!=ns||x.name()!=QLatin1String("worksheet"))return fail(error,QObject::tr("Worksheet không được hỗ trợ."));
     bool hasData=false;
@@ -175,7 +176,7 @@ bool parseXlsxTable(const QByteArray& sheet,const QByteArray& shared,Table& tabl
                     if(x.namespaceUri()!=ns){x.skipCurrentElement();continue;}
                     if(x.name()==QLatin1String("f"))return fail(error,QObject::tr("Sheet có công thức; hãy tạo bản sao chỉ chứa giá trị trước khi nhập."));
                     if(x.name()==QLatin1String("v")){
-                        if(hasValue)return fail(error,QObject::tr("Ô có nhiều giá trị."));
+                        if(hasValue||type==QLatin1String("inlineStr"))return fail(error,QObject::tr("Ô có giá trị không đúng kiểu."));
                         hasValue=true;value=x.readElementText();
                     }else if(x.name()==QLatin1String("is")){
                         if(hasValue||type!=QLatin1String("inlineStr")||!richText(x,value))return fail(error,QObject::tr("Chuỗi nội tuyến không hợp lệ."));
@@ -193,6 +194,9 @@ bool parseXlsxTable(const QByteArray& sheet,const QByteArray& shared,Table& tabl
                     value=value==QLatin1String("1")?QStringLiteral("TRUE"):QStringLiteral("FALSE");
                 }else if(type==QLatin1String("str"))value=unescape(value);
                 if(value.size()>1048576)return fail(error,QObject::tr("Ô quá dài."));
+                totalChars+=value.size();
+                if(totalChars>32LL*1024*1024 || ++actualCells>1000000)
+                    return fail(error,QObject::tr("Dữ liệu ô vượt giới hạn bộ nhớ hỗ trợ."));
                 maxRow=qMax(maxRow,row);maxCol=qMax(maxCol,col);
                 if(qint64(maxRow)*maxCol>5000000)return fail(error,QObject::tr("Vùng dữ liệu vượt 5 triệu ô."));
                 rows[row].insert(col,value);
