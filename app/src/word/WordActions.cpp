@@ -455,12 +455,15 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             doc->paste("text/plain;charset=utf-8", ss(r.text));
     } else if (name == QLatin1String("vnSyllable")) {
         // Chỉ liệt kê âm tiết nghi sai, KHÔNG tự sửa. Kiểm vùng chọn; nếu không chọn gì thì kiểm toàn văn bản.
+        doc->waitInputIdle();
         std::string raw = doc->selectionAs("text/plain;charset=utf-8");
         const bool wholeDoc = raw.empty();
         if (wholeDoc) {
             doc->command(".uno:SelectAll");
+            doc->waitInputIdle();
             raw = doc->selectionAs("text/plain;charset=utf-8");
             doc->command(".uno:GoToStartOfDoc");
+            doc->waitInputIdle();
         }
         const QString text = QString::fromUtf8(raw.c_str());
         const auto issues = vntext::spell::checkText(text);
@@ -497,11 +500,16 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         QObject::connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
         dlg.exec();
     } else if (name == QLatin1String("count")) {
+        doc->waitInputIdle();
         std::string text = doc->selectionAs("text/plain;charset=utf-8");
         const bool sel = !text.empty();
         if (!sel) {
             doc->command(".uno:SelectAll");
+            doc->waitInputIdle();
             text = doc->selectionAs("text/plain;charset=utf-8");
+            // Do not leave the entire document selected after a read-only report.
+            doc->command(".uno:GoToStartOfDoc");
+            doc->waitInputIdle();
         }
         QMessageBox::information(parent, QObject::tr("Đếm từ"),
             QObject::tr("%1 từ (%2 ký tự) trong %3.").arg(countWords(text)).arg(QString::fromUtf8(text.c_str()).size())
