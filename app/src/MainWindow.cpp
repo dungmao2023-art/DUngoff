@@ -790,6 +790,7 @@ void MainWindow::onAppAction(const QString& id) {
         if (!tmp.isValid()) { QMessageBox::warning(this, tr("PDF"), tr("Không tạo được thư mục tạm.")); return; }
         const QString path = tmp.filePath(QStringLiteral("editable.odg"));
         const int count = t->document()->partCount();
+        const int sourcePage = t->document()->currentPart();
         std::string err;
         QApplication::setOverrideCursor(Qt::WaitCursor);
         const bool saved = t->document()->saveRecoveryCopy(toPath(path), &err);
@@ -800,6 +801,7 @@ void MainWindow::onAppAction(const QString& id) {
             QMessageBox::warning(this, tr("PDF"), tr("Không tạo được bản sao chỉnh sửa có cùng số trang. %1").arg(saved ? openError : qs(err)));
             return;
         }
+        copy->setPart(qBound(0,sourcePage,count-1));
         copy->setRecoveredOrigin(toPath(original), QFileInfo(original).completeBaseName().append(tr(" - chỉnh sửa.odg")).toStdString());
         auto* tab = new DocumentTab(std::move(copy));
         tab->setCopyOrigin(original);
