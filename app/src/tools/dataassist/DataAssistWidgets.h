@@ -19,6 +19,9 @@ Hooks &hooks();
 }  // namespace dataassist
 
 QWidget* createFormulaAssistantWidget(QWidget *parent = nullptr);   // ƒx · Tôi muốn
-QWidget* createRangeToolsWidget(QWidget *parent = nullptr);         // Thống kê vùng · Kiểm tra lỗi · Biểu đồ nhanh (dán/CSV/xlsx)
+QWidget* createRangeToolsWidget(QWidget *parent = nullptr);
+// Embedded in one document: scoped read hook and event-driven refresh, never a global polling timer.
+QWidget* createDocumentRangeToolsWidget(QWidget* parent, std::function<QString()> readSelection);
+void notifyDocumentRangeTools(QWidget* widget);         // Thống kê vùng · Kiểm tra lỗi · Biểu đồ nhanh (dán/CSV/xlsx)
 QWidget* createTemplateExportWidget(QWidget *parent = nullptr);     // Xuất theo mẫu MISA/FAST/KiotViet/Sapo/khác
 QWidget* createLawLinksWidget(QWidget *parent = nullptr);           // Kho luật (liên kết nguồn)

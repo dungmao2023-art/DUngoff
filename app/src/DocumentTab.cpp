@@ -131,7 +131,9 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
             m_excelTools->addTab(scroll, title);
         };
         addTool(createFormulaAssistantWidget(), tr("ƒx · Tôi muốn"));
-        addTool(createRangeToolsWidget(), tr("Vùng dữ liệu"));
+        m_rangeTools = createDocumentRangeToolsWidget(this, [this] { return qs(m_doc->selectionAs("text/plain;charset=utf-8")); });
+        addTool(m_rangeTools, tr("Vùng dữ liệu"));
+        connect(m_excelTools, &QTabWidget::currentChanged, this, [this](int) { notifyDocumentRangeTools(m_rangeTools); });
         middle->addWidget(m_excelTools);
     }
     v->addLayout(middle, 1);
@@ -275,6 +277,9 @@ void DocumentTab::rebuildParts() {
 
 void DocumentTab::onEngineEvent(int type, const QString& payload) {
     m_view->handleEvent(type, payload);
+    if (m_rangeTools && (type == LOK_CALLBACK_CELL_ADDRESS || type == LOK_CALLBACK_CELL_SELECTION_AREA ||
+        type == LOK_CALLBACK_CELL_FORMULA || type == LOK_CALLBACK_SET_PART))
+        notifyDocumentRangeTools(m_rangeTools);
     if (type == LOK_CALLBACK_INVALIDATE_TILES && m_doc->modified()) m_dirtySinceAutosave = true;
     if (m_doc->modified() != m_lastMod) { m_lastMod = m_doc->modified(); emit statusChanged(); } // đổi trạng thái "chưa lưu"
     switch (type) {

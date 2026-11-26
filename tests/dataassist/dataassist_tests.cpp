@@ -89,6 +89,16 @@ int main(int argc, char **argv)
     CHECK(b4.formula == QLatin1String("=SUM(A1:A3)"), "Dấu ngăn ';' cho 1 đối số");
     auto b5 = buildFormula(*findFunction(QStringLiteral("IF")), {QStringLiteral("A1>1"), QStringLiteral("\"a\""), QStringLiteral("\"b\"")}, QLatin1Char(';'));
     CHECK(b5.formula == QLatin1String("=IF(A1>1;\"a\";\"b\")"), "Dấu ngăn ';' : " + b5.formula);
+    const auto* si = findFunction(QStringLiteral("SUMIFS"));
+    const auto one = buildFormula(*si, {"D2:D10","A2:A10","1"});
+    CHECK(one.ok && one.formula == QStringLiteral("=SUMIFS(D2:D10,A2:A10,1)"), "SUMIFS một cặp");
+    const auto three = buildFormula(*si, {"D2:D10","A2:A10","1","B2:B10","2","C2:C10","3"});
+    CHECK(three.ok && three.formula == QStringLiteral("=SUMIFS(D2:D10,A2:A10,1,B2:B10,2,C2:C10,3)"), "SUMIFS ba cặp");
+    CHECK(!buildFormula(*si, {"D2:D10","A2:A10"}).ok, "SUMIFS từ chối cặp thiếu điều kiện");
+    CHECK(!buildFormula(*si, {"D2:D10","A2:A10","1","B2:B10",QString()}).ok, "SUMIFS từ chối điều kiện trống");
+    const auto co = buildFormula(*findFunction(QStringLiteral("COUNTIFS")), {"A2:A10","1","B2:B10","2"});
+    CHECK(co.ok && co.formula == QStringLiteral("=COUNTIFS(A2:A10,1,B2:B10,2)"), "COUNTIFS không có vùng kết quả");
+    CHECK(buildFormula(*findFunction(QStringLiteral("AVERAGEIFS")), {"D2:D10","A2:A10","1"}).ok, "AVERAGEIFS một cặp");
     auto b6 = buildFormula(*findFunction(QStringLiteral("TODAY")), {});
     CHECK(b6.ok && b6.formula == QLatin1String("=TODAY()"), "Hàm không đối số: " + b6.formula);
     CHECK(!quickSyntaxCheck(QStringLiteral("SUM(A1)")).ok, "Thiếu = bị báo");

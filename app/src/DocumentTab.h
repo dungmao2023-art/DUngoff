@@ -69,6 +69,7 @@ private:
     QLineEdit* m_formula = nullptr;
     QTabBar* m_sheets = nullptr;
     QTabWidget* m_excelTools = nullptr;
+    QWidget* m_rangeTools = nullptr;
     QListWidget* m_slides = nullptr;
     QString m_savedPath;    // tệp mới mà người dùng đã "Lưu thành" trong phiên này
     QString m_cellAddress;
