@@ -230,39 +230,54 @@ QList<Shape> slideShapes(const QString& source, int slide1, QString* error) {
     if (scan.shapes.isEmpty() && error) *error = QStringLiteral("Không có hộp chữ, hình hoặc ảnh độc lập có thể tạo hiệu ứng.");
     return scan.shapes;
 }
-Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& o, QByteArray* output) {
-    if (!output || !o.shapeId || o.durationMs < 100 || o.durationMs > 10000 || o.delayMs < 0 || o.delayMs > 30000)
-        return fail(QStringLiteral("Thông số animation không hợp lệ."));
+Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOptions>& effects, QByteArray* output) {
+    if (!output || effects.isEmpty() || effects.size() > 100)
+        return fail(QStringLiteral("Chọn từ 1 đến 100 hoạt ảnh."));
     QString text = QString::fromUtf8(xml);
     if (text.toUtf8() != xml) return fail(QStringLiteral("Chỉ hỗ trợ XML UTF-8."));
     const auto scan = scanAnimation(text);
     if (!scan.error.isEmpty()) return fail(scan.error);
     if (scan.hasTiming) return fail(QStringLiteral("Slide đã có timing; không ghi đè."));
-    bool found = false;
-    for (const auto& shape : scan.shapes) if (shape.id == o.shapeId) found = true;
-    if (!found) return fail(QStringLiteral("Đối tượng không tồn tại hoặc không hỗ trợ."));
-    const QString target = QStringLiteral("<p:tgtEl><p:spTgt spid=\"%1\"/></p:tgtEl>").arg(o.shapeId);
-    // Basic entrance: set visibility, optionally animate the fade filter. Main sequence advances on click.
-    const QString visibility = QStringLiteral("<p:set><p:cBhvr><p:cTn id=\"6\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn>%1<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set>").arg(target);
-    QString behavior = visibility;
-    if (o.fade) behavior += QStringLiteral("<p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"7\" dur=\"%1\"/>%2</p:cBhvr></p:animEffect>").arg(o.durationMs).arg(target);
+    QSet<unsigned> valid, used;
+    for (const auto& shape : scan.shapes) valid.insert(shape.id);
+    QString sequence;
+    int nextId = 3;
+    for (const auto& o : effects) {
+        if (!valid.contains(o.shapeId) || used.contains(o.shapeId) || o.durationMs < 100 || o.durationMs > 10000 || o.delayMs < 0 || o.delayMs > 30000)
+            return fail(QStringLiteral("Đối tượng trùng, không hỗ trợ hoặc thông số hoạt ảnh không hợp lệ."));
+        used.insert(o.shapeId);
+        const int clickId = nextId++, groupId = nextId++, effectId = nextId++, visibilityId = nextId++;
+        const QString target = QStringLiteral("<p:tgtEl><p:spTgt spid=\"%1\"/></p:tgtEl>").arg(o.shapeId);
+        QString behavior = QStringLiteral("<p:set><p:cBhvr><p:cTn id=\"%1\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn>%2<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set>").arg(visibilityId).arg(target);
+        if (o.fade) {
+            const int fadeId = nextId++;
+            behavior += QStringLiteral("<p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"%1\" dur=\"%2\"/>%3</p:cBhvr></p:animEffect>").arg(fadeId).arg(o.durationMs).arg(target);
+        }
+        // One main-sequence click group per row; each timing node has a unique ID.
+        sequence += QStringLiteral(
+            "<p:par><p:cTn id=\"%1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst>"
+            "<p:par><p:cTn id=\"%2\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>"
+            "<p:par><p:cTn id=\"%3\" presetID=\"%4\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"clickEffect\">"
+            "<p:stCondLst><p:cond delay=\"%5\"/></p:stCondLst><p:childTnLst>%6</p:childTnLst></p:cTn></p:par>"
+            "</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>")
+            .arg(clickId).arg(groupId).arg(effectId).arg(o.fade ? 10 : 1).arg(o.delayMs).arg(behavior);
+    }
     const QString timing = QStringLiteral(
         "<p:timing xmlns:p=\"%1\"><p:tnLst><p:par>"
         "<p:cTn id=\"1\" dur=\"indefinite\" restart=\"never\" nodeType=\"tmRoot\"><p:childTnLst>"
         "<p:seq concurrent=\"1\" nextAc=\"seek\"><p:cTn id=\"2\" dur=\"indefinite\" nodeType=\"mainSeq\"><p:childTnLst>"
-        "<p:par><p:cTn id=\"3\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst>"
-        "<p:par><p:cTn id=\"4\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>"
-        "<p:par><p:cTn id=\"5\" presetID=\"%2\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"clickEffect\">"
-        "<p:stCondLst><p:cond delay=\"%3\"/></p:stCondLst><p:childTnLst>%4</p:childTnLst></p:cTn></p:par>"
-        "</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>"
-        "</p:childTnLst></p:cTn>"
+        "%2</p:childTnLst></p:cTn>"
         "<p:prevCondLst><p:cond evt=\"onPrev\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>"
         "<p:nextCondLst><p:cond evt=\"onNext\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>"
-        "</p:seq></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>").arg(P).arg(o.fade ? 10 : 1).arg(o.delayMs).arg(behavior);
+        "</p:seq></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>").arg(P).arg(sequence);
     text.insert(scan.insertion, timing);
     const auto after = scanAnimation(text);
-    if (!after.error.isEmpty() || !after.hasTiming || after.shapes.size() != scan.shapes.size()) return fail(QStringLiteral("XML animation đầu ra không qua kiểm tra."));
+    if (!after.error.isEmpty() || !after.hasTiming || after.shapes.size() != scan.shapes.size())
+        return fail(QStringLiteral("XML animation đầu ra không qua kiểm tra."));
     *output = text.toUtf8(); return {true, {}};
+}
+Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& o, QByteArray* output) {
+    return patchAnimationSequenceXml(xml, {o}, output);
 }
 static Result createPatchedCopy(const QString& source, const QString& destination, int slide1,
                                 const std::function<Result(const QByteArray&, QByteArray*)>& patch) {
@@ -302,6 +317,9 @@ Result createCopy(const QString& source, const QString& destination, int slide1,
     return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchXml(xml, options, out); });
 }
 Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options) {
-    return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchAnimationXml(xml, options, out); });
+    return createAnimationSequenceCopy(source, destination, slide1, {options});
+}
+Result createAnimationSequenceCopy(const QString& source, const QString& destination, int slide1, const QList<AnimationOptions>& effects) {
+    return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchAnimationSequenceXml(xml, effects, out); });
 }
 }
