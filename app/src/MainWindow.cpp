@@ -51,6 +51,12 @@
 #include <QTabBar>
 #include <QTemporaryDir>
 #include <QComboBox>
+#include <QRegularExpression>
+#include <QUrl>
+#include <QDesktopServices>
+#include <QClipboard>
+#include <QLineEdit>
+#include <QPlainTextEdit>
 #include "pdf/PdfToolsDialog.h"
 #include "tableutil/TableToolsDialog.h"
 #include <QTabWidget>
@@ -200,6 +206,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_templates, &TemplatesPage::openPath, this, &MainWindow::openPath);
     m_toolbox = new ToolboxPage(m_stack);
     m_stack->addWidget(m_toolbox);
+    m_feedback = buildFeedbackPage();
+    m_stack->addWidget(m_feedback);
     // Nối tiện ích dữ liệu (Hộp công cụ) với tab Excel đang mở. Ghi đè ô có dữ liệu phải được xác nhận; engine hoàn tác được (Ctrl+Z).
     dataassist::hooks().selectedRangeText = [this]() -> QString {
         DocumentTab* t = current();
@@ -444,6 +452,23 @@ QWidget* MainWindow::buildSidebar() {
     auto* about = make(tr("Giới thiệu"), sym("about"), false);
     bv->addStretch(1);
 
+    // Keep feedback prominent even when the navigation list scrolls.
+    auto* feedback = make(tr("Góp ý & cải tiến"), shell::badge(QStringLiteral("♥"), theme::kBlue, Qt::white, 30, dpr), true);
+    bv->removeWidget(feedback);
+    v->addSpacing(8);
+    v->addWidget(feedback);
+    feedback->setObjectName(QStringLiteral("FeedbackNav"));
+    feedback->setMinimumHeight(56);
+    feedback->setAccessibleName(tr("Góp ý cho Dũng Office"));
+    feedback->setStyleSheet(QStringLiteral(R"(
+QPushButton#FeedbackNav { background:#2864BA; color:white; border:1px solid #2864BA; border-radius:9px; font-weight:700; font-size:15px; padding:6px; }
+QPushButton#FeedbackNav:hover { background:#2259A9; }
+QPushButton#FeedbackNav:checked { background:#174581; border:2px solid #92B5F3; }
+QPushButton#FeedbackNav:focus { border:2px solid #B9D0FF; }
+)"));
+    connect(feedback, &QPushButton::clicked, this, &MainWindow::showFeedback);
+    side->setProperty("feedbackBtn", QVariant::fromValue<QObject*>(feedback));
+
     // ---- Thẻ riêng tư ----
     auto* card = new QFrame(side);
     card->setObjectName(QStringLiteral("PrivacyCard"));
@@ -605,6 +630,7 @@ void MainWindow::showPalette() {
     add("zoomIn", tr("Phóng to"), QStringLiteral("Ctrl+="));
     add("zoomOut", tr("Thu nhỏ"), QStringLiteral("Ctrl+-"));
     add("about", tr("Giới thiệu Dũng Office"));
+    add("feedback", tr("Góp ý & cải tiến Dũng Office"));
     m_palette->setEntries(e);
     m_palette->popup();
 }
@@ -624,6 +650,7 @@ void MainWindow::runCommand(const QString& id) {
     else if (id == QLatin1String("newPpt")) newDoc(DocKind::Presentation);
     else if (id == QLatin1String("openPdf")) openDialog(QStringLiteral("PDF (*.pdf)"));
     else if (id == QLatin1String("about")) showAbout();
+    else if (id == QLatin1String("feedback")) showFeedback();
     else onAppAction(id);
 }
 
@@ -678,6 +705,120 @@ void MainWindow::showProjects() {
     m_stack->setCurrentWidget(m_projects);
     if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
         if (auto* b = qobject_cast<QPushButton*>(side->property("projBtn").value<QObject*>())) b->setChecked(true);
+    refreshStatus();
+}
+
+QWidget* MainWindow::buildFeedbackPage() {
+    auto* page = new QScrollArea(m_stack);
+    page->setWidgetResizable(true);
+    page->setFrameShape(QFrame::NoFrame);
+    page->setObjectName(QStringLiteral("FeedbackPage"));
+    auto* body = new QWidget;
+    page->setWidget(body);
+    auto* root = new QVBoxLayout(body);
+    root->setContentsMargins(24, 22, 24, 24);
+    root->setSpacing(16);
+    page->setStyleSheet(QStringLiteral(R"(
+QScrollArea#FeedbackPage { background:#F4F8FF; }
+QFrame#FeedbackHero { background:#E8F0FF; border:1px solid #DCE5F2; border-radius:12px; }
+QFrame#FeedbackForm { background:white; border:1px solid #DCE5F2; border-radius:12px; }
+QFrame#FeedbackForm QLineEdit, QFrame#FeedbackForm QComboBox, QFrame#FeedbackForm QPlainTextEdit {
+    background:#FBFCFF; border:1px solid #DCE5F2; border-radius:6px; padding:9px; color:#17294D; font-size:14px;
+}
+QFrame#FeedbackForm QLineEdit:focus, QFrame#FeedbackForm QComboBox:focus, QFrame#FeedbackForm QPlainTextEdit:focus { border-color:#2864BA; }
+QPushButton#FeedbackSend { background:#2864BA; color:white; border:1px solid #2864BA; border-radius:8px; font-size:15px; font-weight:700; padding:12px; }
+QPushButton#FeedbackSend:hover { background:#2259A9; }
+QPushButton#FeedbackSend:disabled { background:#DCE5F2; color:#697994; border-color:#DCE5F2; }
+)"));
+    auto* hero = new QFrame(body);
+    hero->setObjectName(QStringLiteral("FeedbackHero"));
+    auto* hl = new QVBoxLayout(hero);
+    hl->setContentsMargins(20,18,20,18);
+    auto* heading = new QLabel(tr("Cùng tôi cải tiến Dũng Office"), hero);
+    heading->setWordWrap(true);
+    heading->setStyleSheet(QStringLiteral("font-size:24px;font-weight:700;color:#17294D;"));
+    hl->addWidget(heading);
+    auto* promise = new QLabel(tr("Tôi cam kết Dũng Office miễn phí và cập nhật trọn đời dành cho bạn."), hero);
+    promise->setWordWrap(true);
+    promise->setStyleSheet(QStringLiteral("font-size:16px;font-weight:700;color:#2864BA;"));
+    hl->addWidget(promise);
+    auto* intro = new QLabel(tr("Mỗi góp ý của bạn giúp tôi hiểu những khó khăn khi làm việc và cải tiến phần mềm tốt hơn. Hãy chia sẻ điều bạn muốn thay đổi, tính năng cần thêm hoặc lỗi đang gặp."), hero);
+    intro->setWordWrap(true); hl->addWidget(intro);
+    root->addWidget(hero);
+
+    auto* form = new QFrame(body);
+    form->setObjectName(QStringLiteral("FeedbackForm"));
+    auto* fl = new QVBoxLayout(form);
+    fl->setContentsMargins(20,18,20,18); fl->setSpacing(9);
+    auto* title = new QLabel(tr("Gửi góp ý của bạn"), form);
+    title->setStyleSheet(QStringLiteral("font-size:18px;font-weight:700;color:#17294D;")); title->setWordWrap(true); fl->addWidget(title);
+    auto* category = new QComboBox(form);
+    category->addItems({tr("Góp ý chung"),tr("Báo lỗi"),tr("Đề xuất tính năng"),tr("Word"),tr("Excel"),tr("PowerPoint"),tr("PDF"),tr("MISA / KiotViet"),tr("Giao diện và trải nghiệm")});
+    category->setAccessibleName(tr("Chủ đề góp ý"));
+    fl->addWidget(new QLabel(tr("Chủ đề"),form)); fl->addWidget(category);
+    auto* contact = new QLineEdit(form);
+    contact->setMaxLength(200);
+    contact->setPlaceholderText(tr("Email của bạn nếu muốn nhận phản hồi (không bắt buộc)"));
+    contact->setAccessibleName(tr("Email liên hệ không bắt buộc"));
+    fl->addWidget(contact);
+    auto* input = new QPlainTextEdit(form);
+    input->setPlaceholderText(tr("Bạn muốn Dũng Office cải tiến điều gì? Nếu gặp lỗi, hãy mô tả thao tác và kết quả mong muốn…"));
+    input->setMinimumHeight(190);
+    input->setAccessibleName(tr("Nội dung góp ý"));
+    fl->addWidget(new QLabel(tr("Nội dung góp ý"),form)); fl->addWidget(input,1);
+    auto* privacy = new QLabel(tr("Chỉ nội dung bạn nhập, chủ đề và phiên bản ứng dụng được đưa vào thư. Không gửi tài liệu, nhật ký hoặc dữ liệu máy tính. Vui lòng không nhập mật khẩu hay thông tin nhạy cảm."),form);
+    privacy->setWordWrap(true); fl->addWidget(privacy);
+    auto* status = new QLabel(form); status->setWordWrap(true); status->setTextFormat(Qt::PlainText);
+    fl->addWidget(status);
+    auto* send = new QPushButton(tr("Soạn email góp ý"),form);
+    send->setObjectName(QStringLiteral("FeedbackSend")); send->setMinimumHeight(46);
+    fl->addWidget(send);
+    auto* copy = new QPushButton(tr("Sao chép nội dung góp ý"),form); fl->addWidget(copy);
+    root->addWidget(form,1);
+
+    // Public project contact is deliberately configured by the publisher, never inferred from Git authors.
+    QFile cfg(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("feedback-email.txt")));
+    QString recipient;
+    if (cfg.open(QIODevice::ReadOnly) && cfg.size() <= 254) recipient = QString::fromUtf8(cfg.readAll()).trimmed();
+    const QRegularExpression address(QStringLiteral("^[A-Za-z0-9._+%-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,63}$"));
+    if (!address.match(recipient).hasMatch()) recipient.clear();
+    status->setText(recipient.isEmpty() ? tr("Chưa cấu hình email nhận góp ý. Bạn vẫn có thể sao chép nội dung.") :
+        tr("Người nhận: %1. Ứng dụng email sẽ mở để bạn kiểm tra và tự bấm Gửi.").arg(recipient));
+    auto compose = [=] {
+        QString text = tr("Chủ đề: %1\nPhiên bản Dũng Office: %2\n").arg(category->currentText(),QStringLiteral(DUNG_VERSION));
+        if (!contact->text().trimmed().isEmpty()) text += tr("Email liên hệ: %1\n").arg(contact->text().trimmed());
+        return text + QStringLiteral("\n") + input->toPlainText().trimmed();
+    };
+    auto update = [=] {
+        const bool valid = !input->toPlainText().trimmed().isEmpty();
+        send->setEnabled(valid && !recipient.isEmpty());
+        copy->setEnabled(valid);
+    };
+    connect(input,&QPlainTextEdit::textChanged,page,update);
+    connect(copy,&QPushButton::clicked,page,[=] {
+        QApplication::clipboard()->setText(compose());
+        status->setText(tr("Đã sao chép nội dung góp ý. Bạn có thể dán vào email."));
+    });
+    connect(send,&QPushButton::clicked,page,[=] {
+        if (recipient.isEmpty() || input->toPlainText().trimmed().isEmpty()) return;
+        const QByteArray subject = QUrl::toPercentEncoding(tr("Góp ý Dũng Office · %1").arg(category->currentText()));
+        const QByteArray prefix = QByteArray("mailto:") + recipient.toUtf8() + "?subject=" + subject;
+        const QByteArray full = prefix + "&body=" + QUrl::toPercentEncoding(compose());
+        if (full.size() > 7000) {
+            status->setText(tr("Nội dung dài; hãy bấm Sao chép rồi dán vào thư mới gửi đến %1.").arg(recipient));
+            return;
+        }
+        if (QDesktopServices::openUrl(QUrl::fromEncoded(full))) {
+            status->setText(tr("Đã yêu cầu mở ứng dụng email. Kiểm tra và tự bấm Gửi; Dũng Office chưa xác nhận thư đã được gửi."));
+        } else status->setText(tr("Không mở được ứng dụng email. Hãy sao chép nội dung và gửi thủ công đến %1.").arg(recipient));
+    });
+    update();
+    return page;
+}
+
+void MainWindow::showFeedback() {
+    m_stack->setCurrentWidget(m_feedback);
+    if (auto* b = qobject_cast<QPushButton*>(m_sideBar->property("feedbackBtn").value<QObject*>())) b->setChecked(true);
     refreshStatus();
 }
 
@@ -867,7 +1008,7 @@ void MainWindow::refreshStatus() {
         } else if (m_stack->currentWidget() != m_home) k.clear();
         m_top->setActive(k);
     }
-    m_status->setText(docs ? t->statusText() : (m_stack->currentWidget() == m_projects ? tr("Dự án") : m_stack->currentWidget() == m_templates ? tr("Thư viện mẫu") : m_stack->currentWidget() == m_toolbox ? tr("Công cụ") : tr("Trang chủ")));
+    m_status->setText(docs ? t->statusText() : (m_stack->currentWidget() == m_projects ? tr("Dự án") : m_stack->currentWidget() == m_templates ? tr("Thư viện mẫu") : m_stack->currentWidget() == m_toolbox ? tr("Công cụ") : m_stack->currentWidget() == m_feedback ? tr("Góp ý") : tr("Trang chủ")));
     m_toolLabel->setVisible(docs);
     m_saveLabel->setVisible(docs);
     if (docs) {
@@ -1085,6 +1226,7 @@ int MainWindow::captureShots(const QString& dir) {
         {"templates", [this] { showTemplates(); }},
         {"toolbox", [this] { showToolbox(); }},
         {"projects", [this] { showProjects(); }},
+        {"feedback", [this] { showFeedback(); }},
     };
     const QSize sizes[] = {{1366, 768}, {1920, 1080}, {1100, 700}, {800, 600}};
     for (const QSize& sz : sizes) {
