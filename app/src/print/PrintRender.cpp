@@ -6,6 +6,8 @@
 #include <QCoreApplication>
 #ifdef DUNG_HAVE_QTPDF
 #include <QPdfDocument>
+#include <QPdfSelection>
+#include <QThread>
 #endif
 
 namespace printrender {
@@ -34,6 +36,41 @@ PdfInfo pdfInfo(const QString& path) {
     r.ok = r.pages > 0;
     if (!r.ok) r.error = QObject::tr("PDF không có trang nào.");
     return r;
+}
+
+QString pageText(const QString& path,int page,QString* error) {
+    if(error)error->clear();
+    QPdfDocument d;
+    const auto e=d.load(path);
+    if(e!=QPdfDocument::Error::None){if(error)*error=pdfErr(e);return {};}
+    if(page<1 || page>d.pageCount()){if(error)*error=QObject::tr("Trang không tồn tại.");return {};}
+    return d.getAllText(page-1).text();
+}
+
+TextSearch searchText(const QString& path,const QString& query,int first,int last,bool matchCase) {
+    TextSearch result;
+    const QString needle=query.trimmed().normalized(QString::NormalizationForm_C);
+    if(needle.isEmpty()||needle.size()>256){result.error=QObject::tr("Nhập từ khóa dài 1–256 ký tự.");return result;}
+    QPdfDocument d;
+    const auto e=d.load(path);
+    if(e!=QPdfDocument::Error::None){result.error=pdfErr(e);return result;}
+    if(first<1||last<first||last>d.pageCount()||last-first+1>200){result.error=QObject::tr("Chọn khoảng hợp lệ, tối đa 200 trang mỗi lượt.");return result;}
+    const auto cs=matchCase?Qt::CaseSensitive:Qt::CaseInsensitive;
+    for(int page=first;page<=last;++page){
+        if(QThread::currentThread()->isInterruptionRequested()){result.error=QObject::tr("Đã dừng tìm kiếm.");return result;}
+        const QString text=d.getAllText(page-1).text().normalized(QString::NormalizationForm_C);
+        ++result.scanned;
+        if(text.trimmed().isEmpty())continue;
+        ++result.textPages;
+        qsizetype pos=text.indexOf(needle,0,cs);
+        if(pos<0)continue;
+        TextHit hit;hit.page=page;
+        const auto begin=qMax<qsizetype>(0,pos-55);
+        hit.snippet=text.mid(begin,needle.size()+110).simplified();
+        while(pos>=0){++hit.occurrences;pos=text.indexOf(needle,pos+needle.size(),cs);}
+        result.hits.append(hit);
+    }
+    result.ok=true;return result;
 }
 
 QImage renderPage(const QString& path, int page1, const QSize& box, QString* error) {
@@ -102,6 +139,8 @@ bool printPages(const QString& path, QPrinter& printer, const QVector<int>& page
 bool available() { return false; }
 static const char* kNo = QT_TRANSLATE_NOOP("printrender", "Bản dựng này không có bộ vẽ PDF (Qt6::Pdf).");
 PdfInfo pdfInfo(const QString&) { PdfInfo r; r.error = QCoreApplication::translate("printrender", kNo); return r; }
+TextSearch searchText(const QString&,const QString&,int,int,bool) {TextSearch r;r.error=QCoreApplication::translate("printrender",kNo);return r;}
+QString pageText(const QString&,int,QString* error){if(error)*error=QCoreApplication::translate("printrender",kNo);return {};}
 QImage renderPage(const QString&, int, const QSize&, QString* error) { if (error) *error = QCoreApplication::translate("printrender", kNo); return {}; }
 bool printPages(const QString&, QPrinter&, const QVector<int>&, bool, QString* error) { if (error) *error = QCoreApplication::translate("printrender", kNo); return false; }
 
