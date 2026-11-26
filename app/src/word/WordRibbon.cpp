@@ -85,6 +85,9 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
             }},
         }},
         {tr("Tham chiếu"), {
+            {tr("Mục lục có sẵn"), {
+                {QStringLiteral(".uno:UpdateAllIndexes"), tr("Cập nhật mục lục"), 0xE72C, QStringLiteral("↻"), false},
+            }},
             {tr("Chú thích"), {
                 {QStringLiteral("word:footnote"), tr("Chú thích cuối trang"), 0xE8D2, QStringLiteral("¹"), false},
                 {QStringLiteral("word:endnote"), tr("Chú thích cuối văn bản"), 0xE8D2, QStringLiteral("²"), false},
