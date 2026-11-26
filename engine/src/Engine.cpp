@@ -918,6 +918,25 @@ void Document::typeText(const std::u16string& text) {
     }
 }
 
+bool Document::supportsDialogEvents() {
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        return LIBREOFFICEKIT_DOCUMENT_HAS(d,sendDialogEvent) && d->pClass->sendDialogEvent;
+    });
+}
+bool Document::clickNativeDialogButton(unsigned long long id,const std::string& widget) {
+    if(!id || m_readOnly || widget.empty() || widget.size()>128 ||
+        widget.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")!=std::string::npos) return false;
+    const std::string args="{\"id\":\""+widget+"\",\"cmd\":\"click\",\"data\":\"undefined\",\"type\":\"pushbutton\"}";
+    m_lastInputMs=steadyMs();
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,sendDialogEvent)||!d->pClass->sendDialogEvent)return false;
+        d->pClass->sendDialogEvent(d,id,args.c_str());
+        return true;
+    });
+}
+
 bool Document::supportsNativeWindows() {
     return onEngine([&]{
         auto* d=m_doc->get();
@@ -1075,11 +1094,15 @@ void Document::onEvent(int type, const char* payload) {
 }
 
 bool Document::waitFor(int type, const std::function<bool(const std::string&)>& pred, int timeoutMs) {
+    return waitForEvent([&](int eventType,const std::string& p){return eventType==type && (!pred || pred(p));},timeoutMs);
+}
+
+bool Document::waitForEvent(const std::function<bool(int,const std::string&)>& pred,int timeoutMs) {
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
     std::unique_lock<std::mutex> lk(m_mutex);
     for (;;) {
         for (size_t i = 0; i < m_queue.size(); ++i) {
-            if (m_queue[i].first == type && (!pred || pred(m_queue[i].second))) {
+            if (pred && pred(m_queue[i].first,m_queue[i].second)) {
                 m_queue.erase(m_queue.begin(), m_queue.begin() + (long)i + 1);
                 return true;
             }
