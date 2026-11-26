@@ -8,6 +8,8 @@
 #include <QJsonArray>
 #include <QFile>
 #include <QFileInfo>
+#include <QDir>
+#include <QTemporaryDir>
 #include <QRegularExpression>
 #include <QXmlStreamReader>
 #include <QSet>
@@ -239,12 +241,22 @@ bool decodeMappingProfile(const QByteArray& json,const QString& vendor,const Tem
     return true;
 }
 
+// Excel stores at most 15 significant decimal digits. Keep digit-only IDs as text,
+// including leading zeroes, even if a user accidentally selects numeric output.
+static bool protectedInteger(const QString& raw) {
+    static const QRegularExpression digits(QStringLiteral("^[0-9]+$"));
+    const QString v=raw.trimmed();
+    return digits.match(v).hasMatch() && (v.size()>15 || (v.size()>1 && v.startsWith(QLatin1Char('0'))));
+}
+
 ValidateResult validate(const TemplateInfo &t, const QStringList &sh, const QVector<QStringList> &rows, const ExportOptions &o)
 {
     ValidateResult v;
     if (!t.ok) { v.errors << QStringLiteral("Chưa nạp được mẫu."); return v; }
     if (o.mapping.size() != t.headers.size()) v.errors << QStringLiteral("Bảng ghép cột không khớp số cột mẫu (%1 ≠ %2).").arg(o.mapping.size()).arg(t.headers.size());
     if (rows.isEmpty()) v.errors << QStringLiteral("Không có dòng dữ liệu để xuất.");
+    if (t.headerRow<1 || t.headerRow>1048576 || t.headers.isEmpty() || t.headers.size()>16384 ||
+        rows.size()>1048576-t.headerRow) v.errors << QStringLiteral("Dữ liệu vượt giới hạn dòng/cột Excel.");
     QSet<int> usedSrc;
     int mappedCols = 0;
     for (int i = 0; i < o.mapping.size() && i < t.headers.size(); ++i) {
@@ -254,14 +266,16 @@ ValidateResult validate(const TemplateInfo &t, const QStringList &sh, const QVec
         if (usedSrc.contains(s)) v.errors << QStringLiteral("Cột nguồn \"%1\" được ghép vào hai cột mẫu.").arg(sh[s]);
         usedSrc.insert(s); ++mappedCols;
         if (i < o.colTypes.size() && o.colTypes[i] == ColType::Number) {
-            int bad = 0, amb = 0, firstBad = -1;
+            int bad = 0, amb = 0, protectedCount = 0, firstBad = -1;
             for (int r = 0; r < rows.size(); ++r) {
                 const QString c = s < rows[r].size() ? rows[r][s].trimmed() : QString();
                 if (c.isEmpty()) continue;
+                if (protectedInteger(c)) { ++protectedCount; continue; }
                 const NumParse n = parseNumber(c, o.vietnameseNumbers);
                 if (!n.ok) { ++bad; if (firstBad < 0) firstBad = r + 1; }
                 else if (n.ambiguous) ++amb;
             }
+            if (protectedCount) v.warnings << QStringLiteral("Cột \"%1\": %2 mã số có số 0 đầu hoặc trên 15 chữ số — giữ nguyên dạng CHỮ.").arg(t.headers[i]).arg(protectedCount);
             if (bad) v.warnings << QStringLiteral("Cột \"%1\": %2 ô không đọc được thành số (dòng dữ liệu đầu tiên: %3) — các ô này sẽ được ghi dạng CHỮ, không tự đổi.").arg(t.headers[i]).arg(bad).arg(firstBad);
             if (amb) v.warnings << QStringLiteral("Cột \"%1\": %2 ô dạng 1.234 mơ hồ giữa kiểu Việt và Anh — đang đọc theo kiểu %3.").arg(t.headers[i]).arg(amb).arg(o.vietnameseNumbers ? QStringLiteral("Việt") : QStringLiteral("Anh"));
         }
@@ -291,7 +305,11 @@ ExportResult exportToTemplate(const QString &tpl, const QString &out, const Temp
     ExportResult res;
     if (!t.ok) { res.error = QStringLiteral("Chưa nạp được mẫu."); return res; }
     if (QFileInfo(out).absoluteFilePath() == QFileInfo(tpl).absoluteFilePath()) { res.error = QStringLiteral("Không được ghi đè lên tệp mẫu."); return res; }
-    if (QFileInfo::exists(out)) { res.error = QStringLiteral("Tệp đích đã tồn tại, không ghi đè: %1").arg(out); return res; }
+    const QFileInfo dest(out);
+    if (!out.endsWith(QLatin1String(".xlsx"),Qt::CaseInsensitive) || dest.exists() || dest.isSymLink() ||
+        !QDir(dest.absolutePath()).exists()) {
+        res.error=QStringLiteral("Chọn tên XLSX mới trong thư mục tồn tại; không ghi đè: %1").arg(out); return res;
+    }
     const ValidateResult v = validate(t, sh, rows, o);
     if (!v.errors.isEmpty()) { res.error = v.errors.join(QStringLiteral("; ")); return res; }
     res.warnings = v.warnings;
@@ -300,7 +318,7 @@ ExportResult exportToTemplate(const QString &tpl, const QString &out, const Temp
     if (!zr.isReadable()) { res.error = QStringLiteral("Không đọc được tệp mẫu (không phải .xlsx hợp lệ?)."); return res; }
     QStringList names;
     const QStringList parts = sheetParts(zr, &names);
-    if (t.sheetIndex >= parts.size()) { res.error = QStringLiteral("Không tìm thấy phần sheet trong mẫu."); return res; }
+    if (t.sheetIndex < 0 || t.sheetIndex >= parts.size()) { res.error = QStringLiteral("Không tìm thấy phần sheet trong mẫu."); return res; }
     const QString part = parts[t.sheetIndex];
     QString xml = QString::fromUtf8(zr.fileData(part));
     if (xml.isEmpty()) { res.error = QStringLiteral("Không đọc được %1 trong mẫu.").arg(part); return res; }
@@ -345,7 +363,7 @@ ExportResult exportToTemplate(const QString &tpl, const QString &out, const Temp
             const QString raw = src[s];
             if (c < o.colTypes.size() && o.colTypes[c] == ColType::Number && !raw.trimmed().isEmpty()) {
                 const NumParse n = parseNumber(raw, o.vietnameseNumbers);
-                if (n.ok && !(raw.trimmed().size() > 1 && raw.trimmed().startsWith(QLatin1Char('0')) && !raw.contains(QLatin1Char(',')) && !raw.contains(QLatin1Char('.')))) {
+                if (n.ok && !protectedInteger(raw)) {
                     txt[c] = QString::number(n.value, 'g', 17); isNum[c] = true; continue;
                 }
                 ++numberFallback;
@@ -363,11 +381,24 @@ ExportResult exportToTemplate(const QString &tpl, const QString &out, const Temp
     QString newXml = head + QStringLiteral("<sheetData>") + keepRows + newRows + QStringLiteral("</sheetData>") + tail;
     // vùng định dạng có điều kiện/xác thực nằm ở tail: giữ nguyên.
 
-    QZipWriter zw(out);
+    // Validate the patched worksheet before writing. Stage the ZIP in the destination
+    // directory, verify all copied parts, then rename without replacing existing files.
+    QXmlStreamReader checkXml(newXml);
+    while(!checkXml.atEnd()) { checkXml.readNext(); if(checkXml.isDTD()) {res.error=QStringLiteral("Không hỗ trợ DTD.");return res;} }
+    if(checkXml.hasError()) {res.error=QStringLiteral("XML đầu ra không hợp lệ: ")+checkXml.errorString();return res;}
+    QTemporaryDir temp(QDir(dest.absolutePath()).filePath(QStringLiteral(".dung-export-XXXXXX")));
+    if(!temp.isValid()){res.error=QStringLiteral("Không tạo được thư mục tạm.");return res;}
+    const QString staged=temp.filePath(QStringLiteral("export.xlsx"));
+    QZipWriter zw(staged);
+    QSet<QString> written;
     if (zw.status() != QZipWriter::NoError) { res.error = QStringLiteral("Không tạo được tệp đích."); return res; }
     zw.setCompressionPolicy(QZipWriter::AutoCompress);
     for (const auto &fi : zr.fileInfoList()) {
         if (!fi.isFile) continue;
+        if (written.contains(fi.filePath) || fi.filePath.startsWith(QLatin1String("_xmlsignatures/"),Qt::CaseInsensitive)) {
+            res.error=QStringLiteral("Mẫu có mục trùng hoặc chữ ký số; không xuất.");return res;
+        }
+        written.insert(fi.filePath);
         if (fi.filePath == QLatin1String("xl/calcChain.xml")) continue; // chuỗi tính toán cũ có thể trỏ tới ô không còn; Excel/engine tự dựng lại
         QByteArray data = fi.filePath == part ? newXml.toUtf8() : zr.fileData(fi.filePath);
         if (fi.filePath == QLatin1String("[Content_Types].xml")) {
@@ -380,7 +411,21 @@ ExportResult exportToTemplate(const QString &tpl, const QString &out, const Temp
         zw.addFile(fi.filePath, data);
     }
     zw.close();
-    if (zw.status() != QZipWriter::NoError) { QFile::remove(out); res.error = QStringLiteral("Lỗi khi ghi tệp đích."); return res; }
+    if (zw.status() != QZipWriter::NoError) { res.error = QStringLiteral("Lỗi khi ghi tệp tạm."); return res; }
+    {
+        QZipReader verify(staged);
+        if (!verify.isReadable() || verify.fileData(part)!=newXml.toUtf8()) {
+            res.error=QStringLiteral("Tệp XLSX tạm không qua xác minh.");return res;
+        }
+        for(const auto& fi:zr.fileInfoList()) {
+            if(!fi.isFile || fi.filePath==part || fi.filePath==QLatin1String("xl/calcChain.xml") ||
+               fi.filePath==QLatin1String("[Content_Types].xml") || fi.filePath==QLatin1String("xl/_rels/workbook.xml.rels"))continue;
+            if(verify.fileData(fi.filePath)!=zr.fileData(fi.filePath)) {
+                res.error=QStringLiteral("Mục khác dữ liệu bị thay đổi: ")+fi.filePath;return res;
+            }
+        }
+    }
+    if (!QFile::rename(staged,out)) {res.error=QStringLiteral("Không lưu được tệp đích mới; không ghi đè.");return res;}
     res.ok = true;
     res.outPath = out;
     for (int i = 0; i < t.headers.size(); ++i)
