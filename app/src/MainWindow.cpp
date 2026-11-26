@@ -70,6 +70,8 @@
 #include <QLinearGradient>
 #include <QScreen>
 #include <QEvent>
+#include <QEventLoop>
+#include <QElapsedTimer>
 #include <QHideEvent>
 #include <QShowEvent>
 #include <QtMath>
@@ -557,6 +559,7 @@ void MainWindow::showFloatMenu() {
         auto* v=new QVBoxLayout(m_floatMenu);
         v->setContentsMargins(5,5,5,6); v->setSpacing(2);
         auto* close=new QPushButton(QStringLiteral("×"),m_floatMenu);
+        close->setObjectName(QStringLiteral("FloatMenuHide"));
         close->setFixedSize(23,23); close->setCursor(Qt::PointingHandCursor);
         close->setToolTip(tr("Ẩn menu nổi, giữ Dũng Office trong taskbar"));
         close->setAccessibleName(close->toolTip());
@@ -565,6 +568,7 @@ void MainWindow::showFloatMenu() {
         connect(close,&QPushButton::clicked,this,[this]{m_floatSuppressed=true;m_floatMenu->hide();});
         auto add=[&](const QString& mark,const QString& title,const QColor& color,DocKind kind) {
             auto* shortcut=new HoloShortcut(mark,title,color,m_floatMenu);
+            shortcut->setObjectName(QStringLiteral("FloatShortcut-")+mark);
             v->addWidget(shortcut,0,Qt::AlignHCenter);
             connect(shortcut,&QAbstractButton::clicked,this,[this,kind]{restoreFromFloat(kind);});
         };
@@ -1177,6 +1181,66 @@ void MainWindow::dropEvent(QDropEvent* e) {
 #include <QGuiApplication>
 #include <QPixmap>
 #include <QTextStream>
+
+int MainWindow::checkFloatLifecycle(const QString& dir) {
+    if (!QDir().mkpath(dir)) return 1;
+    QFile logFile(QDir(dir).filePath(QStringLiteral("floatmenu-check.log")));
+    if (!logFile.open(QIODevice::WriteOnly|QIODevice::Text)) return 1;
+    QTextStream log(&logFile);
+    int failures=0;
+    auto check=[&](bool ok,const QString& description) {
+        log << (ok ? "PASS " : "FAIL ") << description << '\n'; log.flush();
+        if(!ok)++failures;
+    };
+    auto waitFor=[&](const std::function<bool()>& pred) {
+        QElapsedTimer elapsed; elapsed.start();
+        while(!pred() && elapsed.elapsed()<2000) {
+            QEventLoop loop; QTimer::singleShot(20,&loop,&QEventLoop::quit); loop.exec();
+        }
+        return pred();
+    };
+    auto visible=[&]{return m_floatMenu && m_floatMenu->isVisible();};
+    showNormal();
+    QApplication::processEvents();
+    showMinimized();
+    check(waitFor([&]{return isMinimized()&&visible();}),QStringLiteral("Minimize displays independent tool window"));
+    if(m_floatMenu) {
+        check(m_floatMenu->isWindow() && m_floatMenu->windowFlags().testFlag(Qt::Tool) &&
+              m_floatMenu->windowFlags().testFlag(Qt::WindowStaysOnTopHint) &&
+              !m_floatMenu->testAttribute(Qt::WA_QuitOnClose),QStringLiteral("Window flags and quit policy"));
+        const QStringList marks{QStringLiteral("W"),QStringLiteral("X"),QStringLiteral("P"),QStringLiteral("PDF")};
+        int priorBottom=-1;
+        for(const auto& mark:marks) {
+            auto* button=m_floatMenu->findChild<QAbstractButton*>(QStringLiteral("FloatShortcut-")+mark);
+            check(button && button->isVisible() && button->geometry().top()>priorBottom &&
+                  !button->accessibleName().isEmpty(),QStringLiteral("Vertical shortcut ")+mark);
+            if(button)priorBottom=button->geometry().bottom();
+        }
+        auto* screen=m_floatMenu->screen();
+        check(screen && screen->availableGeometry().contains(m_floatMenu->geometry()),QStringLiteral("Menu within available screen"));
+        check(m_floatMenu->grab().save(QDir(dir).filePath(QStringLiteral("floatmenu.png"))),QStringLiteral("Capture rendered FloatMenu"));
+        auto* hide=m_floatMenu->findChild<QPushButton*>(QStringLiteral("FloatMenuHide"));
+        check(hide!=nullptr,QStringLiteral("Hide button exists"));
+        if(hide)hide->click();
+        check(waitFor([&]{return isMinimized()&&!visible()&&m_floatSuppressed;}),QStringLiteral("Hide keeps application minimized"));
+        showFloatMenu();
+        check(!visible(),QStringLiteral("Suppressed menu does not reopen"));
+    }
+    showNormal();
+    check(waitFor([&]{return !isMinimized()&&!visible();}),QStringLiteral("Taskbar restore hides FloatMenu"));
+    showMinimized();
+    check(waitFor([&]{return isMinimized()&&visible()&&!m_floatSuppressed;}),QStringLiteral("Next minimize reopens menu"));
+    showNormal();
+    check(waitFor([&]{return !isMinimized()&&!visible();}),QStringLiteral("Second restore hides menu"));
+    showMaximized();
+    QApplication::processEvents();
+    showMinimized();
+    check(waitFor([&]{return isMinimized()&&visible()&&m_restoreMaximized;}),QStringLiteral("Remember maximized state"));
+    showNormal();
+    if(m_floatMenu)m_floatMenu->hide();
+    log << "Failures: " << failures << '\n';
+    return failures;
+}
 
 int MainWindow::captureShots(const QString& dir) {
     QDir().mkpath(dir);
