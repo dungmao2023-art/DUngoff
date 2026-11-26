@@ -17,6 +17,7 @@
 #include <map>
 #include <mutex>
 #include <set>
+#include <regex>
 #include <string>
 #include <thread>
 
@@ -559,6 +560,96 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
             fs::remove(dest,ec);
             const auto saved=toc->saveAs(dest);
             check(saved.ok,"Lưu mục lục đã cập nhật: "+saved.message);
+        }
+    }
+    // Native TOC capability gate: the engine must produce an actual dialog,
+    // render it, accept keyboard input, and persist a real table-of-contents field.
+    // Never fabricate a TOC by generating text or patching the saved file.
+    step("mục lục native — tạo tài liệu thử");
+    auto nativeToc=engine->createNew(DocKind::Text,&error);
+    check(bool(nativeToc),"Tạo Word mục lục: "+error);
+    if(nativeToc) {
+        nativeToc->setClientView(512,512,7680,7680,0,0,7680,7680);
+        run(*nativeToc,w::paragraphStyle("Heading 1"));
+        nativeToc->typeText(u"TOC_HEADING_ONE\n");nativeToc->waitInputIdle();
+        run(*nativeToc,w::paragraphStyle("Heading 2"));
+        nativeToc->typeText(u"TOC_HEADING_TWO\n");nativeToc->waitInputIdle();
+        run(*nativeToc,w::paragraphStyle("Text Body"));
+        nativeToc->typeText(u"TOC_BODY_MARKER\n");nativeToc->waitInputIdle();
+        run(*nativeToc,".uno:GoToEndOfDoc");
+        // Historical LOK protocol callback 46 was JSDIALOG. Recent upstream
+        // headers reserve this slot without exposing the enum. Treat it only
+        // as a compatibility probe, never as evidence of support by itself:
+        // require the runtime API, matching TOC payload and real saved field.
+        constexpr int historicalJsDialogCallback=46;
+        const bool bitmap=nativeToc->supportsNativeWindows(),js=nativeToc->supportsDialogEvents();
+        check(bitmap||js,"Runtime có API hộp thoại LOK");
+        if(bitmap||js){
+            nativeToc->clearEvents();
+            nativeToc->command(".uno:InsertMultiIndex");
+            unsigned id=0;unsigned long long jsId=0;int width=0,height=0;std::string payload;
+            bool isJs=false;
+            const bool appeared=nativeToc->waitForEvent([&](int type,const std::string& p){
+                if(type!=LOK_CALLBACK_WINDOW && type!=historicalJsDialogCallback)return false;
+                std::cout<<"[TIN] TOC callback "<<type<<": "<<p.substr(0,16000)<<std::endl;
+                std::smatch m;
+                if(type==historicalJsDialogCallback && js){
+                    // Only accept a real TOC dialog carrying its OK widget; do not click
+                    // another message box, sidebar or arbitrary window.
+                    if(p.find("Table of Contents")==std::string::npos && p.find("tocdialog")==std::string::npos &&
+                       p.find("Mục lục")==std::string::npos)return false;
+                    if(!std::regex_search(p,std::regex(R"re("id"\s*:\s*"ok")re")))return false;
+                    if(!std::regex_search(p,m,std::regex(R"re("id"\s*:\s*"?([0-9]{1,19})"?(?=\s*[,}]))re")))return false;
+                    jsId=std::stoull(m[1].str());isJs=jsId!=0;payload=p;
+                    return isJs;
+                }
+                if(type!=LOK_CALLBACK_WINDOW||!bitmap||p.find("created")==std::string::npos||p.find("dialog")==std::string::npos)return false;
+                if(!std::regex_search(p,m,std::regex(R"re("id"\s*:\s*"?([0-9]{1,9}))re")))return false;
+                id=unsigned(std::stoul(m[1].str()));payload=p;
+                if(std::regex_search(p,m,std::regex(R"re("size"\s*:\s*"(\d+)\s*,\s*(\d+)")re"))){
+                    width=std::stoi(m[1].str());height=std::stoi(m[2].str());
+                }
+                return id!=0;
+            },10000);
+            check(appeared,"Mục lục: nhận bitmap dialog hoặc JSDialog thật",payload.substr(0,1000));
+            if(appeared&&isJs){
+                const bool sent=nativeToc->clickNativeDialogButton(jsId,"ok");
+                check(sent,"Gửi click OK qua JSDialog native");
+                if(sent){
+                    nativeToc->waitInputIdle(500,5000);
+                    run(*nativeToc,".uno:UpdateAllIndexes");
+                    const fs::path target=out/"word-native-nativeToc.docx";
+                    fs::remove(target,ec);
+                    auto sr=nativeToc->saveAs(target);
+                    check(sr.ok,"Lưu DOCX mục lục JSDialog: "+sr.message);
+                }
+            }else if(appeared){
+                const bool sizeOk=width>0&&height>0&&width<=4096&&height<=4096;
+                check(sizeOk,"Kích thước dialog hợp lệ",std::to_string(width)+"x"+std::to_string(height));
+                if(sizeOk){
+                    std::vector<uint8_t> pixels(size_t(width)*height*4,0);
+                    const bool painted=nativeToc->paintNativeWindow(id,pixels.data(),pixels.size(),width,height);
+                    check(painted&&std::any_of(pixels.begin(),pixels.end(),[](uint8_t x){return x!=0;}),"Render dialog native không rỗng");
+                    nativeToc->clearEvents();
+                    nativeToc->postNativeWindowKey(id,LOK_KEYEVENT_KEYINPUT,0,1280);
+                    nativeToc->postNativeWindowKey(id,LOK_KEYEVENT_KEYUP,0,1280);
+                    const bool closed=nativeToc->waitFor(LOK_CALLBACK_WINDOW,[&](const std::string& p){
+                        std::smatch m;
+                        return p.find("close")!=std::string::npos&&std::regex_search(p,m,std::regex(R"re("id"\s*:\s*"?([0-9]{1,9}))re"))&&
+                            unsigned(std::stoul(m[1].str()))==id;
+                    },10000);
+                    check(closed,"Dialog mục lục đóng sau xác nhận");
+                    if(!closed)nativeToc->closeNativeWindow(id);
+                    nativeToc->waitInputIdle();
+                    if(closed){
+                        run(*nativeToc,".uno:UpdateAllIndexes");
+                        const fs::path target=out/"word-native-nativeToc.docx";
+                        fs::remove(target,ec);
+                        auto sr=nativeToc->saveAs(target);
+                        check(sr.ok,"Lưu DOCX mục lục native: "+sr.message);
+                    }
+                }else nativeToc->closeNativeWindow(id);
+            }
         }
     }
     std::cout.flush();
