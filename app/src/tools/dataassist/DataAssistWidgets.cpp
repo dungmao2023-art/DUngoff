@@ -11,6 +11,7 @@
 #include <QDesktopServices>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QInputDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -326,40 +327,84 @@ public:
                                                  "Ứng dụng ghép cột, ghi ra <b>tệp mới</b>; mẫu và dữ liệu gốc không đổi. Dữ liệu phải khớp cột bắt buộc của đúng phiên bản bạn dùng — ứng dụng không bảo đảm phần mềm đích chấp nhận tệp.")));
         target_ = new QComboBox; target_->addItems({QStringLiteral("MISA AMIS"), QStringLiteral("MISA SME"), QStringLiteral("FAST Accounting"), QStringLiteral("KiotViet"), QStringLiteral("Sapo"), QStringLiteral("Mẫu XLSX khác")});
         lay->addWidget(target_);
+        auto* headerForm = new QFormLayout;
+        headerRow_ = new QSpinBox; headerRow_->setRange(0, 1048576); headerRow_->setSpecialValueText(QStringLiteral("Tự nhận diện"));
+        headerForm->addRow(QStringLiteral("Dòng tiêu đề mẫu đích"), headerRow_); lay->addLayout(headerForm);
         auto *r1 = new QHBoxLayout;
         auto *bt = new QPushButton(QStringLiteral("Chọn tệp mẫu…")), *bs = new QPushButton(QStringLiteral("Chọn dữ liệu nguồn (CSV/XLSX)…"));
         r1->addWidget(bt); r1->addWidget(bs); lay->addLayout(r1);
-        info_ = new QLabel; info_->setWordWrap(true); lay->addWidget(info_);
+        info_ = new QLabel(QStringLiteral("Chưa chọn mẫu đích.")); info_->setWordWrap(true); info_->setTextFormat(Qt::PlainText); lay->addWidget(info_);
+        sourceInfo_ = new QLabel(QStringLiteral("Chưa chọn dữ liệu nguồn.")); sourceInfo_->setWordWrap(true); sourceInfo_->setTextFormat(Qt::PlainText); lay->addWidget(sourceInfo_);
         map_ = new QTableWidget(0, 3); map_->setHorizontalHeaderLabels({QStringLiteral("Cột của mẫu"), QStringLiteral("Lấy từ cột nguồn"), QStringLiteral("Kiểu")});
         map_->horizontalHeader()->setStretchLastSection(true); lay->addWidget(map_, 1);
         auto *r2 = new QHBoxLayout;
         auto *chk = new QPushButton(QStringLiteral("Kiểm tra")), *exp = new QPushButton(QStringLiteral("Xuất bản mới…"));
         r2->addWidget(chk); r2->addWidget(exp); r2->addStretch(); lay->addLayout(r2);
         log_ = new QPlainTextEdit; log_->setReadOnly(true); lay->addWidget(log_, 1);
+        connect(target_, &QComboBox::currentIndexChanged, this, [this] {
+            // Target is descriptive only. Require its actual template again; never reuse the previous vendor's layout silently.
+            tplPath_.clear(); ti_ = {}; templateSheet_ = 0; rebuildMap();
+            info_->setText(QStringLiteral("Đã đổi phần mềm đích. Hãy chọn mẫu XLSX tương ứng."));
+            log_->clear();
+        });
+        connect(headerRow_, &QSpinBox::valueChanged, this, [this] { if (!tplPath_.isEmpty()) reloadTemplate(); });
         connect(bt, &QPushButton::clicked, this, [this] { pickTemplate(); });
         connect(bs, &QPushButton::clicked, this, [this] { pickSource(); });
         connect(chk, &QPushButton::clicked, this, [this] { check(); });
         connect(exp, &QPushButton::clicked, this, [this] { doExport(); });
     }
 private:
+    int chooseSheet(const QString& f)
+    {
+        QString error;
+        const auto names = mailmerge::xlsxSheetNames(f, &error);
+        if (names.isEmpty()) { log_->setPlainText(error.isEmpty() ? QStringLiteral("Không đọc được danh sách sheet.") : error); return -1; }
+        if (names.size() == 1) return 0;
+        bool ok = false;
+        const QString name = QInputDialog::getItem(this, QStringLiteral("Chọn sheet"), QFileInfo(f).fileName(), names, 0, false, &ok);
+        return ok ? names.indexOf(name) : -1;
+    }
+    void reloadTemplate()
+    {
+        ti_ = loadTemplate(tplPath_, templateSheet_, headerRow_->value());
+        if (!ti_.ok || ti_.headerRow < 1 || ti_.headers.isEmpty()) {
+            ti_.ok = false;
+            info_->setText(ti_.error.isEmpty() ? QStringLiteral("Chưa xác định được tiêu đề mẫu. Hãy chọn dòng tiêu đề.") : ti_.error);
+            rebuildMap(); return;
+        }
+        info_->setText(QStringLiteral("Mẫu: %1 — sheet “%2”, tiêu đề dòng %3, %4 cột.")
+            .arg(QFileInfo(tplPath_).fileName(), ti_.sheetNames.value(ti_.sheetIndex)).arg(ti_.headerRow).arg(ti_.headers.size()));
+        log_->setPlainText(ti_.warnings.join(QLatin1Char('\n')));
+        rebuildMap();
+    }
     void pickTemplate()
     {
         const QString f = QFileDialog::getOpenFileName(this, QStringLiteral("Tệp mẫu"), QString(), QStringLiteral("Excel (*.xlsx)"));
         if (f.isEmpty()) return;
-        tplPath_ = f; ti_ = loadTemplate(f);
-        if (!ti_.ok) { info_->setText(ti_.error); return; }
-        info_->setText(QStringLiteral("Mẫu: %1 — sheet “%2”, tiêu đề ở dòng %3, %4 cột.").arg(QFileInfo(f).fileName(), ti_.sheetNames[ti_.sheetIndex]).arg(ti_.headerRow).arg(ti_.headers.size()));
-        log_->setPlainText(ti_.warnings.join(QLatin1Char('\n')));
-        rebuildMap();
+        tplPath_.clear(); ti_ = {}; rebuildMap();
+        info_->setText(QStringLiteral("Chưa nạp mẫu mới."));
+        const int sheet = chooseSheet(f);
+        if (sheet < 0) return;
+        tplPath_ = f; templateSheet_ = sheet;
+        reloadTemplate();
     }
     void pickSource()
     {
         const QString f = QFileDialog::getOpenFileName(this, QStringLiteral("Dữ liệu nguồn"), QString(), QStringLiteral("Bảng (*.csv *.xlsx)"));
         if (f.isEmpty()) return;
-        mailmerge::Table t = f.endsWith(QLatin1String(".xlsx"), Qt::CaseInsensitive) ? mailmerge::readXlsxFile(f, 0, true) : mailmerge::readCsvFile(f, true);
+        // Never leave the old data active after an invalid replacement or cancelled sheet choice.
+        srcHeader_.clear(); srcRows_.clear(); rebuildMap();
+        sourceInfo_->setText(QStringLiteral("Chưa nạp dữ liệu nguồn mới."));
+        const bool xlsx = f.endsWith(QLatin1String(".xlsx"), Qt::CaseInsensitive);
+        const int sheet = xlsx ? chooseSheet(f) : 0;
+        if (sheet < 0) return;
+        mailmerge::Table t = xlsx ? mailmerge::readXlsxFile(f, sheet, true) : mailmerge::readCsvFile(f, true);
         if (!t.ok()) { log_->setPlainText(t.error); return; }
         srcHeader_ = t.header; srcRows_ = t.rows;
-        log_->setPlainText(QStringLiteral("Nguồn: %1 dòng, %2 cột.\n%3").arg(srcRows_.size()).arg(srcHeader_.size()).arg(t.warnings.join(QLatin1Char('\n'))));
+        sourceInfo_->setText(QStringLiteral("Nguồn: %1%2 — %3 dòng, %4 cột (dòng đầu là tiêu đề).")
+            .arg(QFileInfo(f).fileName(), xlsx ? QStringLiteral(" · sheet %1").arg(sheet+1) : QString())
+            .arg(srcRows_.size()).arg(srcHeader_.size()));
+        log_->setPlainText(t.warnings.join(QLatin1Char('\n')));
         rebuildMap();
     }
     void rebuildMap()
@@ -399,10 +444,26 @@ private:
     void doExport()
     {
         if (!ti_.ok || srcHeader_.isEmpty()) { check(); return; }
+        const auto opts = options();
+        const auto verified = validate(ti_, srcHeader_, srcRows_, opts);
+        if (!verified.errors.isEmpty()) { check(); return; }
+        const auto current = loadTemplate(tplPath_, ti_.sheetIndex, ti_.headerRow);
+        if (!current.ok || current.headers != ti_.headers || current.sheetNames != ti_.sheetNames ||
+            current.existingDataRows != ti_.existingDataRows) {
+            log_->setPlainText(QStringLiteral("Mẫu đã thay đổi kể từ khi ghép cột. Hãy chọn lại mẫu và kiểm tra dữ liệu."));
+            ti_ = {}; rebuildMap(); return;
+        }
+        QStringList warnings = current.warnings + verified.warnings;
+        if (!warnings.isEmpty()) {
+            log_->setPlainText(warnings.join(QLatin1Char('\n')));
+            if (QMessageBox::question(this, QStringLiteral("Xác nhận xuất dữ liệu"),
+                QStringLiteral("Có %1 cảnh báo (xem nhật ký phía dưới). Bạn đã kiểm tra và muốn xuất bản mới?").arg(warnings.size()),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        }
         const QString def = QFileInfo(tplPath_).absolutePath() + QStringLiteral("/") + QFileInfo(tplPath_).completeBaseName() + QStringLiteral("-xuat.xlsx");
         const QString out = QFileDialog::getSaveFileName(this, QStringLiteral("Lưu bản xuất mới"), def, QStringLiteral("Excel (*.xlsx)"), nullptr, QFileDialog::DontConfirmOverwrite);
         if (out.isEmpty()) return;
-        const auto r = exportToTemplate(tplPath_, out, ti_, srcHeader_, srcRows_, options());
+        const auto r = exportToTemplate(tplPath_, out, ti_, srcHeader_, srcRows_, opts);
         QStringList o;
         if (!r.ok) o << QStringLiteral("KHÔNG xuất được: ") + r.error;
         else o << QStringLiteral("Đã ghi %1 dòng vào tệp mới: %2").arg(r.rowsWritten).arg(r.outPath);
@@ -411,6 +472,9 @@ private:
     }
     QComboBox *target_{};
     QLabel *info_{};
+    QLabel *sourceInfo_{};
+    QSpinBox *headerRow_{};
+    int templateSheet_ = 0;
     QTableWidget *map_{};
     QPlainTextEdit *log_{};
     QString tplPath_;
