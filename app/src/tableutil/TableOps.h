@@ -2,6 +2,7 @@
 // Mọi thao tác trả về BẢN MỚI; bảng gốc không bị sửa, tệp gốc không bị ghi đè.
 #pragma once
 #include <QString>
+#include <QByteArray>
 #include <QStringList>
 #include <QVector>
 #include <QList>
@@ -93,5 +94,9 @@ struct FilterSortSpec {
 };
 struct FilterSortResult { bool ok = false; Table table; QString error; };
 FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec);
+
+// JSON recipe stores only schema and options, never the source path or rows.
+QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpec& spec);
+bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, FilterSortSpec& spec, QString& error);
 
 } // namespace tbl
