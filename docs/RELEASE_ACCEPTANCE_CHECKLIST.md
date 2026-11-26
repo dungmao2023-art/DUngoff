@@ -48,7 +48,7 @@ Mốc rà soát 26/11/2026: main 212e757d78e3a36e3afcabeb159a7ee68f5ced0a. Đây
 - [ ] P06 Animation nâng cao: With Previous/After Previous, exit/emphasis/motion path, timeline, chỉnh hiệu ứng cũ, preview thực sự. Chưa triển khai đầy đủ; phải có test XML + trình chiếu.
 
 ## P0 — PDF
-- [ ] D01 Mở/đọc, zoom, trang, chọn chữ, tìm chữ, copy, preview, file có mật khẩu; cần kiểm chữ Việt, file scan.
+- [ ] D01 Mở/đọc, zoom, trang, chọn chữ, tìm chữ, copy, preview, file có mật khẩu; cần kiểm chữ Việt, file scan. #39 đã push tìm lớp chữ, phạm vi trang, đoạn trích, đọc/copy; chờ CI, chưa highlight canvas.
 - [ ] D02 Gộp/tách/xoay/nén/sắp xếp/xóa trang/ảnh PDF, số trang, watermark, xem trước; qpdf kiểm output và giữ nguồn.
 - [ ] D03 Chỉnh realtime qua bản sao ODG, chữ/ảnh/hình, undo/redo, lưu ODG, xuất PDF, đối chiếu bản gốc. #15/#26/#27 merged, cần GUI, fidelity; không phải sửa stream PDF gốc.
 - [ ] D04 Chỉnh sửa PDF gốc có cấu trúc: chọn đoạn/chữ, sửa trực tiếp, giữ font/layout và vector, không mất chữ ký/biểu mẫu/link ngoài ý muốn. Chưa hoàn thiện; không giả lập bằng lớp phủ rồi gọi là sửa gốc. Tách khỏi redaction bảo mật.
