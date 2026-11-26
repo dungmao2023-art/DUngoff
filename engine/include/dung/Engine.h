@@ -150,6 +150,9 @@ public:
     bool postNativeWindowKey(unsigned id,int type,int charCode,int keyCode);
     bool postNativeWindowMouse(unsigned id,int type,int x,int y,int count,int buttons,int modifiers);
     bool closeNativeWindow(unsigned id);
+    bool supportsDialogEvents();
+    bool clickNativeDialogButton(unsigned long long id,const std::string& widget);
+    bool waitForEvent(const std::function<bool(int,const std::string&)>& pred,int timeoutMs);
 
     // --- Lệnh (UNO command, vd. ".uno:Bold") ---
     void command(const std::string& unoCommand, const std::string& jsonArgs = std::string(),
