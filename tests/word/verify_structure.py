@@ -34,3 +34,29 @@ for filename in ("word-review.docx", "word-review-roundtrip.docx"):
                        if "COMMENT_MARKER" in text(node)}
         refs = {node.get(W+"id") for node in root.iter(W+"commentReference")}
         check(bool(comment_ids & refs), filename + ": native comment linked to document")
+
+with zipfile.ZipFile(Path(sys.argv[1]).parent / "word-toc-updated.docx") as z:
+    root = ET.fromstring(z.read("word/document.xml"))
+    # Collect the field result only: the heading itself is insufficient proof.
+    stack = []
+    found = []
+    for node in root.iter():
+        if node.tag == W+"fldChar":
+            kind = node.get(W+"fldCharType")
+            if kind == "begin":
+                stack.append({"code": "", "result": "", "separate": False})
+            elif kind == "separate" and stack:
+                stack[-1]["separate"] = True
+            elif kind == "end" and stack:
+                item = stack.pop()
+                if item["code"].strip().startswith("TOC"):
+                    found.append(item["result"])
+        elif node.tag == W+"instrText" and stack and not stack[-1]["separate"]:
+            stack[-1]["code"] += node.text or ""
+        elif node.tag == W+"t":
+            for item in stack:
+                if item["separate"]:
+                    item["result"] += node.text or ""
+    check(any("HEADING_AFTER" in value and "STALE_TOC" not in value for value in found),
+          "real TOC field result updated to new heading")
+    check("HEADING_BEFORE" not in text(root), "old heading absent")

@@ -539,6 +539,28 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
             check(rt.ok,"Roundtrip review DOCX: "+rt.message);
         }
     }
+    // Existing TOC is loaded from a standards-based DOCX fixture; update the
+    // real Writer index after changing its source heading in the active document.
+    step("Word mục lục native — cập nhật index hiện có");
+    const fs::path tocFixture=out/"toc-input.docx";
+    auto toc=engine->open(tocFixture,&error);
+    check(bool(toc),"Mở fixture có mục lục: "+error);
+    if(toc){
+        toc->setClientView(512,512,7680,7680,0,0,7680,7680);
+        run(*toc,w::findNext("HEADING_BEFORE",false));
+        toc->waitInputIdle();
+        check(has(selText(*toc),"HEADING_BEFORE"),"Tìm tiêu đề nguồn");
+        if(has(selText(*toc),"HEADING_BEFORE")){
+            toc->typeText(u"HEADING_AFTER");
+            toc->waitInputIdle();
+            run(*toc,".uno:UpdateAllIndexes");
+            toc->waitInputIdle();
+            const fs::path dest=out/"word-toc-updated.docx";
+            fs::remove(dest,ec);
+            const auto saved=toc->saveAs(dest);
+            check(saved.ok,"Lưu mục lục đã cập nhật: "+saved.message);
+        }
+    }
     std::cout.flush();
     std::_Exit(g_fail ? 1 : 0);
 }
