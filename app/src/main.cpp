@@ -34,6 +34,13 @@ int main(int argc, char* argv[]) {
     QApplication::setFont(f);
     app.setStyleSheet(theme::styleSheet());
 
+    // Independent lifecycle regression test, no engine or real document modifications.
+    if (qEnvironmentVariableIsSet("DUNG_FLOAT_TEST_DIR")) {
+        qputenv("DUNG_NO_ENGINE","1");
+        MainWindow w;
+        return w.checkFloatLifecycle(QString::fromLocal8Bit(qgetenv("DUNG_FLOAT_TEST_DIR")))==0 ? 0 : 4;
+    }
+
     // Chế độ chụp giao diện cho CI: DUNG_UI_SHOT_DIR=<thư mục> (kèm DUNG_NO_ENGINE=1) — không động tới phiên/engine.
     if (qEnvironmentVariableIsSet("DUNG_UI_SHOT_DIR")) {
         qputenv("DUNG_NO_ENGINE", "1");

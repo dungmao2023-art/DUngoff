@@ -276,6 +276,12 @@ jobs:
           DUNG_UI_SHOT_DIR="$PWD/report/ui" QT_QPA_PLATFORM=offscreen ./build/app/DungOffice 2>&1 | tee report/linux-ui-shots.log
           echo "mã thoát chế độ chụp: ${PIPESTATUS[0]} (3 = có cảnh báo chồng/cắt chữ, xem report/ui/ui-check.log)" | tee -a report/linux-ui-shots.log
           ls report/ui | head -50
+      - name: FloatMenu — vòng đời thu nhỏ/ẩn/khôi phục (Linux)
+        timeout-minutes: 2
+        run: |
+          mkdir -p report/floatmenu
+          DUNG_FLOAT_TEST_DIR="$PWD/report/floatmenu" QT_QPA_PLATFORM=offscreen ./build/app/DungOffice
+          cat report/floatmenu/floatmenu-check.log
       - name: Ảnh chụp giao diện thật (Xvfb)
         if: always() && hashFiles('build/app/DungOffice') != ''
         run: |
@@ -407,6 +413,17 @@ jobs:
           $p = Start-Process $exe.FullName -PassThru -Wait
           "mã thoát chế độ chụp: $($p.ExitCode) (3 = có cảnh báo chồng/cắt chữ)" | Tee-Object report/windows-ui-shots.log
           Get-ChildItem report/ui | Select-Object -First 50 | ForEach-Object { $_.Name }
+      - name: FloatMenu — vòng đời thu nhỏ/ẩn/khôi phục (Windows)
+        timeout-minutes: 2
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter DungOffice.exe | Select-Object -First 1
+          if (-not $exe) { exit 1 }
+          New-Item -ItemType Directory -Force report/floatmenu | Out-Null
+          $env:DUNG_FLOAT_TEST_DIR = (Resolve-Path report/floatmenu).Path
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $p = Start-Process $exe.FullName -PassThru -Wait
+          Get-Content report/floatmenu/floatmenu-check.log
+          if ($p.ExitCode -ne 0) { exit 1 }
       - name: Kiểm thử chụp màn hình trên Windows (lõi + widget, nền offscreen)
         run: |
           $e1 = Get-ChildItem build/out -Recurse -Filter dung-shottest.exe | Select-Object -First 1
