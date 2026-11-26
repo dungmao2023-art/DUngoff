@@ -27,6 +27,7 @@ public:
     void openFiles(const QStringList& paths);
     // Chế độ chụp giao diện (kiểm thử): lưu PNG các trang ở nhiều cỡ cửa sổ + nhật ký kiểm tra chồng/cắt chữ.
     int captureShots(const QString& dir);
+    int checkFloatLifecycle(const QString& dir);
 
 protected:
     void closeEvent(QCloseEvent* e) override;
