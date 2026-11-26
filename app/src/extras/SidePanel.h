@@ -5,6 +5,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QWidget>
+#include <QList>
 
 class QCalendarWidget;
 class QComboBox;
@@ -12,13 +13,16 @@ class QLineEdit;
 class QListWidget;
 class QPlainTextEdit;
 class QTableWidget;
-class QTabWidget;
+class QStackedWidget;
+class QPushButton;
+class QLabel;
 class QTimer;
 
 class SidePanel : public QWidget {
     Q_OBJECT
 public:
     explicit SidePanel(QWidget* parent = nullptr);
+    void toggleContent();
     void flush(); // ghi ngay các thay đổi đang chờ (gọi khi đóng ứng dụng)
 
 private:
@@ -33,7 +37,13 @@ private:
     void refreshContacts();
     void markCalendar();
 
-    QTabWidget* m_tabs;
+    void showPage(int index);
+    QWidget* m_content = nullptr;
+    QStackedWidget* m_tabs = nullptr;
+    QLabel* m_title = nullptr;
+    QList<QPushButton*> m_buttons;
+    int m_openPage = -1;
+    int m_lastPage = 0;
     QTimer* m_saveTimer;
     bool m_loading = false;
 
