@@ -128,8 +128,17 @@ void DocumentTab::excelAction(const QString& id) {
                 qs(m_doc->selectionAs("text/plain;charset=utf-8"))!=raw) {
                 QMessageBox::warning(this,tr("Số → chữ"),tr("Vùng chọn hoặc giá trị đã đổi; chưa ghi dữ liệu."));return;
             }
-            // One native paste operation, not a loop of destructive per-cell edits.
-            if (!m_doc->paste("text/plain;charset=utf-8",ss(result.text))) {
+            // Native HTML clipboard table keeps row/column boundaries explicit.
+            // Never fall back to TSV paste: some LOK builds acknowledge it without editing.
+            QString html=QStringLiteral("<html><body><table>");
+            for(const auto& line:result.text.split(QLatin1Char('\n'),Qt::KeepEmptyParts)){
+                html+=QStringLiteral("<tr>");
+                for(const auto& cell:line.split(QLatin1Char('\t'),Qt::KeepEmptyParts))
+                    html+=QStringLiteral("<td>")+cell.toHtmlEscaped()+QStringLiteral("</td>");
+                html+=QStringLiteral("</tr>");
+            }
+            html+=QStringLiteral("</table></body></html>");
+            if (!m_doc->paste("text/html",ss(html))) {
                 QMessageBox::warning(this,tr("Số → chữ"),tr("Engine chưa xác nhận dán vùng. Kiểm tra dữ liệu trước khi thử lại."));
                 return;
             }
