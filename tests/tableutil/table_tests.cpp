@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Kiểm thử tiện ích bảng tính: dòng trùng + hoàn tác, so sánh hai bảng, làm sạch ngày/tiền.
 #include "TableOps.h"
+#include "XlsxSource.h"
 #include <QCoreApplication>
 #include <QFile>
 #include <QTemporaryDir>
@@ -215,6 +216,30 @@ int main(int argc, char **argv)
         const QString outp = d2.filePath("moi.csv");
         CHECK(writeCsvCopy(outp, t1, er), "ghi bản sao UTF-8 từ tệp Windows-1258");
         Table t2; CHECK(readCsv(outp, t2, er) && t2 == t1, "bản sao đọc lại nguyên vẹn");
+    }
+
+    // XLSX worksheet XML: read-only raw-value subset, no implicit evaluation.
+    {
+        const QByteArray book=R"(<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Second" r:id="r2"/><sheet name="First" r:id="r1"/></sheets></workbook>)";
+        const QByteArray rels=R"(<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="r2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="/xl/worksheets/sheet2.xml"/></Relationships>)";
+        QList<XlsxSheet> sheets;QString error;
+        CHECK(parseXlsxSheets(book,rels,sheets,error) && sheets.size()==2 && sheets.value(0).name=="Second" && sheets.value(1).part=="xl/worksheets/sheet1.xml","XLSX workbook order and relationship target");
+        auto badRels=rels;badRels.replace("worksheets/sheet1.xml","../evil.xml");
+        CHECK(!parseXlsxSheets(book,badRels,sheets,error),"reject unsafe worksheet target");
+        const QByteArray shared=R"(<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>ID</t></si><si><r><t>Điện</t></r><r><t xml:space="preserve"> thoại</t></r><rPh><t>ignored</t></rPh></si><si><t>001</t></si></sst>)";
+        const QByteArray sheet=R"(<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row><row r="2"><c r="A2" t="s"><v>2</v></c><c r="B2" t="inlineStr"><is><t>0912345678</t></is></c></row><row r="4"><c r="A4"><v>123.45</v></c><c r="B4" t="b"><v>1</v></c></row></sheetData></worksheet>)";
+        Table table;
+        CHECK(parseXlsxTable(sheet,shared,table,error) && table.header.value(1)=="Điện thoại","rich shared string without phonetic annotation");
+        CHECK(table.rows.size()==3 && table.rows.value(0).value(0)=="001" && table.rows.value(0).value(1)=="0912345678","preserve stored text and leading zeros");
+        CHECK(table.rows.value(1).value(0).isEmpty() && table.rows.value(2).value(0)=="123.45" && table.rows.value(2).value(1)=="TRUE","sparse rows and raw values");
+        const auto before=table;
+        auto formula=sheet;formula.replace("<v>123.45</v>","<f>1+2</f><v>3</v>");
+        CHECK(!parseXlsxTable(formula,shared,table,error) && table==before,"refuse formulas and preserve prior result");
+        auto badIndex=sheet;badIndex.replace("<v>2</v>","<v>99</v>");
+        CHECK(!parseXlsxTable(badIndex,shared,table,error),"reject missing shared string");
+        auto far=sheet;far.replace("B4","XFD4");
+        CHECK(!parseXlsxTable(far,shared,table,error),"reject oversized column");
+        CHECK(!parseXlsxTable(sheet.left(50),shared,table,error),"reject malformed XML");
     }
 
     std::cout << "\nKẾT QUẢ: " << (g_fail ? "CÓ LỖI" : "TẤT CẢ ĐẠT") << "  (đạt " << g_pass << ", lỗi " << g_fail << ")\n";
