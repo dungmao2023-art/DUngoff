@@ -148,12 +148,14 @@ jobs:
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
             --sheet fixtures/mau-doanh-thu.xls --sheet fixtures/mau-doanh-thu.ods \
             --out smoke 2>&1 | tee report/linux-smoketest.log
+          python3 -c 'from zipfile import ZipFile; from xml.etree import ElementTree as E; import sys; root=E.fromstring(ZipFile(sys.argv[1]).read("content.xml")); assert "PDF EDIT TEST" in "".join(root.itertext()), "Missing inserted text in saved ODG"; print("PASS saved ODG text")' smoke/pdf-edited-persist.odg
       - name: Kiểm thử engine ở chế độ một luồng engine (unipoll, như trên Windows)
         run: |
           set -o pipefail
           DUNG_LOK_UNIPOLL=1 ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/mau-doanh-thu.xlsx \
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
             --out smoke-unipoll 2>&1 | tee report/linux-smoketest-unipoll.log
+          python3 -c 'from zipfile import ZipFile; from xml.etree import ElementTree as E; import sys; root=E.fromstring(ZipFile(sys.argv[1]).read("content.xml")); assert "PDF EDIT TEST" in "".join(root.itertext()), "Missing inserted text in saved ODG"; print("PASS saved ODG text")' smoke-unipoll/pdf-edited-persist.odg
       - name: Thăm dò vẽ lại sau khi gõ chữ (Writer, Calc, Impress)
         continue-on-error: true
         run: |
@@ -547,6 +549,15 @@ jobs:
           Get-Content report/windows-smoketest.log
           Get-Content report/windows-smoketest.err.log -ErrorAction SilentlyContinue | Select-Object -First 40
           if ($mainExit) { exit 1 }
+          @'
+          from zipfile import ZipFile
+          from xml.etree import ElementTree as E
+          with ZipFile("smoke/pdf-edited-persist.odg") as z:
+              root = E.fromstring(z.read("content.xml"))
+          assert "PDF EDIT TEST" in "".join(root.itertext()), "Missing inserted text in saved ODG"
+          print("PASS saved ODG text")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Kiểm thử cơ bản engine trên Windows (mở, hiển thị) — chặn job
         timeout-minutes: 5
         run: |
