@@ -555,6 +555,11 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
         run(*toc,w::paragraphStyle("Text Body"));
         toc->typeText(u"TOC_BODY_MARKER\n");toc->waitInputIdle();
         run(*toc,".uno:GoToEndOfDoc");
+        // Historical LOK protocol callback 46 was JSDIALOG. Recent upstream
+        // headers reserve this slot without exposing the enum. Treat it only
+        // as a compatibility probe, never as evidence of support by itself:
+        // require the runtime API, matching TOC payload and real saved field.
+        constexpr int historicalJsDialogCallback=46;
         const bool bitmap=toc->supportsNativeWindows(),js=toc->supportsDialogEvents();
         check(bitmap||js,"Runtime có API hộp thoại LOK");
         if(bitmap||js){
@@ -563,10 +568,10 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
             unsigned id=0;unsigned long long jsId=0;int width=0,height=0;std::string payload;
             bool isJs=false;
             const bool appeared=toc->waitForEvent([&](int type,const std::string& p){
-                if(type!=LOK_CALLBACK_WINDOW && type!=LOK_CALLBACK_JSDIALOG)return false;
+                if(type!=LOK_CALLBACK_WINDOW && type!=historicalJsDialogCallback)return false;
                 std::cout<<"[TIN] TOC callback "<<type<<": "<<p.substr(0,16000)<<std::endl;
                 std::smatch m;
-                if(type==LOK_CALLBACK_JSDIALOG && js){
+                if(type==historicalJsDialogCallback && js){
                     // Only accept a real TOC dialog carrying its OK widget; do not click
                     // another message box, sidebar or arbitrary window.
                     if(p.find("Table of Contents")==std::string::npos && p.find("tocdialog")==std::string::npos &&
