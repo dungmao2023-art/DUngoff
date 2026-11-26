@@ -105,15 +105,35 @@ void DocumentTab::excelAction(const QString& id) {
             if (!result.ok) { QMessageBox::warning(this, tr("Số → chữ"), result.error); return; }
             QDialog dialog(this); dialog.setWindowTitle(tr("Xem trước số → chữ · %1").arg(range)); dialog.resize(760, 420);
             auto* layout = new QVBoxLayout(&dialog);
-            auto* note = new QLabel(tr("%1 ô đã đổi, %2 ô có lưu ý về số 0 hoặc định dạng. Sao chép kết quả rồi dán vào vùng đích mới; công thức và dữ liệu nguồn không bị sửa.").arg(result.converted).arg(result.warnings), &dialog);
+            auto* note = new QLabel(tr("%1 ô có kết quả, %2 ô có lưu ý về số 0 hoặc định dạng. Có thể thay trực tiếp vùng đang chọn sau xác nhận; giá trị và công thức trong vùng sẽ thành chữ. Vùng có ô trống chỉ hỗ trợ sao chép để tránh mất dữ liệu.").arg(result.converted).arg(result.warnings), &dialog);
             note->setWordWrap(true); layout->addWidget(note);
             auto* preview = new QPlainTextEdit(result.text, &dialog); preview->setReadOnly(true); preview->setLineWrapMode(QPlainTextEdit::NoWrap); layout->addWidget(preview, 1);
             auto* buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, &dialog);
             auto* copy = buttons->addButton(tr("Sao chép vùng kết quả"), QDialogButtonBox::AcceptRole);
             QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+            auto* replace = buttons->addButton(tr("Thay vùng đang chọn…"), QDialogButtonBox::DestructiveRole);
+            // A dense rectangular selection is required for native multi-cell paste.
+            replace->setEnabled(result.converted == rows * cols);
+            bool apply = false;
             QObject::connect(copy, &QPushButton::clicked, &dialog, &QDialog::accept);
+            QObject::connect(replace, &QPushButton::clicked, &dialog, [&]{ apply=true; dialog.accept(); });
             layout->addWidget(buttons);
-            if (dialog.exec() == QDialog::Accepted) QApplication::clipboard()->setText(result.text);
+            if (dialog.exec() != QDialog::Accepted) return;
+            if (!apply) { QApplication::clipboard()->setText(result.text); return; }
+            if (QMessageBox::question(this,tr("Thay vùng số hoặc công thức?"),
+                tr("Thay %1 ô tại %2 bằng chữ ngay trong sheet đang mở? Công thức trong vùng sẽ bị thay thế. Có thể hoàn tác bằng Ctrl+Z.").arg(result.converted).arg(range),
+                QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return;
+            m_doc->waitInputIdle();
+            if (readOnly() || m_doc->currentPart()!=cur || m_view->selectedCellRange()!=range ||
+                qs(m_doc->selectionAs("text/plain;charset=utf-8"))!=raw) {
+                QMessageBox::warning(this,tr("Số → chữ"),tr("Vùng chọn hoặc giá trị đã đổi; chưa ghi dữ liệu."));return;
+            }
+            // Use native Paste Only Text, not HTML import (would replace formatting).
+            if (!m_doc->pasteTextOnly(ss(result.text))) {
+                QMessageBox::warning(this,tr("Số → chữ"),tr("Engine chưa xác nhận dán vùng. Kiểm tra dữ liệu trước khi thử lại."));
+                return;
+            }
+            m_view->setFocus();
             return;
         }
         const auto result = vntext::moneyToWords(value, options);

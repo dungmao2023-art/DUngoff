@@ -79,6 +79,24 @@ def stress(orig, res):
 
 if __name__ == "__main__":
     basic(sys.argv[1])
+    from pathlib import Path
+    folder = Path(sys.argv[1]).parent
+    before = openpyxl.load_workbook(folder / "words-range-before.xlsx").active
+    check([before[c].value for c in ("A1","B1","A2","B2","C1","A3")] == [12,"=2+3",7,9,"OUTSIDE","BELOW"],
+          "Baseline đúng trước paste")
+    check(bool(before["A1"].font.b), "Baseline A1 có định dạng đậm")
+    ws = openpyxl.load_workbook(folder / "words-range.xlsx").active
+    print("[TIN] Native range values:", [ws[c].value for c in ("A1","B1","A2","B2","C1","A3")])
+    check([ws[c].value for c in ("A1","B1","A2","B2")] == ["Mười hai","Năm","Bảy","Chín"],
+          "Native paste đổi đúng 4 ô thành chữ Việt")
+    check(all(ws[c].data_type == "s" for c in ("A1","B1","A2","B2")), "Kết quả là chữ thực trong XLSX")
+    check(ws["C1"].value == "OUTSIDE" and ws["A3"].value == "BELOW", "Không thay ô ngoài vùng")
+    check(bool(ws["A1"].font.b), "Paste giữ định dạng đậm có sẵn tại A1")
+    undo = openpyxl.load_workbook(folder / "words-range-undo.xlsx").active
+    check([undo[c].value for c in ("A1","B1","A2","B2")] == [12,"=2+3",7,9],
+          "Một Undo khôi phục cả số và công thức")
+    check(undo["C1"].value == "OUTSIDE" and undo["A3"].value == "BELOW", "Undo không đổi ô ngoài vùng")
+    check(bool(undo["A1"].font.b), "Undo giữ định dạng đậm ban đầu")
     if len(sys.argv) >= 4:
         stress(sys.argv[2], sys.argv[3])
     print("\nKẾT QUẢ XÁC MINH EXCEL: " + ("CÓ LỖI" if fails else "ĐẠT"))
