@@ -79,6 +79,17 @@ def stress(orig, res):
 
 if __name__ == "__main__":
     basic(sys.argv[1])
+    from pathlib import Path
+    folder = Path(sys.argv[1]).parent
+    ws = openpyxl.load_workbook(folder / "words-range.xlsx").active
+    check([ws[c].value for c in ("A1","B1","A2","B2")] == ["Mười hai","Năm","Bảy","Chín"],
+          "Native paste đổi đúng 4 ô thành chữ Việt")
+    check(all(ws[c].data_type == "s" for c in ("A1","B1","A2","B2")), "Kết quả là chữ thực trong XLSX")
+    check(ws["C1"].value == "OUTSIDE" and ws["A3"].value == "BELOW", "Không thay ô ngoài vùng")
+    undo = openpyxl.load_workbook(folder / "words-range-undo.xlsx").active
+    check([undo[c].value for c in ("A1","B1","A2","B2")] == [12,"=2+3",7,9],
+          "Một Undo khôi phục cả số và công thức")
+    check(undo["C1"].value == "OUTSIDE" and undo["A3"].value == "BELOW", "Undo không đổi ô ngoài vùng")
     if len(sys.argv) >= 4:
         stress(sys.argv[2], sys.argv[3])
     print("\nKẾT QUẢ XÁC MINH EXCEL: " + ("CÓ LỖI" if fails else "ĐẠT"))
