@@ -92,3 +92,11 @@ Mốc hiện tại sau #39–41: chỉ số triển khai 29.9%, chưa có nhóm 
 3. Cập nhật bằng chứng tại mục tương ứng, link commit/PR/CI đúng SHA. Không đánh [x] chỉ vì merge.
 4. Kiểm CI Windows/Linux trên head mới và bản tích hợp main, kiểm bộ cài đúng commit, test máy thật. Không rebuild engine trừ blocker thực, không phát hành khi chưa được phép.
 5. Khi không có GUI/mẫu thật/email/engine phù hợp, ghi blocker cụ thể, không tự suy đoán. 
+
+## Đối chiếu 27/11/2026 — main f46af9828c3f93caee40f07d8a00b6d0243ad2ac
+- W06: #46 và #56 merged; #56 head ee0113c704772d2bcb8652532c55fccb7d3b33ed, [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45900243975). Còn nghiệm thu GUI.
+- X06: #44/#47 merged, biểu đồ native có nguồn sheet. X07: #55 merged, refresh PivotTable thật; chưa tạo mới.
+- W03: #51 merged, cập nhật TOC; #57 head df0835f6c15a60266df2f129fc3bb7e0420b1e3a [CI FAIL](https://github.com/dungmao2023-art/DUngoff/actions/runs/45901046539), Linux không nhận bitmap/JSDialog. Không coi tạo TOC đã đạt.
+- D05: #42 merged, Unicode vector; P06: #43 merged, chưa nghiệm thu trình chiếu. A04: #48 merged, bảo vệ nguồn.
+- #52 head d32663445e4fd347c917102fa60e33e5030c4285 [CI FAIL](https://github.com/dungmao2023-art/DUngoff/actions/runs/45875575721): native paste bốn ô, kiểu text XLSX, Undo định dạng đậm. Chưa merge.
+- CSV đối chiếu: 32.9% chỉ số triển khai; 0 nhóm accepted; giữ nguyên trọng số và giờ dự toán. Cần test Windows thật, DPI/IME, PowerPoint playback, PDF preview, mở/lưu file thực. Không phát hành.
