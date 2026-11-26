@@ -4,6 +4,7 @@
 
 #include <QCheckBox>
 #include <QFile>
+#include <QDialogButtonBox>
 #include <QSignalBlocker>
 #include <functional>
 #include <QComboBox>
@@ -234,6 +235,11 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     recipes->addWidget(saveRecipe); recipes->addWidget(loadRecipe);
     l4->addLayout(recipes);
     d->tabs->addTab(w4, tr("Lọc và sắp xếp"));
+    auto* w5=new QWidget; auto* l5=new QVBoxLayout(w5);
+    auto* groupNote=new QLabel(tr("Tổng hợp theo nhóm từ CSV. Khóa so khớp chính xác, ô rỗng là một nhóm riêng. Đếm dòng hoặc tính tổng số chuẩn (dấu chấm thập phân, không dấu hàng nghìn, tối đa 4 chữ số lẻ). Không ép kiểu mã hoặc số điện thoại."),w5);
+    groupNote->setWordWrap(true); l5->addWidget(groupNote);
+    auto* groupRun=new QPushButton(tr("Chọn cột và tổng hợp…"),w5); l5->addWidget(groupRun);
+    l5->addStretch(); d->tabs->addTab(w5,tr("Tổng hợp nhóm"));
 
     d->report = new QPlainTextEdit; d->report->setReadOnly(true); d->report->setPlaceholderText(tr("Báo cáo sẽ hiện ở đây."));
     d->report->setMinimumHeight(110);
@@ -325,6 +331,37 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->report->setPlainText(rep);
     });
 
+    connect(groupRun,&QPushButton::clicked,this,[this,askSave,save,needA] {
+        if(!needA() || d->tableA.header.isEmpty()) return;
+        QDialog dlg(this);dlg.setWindowTitle(tr("Tổng hợp nhóm CSV"));
+        auto* form=new QFormLayout(&dlg);
+        auto* key=new QComboBox(&dlg);auto* value=new QComboBox(&dlg);
+        value->addItem(tr("Chỉ đếm dòng"),-1);
+        for(int i=0;i<d->tableA.header.size();++i) {
+            const auto label=tr("%1 · %2").arg(i+1).arg(d->tableA.header[i]);
+            key->addItem(label,i);value->addItem(label,i);
+        }
+        form->addRow(tr("Cột nhóm:"),key);form->addRow(tr("Cột tính tổng:"),value);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);form->addRow(buttons);
+        connect(buttons,&QDialogButtonBox::accepted,&dlg,&QDialog::accept);
+        connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        if(dlg.exec()!=QDialog::Accepted) return;
+        const auto r=groupCsv(d->tableA,key->currentData().toInt(),value->currentData().toInt());
+        if(!r.ok){QMessageBox::warning(this,tr("Tổng hợp nhóm"),r.error);return;}
+        QString rep=tr("%1 nhóm từ %2 dòng; ô số rỗng không tham gia tổng.").arg(r.table.rows.size()).arg(d->tableA.rows.size());
+        rep+=QStringLiteral("\n")+r.table.header.join(QStringLiteral(" | "));
+        for(int i=0;i<r.table.rows.size() && i<20;++i)rep+=QStringLiteral("\n")+r.table.rows[i].join(QStringLiteral(" | "));
+        QDialog preview(this);preview.setWindowTitle(tr("Xem trước 20 nhóm"));preview.resize(720,420);
+        auto* layout=new QVBoxLayout(&preview);
+        auto* text=new QPlainTextEdit(rep,&preview);text->setReadOnly(true);layout->addWidget(text);
+        auto* actions=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&preview);layout->addWidget(actions);
+        connect(actions,&QDialogButtonBox::accepted,&preview,&QDialog::accept);
+        connect(actions,&QDialogButtonBox::rejected,&preview,&QDialog::reject);
+        if(preview.exec()!=QDialog::Accepted)return;
+        const auto out=askSave(defaultOut(d->a->path(),tr("tổng hợp nhóm")));
+        if(!out.isEmpty())save(out,r.table,rep);
+        d->report->setPlainText(rep);
+    });
     auto recipeSpec = [this] {
         FilterSortSpec spec;
         spec.filterCol = d->filterCol->currentData().toInt();
