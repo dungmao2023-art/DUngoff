@@ -248,8 +248,11 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     {QStringLiteral("ppt.show"), tr("Từ đầu"), 0xE768, QStringLiteral("▶"), false},
                     {QStringLiteral("ppt.showHere"), tr("Từ trang này"), 0xE768, QStringLiteral("▷"), false},
                     {QStringLiteral("ppt.preview"), tr("Xem trước slide"), 0xE768, QStringLiteral("▷"), false},
-                    {QStringLiteral("ppt.transitionNote"), tr("Giới hạn hiệu ứng"), 0xE7B8, QStringLiteral("ⓘ"), false},
+
                 }}}},
+            {tr("Chuyển cảnh"), {{tr("Xuất PPTX"), {
+                {QStringLiteral("ppt.transitionNote"), tr("Đặt chuyển cảnh"), 0xE7B8, QStringLiteral("▷"), false},
+            }}}},
             {tr("Thiết kế"), {{tr("Bố cục"), {
                 {QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"0\"}}"), tr("Tiêu đề"), 0xE8A1, QStringLiteral("T"), false},
                 {QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"20\"}}"), tr("Trống"), 0xE7C3, QStringLiteral("□"), false},

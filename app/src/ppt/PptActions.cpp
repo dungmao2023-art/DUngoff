@@ -4,6 +4,16 @@
 #include "../TileView.h"
 #include "../EngineHost.h"
 #include "SlideShow.h"
+#include "PptTransition.h"
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QComboBox>
+#include <QSpinBox>
+#include <QCheckBox>
+#include <QLabel>
+#include <QFileInfo>
+#include <QVBoxLayout>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <QFileDialog>
 #include <QInputDialog>
@@ -66,9 +76,38 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         if (f.isEmpty()) return true;
         d->command(".uno:InsertGraphic", dung::Document::stringArg("FileName", ss(QUrl::fromLocalFile(f).toString())));
     } else if (id == QLatin1String("ppt.transitionNote")) {
-        QMessageBox::information(tab, QObject::tr("Hiệu ứng chuyển cảnh"),
-            QObject::tr("Hiệu ứng chuyển cảnh và hoạt ảnh (animation) chưa được hỗ trợ chỉnh sửa và chưa bảo đảm giữ nguyên "
-                        "khi lưu. Hãy lưu thành bản mới và kiểm tra lại các hiệu ứng trong PowerPoint."));
+        if (QMessageBox::question(tab, QObject::tr("Chuyển cảnh PPTX"),
+            QObject::tr("Công cụ tạo bản sao PPTX từ tệp đã lưu, giữ nguyên tài liệu đang soạn. Hãy lưu bản nháp trước nếu muốn dùng nội dung mới nhất. Chưa chỉnh animation từng đối tượng; trình xem trong app hiện tĩnh. Tiếp tục?"),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return true;
+        const QString source = QFileDialog::getOpenFileName(tab, QObject::tr("Chọn PPTX đã lưu"), d->isNew() ? QString() : fromPath(d->originalPath()), QObject::tr("PowerPoint (*.pptx)"));
+        if (source.isEmpty()) return true;
+        QString error;
+        const auto slides = ppttransition::slideEntries(source, &error);
+        if (slides.isEmpty()) { QMessageBox::warning(tab, QObject::tr("Chuyển cảnh"), error); return true; }
+        QDialog dialog(tab); dialog.setWindowTitle(QObject::tr("Chuyển cảnh — xuất PPTX mới"));
+        auto* root = new QVBoxLayout(&dialog);
+        auto* form = new QFormLayout;
+        auto* page = new QSpinBox; page->setRange(1, slides.size()); page->setValue(qBound(1, d->currentPart()+1, int(slides.size())));
+        auto* effect = new QComboBox;
+        effect->addItems({QObject::tr("Không hiệu ứng"), QObject::tr("Mờ dần"), QObject::tr("Đẩy sang trái"), QObject::tr("Quét sang trái"), QObject::tr("Hòa tan")});
+        effect->setCurrentIndex(1);
+        auto* speed = new QComboBox; speed->addItems({QObject::tr("Chậm"), QObject::tr("Vừa"), QObject::tr("Nhanh")}); speed->setCurrentIndex(1);
+        auto* click = new QCheckBox(QObject::tr("Chuyển khi bấm chuột")); click->setChecked(true);
+        auto* seconds = new QSpinBox; seconds->setRange(0, 600); seconds->setSpecialValueText(QObject::tr("Tắt tự chuyển"));
+        form->addRow(QObject::tr("Slide"), page); form->addRow(QObject::tr("Hiệu ứng"), effect);
+        form->addRow(QObject::tr("Tốc độ"), speed); form->addRow(click); form->addRow(QObject::tr("Tự chuyển sau (giây)"), seconds); root->addLayout(form);
+        auto* note = new QLabel(QObject::tr("Chuyển cảnh cơ bản được ghi vào PPTX; mở bản xuất bằng PowerPoint để kiểm tra. Chuyển cảnh phức tạp chưa hỗ trợ sẽ bị từ chối.")); note->setWordWrap(true); root->addWidget(note);
+        auto* bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel); root->addWidget(bb);
+        QObject::connect(bb, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        QObject::connect(bb, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        if (dialog.exec() != QDialog::Accepted) return true;
+        const QFileInfo src(source);
+        const QString dest = QFileDialog::getSaveFileName(tab, QObject::tr("Lưu bản PPTX mới"), src.absolutePath() + QLatin1Char('/') + src.completeBaseName() + QStringLiteral(" - chuyen canh.pptx"), QObject::tr("PowerPoint (*.pptx)"));
+        if (dest.isEmpty()) return true;
+        ppttransition::Options o; o.effect = ppttransition::Effect(effect->currentIndex()); o.speed = speed->currentIndex(); o.onClick = click->isChecked(); o.autoAdvanceMs = seconds->value()*1000;
+        const auto result = ppttransition::createCopy(source, dest, page->value(), o);
+        if (!result.ok) QMessageBox::warning(tab, QObject::tr("Chuyển cảnh"), result.error);
+        else QMessageBox::information(tab, QObject::tr("Chuyển cảnh"), QObject::tr("Đã lưu PPTX mới và kiểm cấu trúc gói:\n%1\nHãy thử trình chiếu trong PowerPoint; nguồn không bị sửa.").arg(dest));
     }
     return true;
 }
