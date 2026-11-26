@@ -147,6 +147,7 @@ jobs:
           soffice --headless --convert-to ods --outdir fixtures fixtures/mau-doanh-thu.xlsx > /dev/null 2>&1
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/mau-doanh-thu.xlsx \
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
+            --feature-docx tests/fixtures/features/features.docx \
             --sheet fixtures/mau-doanh-thu.xls --sheet fixtures/mau-doanh-thu.ods \
             --out smoke 2>&1 | tee report/linux-smoketest.log
           python3 -c 'from zipfile import ZipFile; from xml.etree import ElementTree as E; import sys; root=E.fromstring(ZipFile(sys.argv[1]).read("content.xml")); assert "PDF EDIT TEST" in "".join(root.itertext()), "Missing inserted text in saved ODG"; print("PASS saved ODG text")' smoke/pdf-edited-persist.odg
@@ -209,6 +210,7 @@ jobs:
         timeout-minutes: 4
         run: |
           set -o pipefail
+          python3 tests/word/make_toc_fixture.py smoke-word-structure/toc-input.docx
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-word-structure --word-structure 1 2>&1 | tee report/linux-word-structure.log
           python3 tests/word/verify_structure.py smoke-word-structure/word-structure.docx 2>&1 | tee -a report/linux-word-structure.log
       - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Linux)
@@ -549,7 +551,7 @@ jobs:
           Get-ChildItem fixtures | ForEach-Object { "$($_.Name)  $($_.Length)" } | Tee-Object -Append report/windows-fixtures.log
           $smokeArgs = @("--program", "$PWD/build/lo/engine/program", "--xlsx", "fixtures/mau-doanh-thu.xlsx",
                     "--csv", "fixtures/mau.csv", "--docx", "fixtures/mau-van-ban.docx",
-                    "--pptx", "fixtures/mau-trinh-chieu.pptx", "--out", "$PWD/smoke")
+                    "--pptx", "fixtures/mau-trinh-chieu.pptx", "--feature-docx", "tests/fixtures/features/features.docx", "--out", "$PWD/smoke")
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList $smokeArgs -PassThru -NoNewWindow `
                  -RedirectStandardOutput report/windows-smoketest.log -RedirectStandardError report/windows-smoketest.err.log
           # Chẩn đoán treo: sau 50 giây nếu còn chạy -> chụp màn hình + dump ngăn xếp các luồng
@@ -661,6 +663,10 @@ jobs:
         if: (success() || failure()) && hashFiles('build/out/dung-smoketest.exe') != ''
         timeout-minutes: 4
         run: |
+          python -m pip install --quiet python-docx
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python tests/word/make_toc_fixture.py smoke-word-structure/toc-input.docx
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--word-structure", "1", "--out", "$PWD/smoke-word-structure") -PassThru -NoNewWindow `
                  -RedirectStandardOutput report/windows-word-structure.log -RedirectStandardError report/windows-word-structure.err.log
           if (-not $p.WaitForExit(180000)) { Stop-Process $p -Force; exit 1 }
