@@ -218,12 +218,16 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
         };
         enter("A1",u"12");enter("B1",u"=2+3");enter("A2",u"7");enter("B2",u"9");
         enter("C1",u"OUTSIDE");enter("A3",u"BELOW");
+        gotoCell(*words,"A1");words->command(".uno:Bold");words->waitInputIdle();
+        const auto before=out/"words-range-before.xlsx";fs::remove(before,ec);
+        const auto baseline=words->saveAs(before);
+        check(baseline.ok,"Lưu baseline trước paste: "+baseline.message);
         words->command(".uno:GoToCell", "{\"ToPoint\":{\"type\":\"string\",\"value\":\"A1:B2\"}}");
         words->waitInputIdle();settle();
         const auto selected=words->selectionAs("text/plain;charset=utf-8");
         check(selected.find("12\t5")!=std::string::npos && selected.find("7\t9")!=std::string::npos,"Chọn đúng 4 ô nguồn");
         if(selected.find("12\t5")!=std::string::npos && selected.find("7\t9")!=std::string::npos){
-            const bool pasted=words->paste("text/plain;charset=utf-8","Mười hai\tNăm\nBảy\tChín");
+            const bool pasted=words->paste("text/html","<html><body><table><tr><td>Mười hai</td><td>Năm</td></tr><tr><td>Bảy</td><td>Chín</td></tr></table></body></html>");
             check(pasted,"Engine nhận một lần dán vùng Unicode");
             words->waitInputIdle();settle();
             const auto after=out/"words-range.xlsx";fs::remove(after,ec);
