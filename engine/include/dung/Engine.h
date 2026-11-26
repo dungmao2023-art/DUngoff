@@ -143,6 +143,14 @@ public:
     void setViewLanguage(const std::string& lang);
     void typeText(const std::u16string& text);   // gõ chuỗi ký tự (tiện cho kiểm thử/công thức)
 
+    // Native LOK dialog transport. Coordinates are dialog pixels, not document twips.
+    // Only use IDs announced by this document's LOK_CALLBACK_WINDOW; no arbitrary window lookup.
+    bool supportsNativeWindows();
+    bool paintNativeWindow(unsigned id, uint8_t* buffer, size_t bytes, int width, int height);
+    bool postNativeWindowKey(unsigned id,int type,int charCode,int keyCode);
+    bool postNativeWindowMouse(unsigned id,int type,int x,int y,int count,int buttons,int modifiers);
+    bool closeNativeWindow(unsigned id);
+
     // --- Lệnh (UNO command, vd. ".uno:Bold") ---
     void command(const std::string& unoCommand, const std::string& jsonArgs = std::string(),
                  bool notifyWhenFinished = false);
