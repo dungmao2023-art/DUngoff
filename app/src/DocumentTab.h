@@ -8,6 +8,8 @@
 #include <memory>
 
 class QLineEdit;
+class QLabel;
+class QPushButton;
 class QTimer;
 class QTabBar;
 class QTabWidget;
@@ -58,6 +60,7 @@ signals:
 private:
     void onEngineEvent(int type, const QString& payload);
     void rebuildParts();
+    void refreshPdfComparison();
     void excelSheetMenu(const QPoint& pos);  // excel/ExcelUi.cpp
     bool doSave(const QString& path, bool confirmedReplace);
     void autosaveTick();
@@ -73,6 +76,10 @@ private:
     QWidget* m_formulaAssistant = nullptr;
     unsigned m_pickGeneration = 0;
     QListWidget* m_slides = nullptr;
+    QWidget* m_pdfComparison = nullptr;
+    QLabel* m_pdfOriginalImage = nullptr;
+    QPushButton* m_pdfCompareButton = nullptr;
+    int m_pdfComparedPart = -1;
     QString m_savedPath;    // tệp mới mà người dùng đã "Lưu thành" trong phiên này
     QString m_cellAddress;
     bool m_lastMod = false;
