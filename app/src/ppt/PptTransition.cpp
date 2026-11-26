@@ -9,6 +9,7 @@
 #include <QSet>
 #include <QTemporaryDir>
 #include <QXmlStreamReader>
+#include <functional>
 
 namespace ppttransition {
 namespace {
@@ -159,7 +160,112 @@ Result patchXml(const QByteArray& xml, const Options& o, QByteArray* output) {
     if (verify.hasError() || count != (fragment.isEmpty() ? 0 : 1)) return fail(QStringLiteral("XML sau chỉnh không qua kiểm tra."));
     *output = patched.toUtf8(); return {true, {}};
 }
-Result createCopy(const QString& source, const QString& destination, int slide1, const Options& options) {
+namespace {
+struct AnimScan { QString error; QList<Shape> shapes; qsizetype insertion = -1; bool hasTiming = false; };
+AnimScan scanAnimation(const QString& text) {
+    AnimScan out;
+    QXmlStreamReader xr(text);
+    QStringList path;
+    QSet<unsigned> ids;
+    bool root = false, common = false;
+    auto tokenStart = [&]() -> qsizetype {
+        const qsizetype off = xr.characterOffset();
+        if (off <= 0 || off > text.size() || text.at(off-1) != QLatin1Char('>')) return -1;
+        return text.lastIndexOf(QLatin1Char('<'), off-1);
+    };
+    auto bad = [&](const QString& why) { out.error = why; return out; };
+    while (!xr.atEnd()) {
+        xr.readNext();
+        if (xr.isDTD()) return bad(QStringLiteral("Không hỗ trợ XML có DTD."));
+        if (xr.isStartElement()) {
+            const bool isP = xr.namespaceUri() == P;
+            const QString n = isP ? xr.name().toString() : QStringLiteral("!");
+            path << n;
+            if (path.size() == 1) {
+                root = n == QLatin1String("sld");
+                if (!root) return bad(QStringLiteral("Không phải slide PresentationML."));
+            } else if (path.size() == 2) {
+                if (!isP) return bad(QStringLiteral("Slide có cấu trúc mở rộng chưa hỗ trợ."));
+                if (n == QLatin1String("cSld")) common = true;
+                if (n == QLatin1String("timing")) out.hasTiming = true;
+                if (n == QLatin1String("extLst") && out.insertion < 0) {
+                    out.insertion = tokenStart();
+                    if (out.insertion < 0) return bad(QStringLiteral("Không xác minh vị trí timing."));
+                }
+            }
+            if (n == QLatin1String("cNvPr")) {
+                bool ok = false;
+                const unsigned id = xr.attributes().value(QStringLiteral("id")).toUInt(&ok);
+                if (!ok || !id || ids.contains(id)) return bad(QStringLiteral("ID đối tượng thiếu hoặc trùng."));
+                ids.insert(id);
+                if (path.size() == 6 && path[0] == QLatin1String("sld") && path[1] == QLatin1String("cSld") &&
+                    path[2] == QLatin1String("spTree") &&
+                    ((path[3] == QLatin1String("sp") && path[4] == QLatin1String("nvSpPr")) ||
+                     (path[3] == QLatin1String("pic") && path[4] == QLatin1String("nvPicPr"))))
+                    out.shapes.append({id, xr.attributes().value(QStringLiteral("name")).toString()});
+            }
+        } else if (xr.isEndElement()) {
+            if (path.size() == 1 && out.insertion < 0) out.insertion = tokenStart();
+            if (!path.isEmpty()) path.removeLast();
+        }
+    }
+    if (xr.hasError() || !root || !common || out.insertion < 0) return bad(QStringLiteral("XML slide không hợp lệ."));
+    return out;
+}
+}
+QList<Shape> slideShapes(const QString& source, int slide1, QString* error) {
+    if (error) error->clear();
+    QString e;
+    const auto order = slideEntries(source, &e);
+    if (slide1 < 1 || slide1 > order.size()) { if (error) *error = e.isEmpty() ? QStringLiteral("Slide không tồn tại.") : e; return {}; }
+    ft::ZipReader z; QByteArray xml;
+    if (!z.open(source, &e) || !read(z, order.at(slide1-1), &xml, &e)) { if (error) *error = e; return {}; }
+    const QString text = QString::fromUtf8(xml);
+    if (text.toUtf8() != xml) { if (error) *error = QStringLiteral("Chỉ hỗ trợ XML UTF-8."); return {}; }
+    const auto scan = scanAnimation(text);
+    if (!scan.error.isEmpty() || scan.hasTiming) {
+        if (error) *error = scan.error.isEmpty() ? QStringLiteral("Slide đã có animation/timing; chưa hỗ trợ sửa hoặc ghép hiệu ứng.") : scan.error;
+        return {};
+    }
+    if (scan.shapes.isEmpty() && error) *error = QStringLiteral("Không có hộp chữ, hình hoặc ảnh độc lập có thể tạo hiệu ứng.");
+    return scan.shapes;
+}
+Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& o, QByteArray* output) {
+    if (!output || !o.shapeId || o.durationMs < 100 || o.durationMs > 10000 || o.delayMs < 0 || o.delayMs > 30000)
+        return fail(QStringLiteral("Thông số animation không hợp lệ."));
+    QString text = QString::fromUtf8(xml);
+    if (text.toUtf8() != xml) return fail(QStringLiteral("Chỉ hỗ trợ XML UTF-8."));
+    const auto scan = scanAnimation(text);
+    if (!scan.error.isEmpty()) return fail(scan.error);
+    if (scan.hasTiming) return fail(QStringLiteral("Slide đã có timing; không ghi đè."));
+    bool found = false;
+    for (const auto& shape : scan.shapes) if (shape.id == o.shapeId) found = true;
+    if (!found) return fail(QStringLiteral("Đối tượng không tồn tại hoặc không hỗ trợ."));
+    const QString target = QStringLiteral("<p:tgtEl><p:spTgt spid=\"%1\"/></p:tgtEl>").arg(o.shapeId);
+    // Basic entrance: set visibility, optionally animate the fade filter. Main sequence advances on click.
+    const QString visibility = QStringLiteral("<p:set><p:cBhvr><p:cTn id=\"6\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn>%1<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set>").arg(target);
+    QString behavior = visibility;
+    if (o.fade) behavior += QStringLiteral("<p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"7\" dur=\"%1\"/>%2</p:cBhvr></p:animEffect>").arg(o.durationMs).arg(target);
+    const QString timing = QStringLiteral(
+        "<p:timing xmlns:p=\"%1\"><p:tnLst><p:par>"
+        "<p:cTn id=\"1\" dur=\"indefinite\" restart=\"never\" nodeType=\"tmRoot\"><p:childTnLst>"
+        "<p:seq concurrent=\"1\" nextAc=\"seek\"><p:cTn id=\"2\" dur=\"indefinite\" nodeType=\"mainSeq\"><p:childTnLst>"
+        "<p:par><p:cTn id=\"3\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst>"
+        "<p:par><p:cTn id=\"4\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>"
+        "<p:par><p:cTn id=\"5\" presetID=\"%2\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"clickEffect\">"
+        "<p:stCondLst><p:cond delay=\"%3\"/></p:stCondLst><p:childTnLst>%4</p:childTnLst></p:cTn></p:par>"
+        "</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>"
+        "</p:childTnLst></p:cTn>"
+        "<p:prevCondLst><p:cond evt=\"onPrev\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>"
+        "<p:nextCondLst><p:cond evt=\"onNext\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>"
+        "</p:seq></p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>").arg(P).arg(o.fade ? 10 : 1).arg(o.delayMs).arg(behavior);
+    text.insert(scan.insertion, timing);
+    const auto after = scanAnimation(text);
+    if (!after.error.isEmpty() || !after.hasTiming || after.shapes.size() != scan.shapes.size()) return fail(QStringLiteral("XML animation đầu ra không qua kiểm tra."));
+    *output = text.toUtf8(); return {true, {}};
+}
+static Result createPatchedCopy(const QString& source, const QString& destination, int slide1,
+                                const std::function<Result(const QByteArray&, QByteArray*)>& patch) {
     const QFileInfo dst(destination);
     if (!source.endsWith(QLatin1String(".pptx"), Qt::CaseInsensitive) || !destination.endsWith(QLatin1String(".pptx"), Qt::CaseInsensitive) ||
         dst.exists() || dst.isSymLink() || !QDir(dst.absolutePath()).exists())
@@ -172,7 +278,7 @@ Result createCopy(const QString& source, const QString& destination, int slide1,
     const QString entry = slides.at(slide1 - 1);
     QByteArray xml, patched;
     if (!read(original, entry, &xml, &error)) return fail(error);
-    const auto result = patchXml(xml, options, &patched);
+    const auto result = patch(xml, &patched);
     if (!result.ok) return result;
     QTemporaryDir temp(QDir(dst.absolutePath()).filePath(QStringLiteral(".DungOffice-ppt-XXXXXX")));
     if (!temp.isValid()) return fail(QStringLiteral("Không tạo được thư mục tạm."));
@@ -191,5 +297,11 @@ Result createCopy(const QString& source, const QString& destination, int slide1,
     }
     if (!QFile::rename(tmp, destination)) return fail(QStringLiteral("Không đặt được tên đích; không ghi đè."));
     return {true, {}};
+}
+Result createCopy(const QString& source, const QString& destination, int slide1, const Options& options) {
+    return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchXml(xml, options, out); });
+}
+Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options) {
+    return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchAnimationXml(xml, options, out); });
 }
 }

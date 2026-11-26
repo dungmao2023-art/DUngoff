@@ -250,6 +250,9 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     {QStringLiteral("ppt.preview"), tr("Xem trước slide"), 0xE768, QStringLiteral("▷"), false},
 
                 }}}},
+            {tr("Hoạt ảnh"), {{tr("Xuất PPTX"), {
+                {QStringLiteral("ppt.animationCopy"), tr("Thêm hoạt ảnh"), 0xE7B8, QStringLiteral("▷"), false},
+            }}}},
             {tr("Chuyển cảnh"), {{tr("Xuất PPTX"), {
                 {QStringLiteral("ppt.transitionNote"), tr("Đặt chuyển cảnh"), 0xE7B8, QStringLiteral("▷"), false},
             }}}},
