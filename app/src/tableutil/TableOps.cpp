@@ -7,6 +7,7 @@
 #include <QRegularExpression>
 #include <QTextStream>
 #include <algorithm>
+#include <limits>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -279,6 +280,70 @@ bool writeCsvCopy(const QString &path, const Table &t, QString &error, QChar sep
     if (!f.flush()) return fail();
     f.close();
     return true;
+}
+
+// ---------------- Exact CSV group summary ----------------
+CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol)
+{
+    CsvGroupResult r;
+    if(keyCol<0 || keyCol>=source.header.size() || valueCol<-1 || valueCol>=source.header.size() || keyCol==valueCol) {
+        r.error=QObject::tr("Chọn cột nhóm và cột số hợp lệ, khác nhau."); return r;
+    }
+    struct Group { QString key; qsizetype rows=0,numbers=0; qint64 sum=0; };
+    QList<Group> groups; QHash<QString,qsizetype> indices;
+    // No thousands separators, leading-zero codes, exponents or implicit rounding.
+    static const QRegularExpression canonical(QStringLiteral(R"(^-?(?:0|[1-9][0-9]{0,13})(?:\.[0-9]{1,4})?$)"));
+    for(qsizetype i=0;i<source.rows.size();++i) {
+        const auto& row=source.rows[i];
+        if(row.size()!=source.header.size()) { r.error=QObject::tr("Bản ghi %1 sai số cột.").arg(i+2); return r; }
+        const auto& key=row[keyCol];
+        if(!indices.contains(key)) {
+            if(groups.size()>=5000) { r.error=QObject::tr("Quá 5.000 nhóm; hãy lọc nguồn trước."); return r; }
+            indices.insert(key,groups.size()); Group g;g.key=key;groups.append(g);
+        }
+        auto& g=groups[indices.value(key)]; ++g.rows;
+        if(valueCol<0 || row[valueCol].isEmpty()) continue;
+        const auto& value=row[valueCol];
+        if(!canonical.match(value).hasMatch()) {
+            r.error=QObject::tr("Bản ghi %1: số không đúng dạng chuẩn (tối đa 14 chữ số nguyên và 4 chữ số thập phân). Hãy làm sạch cột số trước.").arg(i+2); return r;
+        }
+        const bool negative=value.startsWith(QLatin1Char('-'));
+        const QString magnitude=negative?value.mid(1):value;
+        const auto parts=magnitude.split(QLatin1Char('.'));
+        bool ok=false;
+        const qint64 integer=parts.first().toLongLong(&ok);
+        if(!ok) { r.error=QObject::tr("Số không hợp lệ.");return r; }
+        const qint64 fraction=parts.size()==2?parts[1].leftJustified(4,QLatin1Char('0')).toLongLong():0;
+        const qint64 scaled=(integer*10000+fraction)*(negative?-1:1);
+        if((scaled>0 && g.sum>std::numeric_limits<qint64>::max()-scaled) ||
+           (scaled<0 && g.sum<std::numeric_limits<qint64>::min()-scaled)) {
+            r.error=QObject::tr("Tổng nhóm vượt phạm vi số hỗ trợ; không xuất kết quả sai.");return r;
+        }
+        g.sum+=scaled;++g.numbers;
+    }
+    r.table.header << QObject::tr("Nhóm") << QObject::tr("Số dòng");
+    if(valueCol>=0) r.table.header << QObject::tr("Số ô có số") << QObject::tr("Tổng");
+    for(const auto& g:groups) {
+        QStringList row{g.key,QString::number(g.rows)};
+        if(valueCol>=0) {
+            row << QString::number(g.numbers);
+            QString sum;
+            if(g.numbers) {
+                const qint64 whole=g.sum/10000;
+                const qint64 rem=g.sum%10000;
+                sum=QString::number(whole);
+                if(g.sum<0 && whole==0) sum.prepend(QLatin1Char('-'));
+                if(rem) {
+                    QString decimal=QString::number(rem<0?-rem:rem).rightJustified(4,QLatin1Char('0'));
+                    while(decimal.endsWith(QLatin1Char('0'))) decimal.chop(1);
+                    sum+=QLatin1Char('.')+decimal;
+                }
+            }
+            row << sum;
+        }
+        r.table.rows.append(row);
+    }
+    r.ok=true;return r;
 }
 
 // ---------------- 1. Dòng trùng ----------------
