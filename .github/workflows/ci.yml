@@ -148,12 +148,14 @@ jobs:
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
             --sheet fixtures/mau-doanh-thu.xls --sheet fixtures/mau-doanh-thu.ods \
             --out smoke 2>&1 | tee report/linux-smoketest.log
+          python3 -c 'from zipfile import ZipFile; from xml.etree import ElementTree as E; import sys; root=E.fromstring(ZipFile(sys.argv[1]).read("content.xml")); assert "PDF EDIT TEST" in "".join(root.itertext()), "Missing inserted text in saved ODG"; print("PASS saved ODG text")' smoke/pdf-edited-persist.odg
       - name: Kiểm thử engine ở chế độ một luồng engine (unipoll, như trên Windows)
         run: |
           set -o pipefail
           DUNG_LOK_UNIPOLL=1 ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/mau-doanh-thu.xlsx \
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
             --out smoke-unipoll 2>&1 | tee report/linux-smoketest-unipoll.log
+          python3 -c 'from zipfile import ZipFile; from xml.etree import ElementTree as E; import sys; root=E.fromstring(ZipFile(sys.argv[1]).read("content.xml")); assert "PDF EDIT TEST" in "".join(root.itertext()), "Missing inserted text in saved ODG"; print("PASS saved ODG text")' smoke-unipoll/pdf-edited-persist.odg
       - name: Thăm dò vẽ lại sau khi gõ chữ (Writer, Calc, Impress)
         continue-on-error: true
         run: |
@@ -195,8 +197,8 @@ jobs:
             --out smoke-stress 2>&1 | tee report/linux-stress.log
           python3 tests/verify_roundtrip.py fixtures/stress-5000-dong.xlsx "$(cat smoke-stress/saved-path.txt)" \
             --known tests/known_differences.txt 2>&1 | tee report/linux-stress-roundtrip.log
-      - name: Word - kiểm thử lệnh UNO thật và định dạng DOCX sau khi lưu
-        continue-on-error: true
+      - name: Word - kiểm thử lệnh UNO thật và định dạng DOCX sau khi lưu (bắt buộc)
+        timeout-minutes: 6
         run: |
           set -o pipefail
           pip install --quiet python-docx || true
@@ -547,6 +549,15 @@ jobs:
           Get-Content report/windows-smoketest.log
           Get-Content report/windows-smoketest.err.log -ErrorAction SilentlyContinue | Select-Object -First 40
           if ($mainExit) { exit 1 }
+          @'
+          from zipfile import ZipFile
+          from xml.etree import ElementTree as E
+          with ZipFile("smoke/pdf-edited-persist.odg") as z:
+              root = E.fromstring(z.read("content.xml"))
+          assert "PDF EDIT TEST" in "".join(root.itertext()), "Missing inserted text in saved ODG"
+          print("PASS saved ODG text")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Kiểm thử cơ bản engine trên Windows (mở, hiển thị) — chặn job
         timeout-minutes: 5
         run: |
@@ -571,7 +582,49 @@ jobs:
             if (-not $p.WaitForExit(120000)) { Stop-Process $p -Force; "REPAINT $($m[0]): LỖI quá thời gian" | Add-Content $outf }
             Get-Content $outf | Select-String "^REPAINT" | ForEach-Object { $_.Line }
           }
+      - name: Word — định dạng, chèn, undo, tìm thay thế và DOCX lưu thật (Windows)
+        timeout-minutes: 7
+        run: |
+          $env:PYTHONUTF8 = "1"
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--out", "$PWD/smoke-word", "--word", "1") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-word.log -RedirectStandardError report/windows-word.err.log
+          if (-not $p.WaitForExit(360000)) { Stop-Process $p -Force; Write-Host "::error::Word test timeout"; exit 1 }
+          Get-Content report/windows-word.log
+          if ($p.ExitCode -ne 0) { exit 1 }
+          python tests/word/verify_docx.py smoke-word/word-dinh-dang.docx --margin-tested-separately 2>&1 | Tee-Object report/windows-word-docx.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Excel — lệnh cơ bản và kiểm nội dung XLSX lưu thật (Windows)
+        if: success() || failure()
+        timeout-minutes: 8
+        run: |
+          $env:PYTHONUTF8 = "1"
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          python tests/excel/make_excel_fixture.py fixtures
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--xlsx", "fixtures/excel-co-ban.xlsx", "--excel", "1", "--out", "$PWD/smoke-excel") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-excel.log -RedirectStandardError report/windows-excel.err.log
+          if (-not $p.WaitForExit(420000)) { Stop-Process $p -Force; Write-Host "::error::Excel test timeout"; exit 1 }
+          Get-Content report/windows-excel.log
+          if ($p.ExitCode -ne 0) { exit 1 }
+          python -W ignore tests/excel/verify_excel.py smoke-excel/excel-ket-qua.xlsx 2>&1 | Tee-Object report/windows-excel-verify.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: PowerPoint — thao tác slide, nhập chữ, đối tượng và PPTX lưu thật (Windows)
+        if: success() || failure()
+        timeout-minutes: 8
+        run: |
+          $env:PYTHONUTF8 = "1"
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--ppt", "fixtures/mau-trinh-chieu.pptx", "--out", "$PWD/smoke-ppt") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-ppt.log -RedirectStandardError report/windows-ppt.err.log
+          if (-not $p.WaitForExit(420000)) { Stop-Process $p -Force; Write-Host "::error::PowerPoint test timeout"; exit 1 }
+          Get-Content report/windows-ppt.log
+          if ($p.ExitCode -ne 0) { exit 1 }
+          $saved = (Get-Content smoke-ppt/saved-path.txt -Raw -Encoding UTF8).Trim()
+          python tests/ppt/verify_pptx.py "$saved" 2>&1 | Tee-Object report/windows-ppt-verify.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # Make non-gating engine probes visible: these are NOT passed user-facing commands.
+          $unknown = @(Get-Content report/windows-ppt.log -Encoding UTF8 | Where-Object { $_ -match '^\[CHƯA HỖ TRỢ\]' })
+          if ($unknown.Count) { $unknown | ForEach-Object { Write-Host "::warning::$_" } }
       - name: Word đầu trang/chân trang/chú thích — kiểm DOCX thật (Windows)
+        if: (success() || failure()) && hashFiles('build/out/dung-smoketest.exe') != ''
         timeout-minutes: 4
         run: |
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--word-structure", "1", "--out", "$PWD/smoke-word-structure") -PassThru -NoNewWindow `
@@ -582,6 +635,7 @@ jobs:
           python tests/word/verify_structure.py smoke-word-structure/word-structure.docx
           if ($LASTEXITCODE) { exit 1 }
       - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Windows)
+        if: (success() || failure()) && hashFiles('build/out/dung-smoketest.exe') != ''
         timeout-minutes: 6
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -595,6 +649,7 @@ jobs:
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           python tests/calc/check_freeze.py smoke-sweep 2>&1 | Tee-Object report/windows-freeze-file.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Phục hồi sau sập + đường dẫn dài trên Windows (250-259, 262, 300 ký tự)
         run: |
           $rt = Get-ChildItem build/out -Recurse -Filter dung-recoverytest.exe | Select-Object -First 1
@@ -605,6 +660,7 @@ jobs:
           & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --recover 1 --out "$PWD/smoke-recover" *>&1 | Tee-Object report/windows-recover.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Đặt lề bằng vá XML trên Windows — đơn vị, gói ZIP, .docx thật, engine thật
+        if: (success() || failure()) && hashFiles('build/out/**/dung-margintest.exe') != ''
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           $mt = Get-ChildItem build/out -Recurse -Filter dung-margintest.exe | Select-Object -First 1

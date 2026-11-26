@@ -50,8 +50,8 @@ check(any(getattr(sh, "has_table", False) and sh.has_table for sh in slides[1].s
 check(any(sh.shape_type == 13 for sh in slides[1].shapes), "Trang 2 có ảnh (PICTURE)")
 
 # Hộp văn bản và hình khối trên trang 1
-texts = [r.text for _, _, r in runs(slides[0])]
-check(any("Hop van ban" in t for t in texts), "Trang 1 có hộp văn bản 'Hop van ban'")
+texts = [sh.text_frame.text for sh in slides[0].shapes if sh.has_text_frame]
+check(any("Hop van ban" in t for t in texts), f"Trang 1 có hộp văn bản 'Hop van ban' (thực tế: {texts!r})")
 check(any(sh.shape_type == 1 and not sh.has_text_frame or sh.shape_type == 1 for sh in slides[0].shapes) or len(slides[0].shapes) >= 4,
       f"Trang 1 có thêm hình khối/hộp (số đối tượng {len(slides[0].shapes)})")
 
