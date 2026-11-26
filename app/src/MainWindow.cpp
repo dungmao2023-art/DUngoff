@@ -58,8 +58,66 @@
 #include <QStyle>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QAbstractButton>
+#include <QPainter>
+#include <QPainterPath>
+#include <QLinearGradient>
+#include <QScreen>
+#include <QEvent>
+#include <QHideEvent>
+#include <QShowEvent>
+#include <QtMath>
 
 using dung::DocKind;
+
+namespace {
+// No document rendering or external dependencies: a small painted button only.
+class HoloShortcut final : public QAbstractButton {
+public:
+    HoloShortcut(const QString& mark, const QString& label, const QColor& color, QWidget* parent)
+        : QAbstractButton(parent), m_mark(mark), m_label(label), m_color(color) {
+        setText(label); setAccessibleName(label); setToolTip(label);
+        setFixedSize(72, 75); setCursor(Qt::PointingHandCursor); setFocusPolicy(Qt::StrongFocus);
+        m_timer.setInterval(80);
+        connect(&m_timer, &QTimer::timeout, this, [this] { m_phase += 0.065; if (m_phase > 6.2831853) m_phase -= 6.2831853; update(); });
+    }
+protected:
+    void showEvent(QShowEvent* e) override { QAbstractButton::showEvent(e); m_timer.start(); }
+    void hideEvent(QHideEvent* e) override { m_timer.stop(); QAbstractButton::hideEvent(e); }
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this); p.setRenderHint(QPainter::Antialiasing);
+        const QRectF card(5,4,62,51);
+        p.save();
+        p.translate(card.center()); p.rotate(underMouse() ? 0 : 2.0*qSin(m_phase)); p.translate(-card.center());
+        QLinearGradient base(card.topLeft(),card.bottomRight());
+        base.setColorAt(0,m_color.lighter(145)); base.setColorAt(0.48,m_color); base.setColorAt(1,m_color.darker(140));
+        p.setPen(QPen(QColor(255,255,255,190),1.3)); p.setBrush(base); p.drawRoundedRect(card,10,10);
+        QPainterPath clip; clip.addRoundedRect(card,10,10); p.setClipPath(clip);
+        // A narrow moving iridescent band plus fixed top gloss; animation stays within the card.
+        const qreal x=card.left() + (card.width()+50)*(qSin(m_phase)+1)/2-25;
+        QLinearGradient sheen(x-18,card.top(),x+22,card.bottom());
+        sheen.setColorAt(0,QColor(255,255,255,0)); sheen.setColorAt(0.35,QColor(125,230,255,100));
+        sheen.setColorAt(0.55,QColor(255,215,246,150)); sheen.setColorAt(0.8,QColor(255,235,145,65));
+        sheen.setColorAt(1,QColor(255,255,255,0));
+        p.fillRect(card,sheen);
+        QLinearGradient gloss(0,card.top(),0,card.top()+24);
+        gloss.setColorAt(0,QColor(255,255,255,105)); gloss.setColorAt(1,QColor(255,255,255,0));
+        p.fillRect(QRectF(card.left(),card.top(),card.width(),24),gloss);
+        p.setClipping(false);
+        QFont f=font(); f.setBold(true); f.setPixelSize(m_mark.size()>1 ? 16 : 29);
+        p.setFont(f); p.setPen(Qt::white); p.drawText(card,Qt::AlignCenter,m_mark);
+        if (isDown() || hasFocus()) { p.setBrush(Qt::NoBrush); p.setPen(QPen(QColor(255,255,255,240),2)); p.drawRoundedRect(card.adjusted(2,2,-2,-2),8,8); }
+        p.restore();
+        f=font(); f.setBold(true); f.setPixelSize(10); p.setFont(f); p.setPen(QColor(23,41,77));
+        p.drawText(QRect(0,55,width(),18),Qt::AlignCenter,m_label);
+    }
+private:
+    QString m_mark,m_label;
+    QColor m_color;
+    QTimer m_timer;
+    qreal m_phase=0;
+};
+} // namespace
 
 static const char* kOpenFilter =
     "Tất cả tài liệu hỗ trợ (*.xlsx *.xls *.xlsm *.ods *.csv *.docx *.doc *.odt *.rtf *.txt *.pptx *.ppt *.odp *.pdf *.odg);;"
@@ -447,6 +505,83 @@ void MainWindow::applyCompact(bool compact) {
     m_top->setCompact(compact);
     m_sideBar->style()->unpolish(m_sideBar);
     m_sideBar->style()->polish(m_sideBar);
+}
+
+MainWindow::~MainWindow() {
+    delete m_floatMenu;
+}
+
+void MainWindow::changeEvent(QEvent* e) {
+    QMainWindow::changeEvent(e);
+    if (e->type() != QEvent::WindowStateChange) return;
+    const auto* change=static_cast<QWindowStateChangeEvent*>(e);
+    if (isMinimized()) {
+        if (!(change->oldState() & Qt::WindowMinimized)) {
+            m_floatSuppressed=false;
+            m_restoreMaximized=change->oldState().testFlag(Qt::WindowMaximized);
+            QTimer::singleShot(0,this,[this] {
+                if (isMinimized() && !m_floatSuppressed) showFloatMenu();
+            });
+        }
+    } else if (m_floatMenu) {
+        m_floatMenu->hide();
+    }
+}
+
+void MainWindow::showFloatMenu() {
+    if (m_floatSuppressed || !isMinimized()) return;
+    if (!m_floatMenu) {
+        // Independent tool window: remains visible when the main window is minimized.
+        // Qt::Tool avoids a second ordinary taskbar entry; owner deletes it on shutdown.
+        m_floatMenu = new QWidget(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        m_floatMenu->setWindowTitle(tr("Dũng Office · Mở nhanh"));
+        m_floatMenu->setObjectName(QStringLiteral("DesktopFloatMenu"));
+        m_floatMenu->setAttribute(Qt::WA_ShowWithoutActivating);
+        m_floatMenu->setAttribute(Qt::WA_QuitOnClose,false);
+        m_floatMenu->setStyleSheet(QStringLiteral("QWidget#DesktopFloatMenu{background:#F4F8FF;border:1px solid #DCE5F2;border-radius:12px;}"));
+        auto* v=new QVBoxLayout(m_floatMenu);
+        v->setContentsMargins(5,5,5,6); v->setSpacing(2);
+        auto* close=new QPushButton(QStringLiteral("×"),m_floatMenu);
+        close->setFixedSize(23,23); close->setCursor(Qt::PointingHandCursor);
+        close->setToolTip(tr("Ẩn menu nổi, giữ Dũng Office trong taskbar"));
+        close->setAccessibleName(close->toolTip());
+        close->setStyleSheet(QStringLiteral("QPushButton{background:#E8F0FF;color:#40577D;border:1px solid #DCE5F2;border-radius:7px;font-weight:700;} QPushButton:hover{background:#FBE6E6;color:#B94449;}"));
+        v->addWidget(close,0,Qt::AlignRight);
+        connect(close,&QPushButton::clicked,this,[this]{m_floatSuppressed=true;m_floatMenu->hide();});
+        auto add=[&](const QString& mark,const QString& title,const QColor& color,DocKind kind) {
+            auto* shortcut=new HoloShortcut(mark,title,color,m_floatMenu);
+            v->addWidget(shortcut,0,Qt::AlignHCenter);
+            connect(shortcut,&QAbstractButton::clicked,this,[this,kind]{restoreFromFloat(kind);});
+        };
+        add(QStringLiteral("W"),tr("Word"),theme::kWord,DocKind::Text);
+        add(QStringLiteral("X"),tr("Excel"),theme::kExcel,DocKind::Spreadsheet);
+        add(QStringLiteral("P"),tr("PowerPoint"),theme::kPowerPoint,DocKind::Presentation);
+        add(QStringLiteral("PDF"),tr("PDF"),theme::kPdf,DocKind::Drawing);
+        m_floatMenu->adjustSize();
+    }
+    QScreen* target=screen();
+    if (!target) target=QApplication::primaryScreen();
+    if (!target) return;
+    const QRect avail=target->availableGeometry();
+    m_floatMenu->adjustSize();
+    m_floatMenu->move(qMax(avail.left(),avail.right()-m_floatMenu->width()-15),
+                      qMax(avail.top(),avail.bottom()-m_floatMenu->height()-15));
+    m_floatMenu->show(); m_floatMenu->raise();
+}
+
+void MainWindow::restoreFromFloat(DocKind kind) {
+    if (m_floatMenu) m_floatMenu->hide();
+    if (m_restoreMaximized) showMaximized(); else showNormal();
+    raise(); activateWindow();
+    // Reuse an existing document of the requested type, with all edits intact.
+    auto* active=current();
+    if (active && active->kind()==kind) { showDocuments(); return; }
+    for (int i=0;i<m_tabs->count();++i) {
+        auto* t=qobject_cast<DocumentTab*>(m_tabs->widget(i));
+        if (t && t->kind()==kind) { selectDocumentTab(i); showDocuments(); return; }
+    }
+    if (kind==DocKind::Drawing) openDialog(QStringLiteral("PDF (*.pdf)"));
+    else newDoc(kind);
 }
 
 void MainWindow::resizeEvent(QResizeEvent* e) {
@@ -885,6 +1020,7 @@ void MainWindow::closeEvent(QCloseEvent* e) {
         showDocuments();
         if (!closeTab(0)) { e->ignore(); return; }
     }
+    if (m_floatMenu) m_floatMenu->hide();
     e->accept();
 }
 
