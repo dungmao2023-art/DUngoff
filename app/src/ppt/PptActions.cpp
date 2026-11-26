@@ -31,6 +31,22 @@
 #include <QPushButton>
 #include <QListWidget>
 #include <QAbstractItemModel>
+#include <QDropEvent>
+#include <QSet>
+#include <functional>
+
+// QListWidget may implement InternalMove by moving rows or by insert/remove.
+// Synchronize once after the complete drag operation, not from intermediate model signals.
+class AnimationOrderList final : public QListWidget {
+public:
+    using QListWidget::QListWidget;
+    std::function<void()> orderChanged;
+protected:
+    void dropEvent(QDropEvent* event) override {
+        { QSignalBlocker block(this); QListWidget::dropEvent(event); }
+        if(orderChanged)orderChanged();
+    }
+};
 
 static void armShape(DocumentTab* tab, const char* uno) {
     auto* d = tab->document();
@@ -140,7 +156,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         auto* edit = new QPushButton(QObject::tr("Cập nhật dòng"), &dialog);
         auto* quick = new QPushButton(QObject::tr("Mờ dần lần lượt tất cả"), &dialog);
         buttons->addWidget(add); buttons->addWidget(edit); buttons->addWidget(quick); root->addLayout(buttons);
-        auto* list = new QListWidget(&dialog); list->setSelectionMode(QAbstractItemView::SingleSelection);
+        auto* list = new AnimationOrderList(&dialog); list->setSelectionMode(QAbstractItemView::SingleSelection);
         list->setDragDropMode(QAbstractItemView::InternalMove);
         list->setDefaultDropAction(Qt::MoveAction);
         list->setDragDropOverwriteMode(false);
@@ -182,20 +198,28 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             edit->setEnabled(row>=0);remove->setEnabled(row>=0);
             up->setEnabled(row>0);down->setEnabled(row>=0&&row+1<effects.size());
         };
-        // Read stable shape IDs after the model finishes moving a row; never use displayed row numbers.
-        QObject::connect(list->model(), &QAbstractItemModel::rowsMoved, &dialog,
-            [&](const QModelIndex&, int, int, const QModelIndex&, int) {
-                QList<ppttransition::AnimationOptions> ordered;
-                const int selected=list->currentRow();
-                for(int i=0;i<list->count();++i) {
-                    const unsigned id=list->item(i)->data(Qt::UserRole).toUInt();
-                    for(const auto& o:effects) if(o.shapeId==id) {ordered.append(o);break;}
-                }
-                if(ordered.size()==effects.size()) effects=ordered;
-                updateTimeline();
-                up->setEnabled(selected>0);
-                down->setEnabled(selected>=0 && selected+1<effects.size());
-            });
+        auto syncOrder=[&] {
+            if(list->count()!=effects.size())return false;
+            QList<ppttransition::AnimationOptions> ordered;QSet<unsigned> seen;
+            for(int i=0;i<list->count();++i){
+                const unsigned id=list->item(i)->data(Qt::UserRole).toUInt();
+                if(seen.contains(id))return false;
+                bool found=false;
+                for(const auto& o:effects)if(o.shapeId==id){ordered.append(o);found=true;break;}
+                if(!found)return false;
+                seen.insert(id);
+            }
+            effects=ordered;return true;
+        };
+        list->orderChanged=[&] {
+            const int selected=list->currentRow();
+            if(!syncOrder()){
+                refresh(qBound(-1,selected,int(effects.size())-1));
+                note->setText(QObject::tr("Không xác minh được thứ tự kéo thả. Đã giữ thứ tự trước đó."));
+                return;
+            }
+            refresh(selected);
+        };
         auto duplicate = [&](unsigned id, int except) {
             for (int i=0;i<effects.size();++i) if (i!=except && effects[i].shapeId==id) return true;
             return false;
@@ -224,7 +248,13 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         QObject::connect(up,&QPushButton::clicked,&dialog,[&] {const int row=list->currentRow();if(row>0){effects.swapItemsAt(row,row-1);refresh(row-1);}});
         QObject::connect(down,&QPushButton::clicked,&dialog,[&] {const int row=list->currentRow();if(row>=0 && row+1<effects.size()){effects.swapItemsAt(row,row+1);refresh(row+1);}});
         QObject::connect(remove,&QPushButton::clicked,&dialog,[&] {const int row=list->currentRow();if(row>=0){effects.removeAt(row);refresh(qMin(row,int(effects.size())-1));}});
-        QObject::connect(bb,&QDialogButtonBox::accepted,&dialog,&QDialog::accept); QObject::connect(bb,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+        QObject::connect(bb,&QDialogButtonBox::accepted,&dialog,[&]{
+            if(!syncOrder()){QMessageBox::warning(&dialog,QObject::tr("Hoạt ảnh"),QObject::tr("Thứ tự chưa hợp lệ; chưa xuất."));return;}
+            QList<ppttransition::AnimationTiming> plan;
+            const auto valid=ppttransition::planAnimation(effects,&plan);
+            if(!valid.ok){note->setText(valid.error);return;}
+            dialog.accept();
+        }); QObject::connect(bb,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
         refresh(-1);
         if (dialog.exec()!=QDialog::Accepted || effects.isEmpty()) return true;
         const QFileInfo src(source);
