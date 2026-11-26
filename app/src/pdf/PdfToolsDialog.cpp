@@ -2,6 +2,8 @@
 #include "PdfToolsDialog.h"
 #include "PdfOcr.h"
 #include <QPlainTextEdit>
+#include <QTextCursor>
+#include <QTextDocument>
 #include <QApplication>
 #include <QClipboard>
 #include <QSaveFile>
@@ -48,7 +50,7 @@ QString human(qint64 b) {
 }  // namespace
 
 void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
-    if (findQpdf().isEmpty()) {
+    if (tab != Search && findQpdf().isEmpty()) {
         QMessageBox::warning(parent, tr("Công cụ PDF"),
                              tr("Không tìm thấy thành phần qpdf đi kèm (thư mục \"qpdf\" cạnh chương trình). "
                                 "Hãy cài đặt lại Dũng Office."));
@@ -57,7 +59,7 @@ void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
     PdfToolsDialog dlg(parent);
     dlg.m_tabs->setCurrentIndex(tab);
     if (!initialPath.isEmpty()) {
-        for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile, dlg.m_numFile, dlg.m_stampFile, dlg.m_blankFile, dlg.m_orderFile, dlg.m_ocrFile})
+        for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile, dlg.m_numFile, dlg.m_stampFile, dlg.m_blankFile, dlg.m_orderFile, dlg.m_ocrFile, dlg.m_searchFile})
             if (e) e->setText(initialPath);
         dlg.refreshPageCount(initialPath, dlg.m_splitInfo);
         dlg.refreshPageCount(initialPath, dlg.m_rotInfo);
@@ -86,6 +88,7 @@ PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     m_tabs->addTab(buildBlank(), tr("Trang trắng"));
     m_tabs->addTab(buildReorder(), tr("Sắp xếp"));
     m_tabs->addTab(buildOcr(), tr("OCR · TXT / PDF"));
+    m_tabs->addTab(buildSearch(),tr("Tìm chữ PDF"));
     lay->addWidget(m_tabs);
     auto* note = new QLabel(tr("Tệp gốc không bao giờ bị sửa: kết quả luôn lưu thành tệp mới."), this);
     note->setStyleSheet("color:#555");
@@ -925,6 +928,74 @@ QWidget* PdfToolsDialog::buildOcr() {
         const QByteArray data = output->toPlainText().toUtf8();
         if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) { status->setText(tr("Không lưu được văn bản.")); return; }
         status->setText(tr("Đã lưu %1").arg(dest));
+    });
+    return w;
+}
+
+QWidget* PdfToolsDialog::buildSearch() {
+    auto* w=new QWidget(this);
+    auto* root=new QVBoxLayout(w);
+    auto* form=new QFormLayout;
+    auto* first=new QSpinBox(w);first->setRange(1,1);
+    auto* last=new QSpinBox(w);last->setRange(1,1);
+    auto* query=new QLineEdit(w);query->setMaxLength(256);
+    query->setPlaceholderText(tr("Nhập từ hoặc cụm từ"));
+    auto* match=new QCheckBox(tr("Phân biệt hoa/thường"),w);
+    form->addRow(tr("PDF nguồn:"),fileRow(&m_searchFile,{}));
+    form->addRow(tr("Từ khóa:"),query);
+    form->addRow(tr("Từ trang:"),first);form->addRow(tr("Đến trang:"),last);
+    form->addRow(match);root->addLayout(form);
+    auto* note=new QLabel(tr("Tìm trong lớp chữ thực tế của PDF (tối đa 200 trang/lượt). PDF chỉ có ảnh cần OCR trước. Không sửa tệp nguồn."),w);
+    note->setWordWrap(true);root->addWidget(note);
+    auto* go=new QPushButton(tr("Tìm trong PDF"),w);root->addWidget(go);
+    go->setEnabled(printrender::available());
+    auto* status=new QLabel(w);status->setWordWrap(true);status->setTextFormat(Qt::PlainText);root->addWidget(status);
+    auto* list=new QListWidget(w);root->addWidget(list,1);
+    auto* text=new QPlainTextEdit(w);text->setReadOnly(true);
+    text->setPlaceholderText(tr("Chọn kết quả để đọc và sao chép chữ trên trang."));
+    root->addWidget(text,2);
+    auto clear=[=]{list->clear();text->clear();};
+    connect(m_searchFile,&QLineEdit::textChanged,w,[=]{
+        clear();
+        const auto info=printrender::pdfInfo(m_searchFile->text());
+        first->setMaximum(qMax(1,info.pages));last->setMaximum(qMax(1,info.pages));
+        first->setValue(1);last->setValue(qBound(1,info.pages,200));
+        status->setText(info.ok?tr("%1 trang.").arg(info.pages):info.error);
+    });
+    connect(query,&QLineEdit::textChanged,w,clear);
+    connect(first,&QSpinBox::valueChanged,w,clear);
+    connect(last,&QSpinBox::valueChanged,w,clear);
+    connect(match,&QCheckBox::toggled,w,clear);
+    connect(go,&QPushButton::clicked,w,[=]{
+        clear();
+        const QString path=m_searchFile->text(),needle=query->text();
+        const int a=first->value(),b=last->value();const bool cs=match->isChecked();
+        printrender::TextSearch result;
+        QProgressDialog progress(tr("Đang tìm chữ PDF…"),tr("Dừng"),0,0);
+        progress.setWindowModality(Qt::ApplicationModal);progress.setMinimumDuration(0);
+        QEventLoop loop;
+        QThread* worker=QThread::create([&]{result=printrender::searchText(path,needle,a,b,cs);});
+        connect(worker,&QThread::finished,&loop,&QEventLoop::quit);
+        connect(&progress,&QProgressDialog::canceled,worker,&QThread::requestInterruption);
+        setEnabled(false);progress.show();worker->start();loop.exec();worker->wait();delete worker;
+        const bool cancelled=progress.wasCanceled();progress.hide();setEnabled(true);
+        if(cancelled||!result.ok){status->setText(cancelled?tr("Đã dừng tìm kiếm."):result.error);return;}
+        for(const auto& hit:result.hits){
+            auto* item=new QListWidgetItem(tr("Trang %1 · %2 lần · %3").arg(hit.page).arg(hit.occurrences).arg(hit.snippet),list);
+            item->setData(Qt::UserRole,hit.page);
+        }
+        status->setText(tr("%1 trang có kết quả / %2 trang đã đọc. %3 trang có lớp chữ.").arg(result.hits.size()).arg(result.scanned).arg(result.textPages));
+        if(!result.textPages)status->setText(status->text()+tr(" Hãy thử OCR."));
+    });
+    connect(query,&QLineEdit::returnPressed,go,&QPushButton::click);
+    connect(list,&QListWidget::currentItemChanged,w,[=](QListWidgetItem* item,QListWidgetItem*){
+        text->clear();if(!item)return;
+        QString error;
+        const QString extracted=printrender::pageText(m_searchFile->text(),item->data(Qt::UserRole).toInt(),&error);
+        text->setPlainText(extracted);
+        if(!error.isEmpty())status->setText(error);
+        text->moveCursor(QTextCursor::Start);
+        text->find(query->text(),match->isChecked()?QTextDocument::FindCaseSensitively:QTextDocument::FindFlags{});
     });
     return w;
 }
