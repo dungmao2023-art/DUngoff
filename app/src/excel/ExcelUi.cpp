@@ -58,7 +58,7 @@ void DocumentTab::excelSheetMenu(const QPoint& pos) {
 }
 
 void DocumentTab::excelAction(const QString& id) {
-    if (readOnly() || !m_doc || m_doc->kind() != dung::DocKind::Spreadsheet) return;
+    if (!m_doc || readOnly() || m_doc->kind() != dung::DocKind::Spreadsheet) return;
     m_doc->waitInputIdle();
     if (readOnly() || !m_sheets || !m_view) return;
     const QString a = id.mid(3);
@@ -68,7 +68,7 @@ void DocumentTab::excelAction(const QString& id) {
     const auto* originalDoc = m_doc.get();
     const auto originalSheet = m_doc->partName(cur);
     auto sameSheet = [&] {
-        if (readOnly() || m_doc.get() != originalDoc) return false;
+        if (!m_doc || m_doc.get() != originalDoc || readOnly()) return false;
         m_doc->waitInputIdle();
         return m_doc->currentPart() == cur && m_doc->partCount() == n && m_doc->partName(cur) == originalSheet;
     };
