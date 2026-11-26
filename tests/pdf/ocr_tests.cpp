@@ -6,6 +6,8 @@
 #include <QFont>
 #include <QTemporaryDir>
 #include <QFile>
+#include <QDir>
+#include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
 #include <iostream>
@@ -26,6 +28,23 @@ int main(int argc, char** argv) {
     QGuiApplication app(argc, argv);
     QTemporaryDir temp;
     if (!temp.isValid() || dungpdf::findTesseract().isEmpty()) return 1;
+    // Probe discovery without executing a dummy binary; actual OCR below still uses the real engine.
+    const QString package=temp.filePath(QStringLiteral("offline package"));
+    if(!QDir().mkpath(package+QStringLiteral("/tesseract")))return 1;
+    if(!dungpdf::bundledTesseract(package).isEmpty() || !dungpdf::bundledTesseract(QStringLiteral(".")).isEmpty())return 1;
+#ifdef Q_OS_WIN
+    const QString dummy=package+QStringLiteral("/tesseract/tesseract.exe");
+#else
+    const QString dummy=package+QStringLiteral("/tesseract/tesseract");
+#endif
+    QFile probe(dummy);
+    if(!probe.open(QIODevice::WriteOnly)||probe.write("discovery only")!=14)return 1;
+    probe.close();
+#ifndef Q_OS_WIN
+    if(!QFile::setPermissions(dummy,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner))return 1;
+#endif
+    if(dungpdf::bundledTesseract(package)!=QFileInfo(dummy).absoluteFilePath())return 1;
+    if(!probe.remove()||!dungpdf::bundledTesseract(package).isEmpty())return 1;
     const QString en = temp.filePath(QStringLiteral("english.png")), vi = temp.filePath(QStringLiteral("vietnamese.png"));
     if (!sample(en, {QStringLiteral("DUNG OFFICE 12345"), QStringLiteral("DOCUMENT TEST 67890"), QStringLiteral("HELLO WORLD")}) ||
         !sample(vi, {QStringLiteral("CỘNG HÒA XÃ HỘI"), QStringLiteral("ĐỘC LẬP TỰ DO"), QStringLiteral("VIỆT NAM 12345")})) return 1;
