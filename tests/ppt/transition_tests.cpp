@@ -32,6 +32,10 @@ int main(int argc, char** argv) {
     check(!patchAnimationXml(animated,anim,&out).ok,"refuse overwrite existing animation");
     anim.shapeId=43;
     check(!patchAnimationXml(animXml,anim,&out).ok,"reject missing shape");
+    const QByteArray masterXml="<p:sldMaster xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:bg><p:bgRef idx=\"1001\"/></p:bg><p:spTree/></p:cSld><p:clrMap/></p:sldMaster>";
+    QByteArray masterOut;
+    check(patchMasterBackground(masterXml,QStringLiteral("123abc"),&masterOut).ok && masterOut.contains("val=\"123ABC\"") && !masterOut.contains("bgRef") && masterOut.contains("<p:spTree/>"),"change actual master background, retain shape tree");
+    check(!patchMasterBackground(masterXml,QStringLiteral("bad"),&out).ok,"reject invalid RGB");
     if (argc > 1) {
         const QString src = QString::fromLocal8Bit(argv[1]);
         QFile before(src); before.open(QIODevice::ReadOnly); const auto bytes = before.readAll(); before.close();
@@ -52,6 +56,15 @@ int main(int argc, char** argv) {
             if (!animation.ok) std::cerr << animation.error.toStdString() << '\n';
             check(animation.ok && slideEntries(animDest,&error)==entries,"actual PPTX animation copy");
             check(slideShapes(animDest,1,&error).isEmpty() && !error.isEmpty(),"reject adding to existing timing");
+        }
+        const auto masters=masterEntries(src,&error);
+        check(!masters.isEmpty(),"enumerate actual referenced masters");
+        if (!masters.isEmpty()) {
+            const QString masterDest=temp.filePath(QStringLiteral("master.pptx"));
+            const auto patchedMaster=createMasterBackgroundCopy(src,masterDest,masters.first(),QStringLiteral("123ABC"));
+            if (!patchedMaster.ok) std::cerr << patchedMaster.error.toStdString() << '\n';
+            check(patchedMaster.ok && masterEntries(masterDest,&error)==masters && slideEntries(masterDest,&error)==entries,"real master copy retains relationships and slides");
+            check(!createMasterBackgroundCopy(src,masterDest,masters.first(),QStringLiteral("123ABC")).ok,"refuse master overwrite");
         }
         QFile after(src); after.open(QIODevice::ReadOnly);
         check(after.readAll() == bytes, "source unchanged");

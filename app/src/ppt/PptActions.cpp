@@ -75,6 +75,27 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
                                                        QObject::tr("Ảnh (*.png *.jpg *.jpeg *.bmp *.gif)"));
         if (f.isEmpty()) return true;
         d->command(".uno:InsertGraphic", dung::Document::stringArg("FileName", ss(QUrl::fromLocalFile(f).toString())));
+    } else if (id == QLatin1String("ppt.masterBackground")) {
+        if (QMessageBox::question(tab,QObject::tr("Nền Slide Master"),
+            QObject::tr("Đổi nền của master trong PPTX đã lưu, xuất bản sao mới. Slide/layout có nền riêng sẽ không đổi. "
+                        "Nền cũ của master được thay bằng màu đơn sắc trong bản sao; không chỉnh hình hoặc placeholder master. Tiếp tục?"),
+            QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return true;
+        const QString source=QFileDialog::getOpenFileName(tab,QObject::tr("Chọn PPTX đã lưu"),d->isNew()?QString():fromPath(d->originalPath()),QObject::tr("PowerPoint (*.pptx)"));
+        if (source.isEmpty()) return true;
+        QString error;
+        const auto masters=ppttransition::masterEntries(source,&error);
+        if (masters.isEmpty()) { QMessageBox::warning(tab,QObject::tr("Slide Master"),error); return true; }
+        bool ok=false;
+        const QString entry=QInputDialog::getItem(tab,QObject::tr("Slide Master"),QObject::tr("Chọn master trong gói PPTX:"),masters,0,false,&ok);
+        if (!ok) return true;
+        const auto color=QColorDialog::getColor(Qt::white,tab,QObject::tr("Màu nền master"));
+        if (!color.isValid()) return true;
+        const QFileInfo src(source);
+        const QString dest=QFileDialog::getSaveFileName(tab,QObject::tr("Lưu PPTX mới"),src.absolutePath()+QLatin1Char('/')+src.completeBaseName()+QStringLiteral(" - master.pptx"),QObject::tr("PowerPoint (*.pptx)"));
+        if (dest.isEmpty()) return true;
+        const auto result=ppttransition::createMasterBackgroundCopy(source,dest,entry,color.name(QColor::HexRgb).mid(1));
+        if (!result.ok) QMessageBox::warning(tab,QObject::tr("Slide Master"),result.error);
+        else QMessageBox::information(tab,QObject::tr("Slide Master"),QObject::tr("Đã tạo PPTX mới. Mở lại để kiểm tra các slide kế thừa màu nền; nguồn không bị sửa."));
     } else if (id == QLatin1String("ppt.animationCopy")) {
         if (QMessageBox::question(tab, QObject::tr("Hoạt ảnh PPTX"),
             QObject::tr("Thêm hiệu ứng vào một đối tượng trong PPTX đã lưu rồi xuất bản sao. Hãy lưu bản nháp trước. Chỉ hỗ trợ slide chưa có timing; chưa preview hiệu ứng trong app. Tiếp tục?"),

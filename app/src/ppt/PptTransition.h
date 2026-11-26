@@ -17,4 +17,8 @@ struct AnimationOptions { unsigned shapeId = 0; bool fade = false; int durationM
 QList<Shape> slideShapes(const QString& source, int slide1, QString* error);
 Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& options, QByteArray* output);
 Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options);
+// Modify the actual referenced master part, not individual slides.
+QStringList masterEntries(const QString& source, QString* error);
+Result patchMasterBackground(const QByteArray& xml, const QString& rgb, QByteArray* output);
+Result createMasterBackgroundCopy(const QString& source, const QString& destination, const QString& entry, const QString& rgb);
 }
