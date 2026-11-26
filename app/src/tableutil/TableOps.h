@@ -93,6 +93,9 @@ struct FilterSortSpec {
     FilterMode mode = FilterMode::Equal;
     QString value;
     bool ignoreCase = false, descending = false;
+    // Empty lists preserve the original schema. Otherwise project in the supplied order.
+    QList<int> outputColumns;
+    QStringList outputNames;
 };
 struct FilterSortResult { bool ok = false; Table table; QString error; };
 FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec);
