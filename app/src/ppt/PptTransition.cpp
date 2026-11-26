@@ -231,38 +231,68 @@ QList<Shape> slideShapes(const QString& source, int slide1, QString* error) {
     if (scan.shapes.isEmpty() && error) *error = QStringLiteral("Không có hộp chữ, hình hoặc ảnh độc lập có thể tạo hiệu ứng.");
     return scan.shapes;
 }
+Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTiming>* timing) {
+    if(!timing || effects.isEmpty() || effects.size()>100)return fail(QStringLiteral("Chọn từ 1 đến 100 hoạt ảnh."));
+    if(effects.first().trigger!=AnimationTrigger::Click)return fail(QStringLiteral("Dòng đầu phải bắt đầu khi nhấp chuột."));
+    QList<AnimationTiming> plan;QSet<unsigned> ids;
+    for(const auto& o:effects){
+        if(!o.shapeId || ids.contains(o.shapeId) || o.durationMs<100 || o.durationMs>10000 || o.delayMs<0 || o.delayMs>30000)
+            return fail(QStringLiteral("Đối tượng trùng hoặc thông số hoạt ảnh không hợp lệ."));
+        ids.insert(o.shapeId);
+        AnimationTiming t;
+        if(o.trigger==AnimationTrigger::Click){t.click=plan.isEmpty()?1:plan.last().click+1;t.startMs=o.delayMs;}
+        else if(o.trigger==AnimationTrigger::WithPrevious){t.click=plan.last().click;t.startMs=plan.last().startMs+o.delayMs;}
+        else if(o.trigger==AnimationTrigger::AfterPrevious){t.click=plan.last().click;t.startMs=plan.last().endMs+o.delayMs;}
+        else return fail(QStringLiteral("Chế độ bắt đầu không hợp lệ."));
+        t.endMs=t.startMs+(o.fade?o.durationMs:1);
+        if(t.endMs>600000)return fail(QStringLiteral("Mỗi nhóm nhấp chuột tối đa 600 giây."));
+        plan.append(t);
+    }
+    *timing=plan;return {true,{}};
+}
+
 Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOptions>& effects, QByteArray* output) {
-    if (!output || effects.isEmpty() || effects.size() > 100)
-        return fail(QStringLiteral("Chọn từ 1 đến 100 hoạt ảnh."));
+    if(!output)return fail(QStringLiteral("Thiếu bộ đệm đầu ra."));
+    QList<AnimationTiming> plan;
+    const auto planned=planAnimation(effects,&plan);
+    if(!planned.ok)return planned;
     QString text = QString::fromUtf8(xml);
     if (text.toUtf8() != xml) return fail(QStringLiteral("Chỉ hỗ trợ XML UTF-8."));
     const auto scan = scanAnimation(text);
     if (!scan.error.isEmpty()) return fail(scan.error);
     if (scan.hasTiming) return fail(QStringLiteral("Slide đã có timing; không ghi đè."));
-    QSet<unsigned> valid, used;
-    for (const auto& shape : scan.shapes) valid.insert(shape.id);
-    QString sequence;
-    int nextId = 3;
-    for (const auto& o : effects) {
-        if (!valid.contains(o.shapeId) || used.contains(o.shapeId) || o.durationMs < 100 || o.durationMs > 10000 || o.delayMs < 0 || o.delayMs > 30000)
-            return fail(QStringLiteral("Đối tượng trùng, không hỗ trợ hoặc thông số hoạt ảnh không hợp lệ."));
-        used.insert(o.shapeId);
-        const int clickId = nextId++, groupId = nextId++, effectId = nextId++, visibilityId = nextId++;
+    QSet<unsigned> valid;
+    for(const auto& shape:scan.shapes)valid.insert(shape.id);
+    QString sequence,children;
+    int nextId=3,clickId=0;
+    auto flush=[&]{
+        if(children.isEmpty())return;
+        sequence+=QStringLiteral("<p:par><p:cTn id=\"%1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst>%2</p:childTnLst></p:cTn></p:par>").arg(clickId).arg(children);
+        children.clear();
+    };
+    for(int index=0;index<effects.size();++index) {
+        const auto& o=effects[index];
+        if(!valid.contains(o.shapeId))return fail(QStringLiteral("Đối tượng không còn trên slide."));
+        if(o.trigger==AnimationTrigger::Click){flush();clickId=nextId++;}
+        const int groupId=nextId++,effectId=nextId++,visibilityId=nextId++;
         const QString target = QStringLiteral("<p:tgtEl><p:spTgt spid=\"%1\"/></p:tgtEl>").arg(o.shapeId);
         QString behavior = QStringLiteral("<p:set><p:cBhvr><p:cTn id=\"%1\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn>%2<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set>").arg(visibilityId).arg(target);
         if (o.fade) {
             const int fadeId = nextId++;
             behavior += QStringLiteral("<p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"%1\" dur=\"%2\"/>%3</p:cBhvr></p:animEffect>").arg(fadeId).arg(o.durationMs).arg(target);
         }
-        // One main-sequence click group per row; each timing node has a unique ID.
-        sequence += QStringLiteral(
-            "<p:par><p:cTn id=\"%1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst>"
-            "<p:par><p:cTn id=\"%2\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>"
-            "<p:par><p:cTn id=\"%3\" presetID=\"%4\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"clickEffect\">"
-            "<p:stCondLst><p:cond delay=\"%5\"/></p:stCondLst><p:childTnLst>%6</p:childTnLst></p:cTn></p:par>"
-            "</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>")
-            .arg(clickId).arg(groupId).arg(effectId).arg(o.fade ? 10 : 1).arg(o.delayMs).arg(behavior);
+        // Each click anchors a set of parallel time containers. Relative delays
+        // are resolved by the plan; effect leaf node types retain editable trigger semantics.
+        const QString trigger=o.trigger==AnimationTrigger::Click?QStringLiteral("clickEffect"):
+            o.trigger==AnimationTrigger::WithPrevious?QStringLiteral("withEffect"):QStringLiteral("afterEffect");
+        children+=QStringLiteral(
+            "<p:par><p:cTn id=\"%1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"%2\"/></p:stCondLst><p:childTnLst>"
+            "<p:par><p:cTn id=\"%3\" presetID=\"%4\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"%5\">"
+            "<p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>%6</p:childTnLst></p:cTn></p:par>"
+            "</p:childTnLst></p:cTn></p:par>")
+            .arg(groupId).arg(plan[index].startMs).arg(effectId).arg(o.fade?10:1).arg(trigger,behavior);
     }
+    flush();
     const QString timing = QStringLiteral(
         "<p:timing xmlns:p=\"%1\"><p:tnLst><p:par>"
         "<p:cTn id=\"1\" dur=\"indefinite\" restart=\"never\" nodeType=\"tmRoot\"><p:childTnLst>"
