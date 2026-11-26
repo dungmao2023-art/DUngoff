@@ -7,6 +7,7 @@
 // Mẫu gốc không bao giờ bị sửa; không ghi đè tệp có sẵn. Chỉ cần QtCore + QZip (Gui private).
 #pragma once
 #include <QString>
+#include <QByteArray>
 #include <QStringList>
 #include <QVector>
 
@@ -35,6 +36,11 @@ struct ExportOptions {
     QVector<ColType> colTypes;          // theo cột mẫu; thiếu => Text
     bool vietnameseNumbers = true;      // 1.234,5 là một nghìn hai trăm ba mươi bốn phẩy năm
 };
+// Portable mapping profile: headers and mappings only, never document data or paths.
+QByteArray encodeMappingProfile(const QString& vendor, const TemplateInfo& t,
+                               const QStringList& sourceHeaders, const ExportOptions& options);
+bool decodeMappingProfile(const QByteArray& json, const QString& vendor, const TemplateInfo& t,
+                          const QStringList& sourceHeaders, ExportOptions* options, QString* error);
 struct ValidateResult { QStringList errors; QStringList warnings; };
 ValidateResult validate(const TemplateInfo &t, const QStringList &sourceHeaders, const QVector<QStringList> &sourceRows, const ExportOptions &o);
 

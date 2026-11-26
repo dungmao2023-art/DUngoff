@@ -3,6 +3,9 @@
 #include "DataChecks.h"
 #include "FormulaCatalog.h"
 #include <QMap>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -168,6 +171,72 @@ QVector<int> autoMap(const QStringList &th, const QStringList &sh)
         if (cand.size() == 1) { m[i] = cand[0]; used.insert(cand[0]); }
     }
     return m;
+}
+
+namespace {
+bool validProfileOptions(const TemplateInfo& t, const QStringList& sh, const ExportOptions& o) {
+    if (!t.ok || t.headers.isEmpty() || sh.isEmpty() || t.headerRow<1 ||
+        t.sheetIndex<0 || t.sheetIndex>=t.sheetNames.size() ||
+        t.headers.size()>16384 || sh.size()>16384 ||
+        o.mapping.size()!=t.headers.size() || o.colTypes.size()!=t.headers.size()) return false;
+    QSet<int> used;
+    for (int i=0;i<o.mapping.size();++i) {
+        const int index=o.mapping[i];
+        if (index < -1 || index >= sh.size()) return false;
+        if (index>=0) { if (used.contains(index)) return false; used.insert(index); }
+        if (o.colTypes[i]!=ColType::Text && o.colTypes[i]!=ColType::Number) return false;
+    }
+    return !used.isEmpty();
+}
+}
+QByteArray encodeMappingProfile(const QString& vendor,const TemplateInfo& t,
+                                const QStringList& sh,const ExportOptions& o) {
+    if (vendor.isEmpty() || !validProfileOptions(t,sh,o)) return {};
+    QJsonArray mapping,types;
+    for (int index:o.mapping) mapping.append(index);
+    for (auto type:o.colTypes) types.append(type==ColType::Number?QStringLiteral("number"):QStringLiteral("text"));
+    const QJsonObject obj{{QStringLiteral("version"),1},{QStringLiteral("vendor"),vendor},
+        {QStringLiteral("targetSheet"),t.sheetNames[t.sheetIndex]},{QStringLiteral("headerRow"),t.headerRow},
+        {QStringLiteral("targetHeaders"),QJsonArray::fromStringList(t.headers)},
+        {QStringLiteral("sourceHeaders"),QJsonArray::fromStringList(sh)},
+        {QStringLiteral("mapping"),mapping},{QStringLiteral("types"),types},
+        {QStringLiteral("vietnameseNumbers"),o.vietnameseNumbers}};
+    const auto data=QJsonDocument(obj).toJson(QJsonDocument::Indented);
+    return data.size()<=2*1024*1024?data:QByteArray{};
+}
+bool decodeMappingProfile(const QByteArray& json,const QString& vendor,const TemplateInfo& t,
+                          const QStringList& sh,ExportOptions* options,QString* error) {
+    auto fail=[&](const QString& why){if(error)*error=why;return false;};
+    if(!options || !t.ok || t.sheetIndex<0 || t.sheetIndex>=t.sheetNames.size() ||
+       json.isEmpty() || json.size()>2*1024*1024) return fail(QStringLiteral("Cấu hình không hợp lệ hoặc quá lớn."));
+    QJsonParseError parse;
+    const auto doc=QJsonDocument::fromJson(json,&parse);
+    if(parse.error!=QJsonParseError::NoError || !doc.isObject()) return fail(QStringLiteral("Không đọc được JSON."));
+    const auto obj=doc.object();
+    if(obj.value("version").toInt(-1)!=1 || obj.value("vendor").toString()!=vendor ||
+       obj.value("targetSheet").toString()!=t.sheetNames[t.sheetIndex] ||
+       obj.value("headerRow").toInt(-1)!=t.headerRow ||
+       obj.value("targetHeaders").toArray()!=QJsonArray::fromStringList(t.headers) ||
+       obj.value("sourceHeaders").toArray()!=QJsonArray::fromStringList(sh))
+        return fail(QStringLiteral("Cấu hình không khớp phần mềm, sheet hoặc tiêu đề hiện tại. Hãy ghép cột lại."));
+    if(!obj.value("mapping").isArray() || !obj.value("types").isArray() ||
+       !obj.value("vietnameseNumbers").isBool()) return fail(QStringLiteral("Thiếu quy tắc ghép cột."));
+    ExportOptions candidate;
+    candidate.vietnameseNumbers=obj.value("vietnameseNumbers").toBool();
+    for(const auto value:obj.value("mapping").toArray()) {
+        if(!value.isDouble() || value.toDouble() < -1 || value.toDouble()>=sh.size() ||
+           value.toDouble()!=value.toInt(-2)) return fail(QStringLiteral("Chỉ số cột không hợp lệ."));
+        candidate.mapping.append(value.toInt());
+    }
+    for(const auto value:obj.value("types").toArray()) {
+        const auto type=value.toString();
+        if(type!=QLatin1String("text") && type!=QLatin1String("number")) return fail(QStringLiteral("Kiểu dữ liệu không hợp lệ."));
+        candidate.colTypes.append(type==QLatin1String("number")?ColType::Number:ColType::Text);
+    }
+    if(!validProfileOptions(t,sh,candidate)) return fail(QStringLiteral("Cấu hình ghép cột trùng hoặc sai kích thước."));
+    *options=candidate;
+    if(error)error->clear();
+    return true;
 }
 
 ValidateResult validate(const TemplateInfo &t, const QStringList &sh, const QVector<QStringList> &rows, const ExportOptions &o)
