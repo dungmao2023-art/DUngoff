@@ -83,4 +83,15 @@ struct CleanResult {
 // kinds: theo tên cột; cột không có trong map = Keep.
 CleanResult cleanTable(const Table &t, const QList<QPair<QString, ColumnKind>> &kinds, MoneyLocale loc = MoneyLocale::VN);
 
+// Read-only filter then stable text sort. -1 disables a step; no implicit numeric conversion.
+enum class FilterMode { Equal, Contains, Blank, NotBlank };
+struct FilterSortSpec {
+    int filterCol = -1, sortCol = -1;
+    FilterMode mode = FilterMode::Equal;
+    QString value;
+    bool ignoreCase = false, descending = false;
+};
+struct FilterSortResult { bool ok = false; Table table; QString error; };
+FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec);
+
 } // namespace tbl
