@@ -80,6 +80,28 @@ int main(int argc, char **argv)
         CHECK(!decodeFilterSortRecipe(invalid, src.header, loaded, error), "từ chối phiên bản không hỗ trợ");
     }
 
+    // ---- Ghép bảng ----
+    {
+        const auto left=T({"ID","B.Name"},{{"001","x"},{"1","y"},{"001","z"},{"","empty"}});
+        const auto right=T({"Code","Name","Phone"},{{"001","An","0912345678"},{"","blank","999"}});
+        const auto leftCopy=left,rightCopy=right;
+        auto r=joinLookup(left,right,0,0,JoinKind::Left);
+        CHECK(r.ok && r.table.rows.size()==4 && r.matched==2 && r.unmatched==2,"left join preserves row count");
+        CHECK(r.table.rows.value(0).value(3)=="0912345678" && r.table.rows.value(1).value(3).isEmpty(),"exact keys preserve leading zeros");
+        CHECK(r.table.header.value(2)=="B.Name_2","unique column name");
+        CHECK(r.blankLeft==1 && r.blankRight==1 && r.table.rows.value(3).value(2).isEmpty(),"blank keys never match");
+        CHECK(r.table.rows.value(2).value(1)=="z" && left==leftCopy && right==rightCopy,"left order and sources preserved");
+        auto inner=joinLookup(left,right,0,0,JoinKind::Inner);
+        CHECK(inner.ok && inner.table.rows.size()==2 && inner.table.rows.value(1).value(1)=="z","inner join keeps matched rows only");
+        auto duplicate=right; duplicate.rows.append(QStringList{"001","Other","222"});
+        CHECK(!joinLookup(left,duplicate,0,0,JoinKind::Left).ok,"reject duplicate lookup key");
+        auto malformed=right; malformed.rows.append(QStringList{"002"});
+        CHECK(!joinLookup(left,malformed,0,0,JoinKind::Left).ok,"reject ragged right row");
+        CHECK(!joinLookup(left,right,99,0,JoinKind::Left).ok,"reject invalid key column");
+        auto noMatch=joinLookup(T({"ID"},{{"404"}}),right,0,0,JoinKind::Inner);
+        CHECK(noMatch.ok && noMatch.table.rows.isEmpty() && noMatch.table.header.size()==3,"empty result retains schema");
+    }
+
     // ---- So sánh ----
     Table a = T({"Ma", "Ten", "Tien"}, {{"1", "An", "1000"}, {"2", "Bình", "2000"}, {"3", "Chi", "3000"}, {"3", "Chi trùng", "3"}});
     Table b = T({"Ma", "Ten", "Tien", "GhiChu"}, {{"1", "An", "1000", ""}, {"2", "Bình", "2500", ""}, {"4", "Dũng", "4000", ""}});

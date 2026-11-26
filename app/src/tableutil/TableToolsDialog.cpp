@@ -5,6 +5,7 @@
 
 #include <QCheckBox>
 #include <QFile>
+#include <QDialogButtonBox>
 #include <QSignalBlocker>
 #include <functional>
 #include <QComboBox>
@@ -245,6 +246,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     auto* krow = new QHBoxLayout; krow->addWidget(new QLabel(tr("Cột mã để ghép dòng:")));
     d->keyCol = new QComboBox; krow->addWidget(d->keyCol, 1); l3->addLayout(krow);
     auto* run3 = new QPushButton(tr("So sánh và lưu bảng khác biệt…")); l3->addWidget(run3);
+    auto* join = new QPushButton(tr("Ghép bảng theo khóa (Left / Inner)…")); l3->addWidget(join);
     d->tabs->addTab(w3, tr("So sánh hai bảng"));
 
     auto* w4 = new QWidget; auto* l4 = new QVBoxLayout(w4);
@@ -322,7 +324,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         return true;
     };
     auto needA = [this]() -> bool {
-        if (!d->haveA) { QMessageBox::information(this, tr("Tiện ích bảng"), tr("Hãy chọn tệp CSV và xác nhận bảng mã trước.")); return false; }
+        if (!d->haveA) { QMessageBox::information(this, tr("Tiện ích bảng"), tr("Hãy chọn bảng nguồn; xác nhận bảng mã CSV hoặc chọn worksheet XLSX.")); return false; }
         return true;
     };
 
@@ -433,6 +435,44 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->report->setPlainText(rep);
     });
 
+    connect(join, &QPushButton::clicked, this, [this, askSave, save, needA] {
+        if (!needA()) return;
+        Table right; QString error;
+        if (!d->b->load(right,error)) { QMessageBox::warning(this,tr("Ghép bảng"),error); return; }
+        if(d->tableA.header.isEmpty() || right.header.isEmpty()) { QMessageBox::warning(this,tr("Ghép bảng"),tr("Hai bảng cần có tiêu đề.")); return; }
+        QDialog options(this); options.setWindowTitle(tr("Ghép hai bảng"));
+        auto* form=new QFormLayout(&options);
+        auto* leftKey=new QComboBox(&options);
+        auto* rightKey=new QComboBox(&options);
+        auto* kind=new QComboBox(&options);
+        for(int i=0;i<d->tableA.header.size();++i) leftKey->addItem(tr("%1 · %2").arg(i+1).arg(d->tableA.header[i]),i);
+        for(int i=0;i<right.header.size();++i) rightKey->addItem(tr("%1 · %2").arg(i+1).arg(right.header[i]),i);
+        kind->addItem(tr("Left — giữ mọi dòng bảng trái"),int(JoinKind::Left));
+        kind->addItem(tr("Inner — chỉ giữ dòng có khóa khớp"),int(JoinKind::Inner));
+        form->addRow(tr("Khóa bảng trái:"),leftKey); form->addRow(tr("Khóa bảng phải:"),rightKey); form->addRow(tr("Kiểu ghép:"),kind);
+        auto* note=new QLabel(tr("So khớp chính xác dạng chữ, phân biệt hoa/thường và số 0 đầu. Khóa rỗng không ghép; khóa trùng ở bảng phải bị từ chối."),&options);
+        note->setWordWrap(true); form->addRow(note);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&options); form->addRow(buttons);
+        connect(buttons,&QDialogButtonBox::accepted,&options,&QDialog::accept);
+        connect(buttons,&QDialogButtonBox::rejected,&options,&QDialog::reject);
+        if(options.exec()!=QDialog::Accepted) return;
+        const auto r=joinLookup(d->tableA,right,leftKey->currentData().toInt(),rightKey->currentData().toInt(),JoinKind(kind->currentData().toInt()));
+        if(!r.ok) { QMessageBox::warning(this,tr("Ghép bảng"),r.error); return; }
+        QString rep=tr("Khớp: %1 · Không khớp: %2 · Khóa rỗng trái: %3 · Khóa rỗng phải: %4. Kết quả: %5 dòng.")
+            .arg(r.matched).arg(r.unmatched).arg(r.blankLeft).arg(r.blankRight).arg(r.table.rows.size());
+        rep+=QStringLiteral("\n")+r.table.header.join(QStringLiteral(" | "));
+        for(int i=0;i<r.table.rows.size() && i<20;++i) rep+=QStringLiteral("\n")+r.table.rows[i].join(QStringLiteral(" | "));
+        QDialog preview(this); preview.setWindowTitle(tr("Xem trước ghép bảng · tối đa 20 dòng")); preview.resize(720,420);
+        auto* layout=new QVBoxLayout(&preview);
+        auto* text=new QPlainTextEdit(rep,&preview); text->setReadOnly(true); layout->addWidget(text);
+        auto* actions=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&preview); layout->addWidget(actions);
+        connect(actions,&QDialogButtonBox::accepted,&preview,&QDialog::accept);
+        connect(actions,&QDialogButtonBox::rejected,&preview,&QDialog::reject);
+        if(preview.exec()!=QDialog::Accepted) return;
+        const auto out=askSave(defaultOut(d->a->path(),tr("đã ghép")));
+        if(!out.isEmpty()) save(out,r.table,rep);
+        d->report->setPlainText(rep);
+    });
     connect(run3, &QPushButton::clicked, this, [this, askSave, save, needA] {
         if (!needA()) return;
         Table tb; QString err;

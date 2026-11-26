@@ -549,4 +549,55 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     return true;
 }
 
+JoinResult joinLookup(const Table& left, const Table& right, int leftKey, int rightKey, JoinKind kind)
+{
+    JoinResult r;
+    if (leftKey < 0 || leftKey >= left.header.size() || rightKey < 0 || rightKey >= right.header.size()
+        || (kind != JoinKind::Left && kind != JoinKind::Inner)) {
+        r.error = QObject::tr("Chọn cột khóa và kiểu ghép hợp lệ."); return r;
+    }
+    for (const auto& row : left.rows) if (row.size() != left.header.size()) {
+        r.error = QObject::tr("Bảng trái có dòng sai số cột."); return r;
+    }
+    QHash<QString, qsizetype> index;
+    for (qsizetype i=0;i<right.rows.size();++i) {
+        const auto& row=right.rows[i];
+        if (row.size()!=right.header.size()) { r.error=QObject::tr("Bảng phải có dòng sai số cột."); return r; }
+        const auto& key=row[rightKey];
+        if (key.isEmpty()) { ++r.blankRight; continue; }
+        if (index.contains(key)) {
+            r.error=QObject::tr("Khóa bảng phải trùng tại bản ghi %1 và %2; hãy xử lý trùng trước khi ghép.").arg(index.value(key)+2).arg(i+2);
+            return r;
+        }
+        index.insert(key,i);
+    }
+    r.table.header=left.header;
+    QSet<QString> used;
+    for (const auto& name:left.header) used.insert(name.toCaseFolded());
+    for (int i=0;i<right.header.size();++i) {
+        if(i==rightKey) continue;
+        const QString base=QStringLiteral("B.")+(right.header[i].isEmpty()?QString::number(i+1):right.header[i]);
+        QString name=base;
+        for(int suffix=2;used.contains(name.toCaseFolded());++suffix) name=base+QStringLiteral("_")+QString::number(suffix);
+        used.insert(name.toCaseFolded()); r.table.header << name;
+    }
+    constexpr qsizetype maxCells=5000000;
+    if(left.rows.size()>maxCells/r.table.header.size()) {
+        r.table={}; r.error=QObject::tr("Bảng ghép vượt giới hạn 5 triệu ô; hãy lọc nguồn trước."); return r;
+    }
+    for(const auto& row:left.rows) {
+        const auto& key=row[leftKey];
+        const auto it=index.constFind(key);
+        const bool matched=!key.isEmpty() && it!=index.constEnd();
+        if(key.isEmpty()) ++r.blankLeft;
+        if(matched) ++r.matched; else ++r.unmatched;
+        if(!matched && kind==JoinKind::Inner) continue;
+        QStringList joined=row;
+        for(int i=0;i<right.header.size();++i) if(i!=rightKey)
+            joined << (matched?right.rows[it.value()][i]:QString());
+        r.table.rows.append(joined);
+    }
+    r.ok=true; return r;
+}
+
 } // namespace tbl
