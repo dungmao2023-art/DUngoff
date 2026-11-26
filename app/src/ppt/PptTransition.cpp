@@ -244,7 +244,7 @@ Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTimin
         else if(o.trigger==AnimationTrigger::WithPrevious){t.click=plan.last().click;t.startMs=plan.last().startMs+o.delayMs;}
         else if(o.trigger==AnimationTrigger::AfterPrevious){t.click=plan.last().click;t.startMs=plan.last().endMs+o.delayMs;}
         else return fail(QStringLiteral("Chế độ bắt đầu không hợp lệ."));
-        t.endMs=t.startMs+(o.fade?o.durationMs:1);
+        t.endMs=t.startMs+(o.fade?o.durationMs+(o.exit?1:0):1);
         if(t.endMs>600000)return fail(QStringLiteral("Mỗi nhóm nhấp chuột tối đa 600 giây."));
         plan.append(t);
     }
@@ -276,10 +276,14 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
         if(o.trigger==AnimationTrigger::Click){flush();clickId=nextId++;}
         const int groupId=nextId++,effectId=nextId++,visibilityId=nextId++;
         const QString target = QStringLiteral("<p:tgtEl><p:spTgt spid=\"%1\"/></p:tgtEl>").arg(o.shapeId);
-        QString behavior = QStringLiteral("<p:set><p:cBhvr><p:cTn id=\"%1\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn>%2<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set>").arg(visibilityId).arg(target);
+        // Entrance becomes visible at its start; exit becomes hidden at its end.
+        const int visibilityDelay = o.exit && o.fade ? o.durationMs : 0;
+        const QString visibility = o.exit ? QStringLiteral("hidden") : QStringLiteral("visible");
+        QString behavior = QStringLiteral("<p:set><p:cBhvr><p:cTn id=\"%1\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"%2\"/></p:stCondLst></p:cTn>%3<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"%4\"/></p:to></p:set>").arg(visibilityId).arg(visibilityDelay).arg(target,visibility);
         if (o.fade) {
             const int fadeId = nextId++;
-            behavior += QStringLiteral("<p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"%1\" dur=\"%2\"/>%3</p:cBhvr></p:animEffect>").arg(fadeId).arg(o.durationMs).arg(target);
+            const QString direction = o.exit ? QStringLiteral("out") : QStringLiteral("in");
+            behavior += QStringLiteral("<p:animEffect transition=\"%1\" filter=\"fade\"><p:cBhvr><p:cTn id=\"%2\" dur=\"%3\"/>%4</p:cBhvr></p:animEffect>").arg(direction).arg(fadeId).arg(o.durationMs).arg(target);
         }
         // Each click anchors a set of parallel time containers. Relative delays
         // are resolved by the plan; effect leaf node types retain editable trigger semantics.
@@ -287,10 +291,11 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
             o.trigger==AnimationTrigger::WithPrevious?QStringLiteral("withEffect"):QStringLiteral("afterEffect");
         children+=QStringLiteral(
             "<p:par><p:cTn id=\"%1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"%2\"/></p:stCondLst><p:childTnLst>"
-            "<p:par><p:cTn id=\"%3\" presetID=\"%4\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"%5\">"
-            "<p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>%6</p:childTnLst></p:cTn></p:par>"
+            "<p:par><p:cTn id=\"%3\" presetID=\"%4\" presetClass=\"%5\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"%6\">"
+            "<p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>%7</p:childTnLst></p:cTn></p:par>"
             "</p:childTnLst></p:cTn></p:par>")
-            .arg(groupId).arg(plan[index].startMs).arg(effectId).arg(o.fade?10:1).arg(trigger,behavior);
+            .arg(groupId).arg(plan[index].startMs).arg(effectId).arg(o.fade?10:1)
+            .arg(o.exit ? QStringLiteral("exit") : QStringLiteral("entr"), trigger, behavior);
     }
     flush();
     const QString timing = QStringLiteral(
