@@ -37,7 +37,7 @@ MoneyResult moneyToWords(const QString &amount, const MoneyOptions &opt = {});
 
 // Chuyển lưới TSV số đơn giản thành TSV chữ, giữ số hàng/cột, giữ ô trống.
 // Từ chối toàn bộ khi ô không hợp lệ, kích thước sai, ô nhiều dòng/quoted hoặc vùng quá lớn.
-// Chỉ dùng cho xem trước/sao chép kết quả, không tự ghi đè công thức.
+// Dùng xem trước; caller chỉ được thay vùng sau xác nhận rõ và kiểm lại nguồn, vùng chọn.
 struct RangeWordsResult {
     bool ok = false;
     QString text, error;
