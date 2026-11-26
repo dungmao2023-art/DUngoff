@@ -899,6 +899,7 @@ void Document::postMouse(int type, int x, int y, int count, int buttons, int mod
 }
 
 void Document::postExtTextInput(int type, const std::string& utf8Text) {
+    if (m_readOnly) return; // IME must obey the same read-only contract as postKey/paste.
     m_lastInputMs = steadyMs();
     onEngine([&] { m_doc->postWindowExtTextInputEvent(0, type, utf8Text.c_str()); });
     emitSynthetic();
@@ -1148,6 +1149,14 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
         return r;
     }
     const bool targetIsOriginal = !isNew() && samePath(target, m_original);
+    if (targetIsOriginal && (m_readOnly || !m_featureLoss.empty())) {
+        r.message = "Không ghi đè tài liệu chỉ đọc hoặc có nguy cơ mất thành phần. Tệp gốc phải được giữ nguyên.";
+        return r;
+    }
+    if (!m_recoveredOrigin.empty() && (m_readOnly || !m_featureLoss.empty()) && samePath(target,m_recoveredOrigin)) {
+        r.message = "Không ghi đè tệp nguồn có nguy cơ mất thành phần từ bản phục hồi.";
+        return r;
+    }
     if (targetIsOriginal && !opts.allowOverwriteOriginal) {
         r.message = "Để bảo vệ dữ liệu, Dũng Office không ghi đè tệp gốc. Hãy dùng \"Lưu thành\" với tên mới.";
         return r;
