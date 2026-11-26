@@ -591,7 +591,7 @@ jobs:
           if (-not $p.WaitForExit(360000)) { Stop-Process $p -Force; Write-Host "::error::Word test timeout"; exit 1 }
           Get-Content report/windows-word.log
           if ($p.ExitCode -ne 0) { exit 1 }
-          python tests/word/verify_docx.py smoke-word/word-dinh-dang.docx 2>&1 | Tee-Object report/windows-word-docx.log
+          python tests/word/verify_docx.py smoke-word/word-dinh-dang.docx --margin-tested-separately 2>&1 | Tee-Object report/windows-word-docx.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Excel — lệnh cơ bản và kiểm nội dung XLSX lưu thật (Windows)
         if: success() || failure()
@@ -624,6 +624,7 @@ jobs:
           $unknown = @(Get-Content report/windows-ppt.log -Encoding UTF8 | Where-Object { $_ -match '^\[CHƯA HỖ TRỢ\]' })
           if ($unknown.Count) { $unknown | ForEach-Object { Write-Host "::warning::$_" } }
       - name: Word đầu trang/chân trang/chú thích — kiểm DOCX thật (Windows)
+        if: (success() || failure()) && hashFiles('build/out/dung-smoketest.exe') != ''
         timeout-minutes: 4
         run: |
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--word-structure", "1", "--out", "$PWD/smoke-word-structure") -PassThru -NoNewWindow `
@@ -634,6 +635,7 @@ jobs:
           python tests/word/verify_structure.py smoke-word-structure/word-structure.docx
           if ($LASTEXITCODE) { exit 1 }
       - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Windows)
+        if: (success() || failure()) && hashFiles('build/out/dung-smoketest.exe') != ''
         timeout-minutes: 6
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -658,6 +660,7 @@ jobs:
           & build/out/dung-smoketest.exe --program "$PWD/build/lo/engine/program" --recover 1 --out "$PWD/smoke-recover" *>&1 | Tee-Object report/windows-recover.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Đặt lề bằng vá XML trên Windows — đơn vị, gói ZIP, .docx thật, engine thật
+        if: (success() || failure()) && hashFiles('build/out/**/dung-margintest.exe') != ''
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           $mt = Get-ChildItem build/out -Recurse -Filter dung-margintest.exe | Select-Object -First 1
