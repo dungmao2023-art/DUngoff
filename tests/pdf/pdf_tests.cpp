@@ -127,7 +127,14 @@ static int tempLeftovers(const QString& dir) {
 }
 
 int main(int argc, char** argv) {
-    if(qgetenv("QT_QPA_PLATFORM").isEmpty())qputenv("QT_QPA_PLATFORM","offscreen");
+    if(qgetenv("QT_QPA_PLATFORM").isEmpty()) {
+#ifdef Q_OS_WIN
+        // Windows native font database is necessary; no visible windows are created.
+        qputenv("QT_QPA_PLATFORM","windows");
+#else
+        qputenv("QT_QPA_PLATFORM","offscreen");
+#endif
+    }
     QGuiApplication app(argc, argv);
     const QString qpdf = findQpdf();
     std::cout << "qpdf: " << (qpdf.isEmpty() ? "KHÔNG THẤY" : qpdf.toStdString()) << "\n";
@@ -357,7 +364,7 @@ int main(int argc, char** argv) {
         sv.pages=QStringLiteral("2");sv.pos=Position::Custom;sv.fontSize=28;sv.opacity=0.7;
         const QString vietnamese=P(QStringLiteral("dau-vn.pdf"));
         const auto vr=stamp({a,{}},sv,vietnamese);
-        CHECK(vr.ok && info(vietnamese).pages==3,"đóng dấu chữ Việt Unicode: đủ trang");
+        CHECK(vr.ok && info(vietnamese).pages==3,QStringLiteral("đóng dấu chữ Việt Unicode: đủ trang — ")+vr.error);
         const auto vq=vr.ok?qdfOf(vietnamese):QByteArray();
         CHECK(vq.contains("/ToUnicode") && (vq.contains("/FontFile2")||vq.contains("/FontFile3")),"lớp chữ Việt có font nhúng và bản đồ Unicode");
         CHECK(vq.contains("(A 1) Tj") && vq.contains("(A 2) Tj") && vq.contains("(A 3) Tj"),"giữ chữ vector gốc");
