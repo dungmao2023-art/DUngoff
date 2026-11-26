@@ -3,6 +3,8 @@
 #include <QCoreApplication>
 #include <QFile>
 #include <QTemporaryDir>
+#include <QSet>
+#include <QXmlStreamReader>
 #include <iostream>
 using namespace ppttransition;
 int main(int argc, char** argv) {
@@ -36,6 +38,22 @@ int main(int argc, char** argv) {
     QByteArray masterOut;
     check(patchMasterBackground(masterXml,QStringLiteral("123abc"),&masterOut).ok && masterOut.contains("val=\"123ABC\"") && !masterOut.contains("bgRef") && masterOut.contains("<p:spTree/>"),"change actual master background, retain shape tree");
     check(!patchMasterBackground(masterXml,QStringLiteral("bad"),&out).ok,"reject invalid RGB");
+    QByteArray twoShapes = animXml;
+    twoShapes.replace("</p:spTree>", "<p:pic><p:nvPicPr><p:cNvPr id=\"43\" name=\"Picture\"/></p:nvPicPr></p:pic></p:spTree>");
+    AnimationOptions first; first.shapeId=42; first.fade=true; first.durationMs=750;
+    AnimationOptions second; second.shapeId=43; second.delayMs=200;
+    QByteArray sequence;
+    const auto multi=patchAnimationSequenceXml(twoShapes,{second,first},&sequence);
+    check(multi.ok && sequence.count("nodeType=\"clickEffect\"")==2 &&
+          sequence.indexOf("spid=\"43\"")<sequence.indexOf("spid=\"42\""),"two click groups preserve user order");
+    QXmlStreamReader timing(sequence); QSet<QString> ids; bool unique=true;
+    while(!timing.atEnd()) { timing.readNext(); if(timing.isStartElement() && timing.name()==QLatin1String("cTn")) {
+        const QString id=timing.attributes().value(QStringLiteral("id")).toString(); if(id.isEmpty()||ids.contains(id)) unique=false; ids.insert(id);
+    }}
+    check(!timing.hasError() && unique && ids.size()==11,"all timing nodes unique, XML well formed");
+    check(!patchAnimationSequenceXml(twoShapes,{first,first},&out).ok,"reject duplicate entrance target");
+    check(!patchAnimationSequenceXml(sequence,{first,second},&out).ok,"reject existing timing");
+    check(!patchAnimationSequenceXml(twoShapes,{},&out).ok,"reject empty sequence");
     if (argc > 1) {
         const QString src = QString::fromLocal8Bit(argv[1]);
         QFile before(src); before.open(QIODevice::ReadOnly); const auto bytes = before.readAll(); before.close();
