@@ -35,6 +35,8 @@ protected:
 
 private:
     QWidget* buildSidebar();
+    QWidget* buildFeedbackPage();
+    void showFeedback();
     DocumentTab* current() const;
     void openDialog(const QString& filter = QString());
     void openPath(const QString& path);
@@ -63,6 +65,7 @@ private:
     QStackedWidget* m_stack;
     HomePage* m_home;
     QWidget* m_docArea;
+    QWidget* m_feedback = nullptr;
     Ribbon* m_ribbon;
     QTabWidget* m_tabs;
     QComboBox* m_docGroup = nullptr;
