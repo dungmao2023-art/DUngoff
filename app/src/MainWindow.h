@@ -37,6 +37,8 @@ protected:
 
 private:
     QWidget* buildSidebar();
+    QWidget* buildFeedbackPage();
+    void showFeedback();
     void showFloatMenu();
     void restoreFromFloat(dung::DocKind kind);
     DocumentTab* current() const;
@@ -67,6 +69,7 @@ private:
     QStackedWidget* m_stack;
     HomePage* m_home;
     QWidget* m_docArea;
+    QWidget* m_feedback = nullptr;
     Ribbon* m_ribbon;
     QTabWidget* m_tabs;
     QComboBox* m_docGroup = nullptr;
