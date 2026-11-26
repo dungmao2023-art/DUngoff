@@ -30,6 +30,7 @@
 
 using namespace dung;
 
+int runWordStructureTests(const std::filesystem::path& program, const std::filesystem::path& out);
 int runWordTests(const std::filesystem::path& program, const std::filesystem::path& out);   // word_tests.cpp
 int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path& stress, const fs::path& out); // excel_tests.cpp
 
@@ -122,6 +123,7 @@ int main(int argc, char** argv) {
     fs::path program, xlsx, csv, out, docx, pptx;
     std::vector<fs::path> extraSheets; // --sheet <tệp>: định dạng bảng tính khác (xls, ods, xlsm...)
     fs::path roundtrip;                // --roundtrip <tệp>: chỉ mở, render mọi sheet, lưu bản sao (không sửa)
+    bool wordStructureMode = false;
     bool wordMode = false;             // --word 1: kiểm thử các lệnh Word (word_tests.cpp)
     fs::path pptTests;                 // --ppt <tệp.pptx>: kiểm thử lệnh PowerPoint (ppt_tests.cpp)
     fs::path templatesDir;             // --templates <thư mục>: toàn vẹn hiển thị/in trên thư viện mẫu
@@ -139,6 +141,7 @@ int main(int argc, char** argv) {
         else if (args[i] == "--pptx") pptx = fromUtf8(args[i + 1]);
         else if (args[i] == "--sheet") extraSheets.push_back(fromUtf8(args[i + 1]));
         else if (args[i] == "--roundtrip") roundtrip = fromUtf8(args[i + 1]);
+        else if (args[i] == "--word-structure") wordStructureMode = (args[i + 1] == "1");
         else if (args[i] == "--word") wordMode = (args[i + 1] == "1");
         else if (args[i] == "--ppt") pptTests = fromUtf8(args[i + 1]);
         else if (args[i] == "--templates") templatesDir = fromUtf8(args[i + 1]);
@@ -152,6 +155,7 @@ int main(int argc, char** argv) {
     if (sweepMode && !program.empty() && !out.empty()) return runSweepTests(program, out);
     if (preeditMode && !program.empty() && !out.empty()) return dungRunPreeditTests(program, out);
     if (recoverMode && !program.empty() && !out.empty()) return dungRunRecoverTests(program, out);
+    if (wordStructureMode && !program.empty() && !out.empty()) return runWordStructureTests(program, out);
     if (wordMode && !program.empty() && !out.empty()) return runWordTests(program, out);
     if (!pptTests.empty() && !program.empty() && !out.empty()) return dungRunPptTests(program, pptTests, out);
     if (!templatesDir.empty() && !program.empty() && !out.empty()) return dungRunTemplateFidelity(program, templatesDir, out);

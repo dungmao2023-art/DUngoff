@@ -57,6 +57,10 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral(".uno:InsertPagebreak"), tr("Ngắt trang"), 0xE7C3, QStringLiteral("⤓"), false},
                 {QStringLiteral(".uno:InsertPageNumberField"), tr("Số trang"), 0xE8A5, QStringLiteral("#"), false},
             }},
+            {tr("Đầu và chân trang"), {
+                {QStringLiteral("word:headerEnable"), tr("Bật đầu trang"), 0xE8A5, QStringLiteral("H"), false},
+                {QStringLiteral("word:footerEnable"), tr("Bật chân trang"), 0xE8A5, QStringLiteral("F"), false},
+            }},
             {tr("Ký hiệu"), {
                 {QStringLiteral("word:symbols"), tr("Thêm ký hiệu"), 0xE8D2, QStringLiteral("Ω"), false},
                 {QStringLiteral(".uno:InsertSymbol#{\"Symbols\":{\"type\":\"string\",\"value\":\"©\"},\"FontName\":{\"type\":\"string\",\"value\":\"Liberation Serif\"}}"), tr("Bản quyền"), 0xE8D2, QStringLiteral("©"), false},
@@ -78,6 +82,12 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral("word:marginVN"), tr("Lề chuẩn VN"), 0xE7C3, QStringLiteral("VN"), false},
                 {QStringLiteral("word:marginNormal"), tr("Lề thường"), 0xE7C3, QStringLiteral("▭"), false},
                 {QStringLiteral("word:marginNarrow"), tr("Lề hẹp"), 0xE7C3, QStringLiteral("▯"), false},
+            }},
+        }},
+        {tr("Tham chiếu"), {
+            {tr("Chú thích"), {
+                {QStringLiteral("word:footnote"), tr("Chú thích cuối trang"), 0xE8D2, QStringLiteral("¹"), false},
+                {QStringLiteral("word:endnote"), tr("Chú thích cuối văn bản"), 0xE8D2, QStringLiteral("²"), false},
             }},
         }},
         {tr("Gửi thư"), {

@@ -444,3 +444,46 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     std::cout.flush();
     std::_Exit(g_fail ? 1 : 0);
 }
+
+int runWordStructureTests(const fs::path& program, const fs::path& out) {
+    std::error_code ec;
+    fs::create_directories(out, ec);
+    watchdog(60);
+    std::string error;
+    auto engine = Engine::create(program, out / "profile", out / "work", &error);
+    if (!engine) { check(false, "Khởi động engine " + error); return 1; }
+    auto doc = engine->createNew(DocKind::Text, &error);
+    if (!doc) { check(false, "Tạo Word " + error); return 1; }
+    auto& d = *doc;
+    d.setClientView(512, 512, 7680, 7680, 0, 0, 7680, 7680);
+    step("đầu trang và chân trang");
+    d.typeText(u"BODY_MARKER");
+    d.waitInputIdle();
+    run(d,w::enablePageBand(true,"Default Page Style"));
+    d.waitInputIdle();
+    d.typeText(u"HEADER_MARKER");
+    d.waitInputIdle();
+    run(d,w::enablePageBand(false,"Default Page Style"));
+    d.waitInputIdle();
+    d.typeText(u"FOOTER_MARKER");
+    d.waitInputIdle();
+    run(d,".uno:GoToStartOfDoc");
+    step("chú thích cuối trang");
+    run(d,w::insertFootnote(false));
+    d.waitInputIdle();
+    d.typeText(u"FOOTNOTE_MARKER");
+    d.waitInputIdle();
+    run(d,".uno:GoToEndOfDoc");
+    step("chú thích cuối văn bản");
+    run(d,w::insertFootnote(true));
+    d.waitInputIdle();
+    d.typeText(u"ENDNOTE_MARKER");
+    d.waitInputIdle();
+    step("lưu DOCX để kiểm cấu trúc");
+    const fs::path output = out / "word-structure.docx";
+    fs::remove(output,ec);
+    auto result=d.saveAs(output);
+    check(result.ok, "Lưu cấu trúc Word: " + result.message);
+    std::cout.flush();
+    std::_Exit(g_fail ? 1 : 0);
+}
