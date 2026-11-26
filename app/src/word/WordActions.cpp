@@ -10,6 +10,11 @@
 #include "../vntext/SyllableCheck.h"
 #include "../tools/mailmerge/MailMergeWidget.h"
 #include <QGridLayout>
+#include <QFormLayout>
+#include <QTextBrowser>
+#include <QPlainTextEdit>
+#include <QSettings>
+#include "../TileView.h"
 #include <QRegularExpression>
 #include <QTextDocumentFragment>
 
@@ -92,6 +97,7 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     QString name = id.mid(5);
     if (name == QLatin1String("reviewSyllable")) name = QStringLiteral("vnSyllable");
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
+    if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
     if (name == QLatin1String("font")) {
         const auto fonts = parseFontList(doc->commandValues(".uno:CharFontName"));
@@ -268,6 +274,78 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         doc->command(".uno:PageLRMargin", join({argLong("PageLRMargin.Left", l), argLong("PageLRMargin.Right", r)}));
         doc->command(".uno:PageULMargin", join({argLong("PageULMargin.Upper", t), argLong("PageULMargin.Lower", b)}));
 #endif
+    } else if (name == QLatin1String("adminHead") || name == QLatin1String("adminTail") || name == QLatin1String("adminFull")) {
+        const bool head = name != QLatin1String("adminTail"), tail = name != QLatin1String("adminHead");
+        QDialog dlg(parent);
+        dlg.setWindowTitle(QObject::tr("Chèn khối văn bản hành chính"));
+        dlg.resize(820, 700);
+        auto* lay = new QVBoxLayout(&dlg);
+        auto* hint = new QLabel(QObject::tr("Khối nội dung tham khảo Phụ lục I Nghị định 30/2020/NĐ-CP. Chèn tại con trỏ, không phải đầu/chân trang lặp. Kiểm tra bố cục, lề và số trang sau khi chèn."), &dlg);
+        hint->setWordWrap(true); lay->addWidget(hint);
+        auto* form = new QFormLayout;
+        QSettings settings;
+        auto* agency = new QLineEdit(settings.value(QStringLiteral("admin/agency")).toString(), &dlg);
+        auto* parentAgency = new QLineEdit(settings.value(QStringLiteral("admin/parentAgency")).toString(), &dlg);
+        auto* number = new QLineEdit(&dlg);
+        auto* place = new QLineEdit(settings.value(QStringLiteral("admin/place")).toString(), &dlg);
+        auto* title = new QLineEdit(&dlg);
+        auto* subject = new QLineEdit(&dlg);
+        auto* recipients = new QPlainTextEdit(&dlg);
+        recipients->setPlainText(QStringLiteral("- …;\n- Lưu: VT."));
+        recipients->setMaximumHeight(64);
+        auto* role = new QLineEdit(settings.value(QStringLiteral("admin/role")).toString(), &dlg);
+        auto* signer = new QLineEdit(settings.value(QStringLiteral("admin/signer")).toString(), &dlg);
+        title->setPlaceholderText(QObject::tr("Ví dụ: THÔNG BÁO; bỏ trống nếu là công văn"));
+        if (head) {
+            form->addRow(QObject::tr("Cơ quan chủ quản:"), parentAgency);
+            form->addRow(QObject::tr("Cơ quan ban hành:"), agency);
+            form->addRow(QObject::tr("Số / ký hiệu:"), number);
+            form->addRow(QObject::tr("Địa danh:"), place);
+            form->addRow(QObject::tr("Tên loại:"), title);
+            form->addRow(QObject::tr("Trích yếu:"), subject);
+        } else { for (auto* w : {agency, parentAgency, number, place, title, subject}) w->hide(); }
+        if (tail) {
+            form->addRow(QObject::tr("Nơi nhận:"), recipients);
+            form->addRow(QObject::tr("Chức vụ ký:"), role);
+            form->addRow(QObject::tr("Người ký:"), signer);
+        } else { recipients->hide(); role->hide(); signer->hide(); }
+        lay->addLayout(form);
+        auto* remember = new QCheckBox(QObject::tr("Lưu thông tin cơ quan, địa danh và người ký trên máy này"), &dlg);
+        lay->addWidget(remember);
+        auto* preview = new QTextBrowser(&dlg);
+        preview->setOpenExternalLinks(false); lay->addWidget(preview, 1);
+        auto render = [&] {
+            AdminBlock b;
+            b.agency = ss(agency->text().trimmed().toUpper()); b.parentAgency = ss(parentAgency->text().trimmed().toUpper());
+            b.number = ss(number->text().trimmed()); b.placeDate = ss((place->text().trimmed().isEmpty() ? QStringLiteral("…") : place->text().trimmed()) + QStringLiteral(", ") + vntext::formatDateVn(QDate::currentDate(), vntext::DateStyle::Admin));
+            b.title = ss(title->text().trimmed().toUpper()); b.subject = ss(subject->text().trimmed());
+            b.recipient = ss(recipients->toPlainText()); b.signerRole = ss(role->text().trimmed().toUpper()); b.signerName = ss(signer->text().trimmed());
+            return adminBlockHtml(b, head, tail);
+        };
+        auto refresh = [&] { preview->setHtml(QString::fromStdString(render())); };
+        for (auto* e : {agency, parentAgency, number, place, title, subject, role, signer})
+            QObject::connect(e, &QLineEdit::textChanged, &dlg, refresh);
+        QObject::connect(recipients, &QPlainTextEdit::textChanged, &dlg, refresh);
+        refresh();
+        auto* box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg);
+        box->button(QDialogButtonBox::Ok)->setText(QObject::tr("Chèn vào văn bản"));
+        QObject::connect(box, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+        QObject::connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        lay->addWidget(box);
+        if (dlg.exec() != QDialog::Accepted) return true;
+        doc->waitInputIdle();
+        if (!doc->selectionAs("text/plain;charset=utf-8").empty() &&
+            QMessageBox::question(parent, QObject::tr("Thay vùng chọn?"), QObject::tr("Đang có văn bản được chọn. Chèn sẽ thay vùng này. Tiếp tục?"), QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+            return true;
+        if (!doc->paste("text/html", render())) {
+            QMessageBox::warning(parent, QObject::tr("Chèn khối"), QObject::tr("Engine không xác nhận chèn. Hãy kiểm tra văn bản trước khi thử lại."));
+            return true;
+        }
+        if (remember->isChecked()) {
+            if (head) { settings.setValue(QStringLiteral("admin/agency"), agency->text()); settings.setValue(QStringLiteral("admin/parentAgency"), parentAgency->text()); settings.setValue(QStringLiteral("admin/place"), place->text()); }
+            if (tail) { settings.setValue(QStringLiteral("admin/role"), role->text()); settings.setValue(QStringLiteral("admin/signer"), signer->text()); }
+        }
+        tab->view()->setFocus();
     } else if (name == QLatin1String("vnMoney")) {
         bool ok = false;
         const QString in = QInputDialog::getText(parent, QObject::tr("Số tiền → chữ"),

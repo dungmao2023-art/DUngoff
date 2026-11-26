@@ -69,6 +69,7 @@ void SidePanel::saveNow() {
     QJsonObject o;
     o.insert(QStringLiteral("notes"), m_notes);
     o.insert(QStringLiteral("events"), m_events);
+    o.insert(QStringLiteral("dayNotes"), m_dayNotes);
     o.insert(QStringLiteral("contacts"), m_contacts);
     o.insert(QStringLiteral("version"), 1);
     if (!workspace::save(QStringLiteral("workspace"), o))
@@ -80,6 +81,7 @@ void SidePanel::load() {
     const QJsonObject o = workspace::load(QStringLiteral("workspace"));
     m_notes = o.value(QStringLiteral("notes")).toArray();
     m_events = o.value(QStringLiteral("events")).toArray();
+    m_dayNotes = o.value(QStringLiteral("dayNotes")).toObject();
     m_contacts = o.value(QStringLiteral("contacts")).toArray();
     refreshNoteList();
     refreshEvents();
@@ -176,6 +178,17 @@ QWidget* SidePanel::buildCalendar() {
     m_cal->setGridVisible(true);
     m_cal->setFirstDayOfWeek(Qt::Monday);
     v->addWidget(m_cal);
+    v->addWidget(new QLabel(tr("Ghi chú ngày đang chọn"), w));
+    m_dayNote = new QPlainTextEdit(w);
+    m_dayNote->setPlaceholderText(tr("Ghi chú riêng cho ngày này…"));
+    m_dayNote->setMaximumHeight(100);
+    v->addWidget(m_dayNote);
+    connect(m_dayNote, &QPlainTextEdit::textChanged, this, [this] {
+        const QString day = m_cal->selectedDate().toString(Qt::ISODate);
+        const QString note = m_dayNote->toPlainText();
+        if (note.isEmpty()) m_dayNotes.remove(day); else m_dayNotes.insert(day, note);
+        markCalendar(); scheduleSave();
+    });
     auto* row = new QHBoxLayout;
     m_eventTitle = new QLineEdit(w);
     m_eventTitle->setPlaceholderText(tr("Việc / hạn chót cho ngày đang chọn"));
@@ -232,6 +245,7 @@ QWidget* SidePanel::buildCalendar() {
 void SidePanel::refreshEvents() {
     m_eventList->clear();
     const QString day = m_cal->selectedDate().toString(Qt::ISODate);
+    { QSignalBlocker b(m_dayNote); m_dayNote->setPlainText(m_dayNotes.value(day).toString()); }
     for (int i = 0; i < m_events.size(); ++i) {
         const QJsonObject e = m_events[i].toObject();
         if (e.value(QStringLiteral("date")).toString() != day) continue;
@@ -252,6 +266,10 @@ void SidePanel::markCalendar() {
     QTextCharFormat fmt;
     fmt.setFontWeight(QFont::Bold);
     fmt.setBackground(QColor(0xDC, 0xE8, 0xFF));
+    for (auto it = m_dayNotes.constBegin(); it != m_dayNotes.constEnd(); ++it) {
+        const QDate day = QDate::fromString(it.key(), Qt::ISODate);
+        if (day.isValid() && !it.value().toString().isEmpty()) m_cal->setDateTextFormat(day, fmt);
+    }
     for (const QJsonValue& v : m_events) {
         const QDate d = QDate::fromString(v.toObject().value(QStringLiteral("date")).toString(), Qt::ISODate);
         if (d.isValid()) m_cal->setDateTextFormat(d, fmt);

@@ -365,6 +365,18 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     selectAll(d);
     check(has(selText(d), "Ω ≤ ≥ ₫"), "Ký hiệu Unicode xuất hiện trong tài liệu", snippet(selText(d), 180));
 
+    step("khối hành chính Việt Nam");
+    w::AdminBlock admin;
+    admin.agency = "CƠ QUAN A & B"; admin.title = "THÔNG BÁO"; admin.signerName = "Nguyễn Văn A";
+    const auto block = w::adminBlockHtml(admin, true, true);
+    check(has(block, "A &amp; B") && !has(block, "A & B"), "Khối hành chính escape HTML đầu vào");
+    check(!has(w::adminBlockHtml(admin, true, false), "Nơi nhận:") && !has(w::adminBlockHtml(admin, false, true), "CỘNG HÒA"), "Chèn riêng đầu/cuối");
+    run(d, ".uno:GoToEndOfDoc");
+    check(d.paste("text/html", block), "Engine nhận khối hành chính HTML");
+    d.waitInputIdle(); selectAll(d);
+    check(has(selText(d), "CỘNG HÒA") && has(selText(d), "Nguyễn Văn A") && has(selText(d), "CƠ QUAN A & B"), "Khối hành chính là văn bản thật trong Writer", snippet(selText(d), 100));
+    check(has(selHtml(d), "<table"), "Khối hành chính xuất dưới dạng bảng có thể chỉnh sửa");
+
     // ---------------- bố cục trang: khổ giấy, hướng ----------------
     step("khổ giấy A4");
     long bw = 0, bh = 0;

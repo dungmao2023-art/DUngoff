@@ -31,6 +31,12 @@ Call findNext(const std::string& text, bool backward);
 Call replaceAll(const std::string& find, const std::string& replacement);
 Call replaceOne(const std::string& find, const std::string& replacement);
 
+// Khối hành chính chèn vào nội dung tài liệu (không phải header/footer lặp).
+struct AdminBlock {
+    std::string agency, parentAgency, number, placeDate, title, subject, recipient, signerRole, signerName;
+};
+std::string adminBlockHtml(const AdminBlock& b, bool head, bool tail);
+
 // ---- bảng tra cho giao diện ----
 struct StyleChoice { const char* label; const char* styleName; };
 const std::vector<StyleChoice>& paragraphStyles();   // Thường, Tiêu đề 1-3

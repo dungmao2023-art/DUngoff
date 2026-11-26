@@ -76,6 +76,45 @@ Call findNext(const std::string& t, bool backward) { return search(t, "", 0, bac
 Call replaceAll(const std::string& f, const std::string& r) { return search(f, r, 3, false); }
 Call replaceOne(const std::string& f, const std::string& r) { return search(f, r, 2, false); }
 
+static std::string htmlEscape(const std::string& s) {
+    std::string out;
+    for (char ch : s) {
+        switch (ch) {
+        case '&': out += "&amp;"; break;
+        case '<': out += "&lt;"; break;
+        case '>': out += "&gt;"; break;
+        case '"': out += "&quot;"; break;
+        case '\n': out += "<br>"; break;
+        case '\r': break;
+        default: out += ch;
+        }
+    }
+    return out;
+}
+std::string adminBlockHtml(const AdminBlock& b, bool head, bool tail) {
+    auto v = [](const std::string& s, const char* fallback) { return htmlEscape(s.empty() ? std::string(fallback) : s); };
+    std::string html = "<html><body style=\"font-family:Times New Roman,serif;font-size:13pt;color:#000\">";
+    const std::string table = "<table width=\"100%\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\" style=\"border-collapse:collapse;font-family:Times New Roman,serif;font-size:13pt\"><tr>";
+    const std::string left = "<td width=\"42%\" valign=\"top\" style=\"border:none\">";
+    const std::string right = "<td width=\"58%\" valign=\"top\" style=\"border:none\">";
+    if (head) {
+        html += table + left + "<p align=\"center\">";
+        if (!b.parentAgency.empty()) html += htmlEscape(b.parentAgency) + "<br>";
+        html += "<b>" + v(b.agency, "TÊN CƠ QUAN, TỔ CHỨC") + "</b><br>────────</p><p align=\"center\">Số: " + v(b.number, "…/…") + "</p></td>";
+        html += right + "<p align=\"center\" style=\"font-size:12pt\"><b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b></p>"
+                "<p align=\"center\" style=\"font-size:13pt\"><b>Độc lập - Tự do - Hạnh phúc</b><br>────────────────</p>"
+                "<p align=\"center\"><i>" + v(b.placeDate, "…, ngày … tháng … năm …") + "</i></p></td></tr></table>";
+        if (!b.title.empty()) html += "<p align=\"center\" style=\"font-size:14pt\"><b>" + htmlEscape(b.title) + "</b></p>";
+        if (!b.subject.empty()) html += "<p align=\"center\"><b>" + htmlEscape(b.subject) + "</b></p>";
+        html += "<p>&nbsp;</p>";
+    }
+    if (tail) {
+        html += table + left + "<p style=\"font-size:12pt\"><b><i>Nơi nhận:</i></b><br><span style=\"font-size:11pt\">" + v(b.recipient, "- …;\n- Lưu: VT.") + "</span></p></td>";
+        html += right + "<p align=\"center\"><b>" + v(b.signerRole, "THỦ TRƯỞNG ĐƠN VỊ") + "</b></p><p>&nbsp;</p><p>&nbsp;</p><p align=\"center\"><b>" + v(b.signerName, "Họ và tên") + "</b></p></td></tr></table><p>&nbsp;</p>";
+    }
+    return html + "</body></html>";
+}
+
 const std::vector<StyleChoice>& paragraphStyles() {
     static const std::vector<StyleChoice> v = {
         {"Văn bản thường", "Default Paragraph Style"},
