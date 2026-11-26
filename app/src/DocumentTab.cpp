@@ -40,8 +40,78 @@
 #include <QTabBar>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QVariantAnimation>
+#include <QEasingCurve>
 
 using dung::DocKind;
+
+namespace {
+// Animate only panel width, never the document or engine state. The handle stays visible.
+// Keep the target state separate from visibility, so rapid clicks can reverse an ongoing animation.
+bool panelExpanded(QWidget* panel) {
+    return panel && panel->property("panelExpanded").toBool();
+}
+void initCollapsed(QWidget* panel) {
+    panel->setProperty("panelExpanded", false);
+    panel->setFixedWidth(0);
+    panel->hide();
+}
+void slidePanel(QWidget* panel, bool open, int fullWidth, QPushButton* handle,
+                bool left, const QString& label) {
+    if (!panel) return;
+    panel->setProperty("panelExpanded", open);
+    if (handle) {
+        handle->setChecked(open);
+        const QString arrow = left == open ? QStringLiteral("‹") : QStringLiteral("›");
+        handle->setText(label.isEmpty() ? arrow : arrow + QLatin1Char('\n') + label);
+        handle->setToolTip(open ? QObject::tr("Thu gọn") : QObject::tr("Mở rộng"));
+    }
+    auto* animation = panel->findChild<QVariantAnimation*>(QStringLiteral("PanelWidthAnimation"), Qt::FindDirectChildrenOnly);
+    if (!animation) {
+        animation = new QVariantAnimation(panel);
+        animation->setObjectName(QStringLiteral("PanelWidthAnimation"));
+        animation->setEasingCurve(QEasingCurve::OutCubic);
+        QObject::connect(animation, &QVariantAnimation::valueChanged, panel, [panel](const QVariant& value) {
+            panel->setFixedWidth(value.toInt());
+        });
+        QObject::connect(animation, &QVariantAnimation::finished, panel, [panel] {
+            if (!panelExpanded(panel)) panel->hide();
+        });
+    }
+    animation->stop();
+    const int from = panel->isHidden() ? 0 : panel->width();
+    const int to = open ? fullWidth : 0;
+    panel->setFixedWidth(from);
+    if (open) panel->show();
+    if (from == to) {
+        if (!open) panel->hide();
+        return;
+    }
+    animation->setDuration(qBound(80, 220 * qAbs(to - from) / qMax(1, fullWidth), 220));
+    animation->setStartValue(from);
+    animation->setEndValue(to);
+    animation->start();
+}
+QPushButton* panelHandle(QWidget* rail, bool left, const QString& label, const QString& name) {
+    auto* button = new QPushButton(rail);
+    button->setObjectName(name);
+    const QString arrow = left ? QStringLiteral("›") : QStringLiteral("‹");
+    button->setText(label.isEmpty() ? arrow : arrow + QLatin1Char('\n') + label);
+    button->setAccessibleName(name == QLatin1String("TemplatePanelHandle")
+        ? QObject::tr("Mở hoặc ẩn kho mẫu") : QObject::tr("Mở hoặc ẩn Tôi muốn"));
+    button->setToolTip(button->accessibleName());
+    button->setCheckable(true);
+    button->setFixedSize(label.isEmpty() ? 26 : 46, label.isEmpty() ? 64 : 78);
+    button->setCursor(Qt::PointingHandCursor);
+    button->setFocusPolicy(Qt::TabFocus);
+    button->setStyleSheet(QStringLiteral(R"(
+QPushButton { background:#E8F0FF; color:#2864BA; border:1px solid #DCE5F2; border-radius:8px; font-weight:700; padding:2px; }
+QPushButton:hover, QPushButton:focus { background:#DCE9FF; border-color:#2864BA; }
+QPushButton:checked { background:#2864BA; color:white; border-color:#2864BA; }
+)"));
+    return button;
+}
+} // namespace
 
 DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
     : QWidget(parent), m_doc(std::move(doc)) {
@@ -84,7 +154,8 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         fx->setToolTip(tr("Mở hoặc thu gọn trợ lý công thức"));
         fx->setEnabled(!m_doc->readOnly());
         connect(fx, &QPushButton::clicked, this, [this] {
-            if (m_excelTools) m_excelTools->setVisible(m_excelTools->isHidden());
+            if (m_excelTools) slidePanel(m_excelTools, !panelExpanded(m_excelTools), 340,
+                findChild<QPushButton*>(QStringLiteral("ExcelPanelHandle")), false, tr("Tôi\nmuốn"));
         });
         fx->setObjectName(QStringLiteral("Fx"));
         m_formula = new QLineEdit(fb);
@@ -205,21 +276,15 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         auto* rv = new QVBoxLayout(rail);
         rv->setContentsMargins(0, 0, 0, 0);
         rv->addStretch(1);
-        auto* toggle = new QPushButton(QStringLiteral("›"), rail);
-        toggle->setFixedSize(24, 56);
-        toggle->setToolTip(tr("Mở kho mẫu"));
-        toggle->setAccessibleName(tr("Mở hoặc ẩn kho mẫu của tài liệu"));
-        toggle->setStyleSheet(QStringLiteral("QPushButton{background:#E8F0FF;color:#2864BA;border:1px solid #DCE5F2;border-radius:6px;font-size:20px;}"));
+        auto* toggle = panelHandle(rail, true, QString(), QStringLiteral("TemplatePanelHandle"));
         rv->addWidget(toggle);
         rv->addStretch(1);
         middle->addWidget(rail);
-        templates->hide();
+        initCollapsed(templates);
         connect(toggle, &QPushButton::clicked, this, [=] {
-            const bool open = templates->isHidden();
+            const bool open = !panelExpanded(templates);
             if (open) reload();
-            templates->setVisible(open);
-            toggle->setText(open ? QStringLiteral("‹") : QStringLiteral("›"));
-            toggle->setToolTip(open ? tr("Ẩn kho mẫu") : tr("Mở kho mẫu"));
+            slidePanel(templates, open, 228, toggle, true, QString());
         });
     }
     if (m_doc->kind() == DocKind::Presentation || m_doc->kind() == DocKind::Drawing) {
@@ -242,8 +307,11 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
     if (m_doc->kind() == DocKind::Spreadsheet && !m_doc->readOnly()) {
         m_excelTools = new QTabWidget(this);
         m_excelTools->setObjectName(QStringLiteral("ExcelTools"));
-        m_excelTools->setMinimumWidth(280);
-        m_excelTools->setMaximumWidth(420);
+        m_excelTools->setStyleSheet(QStringLiteral(R"(
+QTabWidget#ExcelTools::pane { border:1px solid #DCE5F2; background:#FBFCFF; }
+QTabWidget#ExcelTools QTabBar::tab { background:#F4F8FF; color:#4A5A7C; padding:8px 10px; border:1px solid #DCE5F2; }
+QTabWidget#ExcelTools QTabBar::tab:selected { background:white; color:#2864BA; border-bottom:2px solid #2864BA; font-weight:700; }
+)"));
         auto addTool = [this](QWidget* tool, const QString& title) {
             auto* scroll = new QScrollArea(m_excelTools);
             scroll->setWidgetResizable(true);
@@ -264,7 +332,20 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         m_rangeTools = createDocumentRangeToolsWidget(this, [this] { return qs(m_doc->selectionAs("text/plain;charset=utf-8")); });
         addTool(m_rangeTools, tr("Vùng dữ liệu"));
         connect(m_excelTools, &QTabWidget::currentChanged, this, [this](int) { notifyDocumentRangeTools(m_rangeTools); });
+        // Handle is on the document-facing edge of the right panel.
+        auto* rail = new QWidget(this);
+        auto* rv = new QVBoxLayout(rail);
+        rv->setContentsMargins(0, 0, 0, 0);
+        rv->addStretch(1);
+        auto* toggle = panelHandle(rail, false, tr("Tôi\nmuốn"), QStringLiteral("ExcelPanelHandle"));
+        rv->addWidget(toggle);
+        rv->addStretch(1);
+        middle->addWidget(rail);
         middle->addWidget(m_excelTools);
+        initCollapsed(m_excelTools);
+        connect(toggle, &QPushButton::clicked, this, [this, toggle] {
+            slidePanel(m_excelTools, !panelExpanded(m_excelTools), 340, toggle, false, tr("Tôi\nmuốn"));
+        });
     }
     if (m_doc->kind() == DocKind::Text && !m_doc->readOnly()) {
         auto* assistant = new QScrollArea(this);
@@ -332,21 +413,18 @@ QLabel#AssistantGroup { color:#6B7A99; font-size:11px; font-weight:700; padding-
         action(tr("Kiểm tra tài liệu"), "word:inspect");
         av->addStretch(1);
         assistant->setWidget(body);
-        middle->addWidget(assistant);
         auto* rail = new QWidget(this);
         auto* rv = new QVBoxLayout(rail);
         rv->setContentsMargins(0, 0, 0, 0);
         rv->addStretch(1);
-        auto* toggle = new QPushButton(tr("Tôi\nmuốn"), rail);
-        toggle->setFixedSize(46, 60);
-        toggle->setToolTip(tr("Mở / ẩn trợ lý Word"));
-        toggle->setStyleSheet(QStringLiteral("QPushButton{background:#E8F0FF;color:#2864BA;border:1px solid #DCE5F2;border-radius:6px;font-weight:700;}"));
+        auto* toggle = panelHandle(rail, false, tr("Tôi\nmuốn"), QStringLiteral("WordPanelHandle"));
         rv->addWidget(toggle);
         rv->addStretch(1);
         middle->addWidget(rail);
-        assistant->hide();
+        middle->addWidget(assistant);
+        initCollapsed(assistant);
         connect(toggle, &QPushButton::clicked, this, [=] {
-            assistant->setVisible(assistant->isHidden());
+            slidePanel(assistant, !panelExpanded(assistant), 282, toggle, false, tr("Tôi\nmuốn"));
         });
     }
     v->addLayout(middle, 1);
@@ -396,7 +474,8 @@ QLabel#AssistantGroup { color:#6B7A99; font-size:11px; font-weight:700; padding-
 void DocumentTab::showExcelTools(int page) {
     if (!m_excelTools || readOnly()) return;
     m_excelTools->setCurrentIndex(page);
-    m_excelTools->show();
+    slidePanel(m_excelTools, true, 340, findChild<QPushButton*>(QStringLiteral("ExcelPanelHandle")), false, tr("Tôi\nmuốn"));
+    if (page == 1 && m_rangeTools) notifyDocumentRangeTools(m_rangeTools);
 }
 
 DocumentTab::~DocumentTab() {
