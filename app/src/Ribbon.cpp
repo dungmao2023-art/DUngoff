@@ -123,6 +123,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 }},
                 {tr("Tệp"), {
                     {QStringLiteral("pdfTools:info"), tr("Thông tin"), 0xE946, QStringLiteral("ⓘ"), false},
+                    {QStringLiteral("pdfTools:search"), tr("Tìm chữ"), 0xE721, QStringLiteral("⌕"), false},
                 }},
             }},
         };
