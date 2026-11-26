@@ -467,14 +467,32 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
     d.waitInputIdle();
     d.typeText(u"FOOTER_MARKER");
     d.waitInputIdle();
-    run(d,".uno:GoToStartOfDoc");
+    // GoToStart/EndOfDoc can move within the active header/footer or note.
+    // Locate the unique body text and verify the selection before placing either anchor.
+    auto placeBodyAnchor = [&]() {
+        run(d,w::findNext("BODY_MARKER",false));
+        d.waitInputIdle();
+        const auto found = selText(d);
+        const bool selected = has(found,"BODY_MARKER");
+        check(selected,"Tìm đúng đoạn BODY_MARKER trước khi chèn chú thích",snippet(found));
+        if (!selected) return false;
+        // VCL KEY_RIGHT = 1027, same as app/src/KeyMap.cpp: collapse selection at its end.
+        d.postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+        d.postKey(LOK_KEYEVENT_KEYUP,0,1027);
+        d.waitInputIdle();
+        const bool collapsed = selText(d).empty();
+        check(collapsed,"Đã bỏ chọn trước khi chèn neo chú thích");
+        return collapsed;
+    };
     step("chú thích cuối trang");
+    if (!placeBodyAnchor()) return 1;
     run(d,w::insertFootnote(false));
     d.waitInputIdle();
     d.typeText(u"FOOTNOTE_MARKER");
     d.waitInputIdle();
-    run(d,".uno:GoToEndOfDoc");
+    run(d,".uno:JumpToFootnoteOrAnchor");
     step("chú thích cuối văn bản");
+    if (!placeBodyAnchor()) return 1;
     run(d,w::insertFootnote(true));
     d.waitInputIdle();
     d.typeText(u"ENDNOTE_MARKER");
