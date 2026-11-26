@@ -17,7 +17,6 @@
 #include <map>
 #include <mutex>
 #include <set>
-#include <regex>
 #include <string>
 #include <thread>
 
@@ -540,34 +539,56 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
             check(rt.ok,"Roundtrip review DOCX: "+rt.message);
         }
     }
+    // Existing TOC is loaded from a standards-based DOCX fixture; update the
+    // real Writer index after changing its source heading in the active document.
+    step("Word mục lục native — cập nhật index hiện có");
+    const fs::path tocFixture=out/"toc-input.docx";
+    auto toc=engine->open(tocFixture,&error);
+    check(bool(toc),"Mở fixture có mục lục: "+error);
+    if(toc){
+        toc->setClientView(512,512,7680,7680,0,0,7680,7680);
+        run(*toc,w::findNext("HEADING_BEFORE",false));
+        toc->waitInputIdle();
+        check(has(selText(*toc),"HEADING_BEFORE"),"Tìm tiêu đề nguồn");
+        if(has(selText(*toc),"HEADING_BEFORE")){
+            toc->typeText(u"HEADING_AFTER");
+            toc->waitInputIdle();
+            run(*toc,".uno:UpdateAllIndexes");
+            toc->waitInputIdle();
+            const fs::path dest=out/"word-toc-updated.docx";
+            fs::remove(dest,ec);
+            const auto saved=toc->saveAs(dest);
+            check(saved.ok,"Lưu mục lục đã cập nhật: "+saved.message);
+        }
+    }
     // Native TOC capability gate: the engine must produce an actual dialog,
     // render it, accept keyboard input, and persist a real table-of-contents field.
     // Never fabricate a TOC by generating text or patching the saved file.
     step("mục lục native — tạo tài liệu thử");
-    auto toc=engine->createNew(DocKind::Text,&error);
-    check(bool(toc),"Tạo Word mục lục: "+error);
-    if(toc) {
-        toc->setClientView(512,512,7680,7680,0,0,7680,7680);
-        run(*toc,w::paragraphStyle("Heading 1"));
-        toc->typeText(u"TOC_HEADING_ONE\n");toc->waitInputIdle();
-        run(*toc,w::paragraphStyle("Heading 2"));
-        toc->typeText(u"TOC_HEADING_TWO\n");toc->waitInputIdle();
-        run(*toc,w::paragraphStyle("Text Body"));
-        toc->typeText(u"TOC_BODY_MARKER\n");toc->waitInputIdle();
-        run(*toc,".uno:GoToEndOfDoc");
+    auto nativeToc=engine->createNew(DocKind::Text,&error);
+    check(bool(nativeToc),"Tạo Word mục lục: "+error);
+    if(nativeToc) {
+        nativeToc->setClientView(512,512,7680,7680,0,0,7680,7680);
+        run(*nativeToc,w::paragraphStyle("Heading 1"));
+        nativeToc->typeText(u"TOC_HEADING_ONE\n");nativeToc->waitInputIdle();
+        run(*nativeToc,w::paragraphStyle("Heading 2"));
+        nativeToc->typeText(u"TOC_HEADING_TWO\n");nativeToc->waitInputIdle();
+        run(*nativeToc,w::paragraphStyle("Text Body"));
+        nativeToc->typeText(u"TOC_BODY_MARKER\n");nativeToc->waitInputIdle();
+        run(*nativeToc,".uno:GoToEndOfDoc");
         // Historical LOK protocol callback 46 was JSDIALOG. Recent upstream
         // headers reserve this slot without exposing the enum. Treat it only
         // as a compatibility probe, never as evidence of support by itself:
         // require the runtime API, matching TOC payload and real saved field.
         constexpr int historicalJsDialogCallback=46;
-        const bool bitmap=toc->supportsNativeWindows(),js=toc->supportsDialogEvents();
+        const bool bitmap=nativeToc->supportsNativeWindows(),js=nativeToc->supportsDialogEvents();
         check(bitmap||js,"Runtime có API hộp thoại LOK");
         if(bitmap||js){
-            toc->clearEvents();
-            toc->command(".uno:InsertMultiIndex");
+            nativeToc->clearEvents();
+            nativeToc->command(".uno:InsertMultiIndex");
             unsigned id=0;unsigned long long jsId=0;int width=0,height=0;std::string payload;
             bool isJs=false;
-            const bool appeared=toc->waitForEvent([&](int type,const std::string& p){
+            const bool appeared=nativeToc->waitForEvent([&](int type,const std::string& p){
                 if(type!=LOK_CALLBACK_WINDOW && type!=historicalJsDialogCallback)return false;
                 std::cout<<"[TIN] TOC callback "<<type<<": "<<p.substr(0,16000)<<std::endl;
                 std::smatch m;
@@ -591,14 +612,14 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
             },10000);
             check(appeared,"Mục lục: nhận bitmap dialog hoặc JSDialog thật",payload.substr(0,1000));
             if(appeared&&isJs){
-                const bool sent=toc->clickNativeDialogButton(jsId,"ok");
+                const bool sent=nativeToc->clickNativeDialogButton(jsId,"ok");
                 check(sent,"Gửi click OK qua JSDialog native");
                 if(sent){
-                    toc->waitInputIdle(500,5000);
-                    run(*toc,".uno:UpdateAllIndexes");
-                    const fs::path target=out/"word-native-toc.docx";
+                    nativeToc->waitInputIdle(500,5000);
+                    run(*nativeToc,".uno:UpdateAllIndexes");
+                    const fs::path target=out/"word-native-nativeToc.docx";
                     fs::remove(target,ec);
-                    auto sr=toc->saveAs(target);
+                    auto sr=nativeToc->saveAs(target);
                     check(sr.ok,"Lưu DOCX mục lục JSDialog: "+sr.message);
                 }
             }else if(appeared){
@@ -606,27 +627,27 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                 check(sizeOk,"Kích thước dialog hợp lệ",std::to_string(width)+"x"+std::to_string(height));
                 if(sizeOk){
                     std::vector<uint8_t> pixels(size_t(width)*height*4,0);
-                    const bool painted=toc->paintNativeWindow(id,pixels.data(),pixels.size(),width,height);
+                    const bool painted=nativeToc->paintNativeWindow(id,pixels.data(),pixels.size(),width,height);
                     check(painted&&std::any_of(pixels.begin(),pixels.end(),[](uint8_t x){return x!=0;}),"Render dialog native không rỗng");
-                    toc->clearEvents();
-                    toc->postNativeWindowKey(id,LOK_KEYEVENT_KEYINPUT,0,1280);
-                    toc->postNativeWindowKey(id,LOK_KEYEVENT_KEYUP,0,1280);
-                    const bool closed=toc->waitFor(LOK_CALLBACK_WINDOW,[&](const std::string& p){
+                    nativeToc->clearEvents();
+                    nativeToc->postNativeWindowKey(id,LOK_KEYEVENT_KEYINPUT,0,1280);
+                    nativeToc->postNativeWindowKey(id,LOK_KEYEVENT_KEYUP,0,1280);
+                    const bool closed=nativeToc->waitFor(LOK_CALLBACK_WINDOW,[&](const std::string& p){
                         std::smatch m;
                         return p.find("close")!=std::string::npos&&std::regex_search(p,m,std::regex(R"re("id"\s*:\s*"?([0-9]{1,9}))re"))&&
                             unsigned(std::stoul(m[1].str()))==id;
                     },10000);
                     check(closed,"Dialog mục lục đóng sau xác nhận");
-                    if(!closed)toc->closeNativeWindow(id);
-                    toc->waitInputIdle();
+                    if(!closed)nativeToc->closeNativeWindow(id);
+                    nativeToc->waitInputIdle();
                     if(closed){
-                        run(*toc,".uno:UpdateAllIndexes");
-                        const fs::path target=out/"word-native-toc.docx";
+                        run(*nativeToc,".uno:UpdateAllIndexes");
+                        const fs::path target=out/"word-native-nativeToc.docx";
                         fs::remove(target,ec);
-                        auto sr=toc->saveAs(target);
+                        auto sr=nativeToc->saveAs(target);
                         check(sr.ok,"Lưu DOCX mục lục native: "+sr.message);
                     }
-                }else toc->closeNativeWindow(id);
+                }else nativeToc->closeNativeWindow(id);
             }
         }
     }
