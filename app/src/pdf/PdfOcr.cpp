@@ -23,3 +23,4 @@ OcrResult recognizeImage(const QString& image, const QString& language) {
         return fail(QStringLiteral("Tesseract lỗi (kiểm tra gói ngôn ngữ): ") + QString::fromUtf8(proc.readAllStandardError()).left(1500));
     return {true, QString::fromUtf8(proc.readAllStandardOutput()).trimmed(), {}};
 }
+} // namespace dungpdf
