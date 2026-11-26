@@ -20,6 +20,7 @@ Hooks &hooks();
 
 QWidget* createFormulaAssistantWidget(QWidget *parent = nullptr);
 void notifyFormulaSelection(QWidget* widget, const QString& reference);   // ƒx · Tôi muốn
+void notifyFormulaSheet(QWidget* widget, int part, const QString& name);
 QWidget* createRangeToolsWidget(QWidget *parent = nullptr);
 // Embedded in one document: scoped read hook and event-driven refresh, never a global polling timer.
 QWidget* createDocumentRangeToolsWidget(QWidget* parent, std::function<QString()> readSelection);
