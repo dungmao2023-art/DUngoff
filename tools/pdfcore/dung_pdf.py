@@ -4,7 +4,7 @@
 Quy tắc an toàn (theo docs/DATA_SAFETY.md):
 - Không bao giờ ghi đè tệp gốc: luôn ghi ra tệp mới.
 - Ghi vào tệp tạm "~dung-xxxx-tên.pdf" cùng thư mục, kiểm tra header %PDF
-  và EOF, rồi mới đổi tên nguyên tử sang đích.
+  và EOF, rồi công bố tệp mới bằng hardlink không ghi đè; thay đích đã xác nhận dùng os.replace.
 - Nếu đích đã tồn tại: từ chối trừ khi allow_replace=True, và khi đó sao lưu
   tệp cũ thành "tên.dung-backup-YYYYMMDD-HHMMSS.pdf" trước khi thay.
 - Tệp gốc được đọc ở chế độ chỉ đọc, không bao giờ mở để ghi.
@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import datetime as _dt
 import os
-import secrets
+import re
+import tempfile
 import shutil
 from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Sequence
@@ -55,6 +56,22 @@ def _looks_like_pdf(path: str) -> bool:
     return head.startswith(b"%PDF-") and b"%%EOF" in tail
 
 
+def _ensure_distinct_destination(sources: Iterable[str], dest: str) -> None:
+    """Reject direct paths, symlinks and hardlinks to any original input."""
+    normalized = os.path.normcase(os.path.realpath(dest))
+    for source in sources:
+        if normalized == os.path.normcase(os.path.realpath(source)):
+            raise PdfError("Tệp đích trùng tệp nguồn. Hãy chọn tên mới.")
+        try:
+            same = os.path.samefile(source, dest)
+        except FileNotFoundError:
+            same = False
+        except OSError as exc:
+            raise PdfError(f"Không xác minh được tệp đích: {exc}") from exc
+        if same:
+            raise PdfError("Tệp đích trùng tệp nguồn. Hãy chọn tên mới.")
+
+
 def atomic_save(pdf: pikepdf.Pdf, dest: str, allow_replace: bool = False) -> SaveResult:
     """Ghi `pdf` ra `dest` theo đúng quy tắc an toàn ở trên."""
     dest = os.path.abspath(dest)
@@ -63,19 +80,36 @@ def atomic_save(pdf: pikepdf.Pdf, dest: str, allow_replace: bool = False) -> Sav
         raise PdfError(f"Thư mục đích không tồn tại: {folder}")
 
     backup = None
-    if os.path.exists(dest):
+    replace_existing = os.path.lexists(dest)
+    if replace_existing:
         if not allow_replace:
             raise PdfError("Tệp đích đã tồn tại. Chọn tên khác hoặc xác nhận thay thế.")
+        if os.path.islink(dest) or not os.path.isfile(dest):
+            raise PdfError("Không thay thế liên kết hoặc đích không phải tệp thường.")
         backup = _backup_path(dest)
 
-    tmp = os.path.join(folder, f"~dung-{secrets.token_hex(4)}-{os.path.basename(dest)}")
+    fd, tmp = tempfile.mkstemp(prefix="~dung-", suffix=".pdf", dir=folder)
+    os.close(fd)
     try:
         pdf.save(tmp, linearize=True)
         if not _looks_like_pdf(tmp):
             raise PdfError("Tệp tạm ghi ra không hợp lệ, đã hủy. Tệp gốc không thay đổi.")
-        if backup:
-            shutil.copy2(dest, backup)
-        os.replace(tmp, dest)  # đổi tên nguyên tử trên cùng ổ đĩa
+        if replace_existing:
+            # Exclusive backup creation: never overwrite an existing backup.
+            with open(dest, "rb") as original, open(backup, "xb") as saved:
+                shutil.copyfileobj(original, saved)
+            os.replace(tmp, dest)
+        else:
+            # Unlike os.replace, link cannot clobber a concurrently created file.
+            # Fail closed on filesystems without hardlink support.
+            try:
+                os.link(tmp, dest)
+            except FileExistsError as exc:
+                raise PdfError("Tệp đích vừa được tạo. Hãy chọn tên khác.") from exc
+            except OSError as exc:
+                raise PdfError(f"Không công bố được bản sao an toàn: {exc}") from exc
+    except OSError as exc:
+        raise PdfError(f"Không lưu được PDF: {exc}") from exc
     finally:
         if os.path.exists(tmp):
             os.remove(tmp)
@@ -96,26 +130,33 @@ def open_readonly(path: str, password: Optional[str] = None) -> pikepdf.Pdf:
 def parse_pages(spec: str, total: int) -> List[int]:
     """Chuyển chuỗi kiểu '1-3,5,8-' thành danh sách chỉ số 0-based, có kiểm tra."""
     result: List[int] = []
-    for part in spec.replace(" ", "").split(","):
-        if not part:
-            continue
-        if "-" in part:
-            a, _, b = part.partition("-")
-            start = int(a) if a else 1
-            end = int(b) if b else total
-        else:
-            start = end = int(part)
+    if total < 1 or not spec.strip():
+        raise PdfError("Chưa chọn trang nào.")
+    for part in spec.split(","):
+        part = part.strip()
+        match = re.fullmatch(r"([0-9]+)\s*-\s*([0-9]*)|-\s*([0-9]+)|([0-9]+)", part)
+        if not match:
+            raise PdfError(f"Khoảng trang không hợp lệ: {part}")
+        first, last, leading_end, single = match.groups()
+        try:
+            if single is not None:
+                start = end = int(single)
+            elif leading_end is not None:
+                start, end = 1, int(leading_end)
+            else:
+                start, end = int(first), int(last) if last else total
+        except ValueError as exc:
+            raise PdfError(f"Khoảng trang không hợp lệ: {part}") from exc
         if start < 1 or end > total or start > end:
             raise PdfError(f"Khoảng trang không hợp lệ: {part} (tài liệu có {total} trang)")
         result.extend(range(start - 1, end))
-    if not result:
-        raise PdfError("Chưa chọn trang nào.")
     return result
 
 
 def merge(paths: Sequence[str], dest: str, allow_replace: bool = False) -> SaveResult:
     if len(paths) < 2:
         raise PdfError("Cần ít nhất hai tệp để gộp.")
+    _ensure_distinct_destination(paths, dest)
     out = pikepdf.new()
     sources = []
     try:
@@ -132,6 +173,7 @@ def merge(paths: Sequence[str], dest: str, allow_replace: bool = False) -> SaveR
 
 def extract(path: str, pages_spec: str, dest: str, allow_replace: bool = False,
             password: Optional[str] = None) -> SaveResult:
+    _ensure_distinct_destination([path], dest)
     src = open_readonly(path, password)
     try:
         indexes = parse_pages(pages_spec, len(src.pages))
@@ -152,8 +194,13 @@ def split_each(path: str, out_dir: str, password: Optional[str] = None) -> List[
     written: List[str] = []
     try:
         stem = os.path.splitext(os.path.basename(path))[0]
-        for i in range(len(src.pages)):
-            dest = os.path.join(out_dir, f"{stem}-trang{i + 1:03d}.pdf")
+        targets = [os.path.join(out_dir, f"{stem}-trang{i + 1:03d}.pdf")
+                   for i in range(len(src.pages))]
+        for dest in targets:
+            _ensure_distinct_destination([path], dest)
+            if os.path.lexists(dest):
+                raise PdfError(f"Tệp đích đã tồn tại: {dest}")
+        for i, dest in enumerate(targets):
             out = pikepdf.new()
             out.pages.append(src.pages[i])
             try:
@@ -167,11 +214,12 @@ def split_each(path: str, out_dir: str, password: Optional[str] = None) -> List[
 
 def rotate(path: str, pages_spec: str, degrees: int, dest: str,
            allow_replace: bool = False, password: Optional[str] = None) -> SaveResult:
+    _ensure_distinct_destination([path], dest)
     if degrees % 90 != 0:
         raise PdfError("Chỉ xoay theo bội số của 90 độ.")
     src = open_readonly(path, password)
     try:
-        for i in parse_pages(pages_spec, len(src.pages)):
+        for i in dict.fromkeys(parse_pages(pages_spec, len(src.pages))):
             page = src.pages[i]
             page.rotate(degrees, relative=True)
         return atomic_save(src, dest, allow_replace)
@@ -186,6 +234,7 @@ def compress(path: str, dest: str, allow_replace: bool = False,
     Không nén lại ảnh (không mất chất lượng). Nếu kết quả lớn hơn bản gốc,
     vẫn ghi nhưng cảnh báo để người dùng biết.
     """
+    _ensure_distinct_destination([path], dest)
     src = open_readonly(path, password)
     try:
         warnings: List[str] = []
