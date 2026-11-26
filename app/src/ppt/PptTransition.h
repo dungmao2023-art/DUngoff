@@ -17,4 +17,6 @@ struct AnimationOptions { unsigned shapeId = 0; bool fade = false; int durationM
 QList<Shape> slideShapes(const QString& source, int slide1, QString* error);
 Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& options, QByteArray* output);
 Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options);
+Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOptions>& effects, QByteArray* output);
+Result createAnimationSequenceCopy(const QString& source, const QString& destination, int slide1, const QList<AnimationOptions>& effects);
 }
