@@ -382,6 +382,21 @@ private:
         connect(label,&QComboBox::currentIndexChanged,&dialog,refresh);
         connect(value,&QComboBox::currentIndexChanged,&dialog,refresh);
         auto* close=new QDialogButtonBox(QDialogButtonBox::Close,&dialog);layout->addWidget(close);
+        auto* exportChart=close->addButton(QStringLiteral("Xuất XLSX + biểu đồ…"),QDialogButtonBox::ActionRole);
+        connect(exportChart,&QPushButton::clicked,&dialog,[&]{
+            const bool sum=value->currentData().toInt()>=0;
+            const auto result=summarizeGroups(grid,label->currentData().toInt(),value->currentData().toInt(),header->isChecked(),vi_->isChecked());
+            if(!result.ok||result.groups.size()>100){
+                QMessageBox::warning(&dialog,QStringLiteral("Báo cáo Excel"),result.ok?QStringLiteral("Tối đa 100 nhóm mỗi biểu đồ. Hãy lọc bớt dữ liệu."):result.error);return;
+            }
+            if(!result.warnings.isEmpty() && QMessageBox::question(&dialog,QStringLiteral("Xác nhận cảnh báo"),result.warnings.join(QStringLiteral("\n"))+QStringLiteral("\nVẫn xuất báo cáo mới?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+            QString dest=QFileDialog::getSaveFileName(&dialog,QStringLiteral("Xuất báo cáo có biểu đồ"),QStringLiteral("TongHop.xlsx"),QStringLiteral("Excel (*.xlsx)"),nullptr,QFileDialog::DontConfirmOverwrite);
+            if(dest.isEmpty())return;
+            if(!dest.endsWith(QLatin1String(".xlsx"),Qt::CaseInsensitive))dest+=QStringLiteral(".xlsx");
+            const auto saved=exportGroupReport(dest,result,sum);
+            if(!saved.ok)QMessageBox::warning(&dialog,QStringLiteral("Báo cáo Excel"),saved.error);
+            else QMessageBox::information(&dialog,QStringLiteral("Báo cáo Excel"),QStringLiteral("Đã lưu %1 nhóm và biểu đồ cột Excel thật vào tệp mới. Dữ liệu nguồn không bị sửa.\n%2").arg(saved.rowsWritten).arg(saved.outPath));
+        });
         connect(close,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
         refill();dialog.exec();
     }
