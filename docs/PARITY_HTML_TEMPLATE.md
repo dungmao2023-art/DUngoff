@@ -100,3 +100,7 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 ## Excel đối số linh hoạt và thống kê vùng theo sự kiện
 - SUMIFS/COUNTIFS/AVERAGEIFS: 1–8 cặp trong UI, lõi kiểm tối đa 127; giữ dữ liệu khi tăng cặp, từ chối cặp thiếu/trống. Test dựng công thức, engine vẫn tính.
 - Panel vùng có tùy chọn tự cập nhật từ callback của engine, debounce 220ms, đọc đúng tài liệu chứa panel, giới hạn xử lý 200000 ký tự sau khi đọc. Không polling; chưa xác nhận vùng rất lớn hoặc thao tác trên Windows thật. Chưa làm kéo lấy địa chỉ vùng vào đối số.
+
+## PDF xem trước đầu ra và PowerPoint thao tác trực quan
+- Đánh số/đóng dấu: panel xem trước dùng chính qpdf tạo PDF tạm rồi QtPdf render trang; tùy chọn tự cập nhật debounce 700ms, chỉ tự chạy với nguồn <=10MB, <=30 trang, không mã hóa; tệp lớn xem thủ công. Không sửa nguồn. Chưa có sửa chữ gốc, OCR hoặc kéo vị trí dấu.
+- PowerPoint: chèn hộp chữ/hình bằng cách chọn công cụ rồi kéo trên slide (không tự tạo ở giữa); xem trước slide trong cửa sổ riêng bằng renderer thật. Cần kiểm thử tương tác GUI; trình xem này tĩnh, không diễn hoạt animation, chưa có editor animation/master.

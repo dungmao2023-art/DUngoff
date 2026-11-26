@@ -8,6 +8,7 @@
 #include <QDialogButtonBox>
 #include <QEventLoop>
 #include <QFileDialog>
+#include <QFile>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -21,6 +22,11 @@
 #include <QTabWidget>
 #include <QThread>
 #include <QVBoxLayout>
+#include <QTemporaryDir>
+#include <QTimer>
+#include <QPixmap>
+#include <QScrollArea>
+#include "../print/PrintRender.h"
 
 using namespace dungpdf;
 
@@ -57,7 +63,7 @@ void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
 
 PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle(tr("Công cụ PDF"));
-    resize(680, 460);
+    resize(1060, 680);
     auto* lay = new QVBoxLayout(this);
     m_tabs = new QTabWidget(this);
     m_tabs->addTab(buildMerge(), tr("Gộp"));
@@ -375,13 +381,122 @@ void fillPositions(QComboBox* c, bool withDiagonal) {
     c->addItem(QObject::tr("Giữa trang"), int(Position::Center));
     if (withDiagonal) c->insertItem(0, QObject::tr("Chéo giữa trang"), int(Position::Diagonal));
 }
+// Preview from the SAME PDF operation as saving, to a private temporary directory.
+// Only the current page is rendered; auto regeneration is opt-in and capped for large sources.
+class OperationPreview : public QWidget {
+public:
+    using Generate = std::function<Result(const QString&)>;
+    explicit OperationPreview(QWidget* parent, Generate generate, std::function<QString()> source)
+        : QWidget(parent), generate_(std::move(generate)), source_(std::move(source)) {
+        auto* root = new QVBoxLayout(this);
+        root->setContentsMargins(8, 0, 0, 0);
+        auto* title = new QLabel(tr("Xem trước PDF đầu ra"), this);
+        title->setStyleSheet(QStringLiteral("font-weight:700;"));
+        root->addWidget(title);
+        auto* bar = new QHBoxLayout;
+        auto* go = new QPushButton(tr("Cập nhật"), this);
+        automatic_ = new QCheckBox(tr("Tự cập nhật"), this);
+        automatic_->setToolTip(tr("Tạo bản PDF tạm sau khi ngừng chỉnh khoảng 0,7 giây. Chỉ tự cập nhật tệp dưới 10 MB, tối đa 30 trang."));
+        bar->addWidget(go); bar->addWidget(automatic_); bar->addStretch();
+        root->addLayout(bar);
+        auto* scroll = new QScrollArea(this);
+        scroll->setWidgetResizable(true); scroll->setAlignment(Qt::AlignCenter);
+        image_ = new QLabel(scroll); image_->setAlignment(Qt::AlignCenter); image_->setWordWrap(true);
+        image_->setMinimumSize(220, 180);
+        scroll->setWidget(image_); root->addWidget(scroll, 1);
+        auto* nav = new QHBoxLayout;
+        nav->addWidget(new QLabel(tr("Trang:"), this));
+        page_ = new QSpinBox(this); page_->setRange(1, 1); page_->setEnabled(false);
+        nav->addWidget(page_); nav->addStretch(1); root->addLayout(nav);
+        message_ = new QLabel(this); message_->setWordWrap(true); root->addWidget(message_);
+        timer_ = new QTimer(this); timer_->setSingleShot(true); timer_->setInterval(700);
+        connect(go, &QPushButton::clicked, this, [this] { timer_->stop(); refresh(false); });
+        connect(automatic_, &QCheckBox::toggled, this, [this](bool checked) {
+            if (checked) changed(); else timer_->stop();
+        });
+        connect(timer_, &QTimer::timeout, this, [this] { if (isVisible() && automatic_->isChecked()) refresh(true); });
+        connect(page_, &QSpinBox::valueChanged, this, [this](int) { render(); });
+        if (!printrender::available() || !temp_.isValid()) {
+            go->setEnabled(false); automatic_->setEnabled(false);
+            message_->setText(tr("Không có bộ vẽ PDF hoặc thư mục tạm. Vẫn có thể lưu bằng công cụ PDF."));
+        } else {
+            message_->setText(tr("Chọn tệp và thông số, sau đó cập nhật để xem bản PDF thật. Tệp nguồn không bị sửa."));
+        }
+    }
+    void changed() {
+        if (busy_) return;
+        fresh_ = false;
+        page_->setEnabled(false);
+        image_->clear();
+        message_->setText(tr("Thông số đã thay đổi. Cần cập nhật xem trước."));
+        if (automatic_->isChecked() && isVisible()) timer_->start();
+    }
+private:
+    void refresh(bool autoMode) {
+        if (busy_ || !temp_.isValid() || !printrender::available()) return;
+        const QString src = source_();
+        fresh_ = false; page_->setEnabled(false); image_->clear();
+        if (src.isEmpty() || !QFileInfo(src).isFile()) { message_->setText(tr("Hãy chọn PDF nguồn.")); return; }
+        if (autoMode) {
+            if (QFileInfo(src).size() > 10 * 1024 * 1024) {
+                message_->setText(tr("Tệp lớn: bấm Cập nhật để tạo xem trước thủ công.")); return;
+            }
+            const auto input = dungpdf::info(src);
+            if (!input.ok || input.pages > 30 || input.encrypted) {
+                message_->setText(tr("Tệp dài, có mật khẩu hoặc chưa đọc được: bấm Cập nhật thủ công.")); return;
+            }
+        }
+        busy_ = true;
+        message_->setText(tr("Đang tạo PDF xem trước…"));
+        const QString candidate = temp_.filePath(QStringLiteral("preview-%1.pdf").arg(++generation_));
+        const Result result = generate_(candidate);
+        busy_ = false;
+        if (!result.ok) {
+            QFile::remove(candidate);
+            message_->setText(result.error.isEmpty() ? tr("Không tạo được xem trước.") : result.error);
+            return;
+        }
+        const auto info = printrender::pdfInfo(candidate);
+        if (!info.ok || info.pages < 1) {
+            QFile::remove(candidate);
+            message_->setText(tr("Không đọc được PDF xem trước: %1").arg(info.error));
+            return;
+        }
+        if (!current_.isEmpty()) QFile::remove(current_);
+        current_ = candidate; fresh_ = true;
+        page_->setRange(1, info.pages); page_->setEnabled(true);
+        render();
+        message_->setText(tr("Bản PDF tạm đã cập nhật (%1 trang). Bấm Lưu để xuất bản chính thức.").arg(info.pages));
+    }
+    void render() {
+        if (!fresh_) return;
+        QString error;
+        const QImage img = printrender::renderPage(current_, page_->value(), QSize(460, 540), &error);
+        if (img.isNull()) image_->setText(tr("Không vẽ được trang: %1").arg(error));
+        else image_->setPixmap(QPixmap::fromImage(img));
+    }
+    QTemporaryDir temp_;
+    Generate generate_;
+    std::function<QString()> source_;
+    QCheckBox* automatic_{};
+    QSpinBox* page_{};
+    QLabel *image_{}, *message_{};
+    QTimer* timer_{};
+    QString current_;
+    int generation_ = 0;
+    bool busy_ = false, fresh_ = false;
+};
+
 const char* kAsciiHint = "Chữ có dấu tiếng Việt chưa dùng được ở mục này (font PDF chuẩn không có chữ có dấu). "
                          "Hãy dùng chữ không dấu, hoặc đóng dấu bằng ảnh đã có chữ tiếng Việt.";
 }  // namespace
 
 QWidget* PdfToolsDialog::buildNumber() {
     auto* w = new QWidget(this);
-    auto* f = new QFormLayout(w);
+    auto* root = new QHBoxLayout(w);
+    auto* form = new QWidget(w);
+    auto* f = new QFormLayout(form);
+    root->addWidget(form, 1);
     f->addRow(tr("Tệp PDF:"), fileRow(&m_numFile, [this] { refreshPageCount(m_numFile->text(), m_numInfo); }));
     m_numInfo = new QLabel(w);
     f->addRow(QString(), m_numInfo);
@@ -405,7 +520,25 @@ QWidget* PdfToolsDialog::buildNumber() {
     auto* hint = new QLabel(tr("{n} = số trang, {total} = số cuối cùng. Chỉ nhận chữ không dấu."), w);
     hint->setStyleSheet("color:#555");
     f->addRow(hint);
-    auto* go = new QPushButton(tr("Đánh số..."), w);
+    auto options = [this] {
+        NumberOptions o;
+        o.format = m_numFormat->text();
+        o.pos = Position(m_numPos->currentData().toInt());
+        o.start = m_numStart->value();
+        o.fontSize = m_numSize->value();
+        o.pages = m_numPages->text().trimmed().isEmpty() ? QStringLiteral("1-") : m_numPages->text().trimmed();
+        return o;
+    };
+    auto* preview = new OperationPreview(w, [this, options](const QString& dest) {
+        const QString src = m_numFile->text(); const auto o = options();
+        return runWithPasswords({src}, [this, src, o, dest] { return addPageNumbers(inputFor(src), o, dest); });
+    }, [this] { return m_numFile->text(); });
+    root->addWidget(preview, 1);
+    for (auto* e : {m_numFile, m_numFormat, m_numPages}) connect(e, &QLineEdit::textChanged, preview, [preview] { preview->changed(); });
+    connect(m_numPos, &QComboBox::currentIndexChanged, preview, [preview] { preview->changed(); });
+    connect(m_numStart, &QSpinBox::valueChanged, preview, [preview] { preview->changed(); });
+    connect(m_numSize, &QDoubleSpinBox::valueChanged, preview, [preview] { preview->changed(); });
+    auto* go = new QPushButton(tr("Lưu PDF đánh số..."), w);
     f->addRow(go);
     connect(go, &QPushButton::clicked, this, [this] {
         const QString src = m_numFile->text();
@@ -429,7 +562,10 @@ QWidget* PdfToolsDialog::buildNumber() {
 
 QWidget* PdfToolsDialog::buildStamp() {
     auto* w = new QWidget(this);
-    auto* f = new QFormLayout(w);
+    auto* root = new QHBoxLayout(w);
+    auto* form = new QWidget(w);
+    auto* f = new QFormLayout(form);
+    root->addWidget(form, 1);
     f->addRow(tr("Tệp PDF:"), fileRow(&m_stampFile, [this] { refreshPageCount(m_stampFile->text(), m_stampInfo); }));
     m_stampInfo = new QLabel(w);
     f->addRow(QString(), m_stampInfo);
@@ -471,7 +607,23 @@ QWidget* PdfToolsDialog::buildStamp() {
     f->addRow(tr("Bề rộng ảnh (% trang):"), m_stampWidth);
     m_stampPages = new QLineEdit(QStringLiteral("1-"), w);
     f->addRow(tr("Các trang:"), m_stampPages);
-    auto* go = new QPushButton(tr("Đóng dấu..."), w);
+    auto options = [this] {
+        StampOptions o;
+        o.text = m_stampText->text(); o.imagePath = m_stampImage->text();
+        o.pos = Position(m_stampPos->currentData().toInt()); o.fontSize = m_stampSize->value();
+        o.opacity = m_stampOpacity->value(); o.widthPercent = m_stampWidth->value();
+        o.pages = m_stampPages->text().trimmed().isEmpty() ? QStringLiteral("1-") : m_stampPages->text().trimmed();
+        return o;
+    };
+    auto* preview = new OperationPreview(w, [this, options](const QString& dest) {
+        const QString src = m_stampFile->text(); const auto o = options();
+        return runWithPasswords({src}, [this, src, o, dest] { return stamp(inputFor(src), o, dest); });
+    }, [this] { return m_stampFile->text(); });
+    root->addWidget(preview, 1);
+    for (auto* e : {m_stampFile, m_stampText, m_stampImage, m_stampPages}) connect(e, &QLineEdit::textChanged, preview, [preview] { preview->changed(); });
+    connect(m_stampPos, &QComboBox::currentIndexChanged, preview, [preview] { preview->changed(); });
+    for (auto* s : {m_stampSize, m_stampOpacity, m_stampWidth}) connect(s, &QDoubleSpinBox::valueChanged, preview, [preview] { preview->changed(); });
+    auto* go = new QPushButton(tr("Lưu PDF đóng dấu..."), w);
     f->addRow(go);
     connect(go, &QPushButton::clicked, this, [this] {
         const QString src = m_stampFile->text();
