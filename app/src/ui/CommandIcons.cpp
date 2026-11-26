@@ -34,7 +34,7 @@ QString iconNameForCommand(const QString& id) {
         {"word:reviewCount", "word-count"}, {"word:reviewSyllable", "spell"},
         {".uno:TrackChanges", "rename"}, {".uno:ShowTrackedChanges", "eye"},
         {".uno:PreviousTrackedChange", "move-up"}, {".uno:NextTrackedChange", "move-down"},
-        {".uno:AcceptTrackedChange", "info"}, {".uno:RejectTrackedChange", "close"}, {"word:addComment", "text"},
+        {".uno:AcceptTrackedChange", "info"}, {".uno:RejectTrackedChange", "close"}, {"word:acceptAllReview", "info"}, {"word:rejectAllReview", "close"}, {"word:addComment", "text"},
         {"word:inspect", "search"}, {"word:outline", "heading"}, {"word:symbols", "text"},
         {"word:headerEnable", "heading"}, {"word:footerEnable", "page-number"},
         {"word:footnote", "text"}, {"word:endnote", "text"}, {".uno:UpdateAllIndexes", "toc"},
