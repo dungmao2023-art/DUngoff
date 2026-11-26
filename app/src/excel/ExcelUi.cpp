@@ -105,15 +105,53 @@ void DocumentTab::excelAction(const QString& id) {
             if (!result.ok) { QMessageBox::warning(this, tr("Số → chữ"), result.error); return; }
             QDialog dialog(this); dialog.setWindowTitle(tr("Xem trước số → chữ · %1").arg(range)); dialog.resize(760, 420);
             auto* layout = new QVBoxLayout(&dialog);
-            auto* note = new QLabel(tr("%1 ô đã đổi, %2 ô có lưu ý về số 0 hoặc định dạng. Sao chép kết quả rồi dán vào vùng đích mới; công thức và dữ liệu nguồn không bị sửa.").arg(result.converted).arg(result.warnings), &dialog);
+            const QString sourceSheet = qs(m_doc->partName(cur));
+            auto* note = new QLabel(tr("%1 ô đã đổi, %2 ô có lưu ý về số 0 hoặc định dạng. Có thể sao chép hoặc áp dụng trực tiếp. Áp dụng sẽ thay số và công thức trong vùng bằng chữ; kiểm tra trước khi xác nhận.").arg(result.converted).arg(result.warnings), &dialog);
             note->setWordWrap(true); layout->addWidget(note);
             auto* preview = new QPlainTextEdit(result.text, &dialog); preview->setReadOnly(true); preview->setLineWrapMode(QPlainTextEdit::NoWrap); layout->addWidget(preview, 1);
             auto* buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, &dialog);
             auto* copy = buttons->addButton(tr("Sao chép vùng kết quả"), QDialogButtonBox::AcceptRole);
+            auto* apply = buttons->addButton(tr("Thay vùng đang chọn…"), QDialogButtonBox::DestructiveRole);
+            // Until empty-cell paste semantics are verified, do not risk replacing
+            // hidden formulas or merging an incomplete output grid.
+            apply->setEnabled(result.converted == rows * cols);
+            if (!apply->isEnabled()) {
+                note->setText(note->text() + tr("\nVùng có ô hiển thị trống: chưa hỗ trợ thay trực tiếp; hãy chọn vùng số đầy đủ."));
+            }
+            copy->setDefault(true);
+            bool replaceRange = false;
             QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
             QObject::connect(copy, &QPushButton::clicked, &dialog, &QDialog::accept);
+            QObject::connect(apply, &QPushButton::clicked, &dialog, [&] { replaceRange = true; dialog.accept(); });
             layout->addWidget(buttons);
-            if (dialog.exec() == QDialog::Accepted) QApplication::clipboard()->setText(result.text);
+            if (dialog.exec() != QDialog::Accepted) return;
+            if (!replaceRange) { QApplication::clipboard()->setText(result.text); return; }
+            auto sameSource = [&] {
+                m_doc->waitInputIdle();
+                return !readOnly() && m_doc->currentPart() == cur &&
+                    qs(m_doc->partName(cur)) == sourceSheet &&
+                    m_view->selectedCellRange() == range &&
+                    qs(m_doc->selectionAs("text/plain;charset=utf-8")) == raw;
+            };
+            if (!sameSource()) {
+                QMessageBox::warning(this, tr("Số → chữ"), tr("Vùng hoặc dữ liệu đã đổi; chưa ghi."));
+                return;
+            }
+            if (QMessageBox::question(this, tr("Thay dữ liệu vùng?"),
+                tr("Thay toàn bộ %1 ô của %2!%3 bằng chữ? Mọi công thức trong vùng cũng sẽ bị thay thế. Có thể dùng Hoàn tác ngay sau thao tác.")
+                    .arg(result.converted).arg(sourceSheet, range),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+            if (!sameSource()) {
+                QMessageBox::warning(this, tr("Số → chữ"), tr("Vùng hoặc dữ liệu đã đổi trong lúc xác nhận; chưa ghi."));
+                return;
+            }
+            // Single native engine paste, never write individual cells in a loop.
+            if (!m_doc->paste("text/plain;charset=utf-8", ss(result.text))) {
+                QMessageBox::warning(this, tr("Số → chữ"), tr("Engine không xác nhận thay vùng. Kiểm tra dữ liệu và Hoàn tác nếu cần."));
+                return;
+            }
+            m_doc->waitInputIdle();
+            m_view->setFocus();
             return;
         }
         const auto result = vntext::moneyToWords(value, options);
