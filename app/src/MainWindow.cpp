@@ -1082,7 +1082,7 @@ void MainWindow::onAppAction(const QString& id) {
             {QStringLiteral("info"), PdfToolsDialog::Info},
             {QStringLiteral("number"), PdfToolsDialog::Number}, {QStringLiteral("stamp"), PdfToolsDialog::Stamp},
             {QStringLiteral("images"), PdfToolsDialog::Images}, {QStringLiteral("blank"), PdfToolsDialog::Blank},
-            {QStringLiteral("reorder"), PdfToolsDialog::Reorder}, {QStringLiteral("ocr"), PdfToolsDialog::Ocr}};
+            {QStringLiteral("reorder"), PdfToolsDialog::Reorder}, {QStringLiteral("ocr"), PdfToolsDialog::Ocr}, {QStringLiteral("search"), PdfToolsDialog::Search}};
         QString path;
         if (docVisible && t->kind() == DocKind::Drawing && !t->document()->isNew()) {
             const QString p = fromPath(t->document()->originalPath());
