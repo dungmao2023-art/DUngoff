@@ -31,7 +31,6 @@
 #include <QPushButton>
 #include <QListWidget>
 #include <QAbstractItemModel>
-#include <QDropEvent>
 #include <QSet>
 #include <functional>
 
@@ -42,8 +41,8 @@ public:
     using QListWidget::QListWidget;
     std::function<void()> orderChanged;
 protected:
-    void dropEvent(QDropEvent* event) override {
-        { QSignalBlocker block(this); QListWidget::dropEvent(event); }
+    void startDrag(Qt::DropActions actions) override {
+        { QSignalBlocker block(this); QListWidget::startDrag(actions); }
         if(orderChanged)orderChanged();
     }
 };
