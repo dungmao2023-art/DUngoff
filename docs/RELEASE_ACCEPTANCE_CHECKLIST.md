@@ -17,10 +17,10 @@ Mốc rà soát 26/11/2026: main 487a62b31a7cf645dc8bfaa45d2afe2518cae1b3. Đây
 ## P0 — Word
 - [ ] W01 Gõ/sửa/chọn đoạn, font, size, màu, đậm/nghiêng/gạch/chỉ số, căn lề đoạn, bullets/numbering, thụt lề, giãn dòng; kiểm DOCX roundtrip.
 - [ ] W02 Bảng (chèn/xóa hàng/cột, gộp, chỉnh kích thước), ảnh (chèn/resize/wrap), liên kết, ký hiệu, ngắt trang; test GUI.
-- [ ] W03 Khổ A4, ngang/dọc, lề Việt tùy chỉnh, header/footer, số trang, footnote/endnote, dàn ý, TOC tự cập nhật. #16 có test header/footer/chú thích; TOC chưa xác minh.
+- [ ] W03 Khổ A4, ngang/dọc, lề Việt tùy chỉnh, header/footer, số trang, footnote/endnote, dàn ý, TOC tự cập nhật. #16 có test header/footer/chú thích; #49 thử tạo TOC native qua dialog, #51 cập nhật TOC thật; đang CI, chưa nghiệm thu.
 - [ ] W04 Tìm/thay, đếm chữ, chọn/đổi hoa thường, kiểm chính tả Việt thực tế; phân biệt bộ kiểm âm tiết với từ điển.
 - [ ] W05 Trợ lý Tôi muốn, số tiền thành chữ, mẫu hành chính, ngày tháng, TCVN3, mail merge. #30 merged; cần test thực tế và kiểm mẫu chuẩn.
-- [ ] W06 Track Changes, comment, lưu lại không mất review hiện có; kiểm roundtrip, chưa xác nhận đầy đủ.
+- [ ] W06 Track Changes, comment, lưu lại không mất review hiện có; #46 merged, kiểm roundtrip DOCX PASS hai OS, còn accept/reject và GUI.
 
 ## P0 — Excel
 - [ ] X01 Nhập ô, F2, double click, IME, chọn ô/vùng, nhiều sheet, con trỏ, thanh công thức; test Windows.
@@ -28,8 +28,8 @@ Mốc rà soát 26/11/2026: main 487a62b31a7cf645dc8bfaa45d2afe2518cae1b3. Đây
 - [ ] X03 Hàm cơ bản + tra cứu/điều kiện/mảng, lỗi công thức, trợ lý Tôi muốn tự điền tham chiếu và ô kết quả, đổi sheet an toàn. #35 merged; GUI chưa xác minh. XLOOKUP/FILTER/SORT/UNIQUE đã test engine Windows, Linux cũ có giới hạn.
 - [ ] X04 FillDown/Right/Series và tay nắm kéo điền thật; nút có, kéo handle chưa xác minh.
 - [ ] X05 Lọc/sort/freeze, định dạng điều kiện, validation, bảo vệ sheet; kiểm XLSX thật.
-- [ ] X06 Biểu đồ thật lưu XLSX, chỉnh nguồn/loại/tiêu đề; chưa xác minh XML và GUI. Không coi tổng hợp bảng là chart. #44 xuất chart OOXML trong báo cáo mới, Linux PASS, chờ Windows và merge.
-- [ ] X07 PivotTable thật tạo/sửa/refresh, lưu và mở lại XLSX; #36 merged, chỉ tổng hợp đọc dữ liệu, không phải PivotTable.
+- [ ] X06 Biểu đồ thật lưu XLSX, chỉnh nguồn/loại/tiêu đề; #47 merged PASS hai OS: chèn chart native và xác minh XML liên kết nguồn. Chưa nghiệm thu chỉnh loại/tiêu đề/nguồn và GUI. #44 báo cáo riêng không thay thế native.
+- [ ] X07 PivotTable thật tạo/sửa/refresh, lưu và mở lại XLSX; #36 chỉ tổng hợp đọc dữ liệu, không phải PivotTable; #50 refresh PivotTable thật đang CI, còn tạo/cấu hình.
 - [ ] X08 CSV, làm sạch/trùng/đối soát, mã dài/0 đầu, chuyển số thành chữ, xuất theo mẫu. #23/#32/#34 merged, cần test dữ liệu thật.
 - [ ] X09 MISA/KiotViet (ưu tiên), FAST/Sapo sau: import file xuất, chọn mẫu chính thức đúng phiên bản, mapping tái sử dụng, cảnh báo thiếu/thừa, xuất mới và nhập thử vào phần mềm đích; không tuyên bố tương thích nếu chưa thử.
 
@@ -45,7 +45,7 @@ Mốc rà soát 26/11/2026: main 487a62b31a7cf645dc8bfaa45d2afe2518cae1b3. Đây
 - [ ] P03 Trình chiếu toàn màn hình/cửa sổ, phím tới/lui, thoát và về đúng slide, màn hình ngoài; chưa test native.
 - [ ] P04 Transition + Slide Master: #12/#17 có cơ bản; cần kiểm timing khi chiếu, nhiều master/layout, theme, font và đối tượng master.
 - [ ] P05 Animation: #28/#33 có Appear/Fade theo click, nhiều đối tượng, duration/delay/order. Nghiệm thu PPTX trong PowerPoint, kéo thả thật; không sửa timing có sẵn.
-- [ ] P06 Animation nâng cao: With Previous/After Previous, exit/emphasis/motion path, timeline, chỉnh hiệu ứng cũ, preview thực sự. #43 bổ sung 3 trigger và timeline dự kiến, vá thứ tự drag, đang CI; phải có test XML + trình chiếu.
+- [ ] P06 Animation nâng cao: With Previous/After Previous, exit/emphasis/motion path, timeline, chỉnh hiệu ứng cũ, preview thực sự. #43 merged PASS hai OS, 3 trigger và timeline dự kiến; phải có test XML + trình chiếu.
 
 ## P0 — PDF
 - [ ] D01 Mở/đọc, zoom, trang, chọn chữ, tìm chữ, copy, preview, file có mật khẩu; cần kiểm chữ Việt, file scan. #39 merged (CI Windows/Linux PASS) tìm lớp chữ, phạm vi trang, đoạn trích, đọc/copy; chưa highlight canvas.
@@ -84,7 +84,7 @@ Nguồn số liệu duy nhất: [RELEASE_PROGRESS.csv](RELEASE_PROGRESS.csv), 48
 
 Chạy từ gốc repo: `python tools/release_progress.py --capacity 8`. Thêm `--priority P0` hoặc `--priority P1` để lọc. Capacity là số giờ công hữu hiệu mỗi ngày, không phải số AI chạy nền. Không có lịch chạy tự động. Ước lượng không bao gồm thời gian chờ CI, thử nghiệm phụ thuộc ngoài, tương thích 100% MS Office, VBA/M đầy đủ, sửa mọi PDF gốc hay macOS; các hạng mục chưa xác định khả thi cần prototype rồi lập lại ước lượng. Các khoảng giờ là tổng công sức chủ động, không phải đường găng; thực tế có phụ thuộc và thời gian review.
 
-Mốc hiện tại sau #39–41: chỉ số triển khai 29.9%, chưa có nhóm accepted; D01 lên integrated vì phần tìm/đọc/copy đã merge, vẫn thiếu highlight và GUI. Không giảm dự toán giờ khi chưa đo. Mốc dự toán đầu tiên: 48 nhóm, chỉ số triển khai 29%, P0 32%, P1 13%; chưa có nhóm nào được ghi nhận nghiệm thu đủ toàn bộ tiêu chí. 391–1188 giờ công còn lại (P0 315–956, P1 76–232). Cập nhật CSV khi mã/CI/GUI thay đổi, giảm giờ chỉ khi có bằng chứng; nếu phát hiện blocker thì tăng giờ và ghi lý do. Không dùng số PR/commit làm phần trăm.
+Mốc sau #43/#46/#47 (main be1816d): chỉ số triển khai 32.4% theo CSV, chưa có nhóm accepted. W06 và X06 lên integrated vì phần cốt lõi native đã merge; P06 vẫn partial do thiếu hiệu ứng và playback. #52 đang CI, chưa tính thêm. Không giảm dự toán giờ khi chưa đo. Mốc dự toán đầu tiên: 48 nhóm, chỉ số triển khai 29%, P0 32%, P1 13%; chưa có nhóm nào được ghi nhận nghiệm thu đủ toàn bộ tiêu chí. 391–1188 giờ công còn lại (P0 315–956, P1 76–232). Cập nhật CSV khi mã/CI/GUI thay đổi, giảm giờ chỉ khi có bằng chứng; nếu phát hiện blocker thì tăng giờ và ghi lý do. Không dùng số PR/commit làm phần trăm.
 
 ## Quy trình mỗi lượt
 1. Đọc checklist và HEAD main + PR mở. Phân biệt chưa làm / có mã / CI đang chạy / CI đạt / merge / GUI đạt.
