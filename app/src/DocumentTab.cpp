@@ -2,6 +2,8 @@
 #define LOK_USE_UNSTABLE_API
 #include "DocumentTab.h"
 #include "print/PrintDialog.h"
+#include "print/PrintRender.h"
+#include <QPixmap>
 #include <QTemporaryDir>
 
 #include "EngineHost.h"
@@ -63,6 +65,19 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         v->addWidget(banner);
     }
 
+    if (m_doc->kind() == DocKind::Drawing && !m_doc->readOnly()) {
+        auto* bar = new QWidget(this);
+        auto* layout = new QHBoxLayout(bar); layout->setContentsMargins(12,6,12,6);
+        auto* info = new QLabel(tr("Chỉnh trực tiếp trên trang: nhấp đúp vào chữ mà engine nhận diện; dùng Hộp chữ để thêm chữ mới. Ctrl+Z để hoàn tác. Lưu ODG hoặc xuất PDF mới."),bar);
+        info->setWordWrap(true); layout->addWidget(info,1);
+        m_pdfCompareButton = new QPushButton(tr("Đối chiếu PDF gốc"),bar);
+        m_pdfCompareButton->setCheckable(true); m_pdfCompareButton->hide();
+        m_pdfCompareButton->setToolTip(tr("Hiện trang gốc cạnh bản chỉnh sửa trực tiếp"));
+        layout->addWidget(m_pdfCompareButton);
+        bar->setStyleSheet(QStringLiteral("QWidget{background:#F4F8FF;} QLabel{color:#40577D;} QPushButton{background:white;border:1px solid #DCE5F2;border-radius:6px;padding:7px;} QPushButton:checked{background:#2864BA;color:white;}"));
+        v->addWidget(bar);
+    }
+
     // ---- Thanh công thức (Excel) ----
     if (m_doc->kind() == DocKind::Spreadsheet) {
         auto* fb = new QWidget(this);
@@ -114,6 +129,7 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
             if (m_rebuildingParts || row < 0 || row == m_doc->currentPart()) return;
             m_doc->setPart(row);
             m_view->resetForPartChange();
+            refreshPdfComparison();
             emit statusChanged();
         });
     }
@@ -145,6 +161,26 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         addTool(m_rangeTools, tr("Vùng dữ liệu"));
         connect(m_excelTools, &QTabWidget::currentChanged, this, [this](int) { notifyDocumentRangeTools(m_rangeTools); });
         middle->addWidget(m_excelTools);
+    }
+    if (m_pdfCompareButton) {
+        m_pdfComparison = new QWidget(this);
+        m_pdfComparison->setMinimumWidth(230); m_pdfComparison->setMaximumWidth(360);
+        auto* layout = new QVBoxLayout(m_pdfComparison);
+        layout->setContentsMargins(8,8,8,8);
+        auto* heading = new QLabel(tr("PDF gốc · chỉ đọc"),m_pdfComparison);
+        heading->setStyleSheet(QStringLiteral("font-weight:700;color:#17294D;"));
+        layout->addWidget(heading);
+        auto* scroll = new QScrollArea(m_pdfComparison);
+        scroll->setWidgetResizable(true);
+        m_pdfOriginalImage = new QLabel(scroll);
+        m_pdfOriginalImage->setAlignment(Qt::AlignTop|Qt::AlignHCenter);
+        m_pdfOriginalImage->setWordWrap(true);
+        scroll->setWidget(m_pdfOriginalImage); layout->addWidget(scroll,1);
+        m_pdfComparison->hide(); middle->addWidget(m_pdfComparison);
+        connect(m_pdfCompareButton,&QPushButton::toggled,this,[this](bool on) {
+            m_pdfComparison->setVisible(on);
+            if (on) { m_pdfComparedPart=-1; refreshPdfComparison(); }
+        });
     }
     v->addLayout(middle, 1);
 
@@ -207,12 +243,30 @@ void DocumentTab::adoptRecovered(const recovery::Entry& e) {
     m_recOrigin = e.originalPath;
     m_recOriginSet = true;
     m_dirtySinceAutosave = true;  // bản này chưa nằm trong phiên mới: tự lưu ngay ở nhịp tới
+    if (m_pdfCompareButton) m_pdfCompareButton->setVisible(m_recOrigin.endsWith(QLatin1String(".pdf"),Qt::CaseInsensitive));
 }
 
 void DocumentTab::setCopyOrigin(const QString& originalPath) {
     m_recOrigin = originalPath;
     m_recOriginSet = true;
     m_dirtySinceAutosave = true;  // bản sao chưa lưu ở đâu cả: tự lưu ngay ở nhịp tới
+    if (m_pdfCompareButton) m_pdfCompareButton->setVisible(m_recOrigin.endsWith(QLatin1String(".pdf"),Qt::CaseInsensitive));
+}
+
+void DocumentTab::refreshPdfComparison() {
+    if (!m_pdfComparison || m_pdfComparison->isHidden() || !m_pdfOriginalImage) return;
+    const int part = m_doc->currentPart();
+    if (part == m_pdfComparedPart) return;
+    m_pdfComparedPart = part;
+    QString error;
+    const QImage image = printrender::renderPage(m_recOrigin,part+1,QSize(340,1200),&error);
+    if (image.isNull()) {
+        m_pdfOriginalImage->setPixmap(QPixmap());
+        m_pdfOriginalImage->setText(tr("Không xem được trang gốc %1: %2").arg(part+1).arg(error));
+    } else {
+        m_pdfOriginalImage->setPixmap(QPixmap::fromImage(image));
+        m_pdfOriginalImage->setToolTip(tr("Trang %1 của PDF gốc; bản sửa hiển thị ở vùng làm việc bên cạnh.").arg(part+1));
+    }
 }
 
 void DocumentTab::dropRecovery() {
@@ -322,6 +376,7 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
     case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED:
     case LOK_CALLBACK_SET_PART:
         ++m_pickGeneration;
+        refreshPdfComparison();
         if ((m_sheets && m_sheets->count() != m_doc->partCount()) ||
             (m_slides && m_slides->count() != m_doc->partCount()) ||
             (m_sheets && m_sheets->currentIndex() != m_doc->currentPart()) ||
@@ -515,7 +570,7 @@ bool DocumentTab::printDocument() {
     QTemporaryDir tmp;
     QString pdfPath;
     const QString original = m_doc->isNew() ? QString() : fromPath(m_doc->originalPath());
-    if (m_doc->kind() == DocKind::Drawing && original.endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive) && QFileInfo::exists(original)) {
+    if (m_doc->kind() == DocKind::Drawing && m_doc->readOnly() && original.endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive) && QFileInfo::exists(original)) {
         pdfPath = original;  // PDF đang mở: in đúng tệp gốc, không xuất lại
     } else {
         if (!tmp.isValid()) {
