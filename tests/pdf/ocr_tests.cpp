@@ -48,14 +48,23 @@ int main(int argc, char** argv) {
     const QString en = temp.filePath(QStringLiteral("english.png")), vi = temp.filePath(QStringLiteral("vietnamese.png"));
     if (!sample(en, {QStringLiteral("DUNG OFFICE 12345"), QStringLiteral("DOCUMENT TEST 67890"), QStringLiteral("HELLO WORLD")}) ||
         !sample(vi, {QStringLiteral("CỘNG HÒA XÃ HỘI"), QStringLiteral("ĐỘC LẬP TỰ DO"), QStringLiteral("VIỆT NAM 12345")})) return 1;
-    const auto a = dungpdf::recognizeImage(en, QStringLiteral("eng"));
+    for (const int mode : {3, 6, 7, 11}) if (!dungpdf::validOcrLayout(mode)) return 1;
+    for (const int mode : {-1, 0, 4, 13}) if (dungpdf::validOcrLayout(mode)) return 1;
+    const auto invalid = dungpdf::recognizeImage(en, QStringLiteral("eng"), 99);
+    if (invalid.ok || invalid.error.isEmpty()) return 1;
+    const QString line = temp.filePath(QStringLiteral("line.png"));
+    if (!sample(line, {QStringLiteral("DUNG OFFICE 12345")})) return 1;
+    const auto single = dungpdf::recognizeImage(line, QStringLiteral("eng"), 7);
+    const bool lineGood = single.ok && single.text.contains(QStringLiteral("DUNG OFFICE"), Qt::CaseInsensitive)
+        && single.text.contains(QStringLiteral("12345"));
+    const auto a = dungpdf::recognizeImage(en, QStringLiteral("eng"), 6);
     const auto b = dungpdf::recognizeImage(vi, QStringLiteral("vie"));
     const QString bt = b.text.normalized(QString::NormalizationForm_C);
     std::cout << a.error.toStdString() << '\n' << a.text.toStdString() << '\n' << b.error.toStdString() << '\n' << b.text.toStdString() << '\n';
     const bool good = a.ok && a.text.contains(QStringLiteral("DUNG OFFICE"), Qt::CaseInsensitive) && a.text.contains(QStringLiteral("12345")) &&
         b.ok && bt.contains(QStringLiteral("VIỆT NAM"), Qt::CaseInsensitive) && bt.contains(QStringLiteral("12345"));
     const QString pdf = temp.filePath(QStringLiteral("searchable.pdf"));
-    const auto generated = dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,pdf);
+    const auto generated = dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,pdf,6);
     QFile file(pdf);
     const bool header = file.open(QIODevice::ReadOnly) && file.read(5) == "%PDF-";
     file.close();
@@ -72,5 +81,8 @@ int main(int argc, char** argv) {
         }
     }
     std::cout << "Searchable PDF: " << generated.error.toStdString() << " text layer=" << searchable << '\n';
-    return good && generated.ok && header && refusesOverwrite && refusesBadDpi && searchable ? 0 : 1;
+    const QString invalidPath = temp.filePath(QStringLiteral("invalid-layout.pdf"));
+    const bool refusesLayout = !dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,invalidPath,99).ok
+        && !QFileInfo::exists(invalidPath);
+    return good && lineGood && generated.ok && header && refusesOverwrite && refusesBadDpi && refusesLayout && searchable ? 0 : 1;
 }
