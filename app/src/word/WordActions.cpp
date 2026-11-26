@@ -349,13 +349,18 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     } else if (name == QLatin1String("vnMoney")) {
         bool ok = false;
         doc->waitInputIdle();
-        const QString selected = QString::fromStdString(doc->selectionAs("text/plain;charset=utf-8")).trimmed();
+        const QString originalSelection = QString::fromStdString(doc->selectionAs("text/plain;charset=utf-8"));
+        const QString selected = originalSelection.trimmed();
         const QString in = QInputDialog::getText(parent, QObject::tr("Số → chữ"),
             QObject::tr("Số đang chọn (hoặc nhập số):"), QLineEdit::Normal, selected, &ok);
         if (!ok || in.trimmed().isEmpty()) return true;
-        const auto mode = QInputDialog::getItem(parent, QObject::tr("Kiểu đọc"), QObject::tr("Chọn kiểu:"), {QObject::tr("Số tiền (đồng chẵn)"), QObject::tr("Số thường")}, 0, false, &ok);
+        const QStringList modes{QObject::tr("Tiền đồng · dấu phẩy thập phân"), QObject::tr("Tiền đồng · dấu chấm thập phân"),
+                                QObject::tr("Số thường · dấu phẩy thập phân"), QObject::tr("Số thường · dấu chấm thập phân")};
+        const auto mode = QInputDialog::getItem(parent, QObject::tr("Kiểu đọc"), QObject::tr("Chọn kiểu và định dạng số:"), modes, 0, false, &ok);
         if (!ok) return true;
-        vntext::MoneyOptions options; options.currency = mode == QObject::tr("Số tiền (đồng chẵn)"); options.chan = options.currency;
+        const int style = modes.indexOf(mode);
+        vntext::MoneyOptions options; options.currency = style < 2; options.chan = options.currency;
+        options.decimalSeparator = style % 2 == 0 ? QLatin1Char(',') : QLatin1Char('.');
         const auto r = vntext::moneyToWords(in.trimmed(), options);
         if (!r.ok) {
             QMessageBox::warning(parent, QObject::tr("Số tiền → chữ"), QObject::tr("Không đổi được: %1\nKhông có gì được chèn vào văn bản.").arg(r.error));
@@ -363,8 +368,14 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         }
         QString msg = QObject::tr("Xem trước:\n\n%1\n\n%2").arg(r.text, selected.isEmpty() ? QObject::tr("Chèn vào vị trí con trỏ?") : QObject::tr("Thay văn bản đang chọn bằng kết quả?"));
         if (!r.warnings.isEmpty()) msg += QObject::tr("\n\nLưu ý: ") + r.warnings.join(QStringLiteral("; "));
-        if (QMessageBox::question(parent, QObject::tr("Số tiền → chữ"), msg) == QMessageBox::Yes)
-            doc->paste("text/plain;charset=utf-8", ss(r.text));
+        if (QMessageBox::question(parent, QObject::tr("Số tiền → chữ"), msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes) {
+            doc->waitInputIdle();
+            if (QString::fromStdString(doc->selectionAs("text/plain;charset=utf-8")) != originalSelection) {
+                QMessageBox::warning(parent, QObject::tr("Số → chữ"), QObject::tr("Vùng chọn đã thay đổi; chưa chèn kết quả.")); return true;
+            }
+            if (!doc->paste("text/plain;charset=utf-8", ss(r.text)))
+                QMessageBox::warning(parent, QObject::tr("Số → chữ"), QObject::tr("Engine chưa xác nhận chèn."));
+        }
     } else if (name == QLatin1String("vnDate")) {
         const QString t = vntext::formatDateVn(QDate::currentDate(), vntext::DateStyle::Admin);
         if (QMessageBox::question(parent, QObject::tr("Chèn ngày Việt"),

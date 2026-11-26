@@ -1,0 +1,2 @@
+# Đổi số thành chữ từ vùng Excel
+Chọn ô/vùng liền nhau trong viewport; kiểm kích thước vùng và dữ liệu engine, tối đa 5000 ô. Chọn rõ dấu thập phân; số thường đọc từng chữ số thập phân, tiền đồng không làm tròn. Vùng nhiều ô xem trước và sao chép TSV, không ghi đè nguồn; từ chối ô không phải số, dữ liệu quoted/nhiều dòng hoặc kích thước không khớp. Word kiểm lại vùng chọn sau xác nhận. Chưa kiểm GUI Windows; vùng không nằm trọn viewport chưa hỗ trợ.

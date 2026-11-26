@@ -15,6 +15,11 @@
 #include <QTabBar>
 #include <QApplication>
 #include <QClipboard>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QPlainTextEdit>
+#include <QVBoxLayout>
+#include <QLabel>
 #include "../vntext/VnText.h"
 #include "../tools/dataassist/ExcelBridge.h"
 
@@ -62,19 +67,48 @@ void DocumentTab::excelAction(const QString& id) {
     if (a == QLatin1String("vnMoney")) {
         m_doc->waitInputIdle();
         const QString range = m_view->selectedCellRange();
-        if (dataassist::bridgeCellAddress(ss(range)).empty()) {
-            QMessageBox::information(this, tr("Số → chữ"), tr("Hãy chọn đúng một ô số trên màn hình.")); return;
+        if (dataassist::bridgeRangeAddress(ss(range)).empty()) {
+            QMessageBox::information(this, tr("Số → chữ"), tr("Hãy chọn một ô hoặc vùng số liền nhau, nằm trong màn hình.")); return;
         }
-        const QString value = qs(m_doc->selectionAs("text/plain;charset=utf-8")).trimmed();
+        const QString raw = qs(m_doc->selectionAs("text/plain;charset=utf-8"));
+        const QString value = raw.trimmed();
         bool ok = false;
-        const auto mode = QInputDialog::getItem(this, tr("Số → chữ"), tr("Giá trị: %1. Kiểu đọc:").arg(value), {tr("Số tiền (đồng chẵn)"), tr("Số thường")}, 0, false, &ok);
+        const QStringList modes{tr("Tiền đồng · dấu phẩy thập phân"), tr("Tiền đồng · dấu chấm thập phân"),
+                                tr("Số thường · dấu phẩy thập phân"), tr("Số thường · dấu chấm thập phân")};
+        const auto mode = QInputDialog::getItem(this, tr("Số → chữ"), tr("Vùng %1 · chọn định dạng số hiển thị:").arg(range), modes, 0, false, &ok);
         if (!ok) return;
-        vntext::MoneyOptions options; options.currency = mode == tr("Số tiền (đồng chẵn)"); options.chan = options.currency;
+        const int style = modes.indexOf(mode);
+        vntext::MoneyOptions options; options.currency = style < 2; options.chan = options.currency;
+        options.decimalSeparator = style % 2 == 0 ? QLatin1Char(',') : QLatin1Char('.');
+        if (range.contains(QLatin1Char(':'))) {
+            auto coords = [](const QString& address) {
+                int i = 0, col = 0;
+                while (i < address.size() && address.at(i).isLetter()) { col = col * 26 + address.at(i).unicode() - 'A' + 1; ++i; }
+                return QPair<int,int>(address.mid(i).toInt(), col);
+            };
+            const auto ends = range.split(QLatin1Char(':'));
+            const auto p = coords(ends.first()), q = coords(ends.last());
+            const int rows = q.first - p.first + 1, cols = q.second - p.second + 1;
+            const auto result = vntext::rangeToWords(raw, rows, cols, options);
+            if (!result.ok) { QMessageBox::warning(this, tr("Số → chữ"), result.error); return; }
+            QDialog dialog(this); dialog.setWindowTitle(tr("Xem trước số → chữ · %1").arg(range)); dialog.resize(760, 420);
+            auto* layout = new QVBoxLayout(&dialog);
+            auto* note = new QLabel(tr("%1 ô đã đổi, %2 ô có lưu ý về số 0 hoặc định dạng. Sao chép kết quả rồi dán vào vùng đích mới; công thức và dữ liệu nguồn không bị sửa.").arg(result.converted).arg(result.warnings), &dialog);
+            note->setWordWrap(true); layout->addWidget(note);
+            auto* preview = new QPlainTextEdit(result.text, &dialog); preview->setReadOnly(true); preview->setLineWrapMode(QPlainTextEdit::NoWrap); layout->addWidget(preview, 1);
+            auto* buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, &dialog);
+            auto* copy = buttons->addButton(tr("Sao chép vùng kết quả"), QDialogButtonBox::AcceptRole);
+            QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+            QObject::connect(copy, &QPushButton::clicked, &dialog, &QDialog::accept);
+            layout->addWidget(buttons);
+            if (dialog.exec() == QDialog::Accepted) QApplication::clipboard()->setText(result.text);
+            return;
+        }
         const auto result = vntext::moneyToWords(value, options);
         if (!result.ok) { QMessageBox::warning(this, tr("Số → chữ"), result.error); return; }
         QMessageBox box(this);
         box.setWindowTitle(tr("Số → chữ")); box.setText(result.text);
-        box.setInformativeText(tr("Sao chép để dán vào ô khác (giữ nguyên số/công thức nguồn), hoặc thay ô đang chọn."));
+        box.setInformativeText(tr("Sao chép để dán vào ô khác (giữ nguyên số/công thức nguồn), hoặc thay ô đang chọn.") + (result.warnings.isEmpty() ? QString() : QStringLiteral("\n") + result.warnings.join(QStringLiteral("; "))));
         auto* copy = box.addButton(tr("Sao chép"), QMessageBox::AcceptRole);
         auto* replace = box.addButton(tr("Thay ô"), QMessageBox::DestructiveRole);
         box.addButton(QMessageBox::Cancel); box.setDefaultButton(copy); box.exec();
