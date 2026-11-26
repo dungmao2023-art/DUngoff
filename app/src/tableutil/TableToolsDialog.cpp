@@ -81,9 +81,19 @@ public:
 
     void setPath(const QString& p) {
         m_path->setText(p);
+        m_loadedBytes = false;
+        m_raw.clear();
         QFile f(p);
-        if (!f.open(QIODevice::ReadOnly)) { m_raw.clear(); m_reason->setText(tr("Không mở được tệp: %1").arg(f.errorString())); m_preview->clear(); return; }
+        if (!f.open(QIODevice::ReadOnly)) {
+            m_reason->setText(tr("Không mở được tệp: %1").arg(f.errorString()));
+            m_preview->clear(); if (onLoaded) onLoaded(); return;
+        }
         m_raw = f.readAll();
+        if (f.error() != QFileDevice::NoError) {
+            m_raw.clear(); m_reason->setText(f.errorString()); m_preview->clear();
+            if (onLoaded) onLoaded(); return;
+        }
+        m_loadedBytes = true;
         m_guess = detectCsvEncoding(m_raw);
         QSignalBlocker b(m_enc);
         const int idx = m_enc->findData(int(m_guess.enc == Encoding::Utf8Bom ? Encoding::Utf8 : m_guess.enc));
@@ -96,14 +106,26 @@ public:
     // Đọc bảng. false + lý do nếu chưa chọn tệp, chưa xác nhận, hoặc giải mã lỗi.
     bool load(Table& out, QString& err) const {
         if (path().isEmpty()) { err = tr("Chưa chọn tệp CSV."); return false; }
-        if (m_guess.needsUserChoice && !m_confirm->isChecked()) { err = tr("Bảng mã chưa chắc chắn: hãy xem trước và tích xác nhận."); return false; }
-        return readCsvWith(path(), encoding(), out, err, QChar(m_sep->currentData().toInt()));
+        if (!m_loadedBytes) { err = tr("Tệp chưa đọc được."); return false; }
+        if (needsConfirmation() && !m_confirm->isChecked()) { err = tr("Bảng mã chưa chắc chắn: hãy xem trước và tích xác nhận."); return false; }
+        return readCsvBytes(m_raw, encoding(), out, err, QChar(m_sep->currentData().toInt()));
     }
 
 private:
     Encoding encoding() const { return Encoding(m_enc->currentData().toInt()); }
 
+    bool needsConfirmation() const {
+        return m_guess.needsUserChoice || (encoding() != m_guess.enc &&
+            !(m_guess.enc == Encoding::Utf8Bom && encoding() == Encoding::Utf8));
+    }
+
     void refreshPreview() {
+        if (!m_loadedBytes) { if (onLoaded) onLoaded(); return; }
+        {
+            QSignalBlocker block(m_confirm);
+            m_confirm->setVisible(needsConfirmation());
+            m_confirm->setChecked(!needsConfirmation());
+        }
         QString text, err;
         if (!decodeText(m_raw, encoding(), text, err)) {
             m_preview->setPlainText(err);
@@ -121,7 +143,7 @@ private:
     }
 
     QLineEdit* m_path; QComboBox* m_enc; QComboBox* m_sep; QLabel* m_reason; QCheckBox* m_confirm; QPlainTextEdit* m_preview;
-    QByteArray m_raw; EncodingGuess m_guess;
+    QByteArray m_raw; EncodingGuess m_guess; bool m_loadedBytes = false;
 };
 
 QString defaultOut(const QString& src, const QString& suffix) {
