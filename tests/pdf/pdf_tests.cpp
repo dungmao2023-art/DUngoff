@@ -4,7 +4,7 @@
 #include "pdf/PdfOps.h"
 #include "pdf/PdfOcr.h"
 
-#include <QCoreApplication>
+#include <QGuiApplication>
 #include <QDir>
 #include <QFile>
 #include <QColor>
@@ -127,7 +127,15 @@ static int tempLeftovers(const QString& dir) {
 }
 
 int main(int argc, char** argv) {
-    QCoreApplication app(argc, argv);
+    if(qgetenv("QT_QPA_PLATFORM").isEmpty()) {
+#ifdef Q_OS_WIN
+        // Windows native font database is necessary; no visible windows are created.
+        qputenv("QT_QPA_PLATFORM","windows");
+#else
+        qputenv("QT_QPA_PLATFORM","offscreen");
+#endif
+    }
+    QGuiApplication app(argc, argv);
     const QString qpdf = findQpdf();
     std::cout << "qpdf: " << (qpdf.isEmpty() ? "KHÔNG THẤY" : qpdf.toStdString()) << "\n";
     if (qpdf.isEmpty()) {
@@ -353,7 +361,32 @@ int main(int argc, char** argv) {
         CHECK(readFile(a) == aBytes, "đóng dấu: tệp nguồn giữ nguyên từng byte");
         StampOptions sv;
         sv.text = QString::fromUtf8("BẢN NHÁP");
-        CHECK(!stamp({a, {}}, sv, P(QStringLiteral("dau-vn.pdf"))).ok && !QFileInfo::exists(P(QStringLiteral("dau-vn.pdf"))), "đóng dấu: chữ có dấu bị từ chối, không tạo tệp");
+        sv.pages=QStringLiteral("2");sv.pos=Position::Custom;sv.fontSize=28;sv.opacity=0.7;
+        const QString vietnamese=P(QStringLiteral("dau-vn.pdf"));
+        const auto vr=stamp({a,{}},sv,vietnamese);
+        CHECK(vr.ok && info(vietnamese).pages==3,QStringLiteral("đóng dấu chữ Việt Unicode: đủ trang — ")+vr.error);
+        const auto vq=vr.ok?qdfOf(vietnamese):QByteArray();
+        CHECK(vq.contains("/ToUnicode") && (vq.contains("/FontFile2")||vq.contains("/FontFile3")),"lớp chữ Việt có font nhúng và bản đồ Unicode");
+        CHECK(vq.contains("(A 1) Tj") && vq.contains("(A 2) Tj") && vq.contains("(A 3) Tj"),"giữ chữ vector gốc");
+        const QString reader=QStandardPaths::findExecutable(QStringLiteral("pdftotext"));
+        if(!reader.isEmpty()&&vr.ok){
+            // Specify encoding explicitly instead of inheriting platform/reader defaults.
+            // Normalize whitespace only (never strip accents or replace characters).
+            for(int page=1;page<=3;++page){
+                QProcess proc;
+                proc.start(reader,{QStringLiteral("-enc"),QStringLiteral("UTF-8"),QStringLiteral("-f"),QString::number(page),
+                    QStringLiteral("-l"),QString::number(page),vietnamese,QStringLiteral("-")});
+                const bool ok=proc.waitForStarted(3000)&&proc.waitForFinished(15000)&&proc.exitStatus()==QProcess::NormalExit&&proc.exitCode()==0;
+                const auto raw=proc.readAllStandardOutput();
+                const auto text=QString::fromUtf8(raw).normalized(QString::NormalizationForm_C).simplified();
+                const bool correct=text.count(QStringLiteral("BẢN NHÁP"))==(page==2?1:0);
+                CHECK(ok&&correct,QStringLiteral("đọc lại Unicode trang %1: %2; UTF-8 hex=%3; stderr=%4")
+                    .arg(page).arg(text).arg(QString::fromLatin1(raw.toHex())).arg(QString::fromUtf8(proc.readAllStandardError())));
+            }
+        }
+        CHECK(readFile(a)==aBytes,"lớp chữ Việt không sửa nguồn");
+        sv.text=QStringLiteral("Dòng 1\nDòng 2");
+        CHECK(!stamp({a,{}},sv,P(QStringLiteral("dau-vn-loi.pdf"))).ok,"từ chối dấu nhiều dòng");
         CHECK(!stamp({a, {}}, StampOptions(), P(QStringLiteral("dau-rong.pdf"))).ok, "đóng dấu: thiếu chữ và ảnh bị từ chối");
         StampOptions one;
         one.text = QStringLiteral("CHI TRANG 2");

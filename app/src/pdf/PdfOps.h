@@ -74,7 +74,7 @@ struct NumberOptions {
 Result addPageNumbers(const Input& in, const NumberOptions& opt, const QString& dest, bool allowReplace = false);
 
 struct StampOptions {
-    QString text;       // chữ ASCII; rỗng thì phải có imagePath
+    QString text;       // chữ Unicode một dòng, tối đa 200 ký tự; rỗng thì phải có imagePath
     QString imagePath;  // ảnh JPEG/PNG (PNG trong suốt được giữ độ trong)
     Position pos = Position::Diagonal;
     double fontSize = 48;

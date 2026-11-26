@@ -7,6 +7,14 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
+#include <QBuffer>
+#include <QFontDatabase>
+#include <QFontMetricsF>
+#include <QGuiApplication>
+#include <QPainter>
+#include <QPageLayout>
+#include <QPageSize>
+#include <QPdfWriter>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -872,6 +880,98 @@ Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& d
     return res;
 }
 
+// Reuse Qt's PDF text and font-subsetting engine; qpdf overlays only the
+// new page content, leaving the original PDF's vector/image content intact.
+bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const StampOptions& opt,
+                    QByteArray* output,QString* error) {
+    if (!qobject_cast<QGuiApplication*>(QCoreApplication::instance())) {
+        *error=tr("Cần môi trường Qt GUI để vẽ chữ Unicode.");return false;
+    }
+    const QString text=opt.text.normalized(QString::NormalizationForm_C);
+    for(const auto cp:text.toUcs4()) {
+        if(cp<32 || (cp>=127 && cp<=159) || cp==0x2028 || cp==0x2029) {
+            *error=tr("Chỉ hỗ trợ chữ trên một dòng.");return false;
+        }
+    }
+    for(const auto& g:geo) if(g.defaulted || !std::isfinite(g.w) || !std::isfinite(g.h) ||
+        g.w<1 || g.h<1 || g.w>14400 || g.h>14400) {
+        *error=tr("Không xác minh được kích thước trang cho lớp chữ Unicode.");return false;
+    }
+    if(geo.isEmpty() || geo.size()>2000){*error=tr("Lớp chữ Unicode hỗ trợ tối đa 2.000 trang mỗi tệp.");return false;}
+    // Offscreen and native Qt platform plugins can expose different font inventories.
+    // Choose a real installed family with coverage for the whole string.
+    const auto chars=text.toUcs4();
+    QStringList families{QStringLiteral("Arial"),QStringLiteral("Segoe UI"),QStringLiteral("DejaVu Sans"),
+                         QStringLiteral("Noto Sans"),QFontDatabase::systemFont(QFontDatabase::GeneralFont).family()};
+    families.append(QFontDatabase::families());families.removeDuplicates();
+    const auto installed=QFontDatabase::families();
+    QFont font;bool found=false;
+    for(const auto& family:families) {
+        if(!installed.contains(family,Qt::CaseInsensitive))continue;
+        QFont candidate(family);candidate.setPixelSize(qRound(opt.fontSize*2));
+        const QFontMetricsF fm(candidate);
+        bool covers=true;
+        for(const auto cp:chars)if(!fm.inFontUcs4(cp)){covers=false;break;}
+        if(covers){font=candidate;found=true;break;}
+    }
+    if(!found){
+        *error=tr("Không tìm thấy phông hỗ trợ toàn bộ chữ đóng dấu (số họ phông Qt: %1).").arg(installed.size());
+        return false;
+    }
+    const QFontMetricsF metrics(font);
+    QRectF bounds=metrics.boundingRect(text);
+    if(bounds.isEmpty()) {*error=tr("Chữ đóng dấu rỗng.");return false;}
+    QByteArray bytes;
+    QBuffer buffer(&bytes);
+    if(!buffer.open(QIODevice::WriteOnly)){*error=tr("Không mở được bộ đệm PDF.");return false;}
+    {
+        QPdfWriter writer(&buffer);writer.setResolution(144);
+        auto layoutFor=[](const PageGeom& g) {
+            const QPageSize size(QSizeF(g.w,g.h),QPageSize::Point,QString(),QPageSize::ExactMatch);
+            return QPageLayout(size,QPageLayout::Portrait,QMarginsF(0,0,0,0),QPageLayout::Point);
+        };
+        if(!writer.setPageLayout(layoutFor(geo.first()))){*error=tr("Không đặt được kích thước trang.");return false;}
+        QPainter p(&writer);
+        if(!p.isActive()){*error=tr("Không tạo được lớp PDF Unicode.");return false;}
+        for(int i=0;i<geo.size();++i) {
+            const auto& g=geo[i];
+            if(i>0 && (!writer.setPageLayout(layoutFor(g)) || !writer.newPage())) {
+                p.end();*error=tr("Không tạo được trang phủ tiếp theo.");return false;
+            }
+            if(!selected.contains(i))continue;
+            const double W=g.w*2,H=g.h*2;
+            const double bw=bounds.width(),bh=bounds.height();
+            p.save();p.setFont(font);p.setPen(QColor::fromRgbF(opt.gray,opt.gray,opt.gray));p.setOpacity(opt.opacity);
+            if(opt.pos==Position::Diagonal) {
+                if((bw+bh)/std::sqrt(2.0)>qMin(W,H)){
+                    p.restore();p.end();*error=tr("Chữ chéo quá lớn so với trang.");return false;
+                }
+                p.translate(W/2,H/2);p.rotate(-45);
+                p.drawText(QPointF(-bounds.center().x(),-bounds.center().y()),text);
+            }else{
+                if(bw>W || bh>H){p.restore();p.end();*error=tr("Chữ không vừa trang.");return false;}
+                double x=0,y=0;
+                if(opt.pos==Position::Custom) {
+                    x=(W-bw)*opt.xPercent/100.0;
+                    y=(H-bh)*opt.yPercent/100.0;
+                }else{
+                    placeBox(opt.pos,W,H,bw,bh,&x,&y);
+                    // placeBox has a bottom-left origin; Qt's origin is top-left.
+                    y=H-bh-y;
+                    x=qBound(0.0,x,W-bw);y=qBound(0.0,y,H-bh);
+                }
+                p.drawText(QPointF(x-bounds.left(),y-bounds.top()),text);
+            }
+            p.restore();
+        }
+        p.end();
+    }
+    if(!bytes.startsWith("%PDF-") || !bytes.right(2048).contains("%%EOF") || bytes.size()>100LL*1024*1024) {
+        *error=tr("Lớp PDF Unicode không hợp lệ hoặc quá lớn.");return false;
+    }
+    *output=bytes;return true;
+}
+
 }  // namespace
 
 Result addPageNumbers(const Input& in, const NumberOptions& opt, const QString& dest, bool allowReplace) {
@@ -940,12 +1040,11 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
         res.error = tr("Chưa có chữ hoặc ảnh để đóng dấu.");
         return res;
     }
-    if (!useImage && (opt.text.size() > 200 || !isPrintableAscii(opt.text))) {
-        res.error = tr("Chữ đóng dấu chỉ nhận chữ không dấu (ASCII), tối đa 200 ký tự. "
-                       "Với chữ có dấu tiếng Việt hãy đóng dấu bằng ảnh.");
-        return res;
+    if (!useImage && (opt.text.trimmed().isEmpty() || opt.text.size()>200)) {
+        res.error=tr("Chữ đóng dấu phải có nội dung, tối đa 200 ký tự.");return res;
     }
-    if (opt.opacity <= 0 || opt.opacity > 1 || opt.gray < 0 || opt.gray > 1 || opt.fontSize < 4 || opt.fontSize > 400 ||
+    if (!std::isfinite(opt.opacity) || !std::isfinite(opt.gray) || !std::isfinite(opt.fontSize) || !std::isfinite(opt.widthPercent) ||
+        opt.opacity <= 0 || opt.opacity > 1 || opt.gray < 0 || opt.gray > 1 || opt.fontSize < 4 || opt.fontSize > 400 ||
         opt.widthPercent < 1 || opt.widthPercent > 100 ||
         !std::isfinite(opt.xPercent) || !std::isfinite(opt.yPercent) || opt.xPercent < 0 || opt.xPercent > 100 || opt.yPercent < 0 || opt.yPercent > 100) {
         res.error = tr("Thông số đóng dấu không hợp lệ (độ đậm 0–1, độ xám 0–1, cỡ chữ 4–400, bề rộng ảnh 1–100%).");
@@ -983,6 +1082,11 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
     }
     QSet<int> sel;
     for (int i : idx) sel.insert(i);
+    if(!useImage && !isPrintableAscii(opt.text)) {
+        QByteArray overlay;
+        if(!unicodeOverlay(geo,sel,opt,&overlay,&res.error))return res;
+        return applyOverlay(in,overlay,dest,allowReplace);
+    }
     const double kPi = 3.14159265358979323846;
     const double c45 = std::cos(kPi / 4), s45 = std::sin(kPi / 4);
     QList<OverlayPage> ops;
