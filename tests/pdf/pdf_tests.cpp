@@ -368,6 +368,10 @@ int main(int argc, char** argv) {
         custom.xPercent = 101;
         CHECK(!stamp({a, {}}, custom, P(QStringLiteral("dau-bad-pos.pdf"))).ok && !QFileInfo::exists(P(QStringLiteral("dau-bad-pos.pdf"))), "từ chối vị trí ngoài phạm vi");
         CHECK(readFile(a) == aBytes, "lớp phủ tùy vị trí giữ nguồn");
+        CHECK(validateOcrRange(1, 1, 1).isEmpty(), "OCR khoảng một trang");
+        CHECK(validateOcrRange(2, 4, 6).isEmpty(), "OCR khoảng nhiều trang");
+        CHECK(!validateOcrRange(0, 1, 6).isEmpty() && !validateOcrRange(4, 2, 6).isEmpty() && !validateOcrRange(1, 7, 6).isEmpty(), "OCR từ chối khoảng không hợp lệ");
+        CHECK(validateOcrRange(1, kOcrMaxPages, kOcrMaxPages).isEmpty() && !validateOcrRange(1, kOcrMaxPages+1, kOcrMaxPages+1).isEmpty(), "OCR giới hạn số trang mỗi lượt");
         CHECK(!recognizeImage(pngA, QStringLiteral("invalid")).ok, "OCR từ chối ngôn ngữ không hỗ trợ");
         CHECK(!recognizeImage(P(QStringLiteral("not-exist.png")), QStringLiteral("eng")).ok, "OCR từ chối ảnh không tồn tại");
         StampOptions si;
