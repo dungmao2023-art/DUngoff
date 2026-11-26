@@ -91,3 +91,6 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 - Word: khối đầu, cuối, toàn bộ; preview, trường nhập, lưu tùy chọn cơ quan/địa danh/người ký cục bộ; HTML paste qua Writer, escape đầu vào. Tham chiếu Phụ lục I NĐ 30/2020/NĐ-CP https://vbpl.moj.gov.vn/bonoivu/Pages/vbpq-toanvan.aspx?ItemID=141142&dvid=320. Đây là khung tham khảo có thể sửa, chưa xác nhận thể thức DOCX từng chi tiết, đường kẻ HTML còn là ký tự, không phải header/footer lặp. Lề riêng; số trang đầu và kiểm tra thể thức chưa làm. Test engine chèn, văn bản và bảng, escape, chèn riêng.
 - Calendar: ghi chú theo ngày lưu cùng JSON, giữ dữ liệu cũ; đánh dấu ngày có ghi chú, tách việc đã có. Chưa test giao diện máy thật.
 - Excel: + - * / ^ và tỷ lệ % dựng công thức để engine tính, không tự tính; thống kê chạy ngay khi lấy vùng. Chưa polling vùng trực tiếp, kéo tham chiếu nhiều ô, đối số biến số.
+
+## Kho mẫu và luật — mở rộng danh mục nguồn
+- Bổ sung 34 văn bản và 4 cổng tra cứu vào CSV nguồn; tìm theo tiếng Việt, lọc lĩnh vực, mở HTTPS. Đối chiếu danh tính văn bản qua Cổng Chính phủ, không khẳng định hiệu lực từng điều. Chưa lưu toàn văn; còn cần cập nhật định kỳ.

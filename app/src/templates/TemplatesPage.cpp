@@ -25,7 +25,7 @@
 namespace {
 QString prettyName(QString s) {
     s.remove(QRegularExpression(QStringLiteral("^\\d+[_ ]*")));      // bỏ số thứ tự đầu
-    s.remove(QRegularExpression(QStringLiteral("\\.(docx|pptx)$"), QRegularExpression::CaseInsensitiveOption));
+    s.remove(QRegularExpression(QStringLiteral("\\.(docx|xlsx|pptx)$"), QRegularExpression::CaseInsensitiveOption));
     s.replace(QLatin1Char('_'), QLatin1Char(' '));
     return s.trimmed();
 }
