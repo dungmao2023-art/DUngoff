@@ -918,6 +918,53 @@ void Document::typeText(const std::u16string& text) {
     }
 }
 
+bool Document::supportsNativeWindows() {
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        return LIBREOFFICEKIT_DOCUMENT_HAS(d,paintWindow) && d->pClass->paintWindow &&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindowKeyEvent) && d->pClass->postWindowKeyEvent &&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindowMouseEvent) && d->pClass->postWindowMouseEvent &&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindow) && d->pClass->postWindow;
+    });
+}
+bool Document::paintNativeWindow(unsigned id,uint8_t* buffer,size_t bytes,int width,int height) {
+    if(!id||!buffer||width<1||height<1||width>4096||height>4096||
+        bytes<size_t(width)*size_t(height)*4)return false;
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,paintWindow)||!d->pClass->paintWindow)return false;
+        d->pClass->paintWindow(d,id,buffer,0,0,width,height);
+        return true;
+    });
+}
+bool Document::postNativeWindowKey(unsigned id,int type,int charCode,int keyCode) {
+    if(!id||m_readOnly)return false;
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindowKeyEvent)||!d->pClass->postWindowKeyEvent)return false;
+        d->pClass->postWindowKeyEvent(d,id,type,charCode,keyCode);
+        return true;
+    });
+}
+bool Document::postNativeWindowMouse(unsigned id,int type,int x,int y,int count,int buttons,int modifiers) {
+    if(!id||m_readOnly||x<0||y<0||x>=4096||y>=4096||count<1||count>2)return false;
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindowMouseEvent)||!d->pClass->postWindowMouseEvent)return false;
+        d->pClass->postWindowMouseEvent(d,id,type,x,y,count,buttons,modifiers);
+        return true;
+    });
+}
+bool Document::closeNativeWindow(unsigned id) {
+    if(!id)return false;
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindow)||!d->pClass->postWindow)return false;
+        d->pClass->postWindow(d,id,LOK_WINDOW_CLOSE,nullptr);
+        return true;
+    });
+}
+
 void Document::command(const std::string& cmd, const std::string& args, bool notify) {
     if (m_readOnly && !isReadOnlySafeCommand(cmd)) return;
     m_lastInputMs = steadyMs();
