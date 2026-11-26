@@ -23,6 +23,15 @@ int main(int argc, char** argv) {
     check(!patchXml(xml, o, &out).ok, "reject no advance method");
     o.onClick = true;
     check(!patchXml("<not-slide/>", o, &out).ok, "reject bad XML");
+    const QByteArray animXml = "<p:sld xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id=\"42\" name=\"Box\"/></p:nvSpPr></p:sp></p:spTree></p:cSld><p:transition/><p:extLst/></p:sld>";
+    AnimationOptions anim; anim.shapeId = 42; anim.fade = true; anim.durationMs = 750; anim.delayMs = 200;
+    QByteArray animated;
+    check(patchAnimationXml(animXml,anim,&animated).ok && animated.contains("spid=\"42\"") && animated.contains("dur=\"750\"") &&
+        animated.contains("presetID=\"10\"") && animated.indexOf("<p:timing") > animated.indexOf("<p:transition") &&
+        animated.indexOf("<p:timing") < animated.indexOf("<p:extLst"), "animation targets real shape and preserves transition order");
+    check(!patchAnimationXml(animated,anim,&out).ok,"refuse overwrite existing animation");
+    anim.shapeId=43;
+    check(!patchAnimationXml(animXml,anim,&out).ok,"reject missing shape");
     if (argc > 1) {
         const QString src = QString::fromLocal8Bit(argv[1]);
         QFile before(src); before.open(QIODevice::ReadOnly); const auto bytes = before.readAll(); before.close();
@@ -34,6 +43,16 @@ int main(int argc, char** argv) {
         if (!patched.ok) std::cerr << patched.error.toStdString() << '\n';
         check(patched.ok && slideEntries(dst, &error) == entries, "actual PPTX copy retains slide order");
         check(!createCopy(src, dst, 1, o).ok && !createCopy(src, src, 1, o).ok, "refuse overwrite");
+        const auto shapes = slideShapes(src, 1, &error);
+        check(!shapes.isEmpty(),"enumerate shapes in actual PPTX");
+        if (!shapes.isEmpty()) {
+            anim.shapeId=shapes.first().id;
+            const QString animDest=temp.filePath(QStringLiteral("animation.pptx"));
+            const auto animation=createAnimationCopy(src,animDest,1,anim);
+            if (!animation.ok) std::cerr << animation.error.toStdString() << '\n';
+            check(animation.ok && slideEntries(animDest,&error)==entries,"actual PPTX animation copy");
+            check(slideShapes(animDest,1,&error).isEmpty() && !error.isEmpty(),"reject adding to existing timing");
+        }
         QFile after(src); after.open(QIODevice::ReadOnly);
         check(after.readAll() == bytes, "source unchanged");
     }
