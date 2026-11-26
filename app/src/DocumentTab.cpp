@@ -8,6 +8,13 @@
 #include "Theme.h"
 #include "TileView.h"
 #include "DataAssistWidgets.h"
+#include "templates/TemplateLibrary.h"
+#include "word/WordActions.h"
+#include "word/WordCommands.h"
+#include <QInputDialog>
+#include <QStandardPaths>
+#include <QFile>
+#include <QRegularExpression>
 #include <QScrollArea>
 #include <QTabWidget>
 #include "ppt/SlideThumbs.h"
@@ -102,6 +109,119 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
     // ---- Vùng tài liệu (+ danh sách trang chiếu bên trái cho PowerPoint/PDF) ----
     auto* middle = new QHBoxLayout;
     middle->setSpacing(0);
+    // Kho mẫu theo loại tài liệu. Chỉ đọc danh mục khi mở; không thay nội dung tài liệu hiện tại.
+    const QString ext = m_doc->kind() == DocKind::Text ? QStringLiteral("docx")
+                      : m_doc->kind() == DocKind::Spreadsheet ? QStringLiteral("xlsx")
+                      : m_doc->kind() == DocKind::Presentation ? QStringLiteral("pptx")
+                      : QString();
+    if (!ext.isEmpty()) {
+        auto* templates = new QWidget(this);
+        templates->setObjectName(QStringLiteral("DocumentTemplates"));
+        templates->setAttribute(Qt::WA_StyledBackground, true);
+        templates->setFixedWidth(228);
+        templates->setStyleSheet(QStringLiteral(R"(
+QWidget#DocumentTemplates { background:#FBFCFF; border-right:1px solid #DCE5F2; }
+QWidget#DocumentTemplates QListWidget { background:white; border:1px solid #DCE5F2; border-radius:8px; }
+QWidget#DocumentTemplates QListWidget::item { padding:7px; }
+QWidget#DocumentTemplates QListWidget::item:selected { background:#E8F0FF; color:#17294D; }
+QWidget#DocumentTemplates QPushButton { background:#2864BA; color:white; border:none; border-radius:8px; padding:8px; font-weight:600; }
+QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A99; }
+)"));
+        auto* tv = new QVBoxLayout(templates);
+        tv->setContentsMargins(10, 10, 10, 10);
+        auto* title = new QLabel(tr("Mẫu %1").arg(ext.toUpper()), templates);
+        title->setObjectName(QStringLiteral("SectionTitle"));
+        tv->addWidget(title);
+        auto* search = new QLineEdit(templates);
+        search->setPlaceholderText(tr("Tìm mẫu…"));
+        tv->addWidget(search);
+        auto* list = new QListWidget(templates);
+        list->setWordWrap(true);
+        list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        tv->addWidget(list, 1);
+        auto* hint = new QLabel(tr("Mẫu tham khảo. Tạo tệp mới, không thay tài liệu đang mở."), templates);
+        hint->setWordWrap(true);
+        hint->setObjectName(QStringLiteral("SectionNote"));
+        tv->addWidget(hint);
+        auto* use = new QPushButton(tr("Tạo từ mẫu"), templates);
+        use->setEnabled(false);
+        tv->addWidget(use);
+        auto reload = [=] {
+            list->clear();
+            const auto lib = tpl::installed();
+            if (lib.valid) {
+                const QString root = QFileInfo(lib.root).canonicalFilePath();
+                if (!root.isEmpty()) for (const auto& e : tpl::entries(lib)) {
+                    const QFileInfo fi(QDir(lib.root).filePath(e.relPath));
+                    if (fi.suffix().compare(ext, Qt::CaseInsensitive) != 0 || !fi.isFile()) continue;
+                    const QString path = fi.canonicalFilePath();
+                    if (!path.startsWith(root + QLatin1Char('/'))) continue;
+                    QString title = fi.completeBaseName();
+                    title.remove(QRegularExpression(QStringLiteral("^\\d+[_ ]*")));
+                    title.replace(QLatin1Char('_'), QLatin1Char(' '));
+                    if (!title.contains(search->text().trimmed(), Qt::CaseInsensitive) &&
+                        !e.relPath.contains(search->text().trimmed(), Qt::CaseInsensitive)) continue;
+                    auto* item = new QListWidgetItem(title, list);
+                    item->setData(Qt::UserRole, e.relPath);
+                    item->setToolTip(e.relPath + QStringLiteral(" · ") + e.status);
+                }
+            }
+            hint->setText(list->count() ? tr("%1 mẫu tham khảo · tạo tệp mới").arg(list->count())
+                                        : tr("Không có mẫu phù hợp. Kiểm tra gói mẫu tại Kho mẫu."));
+        };
+        auto create = [=] {
+            auto* item = list->currentItem();
+            if (!item) return;
+            // Đọc lại gói đang cài: không sử dụng đường dẫn cũ sau khi cập nhật thư viện.
+            const auto lib = tpl::installed();
+            const QString rel = item->data(Qt::UserRole).toString();
+            const QString root = QFileInfo(lib.root).canonicalFilePath();
+            const QFileInfo fi(QDir(lib.root).filePath(rel));
+            const QString src = fi.canonicalFilePath();
+            if (!lib.valid || root.isEmpty() || !src.startsWith(root + QLatin1Char('/')) ||
+                !fi.isFile() || fi.suffix().compare(ext, Qt::CaseInsensitive) != 0) {
+                QMessageBox::warning(this, tr("Kho mẫu"), tr("Mẫu không còn hợp lệ. Hãy mở lại danh sách."));
+                reload(); return;
+            }
+            QString dst = QFileDialog::getSaveFileName(this, tr("Lưu bản làm việc từ mẫu"),
+                QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(fi.fileName()),
+                tr("Tài liệu (*.%1)").arg(ext));
+            if (dst.isEmpty()) return;
+            if (!dst.endsWith(QLatin1Char('.') + ext, Qt::CaseInsensitive)) dst += QLatin1Char('.') + ext;
+            QString error;
+            if (!tpl::makeWorkingCopy(src, dst, &error)) {
+                QMessageBox::warning(this, tr("Kho mẫu"), error); return;
+            }
+            emit templateCopyRequested(dst);
+        };
+        connect(search, &QLineEdit::textChanged, this, reload);
+        connect(list, &QListWidget::currentItemChanged, this, [=](QListWidgetItem* item, QListWidgetItem*) {
+            use->setEnabled(item != nullptr);
+        });
+        connect(use, &QPushButton::clicked, this, create);
+        connect(list, &QListWidget::itemDoubleClicked, this, create);
+        middle->addWidget(templates);
+        auto* rail = new QWidget(this);
+        auto* rv = new QVBoxLayout(rail);
+        rv->setContentsMargins(0, 0, 0, 0);
+        rv->addStretch(1);
+        auto* toggle = new QPushButton(QStringLiteral("›"), rail);
+        toggle->setFixedSize(24, 56);
+        toggle->setToolTip(tr("Mở kho mẫu"));
+        toggle->setAccessibleName(tr("Mở hoặc ẩn kho mẫu của tài liệu"));
+        toggle->setStyleSheet(QStringLiteral("QPushButton{background:#E8F0FF;color:#2864BA;border:1px solid #DCE5F2;border-radius:6px;font-size:20px;}"));
+        rv->addWidget(toggle);
+        rv->addStretch(1);
+        middle->addWidget(rail);
+        templates->hide();
+        connect(toggle, &QPushButton::clicked, this, [=] {
+            const bool open = templates->isHidden();
+            if (open) reload();
+            templates->setVisible(open);
+            toggle->setText(open ? QStringLiteral("‹") : QStringLiteral("›"));
+            toggle->setToolTip(open ? tr("Ẩn kho mẫu") : tr("Mở kho mẫu"));
+        });
+    }
     if (m_doc->kind() == DocKind::Presentation || m_doc->kind() == DocKind::Drawing) {
         m_slides = new QListWidget(this);
         m_slides->setFixedWidth(150);
@@ -145,6 +265,89 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         addTool(m_rangeTools, tr("Vùng dữ liệu"));
         connect(m_excelTools, &QTabWidget::currentChanged, this, [this](int) { notifyDocumentRangeTools(m_rangeTools); });
         middle->addWidget(m_excelTools);
+    }
+    if (m_doc->kind() == DocKind::Text && !m_doc->readOnly()) {
+        auto* assistant = new QScrollArea(this);
+        assistant->setWidgetResizable(true);
+        assistant->setFixedWidth(282);
+        assistant->setFrameShape(QFrame::NoFrame);
+        auto* body = new QWidget;
+        body->setObjectName(QStringLiteral("WordAssistant"));
+        body->setAttribute(Qt::WA_StyledBackground, true);
+        body->setStyleSheet(QStringLiteral(R"(
+QWidget#WordAssistant { background:#FBFCFF; border-left:1px solid #DCE5F2; }
+QWidget#WordAssistant QPushButton { background:white; border:1px solid #DCE5F2; border-radius:8px; padding:8px; text-align:left; color:#17294D; }
+QWidget#WordAssistant QPushButton:hover, QWidget#WordAssistant QPushButton:focus { background:#E8F0FF; border-color:#2864BA; }
+QLabel#AssistantGroup { color:#6B7A99; font-size:11px; font-weight:700; padding-top:8px; }
+)"));
+        auto* av = new QVBoxLayout(body);
+        av->setContentsMargins(10, 10, 10, 10);
+        av->setSpacing(5);
+        auto* title = new QLabel(tr("Tôi muốn"), body);
+        title->setObjectName(QStringLiteral("SectionTitle"));
+        av->addWidget(title);
+        auto group = [&](const QString& name) {
+            auto* label = new QLabel(name, body);
+            label->setObjectName(QStringLiteral("AssistantGroup"));
+            av->addWidget(label);
+        };
+        auto action = [&](const QString& label, const char* id) {
+            auto* button = new QPushButton(label, body);
+            av->addWidget(button);
+            const QString command = QString::fromLatin1(id);
+            connect(button, &QPushButton::clicked, this, [this, command] {
+                dung::word::handleAction(command, this, this);
+            });
+        };
+        group(tr("TIÊU ĐỀ & TRANG"));
+        action(tr("Tiêu đề 1 (đoạn hiện tại)"), "word:style1");
+        action(tr("Tiêu đề 2 (đoạn hiện tại)"), "word:style2");
+        action(tr("Tiêu đề 3 (đoạn hiện tại)"), "word:style3");
+        for (bool header : {true, false}) {
+            auto* button = new QPushButton(header ? tr("Bật đầu trang (Header)") : tr("Bật chân trang (Footer)"), body);
+            av->addWidget(button);
+            connect(button, &QPushButton::clicked, this, [this, header] {
+                bool ok = false;
+                const QString style = QInputDialog::getText(this, tr("Đầu / chân trang"),
+                    tr("Kiểu trang cần bật (Page Style). Chỉ bật, không xóa nội dung đang có. Sau đó bấm vào vùng đầu / chân trang để nhập."),
+                    QLineEdit::Normal, QStringLiteral("Default Page Style"), &ok).trimmed();
+                if (!ok || style.isEmpty()) return;
+                m_doc->waitInputIdle();
+                const auto args = dung::word::join({dung::word::argString("PageStyle", ss(style)), dung::word::argBool("On", true)});
+                m_doc->command(header ? ".uno:InsertPageHeader" : ".uno:InsertPageFooter", args);
+                m_view->setFocus();
+            });
+        }
+        group(tr("VĂN BẢN CHUẨN VIỆT"));
+        action(tr("Căn lề hành chính Việt Nam"), "word:marginVN");
+        action(tr("Quốc hiệu / đầu văn bản"), "word:adminHead");
+        action(tr("Nơi nhận / chữ ký"), "word:adminTail");
+        action(tr("Khung văn bản hành chính"), "word:adminFull");
+        action(tr("Khổ A4 dọc"), "word:a4");
+        group(tr("TIỆN ÍCH TIẾNG VIỆT"));
+        action(tr("Số tiền thành chữ"), "word:vnMoney");
+        action(tr("Chèn ngày tháng Việt Nam"), "word:vnDate");
+        action(tr("Chuyển TCVN3 sang Unicode"), "word:vnTcvn3");
+        action(tr("Kiểm tra âm tiết"), "word:vnSyllable");
+        action(tr("Kiểm tra tài liệu"), "word:inspect");
+        av->addStretch(1);
+        assistant->setWidget(body);
+        middle->addWidget(assistant);
+        auto* rail = new QWidget(this);
+        auto* rv = new QVBoxLayout(rail);
+        rv->setContentsMargins(0, 0, 0, 0);
+        rv->addStretch(1);
+        auto* toggle = new QPushButton(tr("Tôi\nmuốn"), rail);
+        toggle->setFixedSize(46, 60);
+        toggle->setToolTip(tr("Mở / ẩn trợ lý Word"));
+        toggle->setStyleSheet(QStringLiteral("QPushButton{background:#E8F0FF;color:#2864BA;border:1px solid #DCE5F2;border-radius:6px;font-weight:700;}"));
+        rv->addWidget(toggle);
+        rv->addStretch(1);
+        middle->addWidget(rail);
+        assistant->hide();
+        connect(toggle, &QPushButton::clicked, this, [=] {
+            assistant->setVisible(assistant->isHidden());
+        });
     }
     v->addLayout(middle, 1);
 
