@@ -281,6 +281,8 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
             {tr("Thiết kế"), {{tr("Bố cục"), {
                 {QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"0\"}}"), tr("Tiêu đề"), 0xE8A1, QStringLiteral("T"), false},
                 {QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"20\"}}"), tr("Trống"), 0xE7C3, QStringLiteral("□"), false},
+            }}, {tr("Slide Master"), {
+                {QStringLiteral("ppt.masterBackground"), tr("Đổi nền master"), 0xE8A1, QStringLiteral("▧"), false},
             }}, {tr("Thuộc tính chữ"), {
                 {QStringLiteral("ppt.fontSize"), tr("Cỡ tùy chỉnh"), 0xE8E9, QStringLiteral("Aa"), false},
                 {QStringLiteral("ppt.textColor"), tr("Màu tùy chỉnh"), 0xE790, QStringLiteral("A"), false},

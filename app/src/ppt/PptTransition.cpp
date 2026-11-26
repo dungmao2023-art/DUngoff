@@ -10,6 +10,7 @@
 #include <QTemporaryDir>
 #include <QXmlStreamReader>
 #include <functional>
+#include <QRegularExpression>
 
 namespace ppttransition {
 namespace {
@@ -264,18 +265,109 @@ Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& o, QByte
     if (!after.error.isEmpty() || !after.hasTiming || after.shapes.size() != scan.shapes.size()) return fail(QStringLiteral("XML animation đầu ra không qua kiểm tra."));
     *output = text.toUtf8(); return {true, {}};
 }
-static Result createPatchedCopy(const QString& source, const QString& destination, int slide1,
+QStringList masterEntries(const QString& source, QString* error) {
+    auto bad = [&](const QString& why) { if (error) *error = why; return QStringList{}; };
+    QString e;
+    if (slideEntries(source, &e).isEmpty()) return bad(e);
+    ft::ZipReader z;
+    if (!z.open(source, &e)) return bad(e);
+    QByteArray pres, rel;
+    if (!read(z, QStringLiteral("ppt/presentation.xml"), &pres, &e) ||
+        !read(z, QStringLiteral("ppt/_rels/presentation.xml.rels"), &rel, &e)) return bad(e);
+    QHash<QString,QString> map;
+    QXmlStreamReader rr(rel);
+    while (!rr.atEnd()) {
+        rr.readNext();
+        if (rr.isDTD()) return bad(QStringLiteral("DTD không hỗ trợ."));
+        if (!rr.isStartElement() || rr.namespaceUri() != PR || rr.name() != QLatin1String("Relationship")) continue;
+        const auto a = rr.attributes();
+        if (a.value(QStringLiteral("Type")) != R + QStringLiteral("/slideMaster")) continue;
+        const QString id = a.value(QStringLiteral("Id")).toString();
+        const QString raw = a.value(QStringLiteral("Target")).toString();
+        const QString path = QDir::cleanPath(raw.startsWith(QLatin1Char('/')) ? raw.mid(1) : QStringLiteral("ppt/") + raw);
+        if (id.isEmpty() || map.contains(id) || a.value(QStringLiteral("TargetMode")) == QLatin1String("External") ||
+            !path.startsWith(QLatin1String("ppt/slideMasters/")) || !path.endsWith(QLatin1String(".xml")) || !z.find(path))
+            return bad(QStringLiteral("Quan hệ master không hợp lệ."));
+        map.insert(id,path);
+    }
+    if (rr.hasError()) return bad(rr.errorString());
+    QStringList entries;
+    QXmlStreamReader sr(pres);
+    int depth=0, listDepth=-1;
+    while (!sr.atEnd()) {
+        sr.readNext();
+        if (sr.isDTD()) return bad(QStringLiteral("DTD không hỗ trợ."));
+        if (sr.isStartElement()) {
+            ++depth;
+            if (depth==2 && sr.namespaceUri()==P && sr.name()==QLatin1String("sldMasterIdLst")) listDepth=depth;
+            if (listDepth>0 && depth==listDepth+1 && sr.namespaceUri()==P && sr.name()==QLatin1String("sldMasterId")) {
+                const auto id=sr.attributes().value(R,QStringLiteral("id")).toString();
+                if (!map.contains(id) || entries.contains(map.value(id))) return bad(QStringLiteral("Không xác minh được master."));
+                entries << map.value(id);
+            }
+        } else if (sr.isEndElement()) { if (depth==listDepth) listDepth=-1; --depth; }
+    }
+    if (sr.hasError() || entries.isEmpty()) return bad(QStringLiteral("Không có danh sách Slide Master hợp lệ."));
+    if (error) error->clear();
+    return entries;
+}
+Result patchMasterBackground(const QByteArray& xml, const QString& rgb, QByteArray* output) {
+    static const QRegularExpression hex(QStringLiteral("^[0-9A-Fa-f]{6}$"));
+    if (!output || !hex.match(rgb).hasMatch()) return fail(QStringLiteral("Màu RGB không hợp lệ."));
+    QString text=QString::fromUtf8(xml);
+    if (text.toUtf8()!=xml) return fail(QStringLiteral("Chỉ hỗ trợ XML UTF-8."));
+    QXmlStreamReader xr(text);
+    int depth=0, common=0, bgDepth=0;
+    qsizetype insert=-1, oldStart=-1, oldEnd=-1;
+    bool root=false, tree=false;
+    auto tokenStart=[&]() -> qsizetype {
+        const auto off=xr.characterOffset();
+        if (off<=0 || off>text.size() || text.at(off-1)!=QLatin1Char('>')) return -1;
+        return text.lastIndexOf(QLatin1Char('<'),off-1);
+    };
+    while (!xr.atEnd()) {
+        xr.readNext();
+        if (xr.isDTD()) return fail(QStringLiteral("DTD không hỗ trợ."));
+        if (xr.isStartElement()) {
+            ++depth;
+            if (depth==1) {
+                root=xr.namespaceUri()==P && xr.name()==QLatin1String("sldMaster");
+                if (!root) return fail(QStringLiteral("Không phải Slide Master."));
+            }
+            if (depth==2 && xr.namespaceUri()==P && xr.name()==QLatin1String("cSld")) common=depth;
+            if (common && depth==common+1) {
+                if (xr.namespaceUri()!=P) return fail(QStringLiteral("Cấu trúc master mở rộng chưa hỗ trợ."));
+                if (xr.name()==QLatin1String("bg")) {
+                    if (oldStart>=0) return fail(QStringLiteral("Có nhiều nền master."));
+                    oldStart=tokenStart(); bgDepth=depth;
+                    if (oldStart<0) return fail(QStringLiteral("Không xác minh vị trí nền."));
+                }
+                if (xr.name()==QLatin1String("spTree")) { tree=true; insert=tokenStart(); }
+            }
+        } else if (xr.isEndElement()) {
+            if (bgDepth && depth==bgDepth) { oldEnd=xr.characterOffset(); bgDepth=0; }
+            if (common && depth==common) common=0;
+            --depth;
+        }
+    }
+    if (xr.hasError() || !root || !tree || insert<0 || (oldStart>=0 && (oldEnd<=oldStart || oldEnd>text.size())))
+        return fail(QStringLiteral("XML master không hợp lệ."));
+    const QString fragment=QStringLiteral("<p:bg xmlns:p=\"%1\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"><p:bgPr><a:solidFill><a:srgbClr val=\"%2\"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>").arg(P,rgb.toUpper());
+    if (oldStart>=0) text.replace(oldStart,oldEnd-oldStart,fragment); else text.insert(insert,fragment);
+    QXmlStreamReader verify(text);
+    while (!verify.atEnd()) verify.readNext();
+    if (verify.hasError()) return fail(QStringLiteral("XML đầu ra không hợp lệ."));
+    *output=text.toUtf8(); return {true,{}};
+}
+static Result createPatchedEntryCopy(const QString& source, const QString& destination, const QString& entry,
                                 const std::function<Result(const QByteArray&, QByteArray*)>& patch) {
     const QFileInfo dst(destination);
     if (!source.endsWith(QLatin1String(".pptx"), Qt::CaseInsensitive) || !destination.endsWith(QLatin1String(".pptx"), Qt::CaseInsensitive) ||
         dst.exists() || dst.isSymLink() || !QDir(dst.absolutePath()).exists())
         return fail(QStringLiteral("Chọn nguồn PPTX và tên PPTX mới chưa tồn tại."));
     QString error;
-    const auto slides = slideEntries(source, &error);
-    if (slide1 < 1 || slide1 > slides.size()) return fail(error.isEmpty() ? QStringLiteral("Slide không tồn tại.") : error);
     ft::ZipReader original;
     if (!original.open(source, &error)) return fail(error);
-    const QString entry = slides.at(slide1 - 1);
     QByteArray xml, patched;
     if (!read(original, entry, &xml, &error)) return fail(error);
     const auto result = patch(xml, &patched);
@@ -297,6 +389,19 @@ static Result createPatchedCopy(const QString& source, const QString& destinatio
     }
     if (!QFile::rename(tmp, destination)) return fail(QStringLiteral("Không đặt được tên đích; không ghi đè."));
     return {true, {}};
+}
+static Result createPatchedCopy(const QString& source, const QString& destination, int slide1,
+                                const std::function<Result(const QByteArray&, QByteArray*)>& patch) {
+    QString error;
+    const auto slides=slideEntries(source,&error);
+    if (slide1<1 || slide1>slides.size()) return fail(error.isEmpty()?QStringLiteral("Slide không tồn tại."):error);
+    return createPatchedEntryCopy(source,destination,slides.at(slide1-1),patch);
+}
+Result createMasterBackgroundCopy(const QString& source,const QString& destination,const QString& entry,const QString& rgb) {
+    QString error;
+    const auto masters=masterEntries(source,&error);
+    if (!masters.contains(entry)) return fail(error.isEmpty()?QStringLiteral("Master không tồn tại."):error);
+    return createPatchedEntryCopy(source,destination,entry,[&](const QByteArray& xml,QByteArray* out){return patchMasterBackground(xml,rgb,out);});
 }
 Result createCopy(const QString& source, const QString& destination, int slide1, const Options& options) {
     return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchXml(xml, options, out); });
