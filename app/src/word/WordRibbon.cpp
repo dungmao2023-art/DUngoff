@@ -106,6 +106,8 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral(".uno:NextTrackedChange"), tr("Sau"), 0xE72A, QStringLiteral("→"), false},
                 {QStringLiteral(".uno:AcceptTrackedChange"), tr("Chấp nhận"), 0xE73E, QStringLiteral("✓"), false},
                 {QStringLiteral(".uno:RejectTrackedChange"), tr("Từ chối"), 0xE711, QStringLiteral("×"), false},
+                {QStringLiteral("word:acceptAllReview"), tr("Chấp nhận tất cả…"), 0xE73E, QStringLiteral("✓"), false},
+                {QStringLiteral("word:rejectAllReview"), tr("Từ chối tất cả…"), 0xE711, QStringLiteral("×"), false},
             }},
             {tr("Bình luận"), {
                 {QStringLiteral("word:addComment"), tr("Bình luận mới"), 0xE90A, QStringLiteral("+"), false},

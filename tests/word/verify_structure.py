@@ -60,3 +60,14 @@ with zipfile.ZipFile(Path(sys.argv[1]).parent / "word-toc-updated.docx") as z:
     check(any("HEADING_AFTER" in value and "STALE_TOC" not in value for value in found),
           "real TOC field result updated to new heading")
     check("HEADING_BEFORE" not in text(root), "old heading absent")
+
+for filename, accepted in (("word-review-accepted.docx", True), ("word-review-rejected.docx", False)):
+    with zipfile.ZipFile(Path(sys.argv[1]).parent / filename) as z:
+        root = ET.fromstring(z.read("word/document.xml"))
+        check("ORIGINAL_MARKER" in text(root), filename + ": original retained")
+        check(("INSERTED_MARKER" in text(root)) == accepted, filename + ": tracked insertion resolved correctly")
+        check(not any(root.iter(W+"ins")) and not any(root.iter(W+"del")), filename + ": revisions resolved")
+        comments = ET.fromstring(z.read("word/comments.xml"))
+        ids = {node.get(W+"id") for node in comments.iter(W+"comment") if "COMMENT_MARKER" in text(node)}
+        refs = {node.get(W+"id") for node in root.iter(W+"commentReference")}
+        check(bool(ids & refs), filename + ": unrelated comment retained")

@@ -539,6 +539,23 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
             check(rt.ok,"Roundtrip review DOCX: "+rt.message);
         }
     }
+    // Two independent opens of the same tracked revision, exercising the
+    // actual commands exposed by the review ribbon.
+    if(saved.ok){
+        for(bool accept : {true,false}){
+            step(accept?"Word Review — chấp nhận toàn bộ":"Word Review — từ chối toàn bộ");
+            auto action=engine->open(pending,&error);
+            check(bool(action),"Mở nguồn review: "+error);
+            if(!action)continue;
+            action->setClientView(512,512,7680,7680,0,0,7680,7680);
+            run(*action,accept?".uno:AcceptAllTrackedChanges":".uno:RejectAllTrackedChanges");
+            action->waitInputIdle();
+            const fs::path target=out/(accept?"word-review-accepted.docx":"word-review-rejected.docx");
+            fs::remove(target,ec);
+            auto sr=action->saveAs(target);
+            check(sr.ok,"Lưu kết quả review: "+sr.message);
+        }
+    }
     // Existing TOC is loaded from a standards-based DOCX fixture; update the
     // real Writer index after changing its source heading in the active document.
     step("Word mục lục native — cập nhật index hiện có");

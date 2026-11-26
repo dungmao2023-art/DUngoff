@@ -99,7 +99,18 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
     if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
-    if (name == QLatin1String("addComment")) {
+    if (name == QLatin1String("acceptAllReview") || name == QLatin1String("rejectAllReview")) {
+        const bool accept = name == QLatin1String("acceptAllReview");
+        if (QMessageBox::question(parent,QObject::tr("Xử lý toàn bộ thay đổi"),
+            accept ? QObject::tr("Chấp nhận tất cả thay đổi được theo dõi trong tài liệu đang mở? Nội dung xóa được chấp nhận sẽ bị loại bỏ.") :
+                     QObject::tr("Từ chối tất cả thay đổi được theo dõi trong tài liệu đang mở? Nội dung chèn được theo dõi sẽ bị loại bỏ."),
+            QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return true;
+        if(tab->readOnly() || tab->document()!=doc) return true;
+        doc->waitInputIdle();
+        doc->command(accept ? ".uno:AcceptAllTrackedChanges" : ".uno:RejectAllTrackedChanges","",true);
+        doc->waitInputIdle();
+        tab->view()->setFocus();
+    } else if (name == QLatin1String("addComment")) {
         doc->waitInputIdle();
         bool ok=false;
         const QString comment=QInputDialog::getMultiLineText(parent,QObject::tr("Bình luận Word"),
