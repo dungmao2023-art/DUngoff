@@ -158,6 +158,19 @@ int main(int argc, char **argv)
     o.mapping = autoMap(ti.headers, srcH);
     CHECK(o.mapping == QVector<int>({1, 0, 2, 3, -1}), "Ghép cột tự động theo tên (bỏ dấu/hoa thường): ");
     o.colTypes = {ColType::Text, ColType::Text, ColType::Number, ColType::Number, ColType::Text};
+    const QByteArray profile = encodeMappingProfile(QStringLiteral("KiotViet"),ti,srcH,o);
+    ExportOptions restored; QString profileError;
+    CHECK(!profile.isEmpty() && decodeMappingProfile(profile,QStringLiteral("KiotViet"),ti,srcH,&restored,&profileError)
+          && restored.mapping==o.mapping && restored.colTypes==o.colTypes && restored.vietnameseNumbers==o.vietnameseNumbers,"Lưu/nạp cấu hình ghép cột theo đúng mẫu");
+    CHECK(!profile.contains("00123") && !profile.contains("A-2"),"Cấu hình không chứa dữ liệu hàng");
+    CHECK(!decodeMappingProfile(profile,QStringLiteral("MISA SME"),ti,srcH,&restored,&profileError),"Từ chối khác phần mềm đích");
+    QStringList changed=srcH; changed.swapItemsAt(0,1);
+    CHECK(!decodeMappingProfile(profile,QStringLiteral("KiotViet"),ti,changed,&restored,&profileError),"Từ chối đổi thứ tự tiêu đề nguồn");
+    auto malformed=profile; malformed.replace("\"version\": 1","\"version\": 2");
+    CHECK(!decodeMappingProfile(malformed,QStringLiteral("KiotViet"),ti,srcH,&restored,&profileError),"Từ chối phiên bản JSON lạ");
+    ExportOptions repeated=o; repeated.mapping[1]=repeated.mapping[0];
+    CHECK(encodeMappingProfile(QStringLiteral("KiotViet"),ti,srcH,repeated).isEmpty(),"Từ chối lưu cột trùng");
+    CHECK(restored.mapping==o.mapping,"Cấu hình lỗi không thay đổi lựa chọn đã nạp");
     const ValidateResult v = validate(ti, srcH, src, o);
     CHECK(v.errors.isEmpty(), "Kiểm tra: không có lỗi chặn");
     auto hasW = [&](const QString &s) { for (const QString &w : v.warnings) if (w.contains(s)) return true; return false; };
