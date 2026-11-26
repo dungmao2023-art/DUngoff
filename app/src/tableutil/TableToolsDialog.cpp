@@ -206,6 +206,11 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     l4->addLayout(form4);
     auto* run4 = new QPushButton(tr("Xem trước kết quả lọc và sắp xếp…"));
     l4->addWidget(run4);
+    auto* recipes = new QHBoxLayout;
+    auto* saveRecipe = new QPushButton(tr("Lưu cấu hình…"));
+    auto* loadRecipe = new QPushButton(tr("Nạp cấu hình…"));
+    recipes->addWidget(saveRecipe); recipes->addWidget(loadRecipe);
+    l4->addLayout(recipes);
     d->tabs->addTab(w4, tr("Lọc và sắp xếp"));
 
     d->report = new QPlainTextEdit; d->report->setReadOnly(true); d->report->setPlaceholderText(tr("Báo cáo sẽ hiện ở đây."));
@@ -298,8 +303,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->report->setPlainText(rep);
     });
 
-    connect(run4, &QPushButton::clicked, this, [this, askSave, save, needA] {
-        if (!needA()) return;
+    auto recipeSpec = [this] {
         FilterSortSpec spec;
         spec.filterCol = d->filterCol->currentData().toInt();
         spec.sortCol = d->sortCol->currentData().toInt();
@@ -307,7 +311,48 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         spec.value = d->filterValue->text();
         spec.ignoreCase = d->ignoreCase->isChecked();
         spec.descending = d->descending->isChecked();
-        const auto r = filterSort(d->tableA, spec);
+        return spec;
+    };
+    connect(saveRecipe, &QPushButton::clicked, this, [this, needA, recipeSpec] {
+        if (!needA()) return;
+        const auto spec = recipeSpec();
+        const auto validated = filterSort(Table{d->tableA.header, {}}, spec);
+        if (!validated.ok) { QMessageBox::warning(this, tr("Cấu hình"), validated.error); return; }
+        const auto path = QFileDialog::getSaveFileName(this, tr("Lưu cấu hình (có tên cột và điều kiện lọc)"), QString(), tr("Cấu hình JSON (*.json)"));
+        if (path.isEmpty()) return;
+        QFile f(path);
+        if (!f.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
+            QMessageBox::warning(this, tr("Cấu hình"), tr("Không tạo được tệp mới: %1").arg(f.errorString())); return;
+        }
+        const auto bytes = encodeFilterSortRecipe(d->tableA.header, spec);
+        if (f.write(bytes) != bytes.size() || !f.flush()) {
+            QMessageBox::warning(this, tr("Cấu hình"), tr("Ghi không đầy đủ. Không sử dụng tệp cấu hình vừa tạo.")); return;
+        }
+        d->report->setPlainText(tr("Đã lưu cấu hình. Không lưu đường dẫn hoặc các dòng dữ liệu nguồn."));
+    });
+    connect(loadRecipe, &QPushButton::clicked, this, [this, needA] {
+        if (!needA()) return;
+        const auto path = QFileDialog::getOpenFileName(this, tr("Nạp cấu hình lọc và sắp xếp"), QString(), tr("Cấu hình JSON (*.json)"));
+        if (path.isEmpty()) return;
+        QFile f(path);
+        if (!f.open(QIODevice::ReadOnly) || f.size() > 1024 * 1024) {
+            QMessageBox::warning(this, tr("Cấu hình"), tr("Không đọc được tệp hoặc tệp lớn hơn 1 MB.")); return;
+        }
+        FilterSortSpec spec; QString error;
+        if (!decodeFilterSortRecipe(f.read(1024 * 1024 + 1), d->tableA.header, spec, error)) {
+            QMessageBox::warning(this, tr("Cấu hình"), error); return;
+        }
+        d->filterCol->setCurrentIndex(d->filterCol->findData(spec.filterCol));
+        d->sortCol->setCurrentIndex(d->sortCol->findData(spec.sortCol));
+        d->filterMode->setCurrentIndex(d->filterMode->findData(int(spec.mode)));
+        d->filterValue->setText(spec.value);
+        d->ignoreCase->setChecked(spec.ignoreCase);
+        d->descending->setChecked(spec.descending);
+        d->report->setPlainText(tr("Đã nạp cấu hình. Bấm Xem trước để chạy với dữ liệu hiện tại."));
+    });
+    connect(run4, &QPushButton::clicked, this, [this, askSave, save, needA, recipeSpec] {
+        if (!needA()) return;
+        const auto r = filterSort(d->tableA, recipeSpec());
         if (!r.ok) { QMessageBox::warning(this, tr("Lọc và sắp xếp"), r.error); return; }
         QString rep = tr("Kết quả: %1 / %2 dòng. Sắp xếp dạng chữ, không ép kiểu; nguồn không bị sửa.")
             .arg(r.table.rows.size()).arg(d->tableA.rows.size());
