@@ -41,6 +41,11 @@ bool readCsvWith(const QString &path, Encoding enc, Table &out, QString &error, 
 // Parse the exact bytes already previewed; leave out unchanged on any error.
 bool readCsvBytes(const QByteArray& raw, Encoding enc, Table& out, QString& error, QChar sep = QLatin1Char(','));
 
+// Group exact text keys, in first-seen order (blank is its own group).
+// valueCol=-1 counts rows only; otherwise sum canonical decimals, exactly to 4 places.
+struct CsvGroupResult { bool ok=false; Table table; QString error; };
+CsvGroupResult groupCsv(const Table& source, int keyCol, int valueCol=-1);
+
 // ---- 1. Dòng trùng ----
 struct RemovedRow { int originalIndex; QStringList cells; int keptIndex; };
 struct DedupResult {
