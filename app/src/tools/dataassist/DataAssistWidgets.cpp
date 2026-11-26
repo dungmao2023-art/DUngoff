@@ -11,6 +11,9 @@
 #include <QDesktopServices>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QSignalBlocker>
+#include <QSaveFile>
+#include <QFile>
 #include <QInputDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -328,8 +331,12 @@ public:
         target_ = new QComboBox; target_->addItems({QStringLiteral("MISA AMIS"), QStringLiteral("MISA SME"), QStringLiteral("FAST Accounting"), QStringLiteral("KiotViet"), QStringLiteral("Sapo"), QStringLiteral("Mẫu XLSX khác")});
         lay->addWidget(target_);
         auto* headerForm = new QFormLayout;
-        headerRow_ = new QSpinBox; headerRow_->setRange(0, 1048576); headerRow_->setSpecialValueText(QStringLiteral("Tự nhận diện"));
-        headerForm->addRow(QStringLiteral("Dòng tiêu đề mẫu đích"), headerRow_); lay->addLayout(headerForm);
+        headerRow_ = new QSpinBox; headerRow_->setRange(0, 1048576); headerRow_->setSpecialValueText(QStringLiteral("Tự nhận diện")); headerRow_->setKeyboardTracking(false);
+        headerForm->addRow(QStringLiteral("Dòng tiêu đề mẫu đích"), headerRow_);
+        locale_ = new QComboBox;
+        locale_->addItems({QStringLiteral("Việt: 1.234,5"),QStringLiteral("Anh: 1,234.5")});
+        headerForm->addRow(QStringLiteral("Cách đọc số nguồn"),locale_);
+        lay->addLayout(headerForm);
         auto *r1 = new QHBoxLayout;
         auto *bt = new QPushButton(QStringLiteral("Chọn tệp mẫu…")), *bs = new QPushButton(QStringLiteral("Chọn dữ liệu nguồn (CSV/XLSX)…"));
         r1->addWidget(bt); r1->addWidget(bs); lay->addLayout(r1);
@@ -340,6 +347,12 @@ public:
         auto *r2 = new QHBoxLayout;
         auto *chk = new QPushButton(QStringLiteral("Kiểm tra")), *exp = new QPushButton(QStringLiteral("Xuất bản mới…"));
         r2->addWidget(chk); r2->addWidget(exp); r2->addStretch(); lay->addLayout(r2);
+        auto* profiles = new QHBoxLayout;
+        auto* saveProfile = new QPushButton(QStringLiteral("Lưu cấu hình ghép cột…"));
+        auto* loadProfile = new QPushButton(QStringLiteral("Nạp cấu hình…"));
+        profiles->addWidget(saveProfile); profiles->addWidget(loadProfile); profiles->addStretch(); lay->addLayout(profiles);
+        connect(saveProfile,&QPushButton::clicked,this,[this]{saveMapping();});
+        connect(loadProfile,&QPushButton::clicked,this,[this]{loadMapping();});
         log_ = new QPlainTextEdit; log_->setReadOnly(true); lay->addWidget(log_, 1);
         connect(target_, &QComboBox::currentIndexChanged, this, [this] {
             // Target is descriptive only. Require its actual template again; never reuse the previous vendor's layout silently.
@@ -386,6 +399,7 @@ private:
         const int sheet = chooseSheet(f);
         if (sheet < 0) return;
         tplPath_ = f; templateSheet_ = sheet;
+        { QSignalBlocker block(headerRow_); headerRow_->setValue(0); }
         reloadTemplate();
     }
     void pickSource()
@@ -427,6 +441,7 @@ private:
     ExportOptions options() const
     {
         ExportOptions o;
+        o.vietnameseNumbers = locale_->currentIndex()==0;
         for (int i = 0; i < map_->rowCount(); ++i) {
             o.mapping << static_cast<QComboBox*>(map_->cellWidget(i, 1))->currentData().toInt();
             o.colTypes << (static_cast<QComboBox*>(map_->cellWidget(i, 2))->currentIndex() == 1 ? ColType::Number : ColType::Text);
@@ -440,6 +455,41 @@ private:
         QStringList o; for (const QString &e : v.errors) o << QStringLiteral("LỖI: ") + e; for (const QString &w : v.warnings) o << QStringLiteral("Lưu ý: ") + w;
         if (o.isEmpty()) o << QStringLiteral("Không có vấn đề phát hiện được (chưa phải bảo đảm phần mềm đích chấp nhận).");
         log_->setPlainText(o.join(QLatin1Char('\n')));
+    }
+    void saveMapping()
+    {
+        const auto data=encodeMappingProfile(target_->currentText(),ti_,srcHeader_,options());
+        if(data.isEmpty()){log_->setPlainText(QStringLiteral("Cần nạp mẫu, nguồn và ghép cột hợp lệ trước khi lưu."));return;}
+        QString dest=QFileDialog::getSaveFileName(this,QStringLiteral("Lưu quy tắc ghép cột"),QStringLiteral("ghep-cot.json"),QStringLiteral("JSON (*.json)"));
+        if(dest.isEmpty())return;
+        if(!dest.endsWith(QLatin1String(".json"),Qt::CaseInsensitive))dest+=QStringLiteral(".json");
+        QFile file(dest);
+        if(!file.open(QIODevice::WriteOnly|QIODevice::NewOnly)){
+            log_->setPlainText(QStringLiteral("Không tạo được tệp cấu hình mới. Không ghi đè tệp có sẵn."));return;
+        }
+        if(file.write(data)!=data.size()||!file.flush()){
+            file.close();file.remove();log_->setPlainText(QStringLiteral("Không lưu được cấu hình."));return;
+        }
+        file.close();
+        log_->setPlainText(QStringLiteral("Đã lưu cấu hình ghép cột, không chứa dữ liệu chứng từ: ")+dest);
+    }
+    void loadMapping()
+    {
+        if(!ti_.ok||srcHeader_.isEmpty()){check();return;}
+        const QString src=QFileDialog::getOpenFileName(this,QStringLiteral("Nạp quy tắc ghép cột"),QString(),QStringLiteral("JSON (*.json)"));
+        if(src.isEmpty())return;
+        QFile file(src);
+        if(!file.open(QIODevice::ReadOnly)||file.size()>2*1024*1024){log_->setPlainText(QStringLiteral("Không đọc được cấu hình hoặc tệp quá lớn."));return;}
+        ExportOptions restored;QString error;
+        if(!decodeMappingProfile(file.read(2*1024*1024+1),target_->currentText(),ti_,srcHeader_,&restored,&error)){
+            log_->setPlainText(error);return;
+        }
+        for(int i=0;i<map_->rowCount();++i){
+            static_cast<QComboBox*>(map_->cellWidget(i,1))->setCurrentIndex(restored.mapping[i]+1);
+            static_cast<QComboBox*>(map_->cellWidget(i,2))->setCurrentIndex(restored.colTypes[i]==ColType::Number?1:0);
+        }
+        locale_->setCurrentIndex(restored.vietnameseNumbers?0:1);
+        check();
     }
     void doExport()
     {
@@ -471,6 +521,7 @@ private:
         log_->setPlainText(o.join(QLatin1Char('\n')));
     }
     QComboBox *target_{};
+    QComboBox *locale_{};
     QLabel *info_{};
     QLabel *sourceInfo_{};
     QSpinBox *headerRow_{};
