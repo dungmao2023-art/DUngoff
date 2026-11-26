@@ -214,7 +214,8 @@ void TileView::paintEvent(QPaintEvent* ev) {
     for (const QRect& r : m_selection) p.fillRect(toView(r), sel);
     if (m_selection.isEmpty() && !m_cellArea.isEmpty()) p.fillRect(toView(m_cellArea), sel);
     if (m_hasCell) {
-        const QRect v = toView(m_cellCursor);
+        const QRect area = m_isCalc && !m_cellArea.isEmpty() ? m_cellArea : m_cellCursor;
+        const QRect v = toView(area);
         p.setPen(QPen(theme::kExcel, 2));
         p.setBrush(Qt::NoBrush);
         p.drawRect(v.adjusted(0, 0, -1, -1));
