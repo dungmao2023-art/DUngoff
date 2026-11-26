@@ -142,6 +142,26 @@ int main(int argc, char **argv)
     CHECK(writeCsvCopy(p2, rd, err), "ghi bản sao CSV");
     Table rd2; CHECK(readCsv(p2, rd2, err) && rd2 == rd, "ghi rồi đọc lại == nguyên vẹn");
     CHECK(!writeCsvCopy(p2, rd, err) && !err.isEmpty(), "không ghi đè tệp đã có");
+    Table existing; CHECK(readCsv(p2, existing, err) && existing == rd, "tệp có sẵn không đổi sau từ chối ghi");
+    {
+        Table parsed;
+        CHECK(readCsvBytes("ID,Name\r001,An\r002,Binh\r", Encoding::Utf8, parsed, err)
+            && parsed.rows.size() == 2 && parsed.rows.value(1).value(0) == "002", "CSV xuống dòng CR đơn");
+        const Table before = parsed;
+        CHECK(!readCsvBytes("ID,Name\n001,a\"b\"\n", Encoding::Utf8, parsed, err) && parsed == before,
+            "từ chối dấu nháy giữa ô, giữ kết quả cũ");
+        CHECK(!readCsvBytes("ID,Name\n001,\"An\"x\n", Encoding::Utf8, parsed, err) && parsed == before,
+            "từ chối chữ sau dấu nháy đóng");
+        CHECK(!readCsvBytes("ID,Name\n001,\"An\n", Encoding::Utf8, parsed, err) && parsed == before,
+            "từ chối dấu nháy chưa đóng");
+        CHECK(readCsvBytes("ID,Name\r\n001,\"a\r\nb\"\r\n", Encoding::Utf8, parsed, err)
+            && parsed.rows.value(0).value(1) == "a\r\nb", "giữ nguyên CRLF bên trong ô");
+        const auto p3 = dir.filePath("crlf.csv");
+        CHECK(writeCsvCopy(p3, parsed, err) && err.isEmpty(), "ghi bản sao xóa lỗi cũ");
+        Table round; CHECK(readCsv(p3, round, err) && round == parsed, "roundtrip CRLF và số 0 đầu");
+        CHECK(!writeCsvCopy(dir.filePath("empty.csv"), Table{}, err), "không xuất bảng thiếu tiêu đề");
+        CHECK(!readCsvBytes("ID|Name", Encoding::Utf8, parsed, err, QLatin1Char('|')), "từ chối phân cách không hỗ trợ");
+    }
     QFile bad(dir.filePath("hong.csv")); bad.open(QIODevice::WriteOnly); bad.write("Ma\n\xFF\xFE\xFD\n"); bad.close();
     Table rb; CHECK(!readCsv(dir.filePath("hong.csv"), rb, err), "CSV không phải UTF-8: từ chối, không đoán bảng mã");
     CHECK(!readCsv(dir.filePath("khong-co.csv"), rb, err), "tệp không tồn tại báo lỗi");
