@@ -56,4 +56,7 @@ struct ExportResult {
 ExportResult exportToTemplate(const QString &templatePath, const QString &outPath, const TemplateInfo &t,
                               const QStringList &sourceHeaders, const QVector<QStringList> &sourceRows, const ExportOptions &o);
 
+struct GroupSummary;
+// New standalone report workbook, never rewrites a source workbook. Native Excel chart, not a screenshot.
+ExportResult exportGroupReport(const QString& outPath,const GroupSummary& summary,bool sumChart);
 }  // namespace dataassist

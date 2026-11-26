@@ -13,6 +13,7 @@
 #include <QRegularExpression>
 #include <QXmlStreamReader>
 #include <QSet>
+#include <cmath>
 #include <private/qzipreader_p.h>
 #include <private/qzipwriter_p.h>
 
@@ -431,6 +432,98 @@ ExportResult exportToTemplate(const QString &tpl, const QString &out, const Temp
     for (int i = 0; i < t.headers.size(); ++i)
         if (o.mapping[i] < 0 && !t.headers[i].trimmed().isEmpty()) res.unmappedTemplateColumns << t.headers[i];
     return res;
+}
+
+ExportResult exportGroupReport(const QString& outPath,const GroupSummary& summary,bool sumChart)
+{
+    ExportResult res;
+    const QFileInfo dst(outPath);
+    auto fail=[&](const QString& error){res.error=error;return res;};
+    if(!outPath.endsWith(QLatin1String(".xlsx"),Qt::CaseInsensitive)||dst.exists()||dst.isSymLink()||!QDir(dst.absolutePath()).exists())
+        return fail(QStringLiteral("Chọn tên báo cáo XLSX mới, không ghi đè."));
+    if(!summary.ok||summary.groups.isEmpty()||summary.groups.size()>100)
+        return fail(QStringLiteral("Biểu đồ báo cáo hỗ trợ từ 1 đến 100 nhóm; hãy lọc dữ liệu."));
+    // All user labels are inline strings and XML text, never formula/attribute content.
+    auto safeLabel=[](const QString& s){
+        if(s.isEmpty()||s.size()>1024)return false;
+        for(uint ch:s.toUcs4())if((ch<32&&ch!=9&&ch!=10&&ch!=13)||ch==0xfffe||ch==0xffff||(ch>=0xd800&&ch<=0xdfff))return false;
+        return true;
+    };
+    auto num=[](double v){return QString::number(v,'g',15);};
+    auto strCell=[](const QString& ref,const QString& val){
+        return QStringLiteral("<c r=\"%1\" t=\"inlineStr\"><is><t xml:space=\"preserve\">%2</t></is></c>").arg(ref,esc(val));
+    };
+    auto numCell=[&](const QString& ref,double v){return QStringLiteral("<c r=\"%1\"><v>%2</v></c>").arg(ref,num(v));};
+    QString sheet=QStringLiteral("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><cols><col min=\"1\" max=\"1\" width=\"24\" customWidth=\"1\"/><col min=\"2\" max=\"7\" width=\"17\" customWidth=\"1\"/></cols><sheetData><row r=\"1\">");
+    const QStringList headers{QStringLiteral("Nhóm"),QStringLiteral("Số dòng"),QStringLiteral("Ô số"),QStringLiteral("Tổng"),
+        QStringLiteral("Trung bình"),QStringLiteral("Nhỏ nhất"),QStringLiteral("Lớn nhất")};
+    for(int i=0;i<headers.size();++i)sheet+=strCell(colName(i)+QLatin1Char('1'),headers[i]);
+    sheet+=QStringLiteral("</row>");
+    QString labels,values;int index=0;bool hasMeasure=false;
+    for(const auto& g:summary.groups){
+        if(!safeLabel(g.label)||g.rows<1||g.numbers<0||g.numbers>g.rows||
+           !std::isfinite(g.sum)||!std::isfinite(g.min)||!std::isfinite(g.max)||
+           (g.numbers&&g.min>g.max))return fail(QStringLiteral("Nhóm có dữ liệu không hợp lệ."));
+        const QString row=QString::number(index+2);
+        sheet+=QStringLiteral("<row r=\"%1\">").arg(row)+strCell(QStringLiteral("A")+row,g.label)+
+            numCell(QStringLiteral("B")+row,g.rows)+numCell(QStringLiteral("C")+row,g.numbers);
+        if(g.numbers)sheet+=numCell(QStringLiteral("D")+row,g.sum)+numCell(QStringLiteral("E")+row,g.sum/g.numbers)+
+            numCell(QStringLiteral("F")+row,g.min)+numCell(QStringLiteral("G")+row,g.max);
+        sheet+=QStringLiteral("</row>");
+        labels+=QStringLiteral("<c:pt idx=\"%1\"><c:v>%2</c:v></c:pt>").arg(index).arg(esc(g.label));
+        if(!sumChart||g.numbers){
+            values+=QStringLiteral("<c:pt idx=\"%1\"><c:v>%2</c:v></c:pt>").arg(index).arg(num(sumChart?g.sum:g.rows));
+            hasMeasure=true;
+        }
+        ++index;
+    }
+    if(!hasMeasure)return fail(QStringLiteral("Không có số hợp lệ để tạo biểu đồ tổng."));
+    sheet+=QStringLiteral("</sheetData><drawing r:id=\"rId1\"/></worksheet>");
+    const QString last=QString::number(index+1),count=QString::number(index),col=sumChart?QStringLiteral("D"):QStringLiteral("B");
+    const QString metric=sumChart?QStringLiteral("Tổng"):QStringLiteral("Số dòng");
+    const QString chart=QStringLiteral(
+        "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">"
+        "<c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang=\"vi-VN\"/><a:t>%1 theo nhóm</a:t></a:r></a:p></c:rich></c:tx></c:title>"
+        "<c:plotArea><c:layout/><c:barChart><c:barDir val=\"col\"/><c:grouping val=\"clustered\"/>"
+        "<c:ser><c:idx val=\"0\"/><c:order val=\"0\"/><c:tx><c:v>%1</c:v></c:tx>"
+        "<c:cat><c:strRef><c:f>TongHop!$A$2:$A$%2</c:f><c:strCache><c:ptCount val=\"%3\"/>%4</c:strCache></c:strRef></c:cat>"
+        "<c:val><c:numRef><c:f>TongHop!$%5$2:$%5$%2</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val=\"%3\"/>%6</c:numCache></c:numRef></c:val>"
+        "</c:ser><c:axId val=\"10\"/><c:axId val=\"20\"/></c:barChart>"
+        "<c:catAx><c:axId val=\"10\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"b\"/>"
+        "<c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"20\"/><c:crosses val=\"autoZero\"/><c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/></c:catAx>"
+        "<c:valAx><c:axId val=\"20\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"l\"/><c:majorGridlines/>"
+        "<c:numFmt formatCode=\"General\" sourceLinked=\"1\"/><c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"10\"/><c:crosses val=\"autoZero\"/><c:crossBetween val=\"between\"/></c:valAx>"
+        "</c:plotArea><c:plotVisOnly val=\"1\"/><c:dispBlanksAs val=\"gap\"/></c:chart></c:chartSpace>").arg(metric,last,count,labels,col,values);
+    const QMap<QString,QByteArray> parts{
+        {QStringLiteral("[Content_Types].xml"),QByteArray("<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/><Override PartName=\"/xl/drawings/drawing1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawing+xml\"/><Override PartName=\"/xl/charts/chart1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawingml.chart+xml\"/></Types>")},
+        {QStringLiteral("_rels/.rels"),QByteArray("<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>")},
+        {QStringLiteral("xl/workbook.xml"),QByteArray("<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"TongHop\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>")},
+        {QStringLiteral("xl/_rels/workbook.xml.rels"),QByteArray("<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/></Relationships>")},
+        {QStringLiteral("xl/worksheets/sheet1.xml"),sheet.toUtf8()},
+        {QStringLiteral("xl/worksheets/_rels/sheet1.xml.rels"),QByteArray("<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing\" Target=\"../drawings/drawing1.xml\"/></Relationships>")},
+        {QStringLiteral("xl/drawings/drawing1.xml"),QByteArray("<xdr:wsDr xmlns:xdr=\"http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><xdr:oneCellAnchor><xdr:from><xdr:col>8</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx=\"6400800\" cy=\"3657600\"/><xdr:graphicFrame macro=\"\"><xdr:nvGraphicFramePr><xdr:cNvPr id=\"1\" name=\"Chart 1\"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/></xdr:xfrm><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/chart\"><c:chart r:id=\"rId1\"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>")},
+        {QStringLiteral("xl/drawings/_rels/drawing1.xml.rels"),QByteArray("<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../charts/chart1.xml\"/></Relationships>")},
+        {QStringLiteral("xl/charts/chart1.xml"),chart.toUtf8()}
+    };
+    QTemporaryDir temp(QDir(dst.absolutePath()).filePath(QStringLiteral(".dung-report-XXXXXX")));
+    if(!temp.isValid())return fail(QStringLiteral("Không tạo được thư mục tạm."));
+    const QString staged=temp.filePath(QStringLiteral("report.xlsx"));
+    {
+        QZipWriter zip(staged);
+        for(auto it=parts.cbegin();it!=parts.cend();++it){
+            QXmlStreamReader xml(it.value());while(!xml.atEnd())xml.readNext();
+            if(xml.hasError())return fail(QStringLiteral("XML báo cáo không hợp lệ: ")+it.key());
+            zip.addFile(it.key(),it.value());
+        }
+        zip.close();if(zip.status()!=QZipWriter::NoError)return fail(QStringLiteral("Không ghi được báo cáo."));
+    }
+    {
+        QZipReader verify(staged);
+        if(!verify.isReadable()||verify.fileInfoList().size()!=parts.size())return fail(QStringLiteral("Gói báo cáo không hợp lệ."));
+        for(auto it=parts.cbegin();it!=parts.cend();++it)if(verify.fileData(it.key())!=it.value())return fail(QStringLiteral("Gói báo cáo không khớp."));
+    }
+    if(!QFile::rename(staged,outPath))return fail(QStringLiteral("Không lưu được báo cáo; không ghi đè."));
+    res.ok=true;res.outPath=outPath;res.rowsWritten=index;res.warnings=summary.warnings;return res;
 }
 
 }  // namespace dataassist

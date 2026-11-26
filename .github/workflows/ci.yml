@@ -63,6 +63,7 @@ jobs:
         run: |
           set -o pipefail
           DUNG_DA_OUT="$PWD/da-out" ./build/app/dung-dataassisttest 2>&1 | tee report/linux-dataassisttest.log
+          python3 tests/dataassist/verify_group_chart.py da-out/group-chart.xlsx
           cd da-out && soffice --headless --convert-to csv:"Text - txt - csv (StarCalc)":44,34,76 --outdir csv ket-qua-xuat.xlsx 2>&1 | tee -a ../report/linux-dataassist-lo.log
           cat csv/ket-qua-xuat.csv | tee -a ../report/linux-dataassist-lo.log
           grep -q "00123" csv/ket-qua-xuat.csv && grep -q "Bút bi <xanh> & đỏ" csv/ket-qua-xuat.csv && grep -q "MẪU NHẬP HÀNG" csv/ket-qua-xuat.csv
@@ -454,7 +455,13 @@ jobs:
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-dataassisttest.exe | Select-Object -First 1
           if (-not $exe) { Write-Host "::error::Không thấy dung-dataassisttest.exe"; exit 1 }
+          New-Item -ItemType Directory -Force da-out | Out-Null
+          $env:DUNG_DA_OUT = "$PWD/da-out"
           & $exe.FullName *>&1 | Tee-Object report/windows-dataassisttest.log
+          if ($LASTEXITCODE) { exit 1 }
+          python -m pip install --quiet openpyxl
+          if ($LASTEXITCODE) { exit 1 }
+          python tests/dataassist/verify_group_chart.py da-out/group-chart.xlsx
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử công cụ tìm tệp trên Windows
         run: |

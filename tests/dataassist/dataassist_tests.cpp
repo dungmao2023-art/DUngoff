@@ -147,6 +147,22 @@ int main(int argc, char **argv)
     CHECK(!summarizeGroups(grid,99,1,true).ok,"Chặn cột ngoài vùng");
     CHECK(summarizeGroups(grid,0,-1,true).groups.size()==4,"Chế độ chỉ đếm dòng");
 
+    const auto reportSummary=summarizeGroups(parseTsv(QStringLiteral("Nhóm\tTiền\nA & B\t10\n=không phải công thức\t20\nA & B\t-3")),0,1,true);
+    const QString reportPath=out+"/group-chart.xlsx";
+    const auto report=exportGroupReport(reportPath,reportSummary,true);
+    CHECK(report.ok && report.rowsWritten==2,"Xuất XLSX báo cáo có biểu đồ thật: "+report.error);
+    {
+        QZipReader z(reportPath);
+        const auto xml=z.fileData("xl/charts/chart1.xml");
+        CHECK(xml.contains("<c:barChart>") && xml.contains("TongHop!$D$2:$D$3") && xml.contains("A &amp; B"),"Chart cột có nguồn dữ liệu thực");
+        const auto sheet=z.fileData("xl/worksheets/sheet1.xml");
+        CHECK(sheet.contains("<c r=\"A3\" t=\"inlineStr\">") && !sheet.contains("<f>") && sheet.contains("<c r=\"D2\"><v>7</v>"),"Nhãn dạng chữ an toàn và tổng chính xác");
+    }
+    const auto originalReport=sha(reportPath);
+    CHECK(!exportGroupReport(reportPath,reportSummary,false).ok && sha(reportPath)==originalReport,"Không ghi đè báo cáo");
+    CHECK(!exportGroupReport(out+"/group-invalid.csv",reportSummary,true).ok,"Từ chối sai định dạng");
+    CHECK(!exportGroupReport(out+"/group-empty.xlsx",GroupSummary{},false).ok,"Từ chối nhóm trống");
+
     // ---------------- Xuất theo mẫu ----------------
     const QString tpl = mkTemplate(out + "/mau-nhap-hang.xlsx", true);
     const QByteArray tplHash = sha(tpl);
