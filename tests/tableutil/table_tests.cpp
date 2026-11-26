@@ -76,7 +76,24 @@ int main(int argc, char **argv)
         CHECK(!decodeFilterSortRecipe(QByteArray("{bad"), src.header, loaded, error), "từ chối JSON hỏng");
         CHECK(loaded.filterCol == spec.filterCol && loaded.value == spec.value, "cấu hình lỗi không ghi đè lựa chọn hiện tại");
         auto invalid = json; invalid.replace("\"version\": 1", "\"version\": 2");
-        CHECK(!decodeFilterSortRecipe(invalid, src.header, loaded, error), "từ chối phiên bản không hỗ trợ");
+        CHECK(!decodeFilterSortRecipe(invalid, src.header, loaded, error), "từ chối cấu hình v2 thiếu cột");
+        spec.outputColumns={2,0}; spec.outputNames={"Điện thoại","Mã"};
+        const auto projected=filterSort(src,spec);
+        CHECK(projected.ok && projected.table.header==spec.outputNames && projected.table.rows.size()==3,"project selected columns after filter");
+        CHECK(projected.table.rows.value(0).value(0)=="0912345678" && projected.table.rows.value(0).value(1)=="010","projection follows sort and preserves text");
+        const auto v2=encodeFilterSortRecipe(src.header,spec);
+        CHECK(decodeFilterSortRecipe(v2,src.header,loaded,error) && filterSort(src,loaded).table==projected.table,"v2 recipe roundtrip");
+        CHECK(decodeFilterSortRecipe(json,src.header,loaded,error) && loaded.outputColumns.isEmpty(),"v1 recipe remains compatible");
+        auto bad=spec; bad.outputNames={"Mã","mã"};
+        CHECK(!filterSort(src,bad).ok,"reject duplicate output names");
+        bad=spec; bad.outputColumns={2,2};
+        CHECK(!filterSort(src,bad).ok,"reject duplicate source columns");
+        bad=spec; bad.outputColumns={2,99};
+        CHECK(!filterSort(src,bad).ok,"reject invalid source column");
+        bad=spec; bad.outputNames={"","Mã"};
+        CHECK(!filterSort(src,bad).ok,"reject empty output name");
+        auto ragged=src; ragged.rows.append(QStringList{"001"});
+        CHECK(!filterSort(ragged,spec).ok,"reject projection of ragged rows");
     }
 
     // ---- So sánh ----
