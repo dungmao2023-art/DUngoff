@@ -184,6 +184,11 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     B("xl:sheetDelete", tr("Xoá sheet"), 0xE74D, "−▭", false),
                 }},
             }},
+            {tr("Biểu đồ"), {
+                {tr("Chèn vào sheet"), {
+                    B("xl:insertChart", tr("Biểu đồ cột"), 0xE9D2, "▥", false),
+                }},
+            }},
             {tr("Công thức"), {
                 {tr("Trợ lý"), {
                     B("xl:formulaAssistant", tr("Tôi muốn"), 0xE8EF, "ƒx", false),

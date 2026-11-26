@@ -64,7 +64,19 @@ void DocumentTab::excelAction(const QString& id) {
     const int cur = m_doc->currentPart();
     const int n = m_doc->partCount();
 
-    if (a == QLatin1String("vnMoney")) {
+    if (a == QLatin1String("insertChart")) {
+        m_doc->waitInputIdle();
+        const QString range=m_view->selectedCellRange();
+        if(dataassist::bridgeRangeAddress(ss(range)).empty()||!range.contains(QLatin1Char(':'))) {
+            QMessageBox::information(this,tr("Biểu đồ"),tr("Chọn vùng dữ liệu liền nhau gồm nhãn và giá trị ngay trên sheet, sau đó bấm Biểu đồ cột."));
+            return;
+        }
+        // Native Calc chart insertion, not an exported copy, screenshot or manual XML patch.
+        // Do not dispatch another edit while the engine is processing this command.
+        m_view->setFocus();
+        cmd(".uno:InsertObjectChart");
+        return;
+    } else if (a == QLatin1String("vnMoney")) {
         m_doc->waitInputIdle();
         const QString range = m_view->selectedCellRange();
         if (dataassist::bridgeRangeAddress(ss(range)).empty()) {

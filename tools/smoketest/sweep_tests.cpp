@@ -462,21 +462,35 @@ int runSweepTests(const fs::path& program, const fs::path& out) {
     unchecked("Impress", "chuyển cảnh", "hiệu ứng chỉ quan sát được qua XML <p:transition> sau khi lưu; chưa kiểm");
     unchecked("Impress", "ghi chú diễn giả", "cần gõ ở chế độ trang ghi chú rồi đọc notesSlide trong .pptx; chưa kiểm");
 
-    step("thăm dò chèn biểu đồ (cuối cùng, có thể treo)");
+    step("chèn biểu đồ native vào sheet hiện tại");
     {
-        auto xc = engine->createNew(DocKind::Spreadsheet, &err);
-        if (xc) {
-            Document& c = *xc;
+        auto xc=engine->createNew(DocKind::Spreadsheet,&err);
+        if(!xc)result("Calc","chart-create-document",false,err);
+        else {
+            Document& c=*xc;
             c.setEventSink(onEvent);
-            c.setClientView(512, 512, 7680, 7680, 0, 0, 7680, 7680);
+            c.setClientView(512,512,7680,7680,0,0,7680,7680);
             settle();
-            enter(c, "A1", u"a"); enter(c, "B1", u"1"); enter(c, "A2", u"b"); enter(c, "B2", u"2");
-            gotoCell(c, "A1:B2");
-            const bool before = c.modified();
-            run(c, ".uno:InsertObjectChart");
-            settle(1500);
-            const std::string hh = html(c);
-            probe("Calc", ".uno:InsertObjectChart", c.modified() && !before ? true : (has(hh, "<img") || has(hh, "chart")), std::string("modified=") + (c.modified() ? "1" : "0") + " html=" + flat(hh, 60));
+            enter(c,"A1",u"Category");enter(c,"B1",u"Amount");
+            enter(c,"A2",u"Alpha");enter(c,"B2",u"12");
+            enter(c,"A3",u"Beta");enter(c,"B3",u"34");
+            gotoCell(c,"A1:B3");
+            const auto selected=text(c);
+            const bool sourceOk=has(selected,"Alpha")&&has(selected,"Beta")&&has(selected,"12")&&has(selected,"34");
+            result("Calc","chart-selection",sourceOk,selected);
+            if(sourceOk){
+                run(c,".uno:InsertObjectChart");
+                settle(1500);
+                // Exit chart object editing so the workbook can be saved.
+                c.postKey(LOK_KEYEVENT_KEYINPUT,0,1281);
+                c.postKey(LOK_KEYEVENT_KEYUP,0,1281);
+                settle(500);
+                const fs::path dest=out/"native-chart.xlsx";
+                fs::remove(dest,ec);
+                const auto saved=c.saveAs(dest);
+                result("Calc","chart-save",saved.ok,saved.message);
+                // Independent checker validates object/relationship/data references.
+            }
         }
     }
 
