@@ -599,6 +599,8 @@ jobs:
         run: |
           $env:PYTHONUTF8 = "1"
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          python -m pip install --quiet openpyxl
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           python tests/excel/make_excel_fixture.py fixtures
           if ($LASTEXITCODE -ne 0) { exit 1 }
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--xlsx", "fixtures/excel-co-ban.xlsx", "--excel", "1", "--out", "$PWD/smoke-excel") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-excel.log -RedirectStandardError report/windows-excel.err.log
@@ -613,6 +615,12 @@ jobs:
         run: |
           $env:PYTHONUTF8 = "1"
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          if (-not (Test-Path fixtures/mau-trinh-chieu.pptx)) {
+            python -m pip install --quiet openpyxl python-docx python-pptx
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            python tests/fixtures/make_fixtures.py fixtures
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--ppt", "fixtures/mau-trinh-chieu.pptx", "--out", "$PWD/smoke-ppt") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-ppt.log -RedirectStandardError report/windows-ppt.err.log
           if (-not $p.WaitForExit(420000)) { Stop-Process $p -Force; Write-Host "::error::PowerPoint test timeout"; exit 1 }
           Get-Content report/windows-ppt.log
