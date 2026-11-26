@@ -751,6 +751,13 @@ bool DocumentTab::doSave(const QString& path, bool confirmedReplace) {
         return false;
     }
 
+    if ((!original.isEmpty() && samePathUi(path,original)) ||
+        (m_recOriginSet && !m_recOrigin.isEmpty() && samePathUi(path,m_recOrigin))) {
+        if(m_doc->readOnly() || !m_doc->featureLoss().empty()) {
+            QMessageBox::warning(this,tr("Bảo vệ tệp gốc"),tr("Tài liệu chỉ đọc hoặc có thành phần chưa bảo toàn. Không được ghi đè tệp nguồn, kể cả khi đã đồng ý mất tính năng."));
+            return false;
+        }
+    }
     if (isPdf) {
         if (QMessageBox::question(this, tr("Xuất PDF"),
                 tr("Bản PDF chỉ là bản in: không giữ công thức và không chỉnh sửa lại được như tài liệu gốc.\n"

@@ -147,6 +147,7 @@ jobs:
           soffice --headless --convert-to ods --outdir fixtures fixtures/mau-doanh-thu.xlsx > /dev/null 2>&1
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --xlsx fixtures/mau-doanh-thu.xlsx \
             --csv fixtures/mau.csv --docx fixtures/mau-van-ban.docx --pptx fixtures/mau-trinh-chieu.pptx \
+            --feature-docx tests/fixtures/features/features.docx \
             --sheet fixtures/mau-doanh-thu.xls --sheet fixtures/mau-doanh-thu.ods \
             --out smoke 2>&1 | tee report/linux-smoketest.log
           python3 -c 'from zipfile import ZipFile; from xml.etree import ElementTree as E; import sys; root=E.fromstring(ZipFile(sys.argv[1]).read("content.xml")); assert "PDF EDIT TEST" in "".join(root.itertext()), "Missing inserted text in saved ODG"; print("PASS saved ODG text")' smoke/pdf-edited-persist.odg
@@ -548,7 +549,7 @@ jobs:
           Get-ChildItem fixtures | ForEach-Object { "$($_.Name)  $($_.Length)" } | Tee-Object -Append report/windows-fixtures.log
           $smokeArgs = @("--program", "$PWD/build/lo/engine/program", "--xlsx", "fixtures/mau-doanh-thu.xlsx",
                     "--csv", "fixtures/mau.csv", "--docx", "fixtures/mau-van-ban.docx",
-                    "--pptx", "fixtures/mau-trinh-chieu.pptx", "--out", "$PWD/smoke")
+                    "--pptx", "fixtures/mau-trinh-chieu.pptx", "--feature-docx", "tests/fixtures/features/features.docx", "--out", "$PWD/smoke")
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList $smokeArgs -PassThru -NoNewWindow `
                  -RedirectStandardOutput report/windows-smoketest.log -RedirectStandardError report/windows-smoketest.err.log
           # Chẩn đoán treo: sau 50 giây nếu còn chạy -> chụp màn hình + dump ngăn xếp các luồng

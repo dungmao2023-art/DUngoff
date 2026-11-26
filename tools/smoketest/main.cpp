@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 #else
     std::vector<std::string> args(argv, argv + argc);
 #endif
-    fs::path program, xlsx, csv, out, docx, pptx;
+    fs::path program, xlsx, csv, out, docx, pptx, featureDocx;
     std::vector<fs::path> extraSheets; // --sheet <tệp>: định dạng bảng tính khác (xls, ods, xlsm...)
     fs::path roundtrip;                // --roundtrip <tệp>: chỉ mở, render mọi sheet, lưu bản sao (không sửa)
     bool wordStructureMode = false;
@@ -138,6 +138,7 @@ int main(int argc, char** argv) {
         else if (args[i] == "--csv") csv = fromUtf8(args[i + 1]);
         else if (args[i] == "--out") out = fromUtf8(args[i + 1]);
         else if (args[i] == "--docx") docx = fromUtf8(args[i + 1]);
+        else if (args[i] == "--feature-docx") featureDocx = fromUtf8(args[i + 1]);
         else if (args[i] == "--pptx") pptx = fromUtf8(args[i + 1]);
         else if (args[i] == "--sheet") extraSheets.push_back(fromUtf8(args[i + 1]));
         else if (args[i] == "--roundtrip") roundtrip = fromUtf8(args[i + 1]);
@@ -487,6 +488,31 @@ int main(int argc, char** argv) {
         if (expectRO) {
             auto r = d->saveAs(out / fs::u8path(f.stem().u8string() + "-thu" + f.extension().u8string()));
             check(!r.ok, name + ": không ghi lại cùng định dạng: " + r.message);
+        }
+    }
+
+    // Real DOCX fixture containing embedded fonts: even the explicit loss and
+    // overwrite flags cannot authorize destructive replacement of the source.
+    if (!featureDocx.empty()) {
+        step("bảo vệ DOCX có phông nhúng");
+        const fs::path protectedSource = out / "protected-original.docx";
+        std::error_code copyError;
+        fs::copy_file(featureDocx,protectedSource,fs::copy_options::overwrite_existing,copyError);
+        check(!copyError,"Sao chép fixture có phông nhúng");
+        if(!copyError){
+            const auto before=readAll(protectedSource);
+            auto d=engine->open(protectedSource,&err);
+            check(d && !d->featureLoss().empty(),"Phát hiện tính năng không giữ được: "+err);
+            if(d && !d->featureLoss().empty()){
+                SaveOptions all;all.allowOverwriteOriginal=true;all.allowFeatureLoss=true;all.allowReplaceExisting=true;
+                const auto rejected=d->saveAs(protectedSource,all);
+                check(!rejected.ok && rejected.backup.empty() && readAll(protectedSource)==before,
+                      "Cấm ghi đè nguồn rủi ro ngay cả khi bật mọi xác nhận");
+                const fs::path fresh=out/"protected-new.docx";
+                fs::remove(fresh,copyError);
+                check(d->saveAs(fresh,all).ok && readAll(protectedSource)==before,
+                      "Vẫn cho phép lưu bản sao đã xác nhận, nguồn nguyên vẹn");
+            }
         }
     }
 
