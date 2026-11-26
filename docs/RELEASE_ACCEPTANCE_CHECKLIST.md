@@ -100,3 +100,11 @@ Mốc hiện tại sau #39–41: chỉ số triển khai 29.9%, chưa có nhóm 
 - D05: #42 merged, Unicode vector; P06: #43 merged, chưa nghiệm thu trình chiếu. A04: #48 merged, bảo vệ nguồn.
 - #52 head d32663445e4fd347c917102fa60e33e5030c4285 [CI FAIL](https://github.com/dungmao2023-art/DUngoff/actions/runs/45875575721): native paste bốn ô, kiểu text XLSX, Undo định dạng đậm. Chưa merge.
 - CSV đối chiếu: 32.9% chỉ số triển khai; 0 nhóm accepted; giữ nguyên trọng số và giờ dự toán. Cần test Windows thật, DPI/IME, PowerPoint playback, PDF preview, mở/lưu file thực. Không phát hành.
+
+## Đối chiếu bổ sung — main b3e98476f64cdbfeea6bfb76dc1089af729bbd75
+- #60 (65eb1cc91d2ed7f3d50727636e2f1c007abe647d) merged 6b6b71c; [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45905276261). X02 còn GUI.
+- #61 (86a00c01b594f7ff6231a314094e7d8c2c0dd4e0) merged d240443; [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45906798085), kiểm tiện ích bảng cả hai OS. X10 vẫn partial vì thiếu nguồn XLSX, join/group và nhiều bước.
+- #63 (4e7ac577f666ea09ae12bb79a6aa46e53ef4f604) merged ac01e1d; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45907636579) Windows/Linux PASS, OCR thật Linux; chưa kiểm OCR Windows và gói runtime.
+- #64 (28b2a0099e6a4a4663218cec189281608b566524) merged b3e9847; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45908111680) Windows/Linux PASS; exit XML/timeline, chưa kiểm trình chiếu.
+- #59 PASS nhưng mergeable=false; #62 CI chung PASS nhưng chưa chạy riêng Python pdfcore, giữ lại. #52/#57 FAIL như trên.
+- Chỉ số triển khai 32.94%, không đổi stage/weight/giờ, 0 nhóm accepted. Main tích hợp mới cần CI và GUI máy thật; không phát hành.
