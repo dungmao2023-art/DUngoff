@@ -37,7 +37,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:AcceptTrackedChange", "info"}, {".uno:RejectTrackedChange", "close"}, {"word:addComment", "text"},
         {"word:inspect", "search"}, {"word:outline", "heading"}, {"word:symbols", "text"},
         {"word:headerEnable", "heading"}, {"word:footerEnable", "page-number"},
-        {"word:footnote", "text"}, {"word:endnote", "text"},
+        {"word:footnote", "text"}, {"word:endnote", "text"}, {".uno:UpdateAllIndexes", "toc"},
         {"word:mailMerge", "mail-merge"}, {"word:print", "print"}, {"word:exportPdf", "pdf"},
         {".uno:SpacePara2", "line-spacing"}, {".uno:GoToStartOfDoc", "move-up"}, {".uno:GoToEndOfDoc", "move-down"},
         {"word:vnDate", "calendar"}, {"word:vnMoney", "currency"}, {"word:vnSyllable", "spell"}, {"word:vnTcvn3", "transfer"},
