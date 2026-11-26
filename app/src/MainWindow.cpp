@@ -43,6 +43,7 @@
 #include <QScrollArea>
 #include <QFrame>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QSlider>
 #include <QStackedWidget>
 #include <QStatusBar>

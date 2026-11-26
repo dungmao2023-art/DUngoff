@@ -11,6 +11,7 @@
 #include <QInputDialog>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QTabBar>
 #include <QApplication>
 #include <QClipboard>

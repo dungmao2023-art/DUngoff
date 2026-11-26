@@ -105,3 +105,5 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 - Nhóm tài liệu Word/Excel/PPT/PDF có lọc riêng, chọn Tất cả; giữ tab đang mở. Word số thành chữ lấy vùng chọn, chọn số thường/tiền; Excel chọn một ô, xem trước/copy hoặc xác nhận thay ô. Tự điền vùng tham chiếu vào đối số qua sự kiện chuột, dùng hình học engine/header khớp ranh giới; từ chối khi không xác minh được. Chưa kiểm GUI máy thật, vùng ngoài viewport chưa hỗ trợ.
 - PDF mở kết quả bằng trình xem hệ thống sau thao tác qpdf, chưa chỉnh chữ gốc/OCR/preview trong app. PowerPoint animation vẫn chưa hỗ trợ; không thêm nút giả.
 - CI main 45748288776 Linux/Windows PASS: qpdf, bộ tiện ích dữ liệu/bảng, tìm tệp, vntext, hộp công cụ (manifest, xác nhận, chạy/dừng), file utilities; không chứng minh từng tool người dùng cài. Thẻ tool ngoài hiển thị thiếu chương trình hoặc chưa kiểm thử.
+
+- CI PR #8 run 45759370278: Linux/Windows lỗi biên dịch ExcelUi.cpp dòng 80–81 vì thiếu khai báo đầy đủ QPushButton khi so với QAbstractButton. Windows bước kiểm cố định ô thiếu artifact do build dừng. Đã thêm include QPushButton và QSignalBlocker tường minh; cần CI mới, chưa nghiệm thu UI.
