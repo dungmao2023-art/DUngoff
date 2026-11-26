@@ -69,6 +69,26 @@ int main(int argc, char** argv) {
           mixed.contains("delay=\"800\""),"mixed triggers share a click group with correct offset");
     check(!planAnimation({with,first},&plan).ok,"first row cannot depend on absent previous animation");
     check(!patchAnimationSequenceXml(threeShapes,{after},&out).ok,"reject dependent first animation");
+    // Exit presets remain distinct from entrance presets and delay the hidden state until fade finishes.
+    AnimationOptions disappear; disappear.shapeId=42; disappear.exit=true; disappear.delayMs=200;
+    QByteArray exitXml;
+    check(patchAnimationXml(animXml,disappear,&exitXml).ok && exitXml.contains("presetClass=\"exit\"")
+        && exitXml.contains("presetID=\"1\"") && exitXml.contains("val=\"hidden\"")
+        && !exitXml.contains("val=\"visible\"") && !exitXml.contains("<p:animEffect"),"disappear emits hidden state only");
+    AnimationOptions fadeOut=second; fadeOut.exit=true; fadeOut.fade=true; fadeOut.durationMs=750;
+    fadeOut.trigger=AnimationTrigger::WithPrevious;
+    check(planAnimation({disappear,fadeOut},&plan).ok && plan.size()==2 &&
+        plan[1].startMs==400 && plan[1].endMs==1151,"exit timeline accounts for final visibility step");
+    QByteArray exits;
+    check(patchAnimationSequenceXml(twoShapes,{disappear,fadeOut},&exits).ok &&
+        exits.count("presetClass=\"exit\"")==2 && exits.contains("transition=\"out\"") &&
+        exits.contains("presetID=\"10\"") && exits.contains("delay=\"750\"") &&
+        !exits.contains("transition=\"in\""),"fade out emits exit animation and delayed hidden state");
+    QXmlStreamReader exitReader(exits);
+    while(!exitReader.atEnd()) exitReader.readNext();
+    check(!exitReader.hasError(),"exit timing XML is well formed");
+    check(!patchAnimationSequenceXml(twoShapes,{disappear,first},&out).ok,"same target entrance and exit still refused");
+    check(!patchAnimationXml(exitXml,disappear,&out).ok,"preserve existing exit timing");
     if (argc > 1) {
         const QString src = QString::fromLocal8Bit(argv[1]);
         QFile before(src); before.open(QIODevice::ReadOnly); const auto bytes = before.readAll(); before.close();
