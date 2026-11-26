@@ -17,6 +17,11 @@ struct PdfInfo {
 };
 
 PdfInfo pdfInfo(const QString& path);
+// Read actual PDF text layer (no OCR); 1-based pages.
+struct TextHit { int page=0, occurrences=0; QString snippet; };
+struct TextSearch { bool ok=false; QString error; QVector<TextHit> hits; int scanned=0, textPages=0; };
+TextSearch searchText(const QString& path,const QString& query,int first,int last,bool matchCase=false);
+QString pageText(const QString& path,int page,QString* error=nullptr);
 
 // Vẽ trang (1-based) vừa khung `box` (giữ tỉ lệ), nền trắng. Ảnh rỗng nếu lỗi.
 QImage renderPage(const QString& path, int page1, const QSize& box, QString* error = nullptr);

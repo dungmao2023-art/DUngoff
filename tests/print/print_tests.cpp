@@ -110,6 +110,14 @@ int main(int argc, char** argv) {
     check(!printrender::pdfInfo(dir.filePath(QStringLiteral("hong.pdf"))).ok, "PDF hỏng → lỗi rõ ràng");
 
     QString err;
+    const auto all=printrender::searchText(src,QStringLiteral("trang"),1,3);
+    check(all.ok&&all.hits.size()==3&&all.textPages==3,"Tìm chữ PDF không phân biệt hoa/thường");
+    const auto one=printrender::searchText(src,QStringLiteral("Trang 2"),1,3,true);
+    check(one.ok&&one.hits.size()==1&&one.hits.first().page==2&&one.hits.first().occurrences==1,"Tìm đúng trang PDF");
+    check(printrender::searchText(src,QStringLiteral("trang"),1,3,true).hits.isEmpty(),"Tìm phân biệt hoa/thường");
+    check(printrender::pageText(src,2,&err).contains(QStringLiteral("Trang 2"))&&err.isEmpty(),"Đọc chữ thật từ trang");
+    check(!printrender::searchText(src,QString(),1,3).ok&&!printrender::searchText(src,QStringLiteral("Trang"),1,4).ok,"Từ chối từ khóa hoặc khoảng sai");
+    check(printrender::pageText(src,9,&err).isEmpty()&&!err.isEmpty(),"Trang chữ ngoài phạm vi");
     const QImage a = printrender::renderPage(src, 1, QSize(400, 400), &err);
     const QImage b = printrender::renderPage(src, 3, QSize(400, 400), &err);
     check(!a.isNull() && a.width() <= 400 && a.height() <= 400, "vẽ trang 1 vừa khung", err);
