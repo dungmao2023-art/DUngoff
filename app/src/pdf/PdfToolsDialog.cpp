@@ -14,6 +14,8 @@
 #include <QSpinBox>
 #include <QDialogButtonBox>
 #include <QEventLoop>
+#include <QProgressDialog>
+#include <QStringList>
 #include <QFileDialog>
 #include <QFile>
 #include <QFileInfo>
@@ -778,20 +780,22 @@ QWidget* PdfToolsDialog::buildOcr() {
     auto* w = new QWidget(this);
     auto* root = new QVBoxLayout(w);
     auto* form = new QFormLayout;
-    auto* page = new QSpinBox(w); page->setRange(1, 100000);
+    auto* page = new QSpinBox(w); page->setRange(1, 1);
+    auto* last = new QSpinBox(w); last->setRange(1, 1);
     auto* lang = new QComboBox(w);
     lang->addItem(tr("Tiếng Việt + English"), QStringLiteral("vie+eng"));
     lang->addItem(tr("Tiếng Việt"), QStringLiteral("vie"));
     lang->addItem(tr("English"), QStringLiteral("eng"));
     form->addRow(tr("PDF nguồn:"), fileRow(&m_ocrFile, {}));
-    form->addRow(tr("Trang cần nhận dạng:"), page);
+    form->addRow(tr("Từ trang:"), page);
+    form->addRow(tr("Đến trang:"), last);
     form->addRow(tr("Ngôn ngữ:"), lang);
     root->addLayout(form);
-    auto* note = new QLabel(tr("OCR cục bộ một trang: nhận dạng từ ảnh trang PDF, không gửi ra mạng, không sửa tệp nguồn. Cần cài Tesseract và dữ liệu ngôn ngữ tương ứng. Kết quả có thể sai, hãy đối chiếu bản gốc."), w);
+    auto* note = new QLabel(tr("OCR cục bộ theo khoảng trang (tối đa 20 trang mỗi lượt): nhận dạng từ ảnh trang PDF, không gửi ra mạng, không sửa tệp nguồn. Cần cài Tesseract và dữ liệu ngôn ngữ tương ứng. Kết quả có thể sai, hãy đối chiếu bản gốc."), w);
     note->setWordWrap(true); root->addWidget(note);
     auto* status = new QLabel(w); status->setWordWrap(true); root->addWidget(status);
     auto* row = new QHBoxLayout;
-    auto* go = new QPushButton(tr("Nhận dạng trang"), w);
+    auto* go = new QPushButton(tr("Nhận dạng khoảng trang"), w);
     auto* copy = new QPushButton(tr("Sao chép"), w);
     auto* save = new QPushButton(tr("Lưu TXT…"), w);
     row->addWidget(go); row->addWidget(copy); row->addWidget(save); row->addStretch(); root->addLayout(row);
@@ -803,31 +807,68 @@ QWidget* PdfToolsDialog::buildOcr() {
     connect(m_ocrFile, &QLineEdit::textChanged, w, [=] {
         output->clear();
         const auto inf = printrender::pdfInfo(m_ocrFile->text());
-        if (inf.ok) { page->setMaximum(inf.pages); page->setValue(1); }
-        else { page->setMaximum(1); status->setText(inf.error); }
+        if (inf.ok) { page->setMaximum(inf.pages); last->setMaximum(inf.pages); page->setValue(1); last->setValue(1); status->setText(tr("PDF có %1 trang.").arg(inf.pages)); }
+        else { page->setMaximum(1); last->setMaximum(1); status->setText(inf.error); }
     });
-    connect(page, &QSpinBox::valueChanged, w, [=] { output->clear(); });
+    connect(page, &QSpinBox::valueChanged, w, [=](int value) { if (last->value() < value) last->setValue(value); output->clear(); });
+    connect(last, &QSpinBox::valueChanged, w, [=] { output->clear(); });
     connect(lang, &QComboBox::currentIndexChanged, w, [=] { output->clear(); });
     connect(go, &QPushButton::clicked, w, [=] {
         output->clear();
         if (m_ocrFile->text().isEmpty()) { status->setText(tr("Hãy chọn tệp PDF.")); return; }
         const auto source = m_ocrFile->text();
-        QString err;
-        const QImage img = printrender::renderPage(source, page->value(), QSize(3000, 3000), &err);
-        if (img.isNull()) { status->setText(err); return; }
-        QTemporaryDir temp;
-        const QString image = temp.filePath(QStringLiteral("ocr.png"));
-        if (!temp.isValid() || !img.save(image, "PNG")) { status->setText(tr("Không tạo được ảnh tạm.")); return; }
+        const auto inf = printrender::pdfInfo(source);
+        if (!inf.ok) { status->setText(inf.error); return; }
+        const int first = page->value(), end = last->value();
+        const auto rangeError = dungpdf::validateOcrRange(first, end, inf.pages);
+        if (!rangeError.isEmpty()) { status->setText(rangeError); return; }
         const QString language = lang->currentData().toString();
-        status->setText(tr("Đang nhận dạng…"));
-        dungpdf::OcrResult result;
-        QEventLoop loop;
-        QThread* worker = QThread::create([&] { result = dungpdf::recognizeImage(image, language); });
-        connect(worker, &QThread::finished, &loop, &QEventLoop::quit);
-        setEnabled(false); worker->start(); loop.exec(); worker->wait(); delete worker; setEnabled(true);
-        if (!result.ok) { status->setText(result.error); return; }
-        output->setPlainText(result.text);
-        status->setText(tr("Đã nhận dạng trang %1. Kiểm tra lại chữ và số trước khi sử dụng.").arg(page->value()));
+        QTemporaryDir temp;
+        if (!temp.isValid()) { status->setText(tr("Không tạo được thư mục tạm.")); return; }
+        const QString image = temp.filePath(QStringLiteral("ocr.png"));
+        QStringList recognized;
+        QString failure;
+        const int count = end - first + 1;
+        // Separate modal progress window: keep the source dialog disabled throughout.
+        QProgressDialog progress(tr("Đang chuẩn bị OCR…"), tr("Dừng"), 0, count);
+        progress.setWindowTitle(tr("Nhận dạng PDF"));
+        progress.setWindowModality(Qt::ApplicationModal);
+        progress.setAutoClose(false);
+        progress.setAutoReset(false);
+        progress.setMinimumDuration(0);
+        setEnabled(false);
+        progress.show();
+        progress.setValue(0);
+        for (int p = first; p <= end; ++p) {
+            if (progress.wasCanceled()) break;
+            progress.setLabelText(tr("Trang %1 · %2/%3").arg(p).arg(p-first+1).arg(count));
+            QString err;
+            const QImage img = printrender::renderPage(source, p, QSize(3000,3000), &err);
+            if (img.isNull() || !img.save(image, "PNG")) {
+                failure = tr("Trang %1: %2").arg(p).arg(err.isEmpty() ? tr("Không lưu được ảnh tạm.") : err);
+                break;
+            }
+            dungpdf::OcrResult result;
+            QEventLoop loop;
+            QThread* worker = QThread::create([&] { result = dungpdf::recognizeImage(image, language); });
+            connect(worker, &QThread::finished, &loop, &QEventLoop::quit);
+            connect(&progress, &QProgressDialog::canceled, worker, &QThread::requestInterruption);
+            worker->start();
+            loop.exec();
+            worker->wait();
+            delete worker;
+            if (progress.wasCanceled()) break;
+            if (!result.ok) { failure = tr("Trang %1: %2").arg(p).arg(result.error); break; }
+            recognized.append(count == 1 ? result.text : tr("===== Trang %1 =====\n%2").arg(p).arg(result.text));
+            progress.setValue(recognized.size());
+        }
+        const bool cancelled = progress.wasCanceled();
+        progress.hide();
+        setEnabled(true);
+        output->setPlainText(recognized.join(QStringLiteral("\n\n")));
+        if (cancelled) status->setText(tr("Đã dừng. Giữ lại %1/%2 trang đã nhận dạng.").arg(recognized.size()).arg(count));
+        else if (!failure.isEmpty()) status->setText(tr("%1 · Giữ lại %2/%3 trang đã nhận dạng.").arg(failure).arg(recognized.size()).arg(count));
+        else status->setText(tr("Đã nhận dạng %1/%2 trang. Kiểm tra lại chữ và số trước khi sử dụng.").arg(recognized.size()).arg(count));
     });
     connect(copy, &QPushButton::clicked, w, [=] { QApplication::clipboard()->setText(output->toPlainText()); });
     connect(save, &QPushButton::clicked, w, [=] {
