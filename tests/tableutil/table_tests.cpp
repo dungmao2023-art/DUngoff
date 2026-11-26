@@ -42,6 +42,30 @@ int main(int argc, char **argv)
     CHECK(!removeDuplicates(t, {}, false).ok && !removeDuplicates(t, {9}, false).ok, "khoá sai bị từ chối");
     CHECK(t.rows[0][2] == "0912345678" && d1.cleaned.rows[0][2] == "0912345678", "số điện thoại giữ số 0 đầu");
 
+    // ---- Lọc và sắp xếp dạng chữ, không sửa nguồn ----
+    {
+        const Table src = T({"ID", "City", "Phone"}, {
+            {"010", "An Khê", "0912345678"}, {"002", "an khê", "0123"},
+            {"002", "An Khê", "0456"}, {"001", "Huế", "9999999999999999"},
+            {"003", "", "0000"}});
+        FilterSortSpec spec; spec.filterCol = 1; spec.value = QStringLiteral("an khê");
+        spec.ignoreCase = true; spec.sortCol = 0;
+        auto r = filterSort(src, spec);
+        CHECK(r.ok && r.table.rows.size() == 3, "lọc Unicode không phân biệt hoa thường");
+        CHECK(r.table.rows.value(0).value(2) == "0123" && r.table.rows.value(1).value(2) == "0456", "sort ổn định, giữ số 0 đầu");
+        CHECK(r.table.rows.value(2).value(0) == "010" && src.rows.value(0).value(0) == "010", "không sửa nguồn");
+        spec.descending = true; r = filterSort(src, spec);
+        CHECK(r.table.rows.value(0).value(0) == "010", "sort giảm dần");
+        spec.mode = FilterMode::Blank; r = filterSort(src, spec);
+        CHECK(r.ok && r.table.rows.size() == 1 && r.table.rows.value(0).value(2) == "0000", "lọc ô trống giữ mã");
+        spec.mode = FilterMode::Contains; spec.value.clear();
+        CHECK(!filterSort(src, spec).ok, "không chấp nhận contains rỗng");
+        spec.filterCol = 99;
+        CHECK(!filterSort(src, spec).ok, "từ chối chỉ số cột lỗi");
+        spec.filterCol = -1; spec.sortCol = -1;
+        CHECK(filterSort(src, spec).table == src, "không chọn bước thì giữ nguyên bảng");
+    }
+
     // ---- So sánh ----
     Table a = T({"Ma", "Ten", "Tien"}, {{"1", "An", "1000"}, {"2", "Bình", "2000"}, {"3", "Chi", "3000"}, {"3", "Chi trùng", "3"}});
     Table b = T({"Ma", "Ten", "Tien", "GhiChu"}, {{"1", "An", "1000", ""}, {"2", "Bình", "2500", ""}, {"4", "Dũng", "4000", ""}});
