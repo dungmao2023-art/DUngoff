@@ -781,6 +781,7 @@ void MainWindow::addTab(DocumentTab* tab) {
         if (tab == current()) m_ribbon->setCommandState(c, v);
     });
     connect(tab, &DocumentTab::savedTo, this, &MainWindow::addRecent);
+    connect(tab, &DocumentTab::templateCopyRequested, this, &MainWindow::openPath);
     // Bản sao có lề mới (Word, Windows): mở trong thẻ mới, thẻ cũ giữ nguyên.
     connect(tab, &DocumentTab::openCopyRequested, this, [this](const QString& path, const QString& original, const QString& name) {
         QString err;
