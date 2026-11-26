@@ -24,6 +24,8 @@
 #include <sstream>
 #include <thread>
 #include <type_traits>
+#include <utility>
+#include <cstddef>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -643,6 +645,7 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
     created = true;
     std::unique_ptr<Engine> e(new Engine());
     e->m_office.reset(new lok::Office(kit));
+    e->m_nativeOffice = kit;
     e->m_workDir = workDir;
     return e;
 }
@@ -919,6 +922,89 @@ void Document::typeText(const std::u16string& text) {
     }
 }
 
+// sendDialogEvent moved between Document and Office in LOK headers.
+// Detect the member at compile time; check nSize before reading the runtime
+// function pointer. Never reinterpret one version's vtable as another.
+template<class T,class=void> struct HasDialogEvent:std::false_type {};
+template<class T> struct HasDialogEvent<T,std::void_t<decltype(std::declval<T*>()->pClass->sendDialogEvent)>>:std::true_type {};
+template<class T> static bool dialogEventAvailable(T* p) {
+    if constexpr(HasDialogEvent<T>::value) {
+        using Class=std::remove_cv_t<std::remove_pointer_t<decltype(p->pClass)>>;
+        return p && p->pClass && p->pClass->nSize>=offsetof(Class,sendDialogEvent)+sizeof(p->pClass->sendDialogEvent)
+            && p->pClass->sendDialogEvent;
+    } else return false;
+}
+template<class T> static bool sendDialogClick(T* p,unsigned long long id,const char* args) {
+    if constexpr(HasDialogEvent<T>::value) {
+        if(!dialogEventAvailable(p))return false;
+        p->pClass->sendDialogEvent(p,id,args);
+        return true;
+    } else return false;
+}
+bool Document::supportsDialogEvents() {
+    return onEngine([&]{
+        return dialogEventAvailable(m_doc->get()) ||
+            dialogEventAvailable(static_cast<LibreOfficeKit*>(m_engine->m_nativeOffice));
+    });
+}
+bool Document::clickNativeDialogButton(unsigned long long id,const std::string& widget) {
+    if(!id || m_readOnly || widget.empty() || widget.size()>128 ||
+        widget.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")!=std::string::npos) return false;
+    const std::string args="{\"id\":\""+widget+"\",\"cmd\":\"click\",\"data\":\"undefined\",\"type\":\"pushbutton\"}";
+    m_lastInputMs=steadyMs();
+    return onEngine([&]{
+        return sendDialogClick(m_doc->get(),id,args.c_str()) ||
+            sendDialogClick(static_cast<LibreOfficeKit*>(m_engine->m_nativeOffice),id,args.c_str());
+    });
+}
+
+bool Document::supportsNativeWindows() {
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        return LIBREOFFICEKIT_DOCUMENT_HAS(d,paintWindow) && d->pClass->paintWindow &&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindowKeyEvent) && d->pClass->postWindowKeyEvent &&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindowMouseEvent) && d->pClass->postWindowMouseEvent &&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindow) && d->pClass->postWindow;
+    });
+}
+bool Document::paintNativeWindow(unsigned id,uint8_t* buffer,size_t bytes,int width,int height) {
+    if(!id||!buffer||width<1||height<1||width>4096||height>4096||
+        bytes<size_t(width)*size_t(height)*4)return false;
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,paintWindow)||!d->pClass->paintWindow)return false;
+        d->pClass->paintWindow(d,id,buffer,0,0,width,height);
+        return true;
+    });
+}
+bool Document::postNativeWindowKey(unsigned id,int type,int charCode,int keyCode) {
+    if(!id||m_readOnly)return false;
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindowKeyEvent)||!d->pClass->postWindowKeyEvent)return false;
+        d->pClass->postWindowKeyEvent(d,id,type,charCode,keyCode);
+        return true;
+    });
+}
+bool Document::postNativeWindowMouse(unsigned id,int type,int x,int y,int count,int buttons,int modifiers) {
+    if(!id||m_readOnly||x<0||y<0||x>=4096||y>=4096||count<1||count>2)return false;
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindowMouseEvent)||!d->pClass->postWindowMouseEvent)return false;
+        d->pClass->postWindowMouseEvent(d,id,type,x,y,count,buttons,modifiers);
+        return true;
+    });
+}
+bool Document::closeNativeWindow(unsigned id) {
+    if(!id)return false;
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,postWindow)||!d->pClass->postWindow)return false;
+        d->pClass->postWindow(d,id,LOK_WINDOW_CLOSE,nullptr);
+        return true;
+    });
+}
+
 void Document::command(const std::string& cmd, const std::string& args, bool notify) {
     if (m_readOnly && !isReadOnlySafeCommand(cmd)) return;
     m_lastInputMs = steadyMs();
@@ -1029,11 +1115,15 @@ void Document::onEvent(int type, const char* payload) {
 }
 
 bool Document::waitFor(int type, const std::function<bool(const std::string&)>& pred, int timeoutMs) {
+    return waitForEvent([&](int eventType,const std::string& p){return eventType==type && (!pred || pred(p));},timeoutMs);
+}
+
+bool Document::waitForEvent(const std::function<bool(int,const std::string&)>& pred,int timeoutMs) {
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
     std::unique_lock<std::mutex> lk(m_mutex);
     for (;;) {
         for (size_t i = 0; i < m_queue.size(); ++i) {
-            if (m_queue[i].first == type && (!pred || pred(m_queue[i].second))) {
+            if (pred && pred(m_queue[i].first,m_queue[i].second)) {
                 m_queue.erase(m_queue.begin(), m_queue.begin() + (long)i + 1);
                 return true;
             }
