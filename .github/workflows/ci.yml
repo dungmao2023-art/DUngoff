@@ -209,6 +209,7 @@ jobs:
         timeout-minutes: 4
         run: |
           set -o pipefail
+          python3 tests/word/make_toc_fixture.py smoke-word-structure/toc-input.docx
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --out smoke-word-structure --word-structure 1 2>&1 | tee report/linux-word-structure.log
           python3 tests/word/verify_structure.py smoke-word-structure/word-structure.docx 2>&1 | tee -a report/linux-word-structure.log
       - name: Quét lệnh ribbon chưa được kiểm (Calc + Writer) trên engine thật (Linux)
@@ -660,6 +661,10 @@ jobs:
         if: (success() || failure()) && hashFiles('build/out/dung-smoketest.exe') != ''
         timeout-minutes: 4
         run: |
+          python -m pip install --quiet python-docx
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python tests/word/make_toc_fixture.py smoke-word-structure/toc-input.docx
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--word-structure", "1", "--out", "$PWD/smoke-word-structure") -PassThru -NoNewWindow `
                  -RedirectStandardOutput report/windows-word-structure.log -RedirectStandardError report/windows-word-structure.err.log
           if (-not $p.WaitForExit(180000)) { Stop-Process $p -Force; exit 1 }
