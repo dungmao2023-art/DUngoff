@@ -228,7 +228,7 @@ int main(int argc, char **argv)
         CHECK(r.table.rows.value(3).value(3)=="0" && src==before,"cancellation exact, source unchanged");
         auto count=groupCsv(src,0);
         CHECK(count.ok && count.table.rows.value(0).value(1)=="2" && count.table.header.size()==2,"count only");
-        for(const QString& bad:QStringList{"001","1,2","1.00001","1e2"," 1","999999999999999","=1+2"}) {
+        for(const QString& bad:QStringList{"001","1,2","1.00001","1e2"," 1","999999999999999","=1+2","1\n"}) {
             CHECK(!groupCsv(T({"ID","Amount"},{{"A",bad}}),0,1).ok,"reject noncanonical or out of range number");
         }
         CHECK(!groupCsv(T({"ID","Amount"},{{"A"}}),0,1).ok,"reject ragged input");
