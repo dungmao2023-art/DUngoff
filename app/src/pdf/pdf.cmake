@@ -14,3 +14,11 @@ add_executable(dung-pdftest
 target_include_directories(dung-pdftest PRIVATE ${DUNG_PDF_DIR} ${PROJECT_SOURCE_DIR}/app/src)
 target_link_libraries(dung-pdftest PRIVATE Qt6::Core Qt6::Gui)
 set_target_properties(dung-pdftest PROPERTIES AUTOMOC OFF)
+
+# Real OCR smoke: installed tesseract + traineddata, uses only local synthetic images.
+add_executable(dung-ocrtest
+  ${PROJECT_SOURCE_DIR}/tests/pdf/ocr_tests.cpp
+  ${DUNG_PDF_DIR}/PdfOcr.cpp)
+target_include_directories(dung-ocrtest PRIVATE ${DUNG_PDF_DIR})
+target_link_libraries(dung-ocrtest PRIVATE Qt6::Core Qt6::Gui)
+set_target_properties(dung-ocrtest PROPERTIES AUTOMOC OFF)

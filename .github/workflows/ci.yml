@@ -35,7 +35,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libreoffice-calc libreoffice-writer libreoffice-impress libreoffice-draw \
             qt6-base-dev qt6-base-private-dev libgl-dev cmake ninja-build python3-openpyxl python3-pip \
-            xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils qpdf
+            xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils qpdf tesseract-ocr tesseract-ocr-eng tesseract-ocr-vie
           pip3 install --break-system-packages python-docx python-pptx
           mkdir -p report
           # Qt PDF cho xem trước/in: thử cài, ghi lại kết quả (không làm hỏng cả job nếu gói không có)
@@ -51,6 +51,10 @@ jobs:
           set -o pipefail
           qpdf --version | head -1
           QT_QPA_PLATFORM=offscreen ./build/app/dung-pdftest 2>&1 | tee report/linux-pdftest.log
+      - name: OCR thật — Tesseract tiếng Việt và tiếng Anh từ ảnh kiểm thử
+        run: |
+          set -o pipefail
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-ocrtest 2>&1 | tee report/linux-ocrtest.log
       - name: Kiểm thử tiện ích dữ liệu (ƒx Tôi muốn, thống kê/lỗi, xuất theo mẫu) + LibreOffice mở bản xuất
         run: |
           set -o pipefail
