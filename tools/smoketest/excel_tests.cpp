@@ -227,7 +227,7 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
         const auto selected=words->selectionAs("text/plain;charset=utf-8");
         check(selected.find("12\t5")!=std::string::npos && selected.find("7\t9")!=std::string::npos,"Chọn đúng 4 ô nguồn");
         if(selected.find("12\t5")!=std::string::npos && selected.find("7\t9")!=std::string::npos){
-            const bool pasted=words->paste("text/html","<html><body><table><tr><td>Mười hai</td><td>Năm</td></tr><tr><td>Bảy</td><td>Chín</td></tr></table></body></html>");
+            const bool pasted=words->pasteTextOnly("Mười hai\tNăm\nBảy\tChín");
             check(pasted,"Engine nhận một lần dán vùng Unicode");
             words->waitInputIdle();settle();
             const auto after=out/"words-range.xlsx";fs::remove(after,ec);
