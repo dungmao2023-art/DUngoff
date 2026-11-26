@@ -290,7 +290,14 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         if (!ok || what.isEmpty()) return true;
         if (name == QLatin1String("find")) { send(tab, findNext(ss(what), false)); return true; }
         const QString with = QInputDialog::getText(parent, QObject::tr("Thay thế"), QObject::tr("Thay bằng:"), QLineEdit::Normal, QString(), &ok);
-        if (ok) send(tab, replaceAll(ss(what), ss(with)));
+        if (!ok) return true;
+        if (QMessageBox::question(parent, QObject::tr("Thay thế tất cả"),
+            QObject::tr("Thay tất cả lần xuất hiện của nội dung tìm kiếm trong tài liệu? Thao tác có thể thay đổi nhiều đoạn văn bản."),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return true;
+        if (tab->readOnly() || tab->document() != doc) return true;
+        doc->waitInputIdle();
+        send(tab, replaceAll(ss(what), ss(with)));
+        doc->waitInputIdle();
     } else if (name == QLatin1String("a4") || name == QLatin1String("landscape")) {
         // Đơn vị 1/100 mm (đã kiểm chứng trong word_tests.cpp).
         const bool land = name == QLatin1String("landscape");
@@ -448,12 +455,15 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             doc->paste("text/plain;charset=utf-8", ss(r.text));
     } else if (name == QLatin1String("vnSyllable")) {
         // Chỉ liệt kê âm tiết nghi sai, KHÔNG tự sửa. Kiểm vùng chọn; nếu không chọn gì thì kiểm toàn văn bản.
+        doc->waitInputIdle();
         std::string raw = doc->selectionAs("text/plain;charset=utf-8");
         const bool wholeDoc = raw.empty();
         if (wholeDoc) {
             doc->command(".uno:SelectAll");
+            doc->waitInputIdle();
             raw = doc->selectionAs("text/plain;charset=utf-8");
             doc->command(".uno:GoToStartOfDoc");
+            doc->waitInputIdle();
         }
         const QString text = QString::fromUtf8(raw.c_str());
         const auto issues = vntext::spell::checkText(text);
@@ -490,11 +500,16 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         QObject::connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
         dlg.exec();
     } else if (name == QLatin1String("count")) {
+        doc->waitInputIdle();
         std::string text = doc->selectionAs("text/plain;charset=utf-8");
         const bool sel = !text.empty();
         if (!sel) {
             doc->command(".uno:SelectAll");
+            doc->waitInputIdle();
             text = doc->selectionAs("text/plain;charset=utf-8");
+            // Do not leave the entire document selected after a read-only report.
+            doc->command(".uno:GoToStartOfDoc");
+            doc->waitInputIdle();
         }
         QMessageBox::information(parent, QObject::tr("Đếm từ"),
             QObject::tr("%1 từ (%2 ký tự) trong %3.").arg(countWords(text)).arg(QString::fromUtf8(text.c_str()).size())
