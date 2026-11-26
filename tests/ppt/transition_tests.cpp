@@ -54,6 +54,21 @@ int main(int argc, char** argv) {
     check(!patchAnimationSequenceXml(twoShapes,{first,first},&out).ok,"reject duplicate entrance target");
     check(!patchAnimationSequenceXml(sequence,{first,second},&out).ok,"reject existing timing");
     check(!patchAnimationSequenceXml(twoShapes,{},&out).ok,"reject empty sequence");
+    QByteArray threeShapes=twoShapes;
+    threeShapes.replace("</p:spTree>","<p:sp><p:nvSpPr><p:cNvPr id=\"44\" name=\"Third\"/></p:nvSpPr></p:sp></p:spTree>");
+    AnimationOptions with=second;with.trigger=AnimationTrigger::WithPrevious;with.fade=true;with.durationMs=500;with.delayMs=100;
+    AnimationOptions after;after.shapeId=44;after.trigger=AnimationTrigger::AfterPrevious;after.delayMs=200;
+    QList<AnimationTiming> plan;
+    check(planAnimation({first,with,after},&plan).ok && plan.size()==3 && plan[0].click==1 &&
+          plan[0].startMs==0 && plan[0].endMs==750 && plan[1].startMs==100 && plan[1].endMs==600 &&
+          plan[2].startMs==800 && plan[2].endMs==801,"mixed triggers calculate previous start and finish correctly");
+    QByteArray mixed;
+    check(patchAnimationSequenceXml(threeShapes,{first,with,after},&mixed).ok &&
+          mixed.count("nodeType=\"clickEffect\"")==1 && mixed.count("nodeType=\"withEffect\"")==1 &&
+          mixed.count("nodeType=\"afterEffect\"")==1 && mixed.count("delay=\"indefinite\"")==1 &&
+          mixed.contains("delay=\"800\""),"mixed triggers share a click group with correct offset");
+    check(!planAnimation({with,first},&plan).ok,"first row cannot depend on absent previous animation");
+    check(!patchAnimationSequenceXml(threeShapes,{after},&out).ok,"reject dependent first animation");
     if (argc > 1) {
         const QString src = QString::fromLocal8Bit(argv[1]);
         QFile before(src); before.open(QIODevice::ReadOnly); const auto bytes = before.readAll(); before.close();
