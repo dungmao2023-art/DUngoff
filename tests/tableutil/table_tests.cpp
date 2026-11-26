@@ -64,6 +64,19 @@ int main(int argc, char **argv)
         CHECK(!filterSort(src, spec).ok, "từ chối chỉ số cột lỗi");
         spec.filterCol = -1; spec.sortCol = -1;
         CHECK(filterSort(src, spec).table == src, "không chọn bước thì giữ nguyên bảng");
+        spec.filterCol = 1; spec.sortCol = 0; spec.mode = FilterMode::Equal;
+        spec.value = QStringLiteral("An Khê"); spec.descending = true;
+        const auto json = encodeFilterSortRecipe(src.header, spec);
+        FilterSortSpec loaded; QString error;
+        CHECK(decodeFilterSortRecipe(json, src.header, loaded, error), "nạp lại cấu hình JSON");
+        CHECK(filterSort(src, loaded).table == filterSort(src, spec).table, "chạy lại cho kết quả giống hệt");
+        CHECK(!json.contains("0912345678"), "cấu hình không chứa dòng dữ liệu");
+        const QStringList reordered{"City", "ID", "Phone"};
+        CHECK(!decodeFilterSortRecipe(json, reordered, loaded, error), "từ chối cột đổi thứ tự");
+        CHECK(!decodeFilterSortRecipe(QByteArray("{bad"), src.header, loaded, error), "từ chối JSON hỏng");
+        CHECK(loaded.filterCol == spec.filterCol && loaded.value == spec.value, "cấu hình lỗi không ghi đè lựa chọn hiện tại");
+        auto invalid = json; invalid.replace("\"version\": 1", "\"version\": 2");
+        CHECK(!decodeFilterSortRecipe(invalid, src.header, loaded, error), "từ chối phiên bản không hỗ trợ");
     }
 
     // ---- So sánh ----
