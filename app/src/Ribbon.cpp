@@ -77,11 +77,32 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
         {QStringLiteral("zoomIn"), tr("Phóng to"), 0xE8A3, QStringLiteral("+"), false},
     }};
 
+    if (kind == DocKind::Drawing && !ro) {
+        return {fileTab,
+            {tr("Chỉnh sửa bản sao"), {file, clip, undo, font, view,
+                {tr("Nội dung"), {
+                    {QStringLiteral(".uno:Text"), tr("Hộp chữ"), 0xE8D2, QStringLiteral("T"), false},
+                    {QStringLiteral(".uno:BasicShapes.rectangle"), tr("Hình chữ nhật"), 0xE7C3, QStringLiteral("□"), false},
+                }},
+                {tr("Trang"), {
+                    {QStringLiteral("pdfPrev"), tr("Trang trước"), 0xE70E, QStringLiteral("▲"), false},
+                    {QStringLiteral("pdfNext"), tr("Trang sau"), 0xE70D, QStringLiteral("▼"), false},
+                }},
+            }},
+            {tr("In / xuất"), {{tr("Bản PDF"), {
+                {QStringLiteral("print"), tr("Xem trước / in"), 0xE749, QStringLiteral("🖨"), false},
+                {QStringLiteral("exportPdf"), tr("Xuất PDF mới"), 0xEA90, QStringLiteral("PDF"), false},
+            }}}},
+        };
+    }
     if (kind == DocKind::Drawing) {
         // PDF: xem + công cụ PDF (mã ở app/src/pdf/). ID "pdfTools:*" xử lý trong MainWindow.
         return {fileTab,
             {tr("Trang đầu"), {file, view}},
             {tr("Công cụ PDF"), {
+                {tr("Chỉnh sửa"), {
+                    {QStringLiteral("pdfEditCopy"), tr("Tạo bản chỉnh sửa"), 0xE8D2, QStringLiteral("T"), false},
+                }},
                 {tr("Trang"), {
                     {QStringLiteral("pdfPrev"), tr("Trang trước"), 0xE70E, QStringLiteral("▲"), false},
                     {QStringLiteral("pdfNext"), tr("Trang sau"), 0xE70D, QStringLiteral("▼"), false},

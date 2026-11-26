@@ -121,7 +121,7 @@ void Session::discard(const QString& docId) {
     if (!d || docId.isEmpty()) return;
     const QString base = dir() + QLatin1Char('/') + runId() + QLatin1Char('-') + docId;
     QFile::remove(base + QStringLiteral(".json"));  // mô tả trước: không bao giờ có mô tả mà thiếu dữ liệu
-    for (const char* e : {"docx", "xlsx", "pptx"}) QFile::remove(base + QLatin1Char('.') + QLatin1String(e));
+    for (const char* e : {"docx", "xlsx", "pptx", "odg"}) QFile::remove(base + QLatin1Char('.') + QLatin1String(e));
 }
 
 bool Session::hasRoom(qint64 maxTotalBytes) const { return dirBytes() < maxTotalBytes; }

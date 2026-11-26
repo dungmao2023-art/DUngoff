@@ -49,6 +49,7 @@
 #include <QStatusBar>
 #include <QHash>
 #include <QTabBar>
+#include <QTemporaryDir>
 #include <QComboBox>
 #include "pdf/PdfToolsDialog.h"
 #include "tableutil/TableToolsDialog.h"
@@ -61,9 +62,9 @@
 using dung::DocKind;
 
 static const char* kOpenFilter =
-    "Tất cả tài liệu hỗ trợ (*.xlsx *.xls *.xlsm *.ods *.csv *.docx *.doc *.odt *.rtf *.txt *.pptx *.ppt *.odp *.pdf);;"
+    "Tất cả tài liệu hỗ trợ (*.xlsx *.xls *.xlsm *.ods *.csv *.docx *.doc *.odt *.rtf *.txt *.pptx *.ppt *.odp *.pdf *.odg);;"
     "Excel (*.xlsx *.xls *.xlsm *.ods *.csv);;Word (*.docx *.doc *.odt *.rtf *.txt);;"
-    "PowerPoint (*.pptx *.ppt *.odp);;PDF (*.pdf)";
+    "PowerPoint (*.pptx *.ppt *.odp);;PDF / bản vẽ (*.pdf *.odg)";
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle(tr("Dũng Office"));
@@ -775,6 +776,35 @@ void MainWindow::onAppAction(const QString& id) {
     if (id == QLatin1String("palette")) showPalette();
     else if (id == QLatin1String("open")) openDialog();
     else if (id == QLatin1String("newWorkbook")) newDoc(DocKind::Spreadsheet);
+    else if (id == QLatin1String("pdfEditCopy")) {
+        if (!docVisible || t->kind() != DocKind::Drawing || !t->readOnly()) return;
+        const QString original = fromPath(t->document()->originalPath());
+        if (!original.endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive)) return;
+        if (QMessageBox::warning(this, tr("Tạo bản sao PDF chỉnh sửa"),
+            tr("Nhập PDF thành bản vẽ ODG có thể sửa chữ/hình mà engine nhận diện. "
+               "Font, bố cục, biểu mẫu, chữ ký, liên kết và các lớp có thể thay đổi hoặc mất. "
+               "Ảnh quét vẫn là ảnh (không tự OCR). PDF gốc không bị sửa. "
+               "Sau khi sửa, lưu ODG hoặc xuất PDF tên mới và xem trước để đối chiếu."),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        QTemporaryDir tmp;
+        if (!tmp.isValid()) { QMessageBox::warning(this, tr("PDF"), tr("Không tạo được thư mục tạm.")); return; }
+        const QString path = tmp.filePath(QStringLiteral("editable.odg"));
+        const int count = t->document()->partCount();
+        std::string err;
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        const bool saved = t->document()->saveRecoveryCopy(toPath(path), &err);
+        QString openError;
+        auto copy = saved ? EngineHost::instance().open(path, &openError) : std::unique_ptr<dung::Document>();
+        QApplication::restoreOverrideCursor();
+        if (!copy || copy->kind() != DocKind::Drawing || copy->readOnly() || count < 1 || copy->partCount() != count) {
+            QMessageBox::warning(this, tr("PDF"), tr("Không tạo được bản sao chỉnh sửa có cùng số trang. %1").arg(saved ? openError : qs(err)));
+            return;
+        }
+        copy->setRecoveredOrigin(toPath(original), QFileInfo(original).completeBaseName().append(tr(" - chỉnh sửa.odg")).toStdString());
+        auto* tab = new DocumentTab(std::move(copy));
+        tab->setCopyOrigin(original);
+        addTab(tab);
+    }
     else if (id.startsWith(QLatin1String("pdfTools:"))) {
         // Công cụ PDF (app/src/pdf/): dùng tệp PDF đang mở nếu có, nếu không thì người dùng tự chọn tệp.
         static const QHash<QString, PdfToolsDialog::Tab> tabs{
@@ -785,7 +815,10 @@ void MainWindow::onAppAction(const QString& id) {
             {QStringLiteral("images"), PdfToolsDialog::Images}, {QStringLiteral("blank"), PdfToolsDialog::Blank},
             {QStringLiteral("reorder"), PdfToolsDialog::Reorder}};
         QString path;
-        if (docVisible && t->kind() == DocKind::Drawing && !t->document()->isNew()) path = QString::fromStdU16String(t->document()->originalPath().u16string());
+        if (docVisible && t->kind() == DocKind::Drawing && !t->document()->isNew()) {
+            const QString p = fromPath(t->document()->originalPath());
+            if (p.endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive)) path = p;
+        }
         PdfToolsDialog::run(this, tabs.value(id.mid(9), PdfToolsDialog::Merge), path);
     }
     else if (id.startsWith(QLatin1String("tableTools:"))) {
