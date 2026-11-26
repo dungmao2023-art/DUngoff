@@ -101,4 +101,13 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec);
 QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpec& spec);
 bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, FilterSortSpec& spec, QString& error);
 
+enum class JoinKind { Left, Inner };
+struct JoinResult {
+    bool ok = false;
+    Table table;
+    QString error;
+    qsizetype matched = 0, unmatched = 0, blankLeft = 0, blankRight = 0;
+};
+// Exact text-key join. Reject duplicate nonempty lookup keys, preserve left order.
+JoinResult joinLookup(const Table& left, const Table& right, int leftKey, int rightKey, JoinKind kind);
 } // namespace tbl
