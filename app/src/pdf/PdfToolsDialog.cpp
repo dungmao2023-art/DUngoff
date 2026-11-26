@@ -589,7 +589,8 @@ QWidget* PdfToolsDialog::buildStamp() {
     m_stampInfo = new QLabel(w);
     f->addRow(QString(), m_stampInfo);
     m_stampText = new QLineEdit(w);
-    m_stampText->setPlaceholderText(tr("Ví dụ: BAN SAO / DRAFT (chữ không dấu)"));
+    m_stampText->setPlaceholderText(tr("Ví dụ: BẢN SAO / DỰ THẢO"));
+    m_stampText->setMaxLength(200);
     f->addRow(tr("Chữ đóng dấu:"), m_stampText);
     // Ảnh đóng dấu (JPEG/PNG)
     auto* imgRow = new QWidget(w);
@@ -664,7 +665,6 @@ QWidget* PdfToolsDialog::buildStamp() {
             QMessageBox::information(this, tr("Đóng dấu"), tr("Hãy nhập chữ đóng dấu hoặc chọn một ảnh."));
             return;
         }
-        if (!text.isEmpty() && !isAsciiText(text)) { QMessageBox::warning(this, tr("Đóng dấu"), tr(kAsciiHint)); return; }
         StampOptions o;
         o.text = text;
         o.imagePath = img;
