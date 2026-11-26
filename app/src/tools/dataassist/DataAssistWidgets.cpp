@@ -63,6 +63,26 @@ public:
         });
         result_ = new QLineEdit; result_->setPlaceholderText(QStringLiteral("Công thức sẽ hiện ở đây — sửa tự do được"));
         lay->addWidget(result_);
+        auto* quick = new QFormLayout;
+        auto* qa = new QLineEdit; qa->setPlaceholderText(QStringLiteral("A1 hoặc số"));
+        auto* qb = new QLineEdit; qb->setPlaceholderText(QStringLiteral("B1 hoặc số"));
+        auto* op = new QComboBox;
+        for (const auto& s : {QStringLiteral("+"), QStringLiteral("-"), QStringLiteral("*"), QStringLiteral("/"), QStringLiteral("^"), QStringLiteral("Tỷ lệ %")}) op->addItem(s);
+        auto* make = new QPushButton(QStringLiteral("Tạo phép tính nhanh"));
+        quick->addRow(QStringLiteral("Giá trị A"), qa); quick->addRow(QStringLiteral("Phép tính"), op); quick->addRow(QStringLiteral("Giá trị B"), qb);
+        quick->addRow(make); lay->addLayout(quick);
+        connect(make, &QPushButton::clicked, this, [this, qa, qb, op] {
+            const auto a = qa->text().trimmed(), b = qb->text().trimmed();
+            if (a.isEmpty() || b.isEmpty()) { status_->setText(QStringLiteral("Nhập đủ hai giá trị hoặc địa chỉ ô.")); return; }
+            const QString symbol = op->currentText();
+            const QString formula = symbol == QStringLiteral("Tỷ lệ %")
+                ? QStringLiteral("=(%1)/(%2)*100").arg(a,b)
+                : QStringLiteral("=(%1)%2(%3)").arg(a,symbol,b);
+            const auto check = quickSyntaxCheck(formula);
+            if (!check.ok) { status_->setText(check.message); return; }
+            result_->setText(formula);
+            status_->setText(QStringLiteral("Công thức sẵn sàng. Chọn ô kết quả rồi chèn để engine tính. Tỷ lệ % trả về số phần trăm, ví dụ 25."));
+        });
         auto *btns = new QVBoxLayout;
         insert_ = new QPushButton(QStringLiteral("Chèn vào ô kết quả"));
         copy_ = new QPushButton(QStringLiteral("Sao chép công thức"));
@@ -180,6 +200,7 @@ public:
         connect(fromSel, &QPushButton::clicked, this, [this] {
             if (!hooks().selectedRangeText) { out_->setPlainText(QStringLiteral("Chưa nối với tab Excel đang mở — hãy dán vùng ô vào ô trên.")); return; }
             input_->setPlainText(hooks().selectedRangeText());
+            run(0); // thống kê ngay khi người dùng lấy vùng, không tự polling engine
         });
     }
 private:

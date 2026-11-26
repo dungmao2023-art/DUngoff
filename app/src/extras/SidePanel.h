@@ -3,6 +3,7 @@
 #pragma once
 #include <QDate>
 #include <QJsonArray>
+#include <QJsonObject>
 #include <QWidget>
 
 class QCalendarWidget;
@@ -44,6 +45,8 @@ private:
 
     // Lịch
     QJsonArray m_events;
+    QJsonObject m_dayNotes;
+    QPlainTextEdit* m_dayNote = nullptr;
     QCalendarWidget* m_cal = nullptr;
     QListWidget* m_eventList = nullptr;
     QLineEdit* m_eventTitle = nullptr;

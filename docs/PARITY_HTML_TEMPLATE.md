@@ -86,3 +86,8 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 - PPT: bật/tắt chế độ ghi chú engine setPartMode (smoketest đã có kiểm đổi kích thước và nhập ghi chú), trạng thái, reset viewport, trở về slide trước trình chiếu; thêm cỡ/màu chữ tùy chỉnh, đi đến trang, tab Thiết kế/In. Chưa sửa theme/master/chuyển cảnh hay xác minh ghi chú lưu PPTX trên Windows thật.
 - PDF: sắp xếp trang bằng qpdf, kiểm đủ trang và không trùng, giữ nguyên nguồn, test thứ tự nội dung, trang thiếu/trùng và cấm ghi đè. Chưa OCR/chỉnh chữ PDF gốc.
 - CI Word #3 PASS Linux/Windows và merge d76688d. Các thay đổi PPT/PDF trên nhánh riêng chờ CI.
+
+## Word hành chính + Calendar + Excel — nhánh chatgpt/admin-calendar-excel
+- Word: khối đầu, cuối, toàn bộ; preview, trường nhập, lưu tùy chọn cơ quan/địa danh/người ký cục bộ; HTML paste qua Writer, escape đầu vào. Tham chiếu Phụ lục I NĐ 30/2020/NĐ-CP https://vbpl.moj.gov.vn/bonoivu/Pages/vbpq-toanvan.aspx?ItemID=141142&dvid=320. Đây là khung tham khảo có thể sửa, chưa xác nhận thể thức DOCX từng chi tiết, đường kẻ HTML còn là ký tự, không phải header/footer lặp. Lề riêng; số trang đầu và kiểm tra thể thức chưa làm. Test engine chèn, văn bản và bảng, escape, chèn riêng.
+- Calendar: ghi chú theo ngày lưu cùng JSON, giữ dữ liệu cũ; đánh dấu ngày có ghi chú, tách việc đã có. Chưa test giao diện máy thật.
+- Excel: + - * / ^ và tỷ lệ % dựng công thức để engine tính, không tự tính; thống kê chạy ngay khi lấy vùng. Chưa polling vùng trực tiếp, kéo tham chiếu nhiều ô, đối số biến số.

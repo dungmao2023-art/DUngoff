@@ -96,6 +96,12 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
             {QStringLiteral("word:print"), tr("In / Xem trước"), 0xE749, QStringLiteral("🖨"), false},
             {QStringLiteral("word:exportPdf"), tr("Xuất PDF"), 0xEA90, QStringLiteral("PDF"), false},
         }}}},
+        {tr("Văn bản Việt Nam"), {{tr("Thể thức hành chính"), {
+            {QStringLiteral("word:adminHead"), tr("Quốc hiệu / đầu văn bản"), 0xE8A5, QStringLiteral("VN"), false},
+            {QStringLiteral("word:adminTail"), tr("Nơi nhận / ký tên"), 0xE8A5, QStringLiteral("T"), false},
+            {QStringLiteral("word:adminFull"), tr("Khung văn bản"), 0xE8A5, QStringLiteral("▤"), false},
+            {QStringLiteral("word:adminMargin"), tr("Lề hành chính"), 0xE7C3, QStringLiteral("VN"), false},
+        }}}},
         {tr("Tiện ích Việt"), {
             {tr("Văn bản tiếng Việt"), {
                 {QStringLiteral("word:vnMoney"), tr("Số tiền → chữ"), 0xE8EF, QStringLiteral("đ"), false},
