@@ -207,6 +207,27 @@ int main(int argc, char **argv)
         CHECK(!QString::fromUtf8(z.fileData("[Content_Types].xml")).contains(QStringLiteral("calcChain")) && !QString::fromUtf8(z.fileData("xl/_rels/workbook.xml.rels")).contains(QStringLiteral("calcChain")), "Gỡ tham chiếu calcChain khỏi gói");
         CHECK(!z.fileData("xl/sharedStrings.xml").isEmpty(), "Giữ các phần khác của gói");
     }
+    // Long numeric IDs are not representable exactly in Excel's numeric format.
+    ExportOptions numericIds=o; numericIds.colTypes[0]=ColType::Number;
+    auto longRows=src; longRows[0][1]=QStringLiteral("12345678901234567890");
+    longRows[1][1]=QStringLiteral("000987");
+    const auto safeCheck=validate(ti,srcH,longRows,numericIds);
+    CHECK(safeCheck.warnings.join(QLatin1Char('\n')).contains(QStringLiteral("trên 15 chữ số")),"Cảnh báo mã dài trước xuất");
+    const QString safeOut=out+"/ma-so-an-toan.xlsx";
+    const auto safe=exportToTemplate(tpl,safeOut,ti,srcH,longRows,numericIds);
+    CHECK(safe.ok,"Xuất mã dài an toàn: "+safe.error);
+    {
+        QZipReader z(safeOut);
+        const auto xml=z.fileData("xl/worksheets/sheet1.xml");
+        CHECK(xml.contains("<c r=\"A3\" t=\"inlineStr\"><is><t xml:space=\"preserve\">12345678901234567890</t>"),"Giữ 20 chữ số dạng chữ");
+        CHECK(xml.contains("<c r=\"A4\" t=\"inlineStr\"><is><t xml:space=\"preserve\">000987</t>"),"Giữ số 0 đầu khi chọn kiểu số");
+    }
+    CHECK(!exportToTemplate(tpl,out+"/wrong.csv",ti,srcH,src,o).ok,"Từ chối đích không phải XLSX");
+    TemplateInfo badIndex=ti;badIndex.sheetIndex=-1;
+    CHECK(!exportToTemplate(tpl,out+"/bad-index.xlsx",badIndex,srcH,src,o).ok,"Từ chối sheet âm");
+    TemplateInfo tooLarge=ti;tooLarge.headerRow=1048576;
+    CHECK(!validate(tooLarge,srcH,src,o).errors.isEmpty(),"Chặn vượt giới hạn hàng Excel");
+    CHECK(sha(tpl)==tplHash,"Mẫu gốc vẫn nguyên vẹn sau mọi lần xuất");
     // đọc lại bản xuất bằng chính bộ đọc (tiêu đề còn nguyên)
     const TemplateInfo back = loadTemplate(outX);
     CHECK(back.ok && back.headerRow == 2 && back.headers == ti.headers, "Đọc lại bản xuất: tiêu đề còn đúng");
