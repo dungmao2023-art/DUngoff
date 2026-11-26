@@ -30,6 +30,7 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QListWidget>
+#include <QAbstractItemModel>
 
 static void armShape(DocumentTab* tab, const char* uno) {
     auto* d = tab->document();
@@ -137,12 +138,18 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         auto* edit = new QPushButton(QObject::tr("Cập nhật dòng"), &dialog);
         auto* quick = new QPushButton(QObject::tr("Mờ dần lần lượt tất cả"), &dialog);
         buttons->addWidget(add); buttons->addWidget(edit); buttons->addWidget(quick); root->addLayout(buttons);
-        auto* list = new QListWidget(&dialog); list->setSelectionMode(QAbstractItemView::SingleSelection); root->addWidget(list,1);
+        auto* list = new QListWidget(&dialog); list->setSelectionMode(QAbstractItemView::SingleSelection);
+        list->setDragDropMode(QAbstractItemView::InternalMove);
+        list->setDefaultDropAction(Qt::MoveAction);
+        list->setDragDropOverwriteMode(false);
+        list->setDropIndicatorShown(true);
+        list->setToolTip(QObject::tr("Kéo thả dòng để đổi thứ tự phát"));
+        root->addWidget(list,1);
         auto* order = new QHBoxLayout;
         auto* up = new QPushButton(QObject::tr("↑ Lên"), &dialog); auto* down = new QPushButton(QObject::tr("↓ Xuống"), &dialog);
         auto* remove = new QPushButton(QObject::tr("Xóa dòng"), &dialog);
         order->addWidget(up); order->addWidget(down); order->addStretch(); order->addWidget(remove); root->addLayout(order);
-        auto* note = new QLabel(QObject::tr("Mỗi dòng phát khi nhấp chuột, theo thứ tự từ trên xuống. Một hiệu ứng xuất hiện cho mỗi đối tượng. Chỉ dùng slide chưa có timing; không sửa nguồn. Chưa có preview diễn hoạt trong app."), &dialog); note->setWordWrap(true); root->addWidget(note);
+        auto* note = new QLabel(QObject::tr("Kéo thả dòng để đổi thứ tự. Mỗi dòng phát khi nhấp chuột, theo thứ tự từ trên xuống. Một hiệu ứng xuất hiện cho mỗi đối tượng. Chỉ dùng slide chưa có timing; không sửa nguồn. Chưa có preview diễn hoạt trong app."), &dialog); note->setWordWrap(true); root->addWidget(note);
         auto* bb = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel); bb->button(QDialogButtonBox::Ok)->setText(QObject::tr("Xuất PPTX mới…")); root->addWidget(bb);
         QList<ppttransition::AnimationOptions> effects;
         auto read = [&] {
@@ -157,6 +164,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
                     list->addItem(QObject::tr("%1. %2  ·  %3  ·  %4 s  ·  trễ %5 s")
                         .arg(i+1).arg(shape->itemText(index)).arg(o.fade ? QObject::tr("Mờ dần") : QObject::tr("Xuất hiện"))
                         .arg(o.fade ? o.durationMs/1000.0 : 0.0,0,'f',1).arg(o.delayMs/1000.0,0,'f',1));
+                    list->item(i)->setData(Qt::UserRole,o.shapeId);
                 }
             }
             list->setCurrentRow(row);
@@ -164,6 +172,25 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             edit->setEnabled(row>=0); remove->setEnabled(row>=0);
             up->setEnabled(row>0); down->setEnabled(row>=0 && row+1<effects.size());
         };
+        // Read stable shape IDs after the model finishes moving a row; never use displayed row numbers.
+        QObject::connect(list->model(), &QAbstractItemModel::rowsMoved, &dialog,
+            [&](const QModelIndex&, int, int, const QModelIndex&, int) {
+                QList<ppttransition::AnimationOptions> ordered;
+                const int selected=list->currentRow();
+                for(int i=0;i<list->count();++i) {
+                    const unsigned id=list->item(i)->data(Qt::UserRole).toUInt();
+                    for(const auto& o:effects) if(o.shapeId==id) {ordered.append(o);break;}
+                }
+                if(ordered.size()==effects.size()) effects=ordered;
+                for(int i=0;i<list->count();++i) {
+                    auto* item=list->item(i);
+                    const QString old=item->text();
+                    const int dot=old.indexOf(QStringLiteral(". "));
+                    if(dot>=0)item->setText(QString::number(i+1)+old.mid(dot));
+                }
+                up->setEnabled(selected>0);
+                down->setEnabled(selected>=0 && selected+1<effects.size());
+            });
         auto duplicate = [&](unsigned id, int except) {
             for (int i=0;i<effects.size();++i) if (i!=except && effects[i].shapeId==id) return true;
             return false;
