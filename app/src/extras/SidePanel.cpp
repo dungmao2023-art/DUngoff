@@ -24,6 +24,8 @@
 #include <QVector>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QVariantAnimation>
+#include <QEasingCurve>
 
 namespace {
 const QStringList kStatuses = {QObject::tr("Mới"), QObject::tr("Đang liên hệ"), QObject::tr("Chờ phản hồi"),
@@ -120,6 +122,9 @@ QWidget#WorkContent QCalendarWidget QToolButton { color: #1B4A90; background: #E
 QWidget#WorkContent QCalendarWidget QWidget#qt_calendar_navigationbar { background: #EEF4FF; }
 QWidget#WorkContent QCalendarWidget QAbstractItemView { selection-background-color: #2864BA; selection-color: white; }
 )"));
+    m_content->setFixedWidth(0);
+    m_content->hide();
+    setFixedWidth(72);
     showPage(-1);
 
     m_saveTimer = new QTimer(this);
@@ -130,18 +135,45 @@ QWidget#WorkContent QCalendarWidget QAbstractItemView { selection-background-col
 }
 
 void SidePanel::showPage(int index) {
+    const int from = m_content->isHidden() ? 0 : m_content->width();
     if (index < 0 || index >= m_buttons.size()) {
         m_openPage = -1;
-        m_content->hide();
     } else {
         m_openPage = m_lastPage = index;
         m_tabs->setCurrentIndex(index);
         m_title->setText(m_buttons[index]->accessibleName());
-        m_content->show();
     }
     for (int i = 0; i < m_buttons.size(); ++i)
         m_buttons[i]->setChecked(i == m_openPage);
-    setFixedWidth(m_openPage < 0 ? 72 : 432);
+
+    // Animate just the content; the right-hand rail never moves off screen.
+    auto* anim = findChild<QVariantAnimation*>(QStringLiteral("WorkPanelWidth"), Qt::FindDirectChildrenOnly);
+    if (!anim) {
+        anim = new QVariantAnimation(this);
+        anim->setObjectName(QStringLiteral("WorkPanelWidth"));
+        anim->setEasingCurve(QEasingCurve::OutCubic);
+        connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
+            const int width = value.toInt();
+            m_content->setFixedWidth(width);
+            setFixedWidth(72 + width);
+        });
+        connect(anim, &QVariantAnimation::finished, this, [this] {
+            if (m_openPage < 0) m_content->hide();
+        });
+    }
+    anim->stop();
+    const int to = m_openPage < 0 ? 0 : 360;
+    m_content->setFixedWidth(from);
+    setFixedWidth(72 + from);
+    if (m_openPage >= 0) m_content->show();
+    if (from == to) {
+        if (m_openPage < 0) m_content->hide();
+        return;
+    }
+    anim->setDuration(qBound(80, 220 * qAbs(to - from) / 360, 220));
+    anim->setStartValue(from);
+    anim->setEndValue(to);
+    anim->start();
 }
 
 void SidePanel::toggleContent() {
