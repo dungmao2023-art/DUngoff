@@ -46,6 +46,10 @@ jobs:
           set -o pipefail
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee report/linux-configure.log
           cmake --build build 2>&1 | tee report/linux-build.log
+      - name: Kiểm thử chuyển cảnh PPTX thật
+        run: |
+          set -o pipefail
+          ./build/app/dung-ppttransitiontest tests/fixtures/mailmerge/giay-moi.pptx
       - name: Kiểm thử công cụ PDF (qpdf)
         run: |
           set -o pipefail
@@ -349,6 +353,12 @@ jobs:
             Select-String -Path report/windows-build.log -Pattern "error" | Select-Object -First 10 | ForEach-Object { Write-Host "::error::$($_.Line)" }
             exit 1
           }
+      - name: Kiểm thử chuyển cảnh PPTX thật trên Windows
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-ppttransitiontest.exe | Select-Object -First 1
+          if (-not $exe) { exit 1 }
+          & $exe.FullName tests/fixtures/mailmerge/giay-moi.pptx
+          if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử công cụ PDF (qpdf) trên Windows
         run: |
           $env:DUNG_QPDF = "$PWD/build/qpdf/qpdf.exe"
