@@ -17,6 +17,9 @@
 #include <QInputDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
+#include <QDialogButtonBox>
+#include <QDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -279,8 +282,9 @@ public:
         auto *open = new QPushButton(QStringLiteral("Mở CSV/XLSX…"));
         auto *fromSel = new QPushButton(QStringLiteral("Lấy vùng đang chọn"));
         vi_ = new QCheckBox(QStringLiteral("Số kiểu Việt (1.234,5)")); vi_->setChecked(true);
-        row->addWidget(open); row->addWidget(fromSel); row->addWidget(vi_); row->addStretch();
+        row->addWidget(open); row->addWidget(fromSel);
         lay->addLayout(row);
+        lay->addWidget(vi_);
         if (readSelection_) {
             live_ = new QCheckBox(QStringLiteral("Tự cập nhật thống kê vùng chọn"));
             live_->setToolTip(QStringLiteral("Chỉ đọc vùng khi panel đang hiện. Tắt nếu chọn vùng rất lớn."));
@@ -289,11 +293,11 @@ public:
             connect(timer_, &QTimer::timeout, this, [this] { if (isVisible() && live_->isChecked()) readAndSummarize(); });
             connect(live_, &QCheckBox::toggled, this, [this](bool enabled) { if (enabled) scheduleRefresh(); else timer_->stop(); });
         }
-        auto *row2 = new QHBoxLayout;
-        for (auto &pr : {std::pair<QString, int>{QStringLiteral("Thống kê"), 0}, {QStringLiteral("Kiểm tra lỗi công thức"), 1}, {QStringLiteral("Tìm dòng trùng"), 2}, {QStringLiteral("Biểu đồ nhanh (đếm theo cột 1)"), 3}}) {
+        auto *row2 = new QGridLayout;
+        for (auto &pr : {std::pair<QString, int>{QStringLiteral("Thống kê"), 0}, {QStringLiteral("Lỗi công thức"), 1}, {QStringLiteral("Dòng trùng"), 2}, {QStringLiteral("Tổng hợp nhóm"), 3}}) {
             auto *b = new QPushButton(pr.first); const int id = pr.second;
             connect(b, &QPushButton::clicked, this, [this, id] { run(id); });
-            row2->addWidget(b);
+            row2->addWidget(b,id/2,id%2);
         }
         lay->addLayout(row2);
         out_ = new QPlainTextEdit; out_->setReadOnly(true); lay->addWidget(out_, 1);
@@ -326,6 +330,61 @@ private:
         input_->setPlainText(lines.join(QLatin1Char('\n')));
         out_->setPlainText(t.warnings.join(QLatin1Char('\n')));
     }
+    void groupDialog(const QVector<QStringList>& grid) {
+        int width=0;
+        for(const auto& r:grid)width=qMax(width,int(r.size()));
+        if(width<1 || width>16384 || grid.size()>100001) {
+            out_->setPlainText(QStringLiteral("Vùng vượt giới hạn tổng hợp."));return;
+        }
+        QDialog dialog(this);dialog.setWindowTitle(QStringLiteral("Tổng hợp theo nhóm · Excel"));dialog.resize(850,530);
+        auto* layout=new QVBoxLayout(&dialog);
+        auto* note=new QLabel(QStringLiteral("Chọn cột nhóm và cột số để tổng hợp. Chỉ đọc dữ liệu hiển thị; không tạo đối tượng PivotTable và không sửa bảng tính."),&dialog);
+        note->setWordWrap(true);layout->addWidget(note);
+        auto* header=new QCheckBox(QStringLiteral("Dòng đầu là tiêu đề"),&dialog);header->setChecked(true);layout->addWidget(header);
+        auto* form=new QFormLayout;
+        auto* label=new QComboBox(&dialog);auto* value=new QComboBox(&dialog);
+        form->addRow(QStringLiteral("Nhóm theo"),label);form->addRow(QStringLiteral("Cột tính toán"),value);layout->addLayout(form);
+        auto* table=new QTableWidget(0,7,&dialog);
+        table->setHorizontalHeaderLabels({QStringLiteral("Nhóm"),QStringLiteral("Số dòng"),QStringLiteral("Ô số"),QStringLiteral("Tổng"),QStringLiteral("Trung bình"),QStringLiteral("Nhỏ nhất"),QStringLiteral("Lớn nhất")});
+        table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        layout->addWidget(table,1);
+        auto* status=new QLabel(&dialog);status->setWordWrap(true);status->setTextFormat(Qt::PlainText);layout->addWidget(status);
+        auto refresh=[&] {
+            const auto result=summarizeGroups(grid,label->currentData().toInt(),value->currentData().toInt(),header->isChecked(),vi_->isChecked());
+            table->setRowCount(0);
+            if(!result.ok){status->setText(result.error);return;}
+            table->setRowCount(int(result.groups.size()));
+            for(int i=0;i<result.groups.size();++i) {
+                const auto& g=result.groups[i];
+                const QStringList cells{g.label,QString::number(g.rows),QString::number(g.numbers),
+                    g.numbers?QString::number(g.sum,'g',15):QStringLiteral("—"),
+                    g.numbers?QString::number(g.sum/g.numbers,'g',15):QStringLiteral("—"),
+                    g.numbers?QString::number(g.min,'g',15):QStringLiteral("—"),
+                    g.numbers?QString::number(g.max,'g',15):QStringLiteral("—")};
+                for(int c=0;c<cells.size();++c)table->setItem(i,c,new QTableWidgetItem(cells[c]));
+            }
+            for(int c=2;c<7;++c)table->setColumnHidden(c,value->currentData().toInt()<0);
+            status->setText(QStringLiteral("%1 nhóm. ").arg(result.groups.size())+result.warnings.join(QStringLiteral("\n")));
+        };
+        auto refill=[&] {
+            QSignalBlocker a(label),b(value);
+            const int selected=label->currentIndex(),measure=value->currentIndex();
+            label->clear();value->clear();value->addItem(QStringLiteral("Chỉ đếm số dòng"),-1);
+            for(int c=0;c<width;++c){
+                const QString name=QStringLiteral("Cột %1").arg(c+1)+(header->isChecked()?QStringLiteral(" · ")+grid.first().value(c):QString());
+                label->addItem(name,c);value->addItem(name,c);
+            }
+            label->setCurrentIndex(qBound(0,selected,width-1));value->setCurrentIndex(qBound(0,measure,width));
+            refresh();
+        };
+        connect(header,&QCheckBox::toggled,&dialog,refill);
+        connect(label,&QComboBox::currentIndexChanged,&dialog,refresh);
+        connect(value,&QComboBox::currentIndexChanged,&dialog,refresh);
+        auto* close=new QDialogButtonBox(QDialogButtonBox::Close,&dialog);layout->addWidget(close);
+        connect(close,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+        refill();dialog.exec();
+    }
     void run(int what)
     {
         const auto grid = parseTsv(input_->toPlainText());
@@ -349,10 +408,8 @@ private:
             for (const auto &x : r.removed) o << QStringLiteral("  Dòng %1 trùng dòng %2: %3").arg(x.originalIndex + 2).arg(x.keptIndex + 2).arg(x.cells.join(QStringLiteral(" | ")));
             o << r.warnings;
         } else {
-            const ChartData d = groupForChart(grid, 0, -1, true, vi_->isChecked());
-            double mx = 0; for (const auto &p : d.points) mx = qMax(mx, p.value);
-            for (const auto &p : d.points) o << QStringLiteral("%1 | %2 %3").arg(p.label.leftJustified(18)).arg(QString(int(24 * p.value / (mx > 0 ? mx : 1)), QChar(0x2588))).arg(p.value);
-            o << d.warnings;
+            groupDialog(grid);
+            return;
         }
         out_->setPlainText(o.join(QLatin1Char('\n')));
     }

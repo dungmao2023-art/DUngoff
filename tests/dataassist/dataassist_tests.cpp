@@ -137,6 +137,16 @@ int main(int argc, char **argv)
     const auto cm = groupForChart(parseTsv(many), 0, -1, true, true, 5);
     CHECK(cm.points.size() == 5 && cm.points.last().label == QStringLiteral("Khác") && cm.points.last().value == 16, "Nhóm thừa gộp vào Khác (16)");
 
+    CHECK(!parseNumber(QStringLiteral("."),false).ok && !parseNumber(QStringLiteral("1,"),true).ok,"Không biến dấu thập phân thiếu số thành 0 hoặc số nguyên");
+    CHECK(parseNumber(QStringLiteral("1,234"),true).ambiguous && parseNumber(QStringLiteral("1.234"),false).ambiguous,"Cảnh báo phân cách mơ hồ theo cả hai locale");
+    CHECK(groupForChart(grid,0,-1,true,true,0).points.isEmpty(),"Không truy cập nhóm với giới hạn 0");
+    const auto grouped=summarizeGroups(parseTsv(QStringLiteral("Nhóm\tTiền\nA\t10\nB\t5\nA\t-2\nA\t0001\nB\t#N/A\n\t9\nC\tabc")),0,1,true);
+    CHECK(grouped.ok && grouped.groups.size()==3,"Bảng nhóm có đủ nhãn kể cả nhóm không có số");
+    CHECK(grouped.groups[0].rows==3 && grouped.groups[0].numbers==2 && grouped.groups[0].sum==8 && grouped.groups[0].min==-2 && grouped.groups[0].max==10,"Tổng nhóm A bỏ mã có số 0 đầu");
+    CHECK(grouped.groups[2].numbers==0 && grouped.warnings.size()==2,"Báo dòng thiếu nhãn và ô không phải số");
+    CHECK(!summarizeGroups(grid,99,1,true).ok,"Chặn cột ngoài vùng");
+    CHECK(summarizeGroups(grid,0,-1,true).groups.size()==4,"Chế độ chỉ đếm dòng");
+
     // ---------------- Xuất theo mẫu ----------------
     const QString tpl = mkTemplate(out + "/mau-nhap-hang.xlsx", true);
     const QByteArray tplHash = sha(tpl);

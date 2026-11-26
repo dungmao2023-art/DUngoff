@@ -37,4 +37,13 @@ struct ChartData { QVector<ChartPoint> points; QStringList warnings; };
 // valueCol < 0 => đếm số dòng theo nhãn. Dòng đầu là tiêu đề nếu hasHeader. Giữ thứ tự xuất hiện đầu tiên; tối đa maxPoints nhóm (phần còn lại gộp "Khác").
 ChartData groupForChart(const QVector<QStringList> &grid, int labelCol, int valueCol, bool hasHeader, bool vietnamese = true, int maxPoints = 12);
 
+// Read-only grouped summary of displayed cell values; not an Excel PivotTable object.
+struct GroupSummaryRow {
+    QString label;
+    int rows=0, numbers=0;
+    double sum=0, min=0, max=0;
+};
+struct GroupSummary { bool ok=false; QString error; QStringList warnings; QVector<GroupSummaryRow> groups; };
+GroupSummary summarizeGroups(const QVector<QStringList>& grid, int labelCol, int valueCol, bool hasHeader, bool vietnamese=true);
+
 }  // namespace dataassist
