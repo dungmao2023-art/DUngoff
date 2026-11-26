@@ -966,6 +966,25 @@ bool Document::paste(const std::string& mime, const std::string& data) {
     return ok;
 }
 
+bool Document::pasteTextOnly(const std::string& utf8Tsv) {
+    if(m_readOnly || m_kind!=DocKind::Spreadsheet || utf8Tsv.empty() || utf8Tsv.size()>2000000) return false;
+    waitInputIdle();
+    const bool staged=onEngine([&] {
+        auto* d=m_doc->get();
+        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,setClipboard)||!d->pClass->setClipboard)return false;
+        const char* mime[]={"text/plain;charset=utf-8"};
+        const size_t sizes[]={utf8Tsv.size()};
+        const char* streams[]={utf8Tsv.data()};
+        return d->pClass->setClipboard(d,1,mime,sizes,streams)!=0;
+    });
+    if(!staged)return false;
+    // Native PasteOnlyText differs from LOK paste(), which imports HTML styling
+    // or reports successful clipboard staging even if cells were not changed.
+    command(".uno:PasteOnlyText","",true);
+    waitInputIdle();
+    return true; // dispatch accepted; file-level regression tests verify the effect
+}
+
 void Document::waitInputIdle(int quietMs, int maxMs) {
     const long long start = steadyMs();
     for (;;) {
