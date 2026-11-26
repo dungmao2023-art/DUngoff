@@ -83,8 +83,14 @@ void DocumentTab::excelAction(const QString& id) {
             if (m_doc->currentPart() != cur || m_view->selectedCellRange() != range || qs(m_doc->selectionAs("text/plain;charset=utf-8")).trimmed() != value) {
                 QMessageBox::warning(this, tr("Số → chữ"), tr("Vùng chọn đã đổi. Chưa ghi dữ liệu.")); return;
             }
-            if (QMessageBox::question(this, tr("Thay số hoặc công thức?"), tr("Thay %1 bằng chữ? Công thức gốc (nếu có) sẽ bị thay thế.").arg(range), QMessageBox::Yes|QMessageBox::No, QMessageBox::No) == QMessageBox::Yes)
+            if (QMessageBox::question(this, tr("Thay số hoặc công thức?"), tr("Thay %1 bằng chữ? Công thức gốc (nếu có) sẽ bị thay thế.").arg(range), QMessageBox::Yes|QMessageBox::No, QMessageBox::No) == QMessageBox::Yes) {
+                m_doc->waitInputIdle();
+                if (m_doc->currentPart() != cur || m_view->selectedCellRange() != range ||
+                    qs(m_doc->selectionAs("text/plain;charset=utf-8")).trimmed() != value) {
+                    QMessageBox::warning(this, tr("Số → chữ"), tr("Ô hoặc giá trị đã đổi trong lúc xác nhận; chưa ghi dữ liệu.")); return;
+                }
                 if (!m_doc->paste("text/plain;charset=utf-8", ss(result.text))) QMessageBox::warning(this, tr("Số → chữ"), tr("Engine chưa xác nhận chèn."));
+            }
         }
     } else if (a == QLatin1String("sheetAdd")) {
         QString name;

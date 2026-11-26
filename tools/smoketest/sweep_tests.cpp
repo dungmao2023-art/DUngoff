@@ -315,6 +315,17 @@ int runSweepTests(const fs::path& program, const fs::path& out) {
         [](const std::string&) { return true; });
     result(C, "wire:từ chối vùng làm ô đích", !o6.ok && trim(range(x, "P2")) == "1", o6.message);
 
+    gotoCell(x, "P3");
+    auto changed = dataassist::bridgeInsertFormulaAt(x, "P2", "=999", LOK_CALLBACK_CELL_ADDRESS,
+        [&](const std::string&) { enter(x, "P2", u"17"); return true; });
+    result(C, "wire:dữ liệu ô đích đổi trong lúc xác nhận → không ghi đè", !changed.ok && trim(range(x, "P2")) == "17", changed.message);
+    enter(x, "P2", u"1");
+    gotoCell(x, "P3");
+    auto moved = dataassist::bridgeInsertFormulaAt(x, "P2", "=999", LOK_CALLBACK_CELL_ADDRESS,
+        [&](const std::string&) { gotoCell(x, "P3"); return true; });
+    result(C, "wire:đổi ô trong lúc xác nhận → không ghi vào ô khác", !moved.ok &&
+        trim(range(x, "P2")) == "1" && trim(range(x, "P3")) == "2", moved.message);
+
     step("thăm dò hàm mới");
     {
         enter(x, "R1", u"a"); enter(x, "R2", u"b"); enter(x, "R3", u"a");

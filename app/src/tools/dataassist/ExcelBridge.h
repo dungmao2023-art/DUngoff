@@ -99,10 +99,16 @@ inline InsertOutcome bridgeInsertFormulaAt(dung::Document& d, const std::string&
         o.message = "Chưa xác minh được ô kết quả. Chọn ô khác rồi thử lại; chưa ghi dữ liệu.";
         return o;
     }
+    const auto sheet = d.partName(part);
     o.previous = bridgeSelectedText(d);
     if (!confirm || !confirm(o.previous)) { o.declined = true; o.message = "Đã huỷ; chưa ghi dữ liệu."; return o; }
-    if (d.currentPart() != part || bridgeCellAddress(d.lastPayload(addressEvent)) != addr) {
-        o.message = "Ô kết quả đã thay đổi; chưa ghi dữ liệu."; return o;
+    // Dialog xác nhận có thể chạy event loop: kiểm lại địa chỉ, sheet và dữ liệu đã hiện.
+    d.waitInputIdle();
+    if (d.currentPart() != part || d.partName(part) != sheet ||
+        bridgeCellAddress(d.lastPayload(addressEvent)) != addr ||
+        bridgeSelectedText(d) != o.previous) {
+        o.message = "Ô kết quả hoặc dữ liệu đã thay đổi trong lúc xác nhận; chưa ghi công thức.";
+        return o;
     }
     return bridgeInsertFormula(d, formula, [](const std::string&) { return true; });
 }
