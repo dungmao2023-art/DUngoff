@@ -24,6 +24,8 @@
 #include <sstream>
 #include <thread>
 #include <type_traits>
+#include <utility>
+#include <cstddef>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -643,6 +645,7 @@ std::unique_ptr<Engine> Engine::create(const fs::path& programDir, const fs::pat
     created = true;
     std::unique_ptr<Engine> e(new Engine());
     e->m_office.reset(new lok::Office(kit));
+    e->m_nativeOffice = kit;
     e->m_workDir = workDir;
     return e;
 }
@@ -918,10 +921,29 @@ void Document::typeText(const std::u16string& text) {
     }
 }
 
+// sendDialogEvent moved between Document and Office in LOK headers.
+// Detect the member at compile time; check nSize before reading the runtime
+// function pointer. Never reinterpret one version's vtable as another.
+template<class T,class=void> struct HasDialogEvent:std::false_type {};
+template<class T> struct HasDialogEvent<T,std::void_t<decltype(std::declval<T*>()->pClass->sendDialogEvent)>>:std::true_type {};
+template<class T> static bool dialogEventAvailable(T* p) {
+    if constexpr(HasDialogEvent<T>::value) {
+        using Class=std::remove_cv_t<std::remove_pointer_t<decltype(p->pClass)>>;
+        return p && p->pClass && p->pClass->nSize>=offsetof(Class,sendDialogEvent)+sizeof(p->pClass->sendDialogEvent)
+            && p->pClass->sendDialogEvent;
+    } else return false;
+}
+template<class T> static bool sendDialogClick(T* p,unsigned long long id,const char* args) {
+    if constexpr(HasDialogEvent<T>::value) {
+        if(!dialogEventAvailable(p))return false;
+        p->pClass->sendDialogEvent(p,id,args);
+        return true;
+    } else return false;
+}
 bool Document::supportsDialogEvents() {
     return onEngine([&]{
-        auto* d=m_doc->get();
-        return LIBREOFFICEKIT_DOCUMENT_HAS(d,sendDialogEvent) && d->pClass->sendDialogEvent;
+        return dialogEventAvailable(m_doc->get()) ||
+            dialogEventAvailable(static_cast<LibreOfficeKit*>(m_engine->m_nativeOffice));
     });
 }
 bool Document::clickNativeDialogButton(unsigned long long id,const std::string& widget) {
@@ -930,10 +952,8 @@ bool Document::clickNativeDialogButton(unsigned long long id,const std::string& 
     const std::string args="{\"id\":\""+widget+"\",\"cmd\":\"click\",\"data\":\"undefined\",\"type\":\"pushbutton\"}";
     m_lastInputMs=steadyMs();
     return onEngine([&]{
-        auto* d=m_doc->get();
-        if(!LIBREOFFICEKIT_DOCUMENT_HAS(d,sendDialogEvent)||!d->pClass->sendDialogEvent)return false;
-        d->pClass->sendDialogEvent(d,id,args.c_str());
-        return true;
+        return sendDialogClick(m_doc->get(),id,args.c_str()) ||
+            sendDialogClick(static_cast<LibreOfficeKit*>(m_engine->m_nativeOffice),id,args.c_str());
     });
 }
 
