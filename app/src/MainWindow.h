@@ -23,6 +23,7 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget* parent = nullptr);
+    ~MainWindow() override;
     void openFiles(const QStringList& paths);
     // Chế độ chụp giao diện (kiểm thử): lưu PNG các trang ở nhiều cỡ cửa sổ + nhật ký kiểm tra chồng/cắt chữ.
     int captureShots(const QString& dir);
@@ -32,9 +33,12 @@ protected:
     void dragEnterEvent(QDragEnterEvent* e) override;
     void dropEvent(QDropEvent* e) override;
     void resizeEvent(QResizeEvent* e) override;
+    void changeEvent(QEvent* e) override;
 
 private:
     QWidget* buildSidebar();
+    void showFloatMenu();
+    void restoreFromFloat(dung::DocKind kind);
     DocumentTab* current() const;
     void openDialog(const QString& filter = QString());
     void openPath(const QString& path);
@@ -83,4 +87,7 @@ private:
     QList<QPushButton*> m_navButtons;
     QList<QWidget*> m_navFullOnly;
     bool m_compact = false;
+    QWidget* m_floatMenu = nullptr;
+    bool m_floatSuppressed = false;
+    bool m_restoreMaximized = false;
 };
