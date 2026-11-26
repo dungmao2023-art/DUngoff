@@ -59,7 +59,7 @@ Result compress(const Input& in, const QString& dest, bool allowReplace = false)
 
 // ---- Đánh số trang, đóng dấu, ảnh -> PDF, trang trắng (luôn ghi ra bản sao, không sửa tệp gốc) ----
 
-enum class Position { TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight, Center, Diagonal };
+enum class Position { TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight, Center, Diagonal, Custom };
 
 struct NumberOptions {
     // {n} = số trang hiện tại, {total} = số cuối cùng được đánh. Chỉ nhận ký tự ASCII (chữ không dấu): font
@@ -81,6 +81,7 @@ struct StampOptions {
     double gray = 0.5;
     double opacity = 0.3;        // 0..1
     double widthPercent = 30;    // chỉ cho ảnh: bề rộng ảnh theo % bề rộng trang
+    double xPercent = 50, yPercent = 50; // Custom: vị trí tương đối trong phần diện tích còn trống, tính từ trái/trên
     QString pages = QStringLiteral("1-");
 };
 Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool allowReplace = false);

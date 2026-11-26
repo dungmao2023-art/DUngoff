@@ -106,3 +106,7 @@ Bản HTML tự đánh dấu nhiều nút ribbon là "chưa triển khai" và co
 - PDF dùng qpdf tạo bản xem trước cho đánh số và đóng dấu. Qt PDF hiển thị trang đã xử lý trong hộp thoại. Sau khi lưu cũng có thể mở kết quả bằng trình xem hệ thống.
 - Trong PowerPoint, chọn công cụ rồi kéo để đặt khung chữ hoặc hình. Trình xem slide có chế độ cửa sổ và toàn màn hình.
 - Hộp công cụ kiểm tra chương trình cần thiết lúc nạp danh sách. Kiểm thử từng công cụ của người dùng vẫn phụ thuộc chương trình cài trên máy.
+
+## PDF OCR cục bộ và lớp phủ tùy vị trí
+- OCR dùng QtPdf vẽ một trang tới tối đa 3000 px, gọi Tesseract đã cài PATH qua QProcess không shell, giới hạn 90 giây, vie/eng/vie+eng, kết quả sửa/copy/lưu UTF-8 TXT mới. Chưa đóng gói runtime hoặc gói ngôn ngữ, chưa OCR nhiều trang/searchable PDF; PDF mật khẩu chưa hỗ trợ trong OCR. Không sửa nguồn. Tài liệu tham khảo: https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html
+- Lớp phủ chữ ASCII/ảnh: vị trí X/Y tùy chỉnh, preview theo PR #9; kiểm tra phạm vi và nguồn bất biến. Không sửa/xóa chữ gốc; không redaction. Chưa hỗ trợ chữ Việt có dấu trong lớp phủ text.

@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MPL-2.0
+#include "PdfOcr.h"
+#include <QGuiApplication>
+#include <QImage>
+#include <QPainter>
+#include <QFont>
+#include <QTemporaryDir>
+#include <iostream>
+
+static bool sample(const QString& dest, const QStringList& lines) {
+    QImage img(1600, 1000, QImage::Format_RGB32);
+    img.fill(Qt::white);
+    img.setDotsPerMeterX(11811); img.setDotsPerMeterY(11811);
+    QPainter p(&img);
+    p.setPen(Qt::black);
+    QFont font(QStringLiteral("DejaVu Sans")); font.setPixelSize(52); p.setFont(font);
+    int y = 160;
+    for (const auto& line : lines) { p.drawText(100, y, line); y += 105; }
+    p.end();
+    return img.save(dest, "PNG");
+}
+int main(int argc, char** argv) {
+    QGuiApplication app(argc, argv);
+    QTemporaryDir temp;
+    if (!temp.isValid() || dungpdf::findTesseract().isEmpty()) return 1;
+    const QString en = temp.filePath(QStringLiteral("english.png")), vi = temp.filePath(QStringLiteral("vietnamese.png"));
+    if (!sample(en, {QStringLiteral("DUNG OFFICE 12345"), QStringLiteral("DOCUMENT TEST 67890"), QStringLiteral("HELLO WORLD")}) ||
+        !sample(vi, {QStringLiteral("CỘNG HÒA XÃ HỘI"), QStringLiteral("ĐỘC LẬP TỰ DO"), QStringLiteral("VIỆT NAM 12345")})) return 1;
+    const auto a = dungpdf::recognizeImage(en, QStringLiteral("eng"));
+    const auto b = dungpdf::recognizeImage(vi, QStringLiteral("vie"));
+    const QString bt = b.text.normalized(QString::NormalizationForm_C);
+    std::cout << a.error.toStdString() << '\n' << a.text.toStdString() << '\n' << b.error.toStdString() << '\n' << b.text.toStdString() << '\n';
+    const bool good = a.ok && a.text.contains(QStringLiteral("DUNG OFFICE"), Qt::CaseInsensitive) && a.text.contains(QStringLiteral("12345")) &&
+        b.ok && bt.contains(QStringLiteral("VIỆT NAM"), Qt::CaseInsensitive) && bt.contains(QStringLiteral("12345"));
+    return good ? 0 : 1;
+}
