@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSet>
+#include <QTemporaryFile>
 #include <algorithm>
 #include <cmath>
 
@@ -472,6 +473,9 @@ PatchResult patchDocumentXml(const QByteArray& xml, const MarginSpec& spec, QByt
 // ------------------------------------------------------------------ API: thay một mục ZIP
 bool replaceZipEntry(const QString& src, const QString& dst, const QString& entryName, const QByteArray& newData, QString* error) {
     auto fail = [&](const QString& m) { if (error) *error = m; return false; };
+    const QFileInfo destination(dst);
+    if(destination.exists() || destination.isSymLink())
+        return fail(QStringLiteral("tệp đích đã tồn tại: chọn tên mới"));
     QFile in(src);
     if (!in.open(QIODevice::ReadOnly)) return fail(QStringLiteral("không mở được tệp nguồn: ") + in.errorString());
     const qint64 size = in.size();
@@ -538,11 +542,10 @@ bool replaceZipEntry(const QString& src, const QString& dst, const QString& entr
     const quint32 crc = ft::zipCrc32(newData);
 
     // --- ghi tệp tạm rồi đổi tên
-    const QString tmp = dst + QStringLiteral(".dung-tmp");
-    QFile::remove(tmp);
-    QFile out(tmp);
-    if (!out.open(QIODevice::WriteOnly)) return fail(QStringLiteral("không tạo được tệp đích: ") + out.errorString());
-    auto bail = [&](const QString& m) { out.close(); QFile::remove(tmp); return fail(m); };
+    QTemporaryFile out(QDir(destination.absolutePath()).filePath(QStringLiteral(".DungOffice-zip-XXXXXX")));
+    if (!out.open()) return fail(QStringLiteral("không tạo được tệp tạm: ") + out.errorString());
+    const QString tmp=out.fileName();
+    auto bail = [&](const QString& m) { out.close(); return fail(m); };
     auto wr = [&](const QByteArray& b) { return out.write(b) == b.size(); };
 
     QVector<quint32> newOff(recs.size());
@@ -606,8 +609,8 @@ bool replaceZipEntry(const QString& src, const QString& dst, const QString& entr
     if (!wr(eo)) return bail(QStringLiteral("lỗi ghi tệp đích: ") + out.errorString());
     if (!out.flush()) return bail(QStringLiteral("lỗi ghi tệp đích: ") + out.errorString());
     out.close();
-    QFile::remove(dst);
-    if (!QFile::rename(tmp, dst)) { QFile::remove(tmp); return fail(QStringLiteral("không đặt được tên tệp đích")); }
+    // QFile::rename refuses an existing destination, even if created while writing.
+    if (!QFile::rename(tmp, dst)) return fail(QStringLiteral("không đặt được tên tệp đích (có thể tên đã tồn tại)"));
     return true;
 }
 
