@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pdf_save as s
@@ -61,6 +62,35 @@ class SaveSafetyTests(unittest.TestCase):
         with self.assertRaises(s.PdfError):
             s.atomic_save(Writer(), str(self.dest))
         self.assertEqual(self.dest.read_bytes(), b"old")
+
+    def test_windows_cross_api_snapshot(self):
+        fields = dict(st_dev=1, st_ino=42, st_size=3, st_mtime_ns=100,
+                      st_ctime_ns=90, st_birthtime_ns=90)
+        path = SimpleNamespace(**fields)
+        handle = SimpleNamespace(**dict(fields, st_ctime_ns=110))
+        self.assertTrue(s._same_snapshot(path, handle, cross_api=True, windows=True))
+        self.assertFalse(s._same_snapshot(path, handle, windows=True))
+        self.assertFalse(s._same_snapshot(path, handle, cross_api=True, windows=False))
+        for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_birthtime_ns"):
+            changed = SimpleNamespace(**dict(vars(handle), **{field: 999}))
+            self.assertFalse(s._same_snapshot(path, changed, cross_api=True, windows=True))
+        del handle.st_birthtime_ns
+        self.assertFalse(s._same_snapshot(path, handle, cross_api=True, windows=True))
+        del path.st_birthtime_ns
+        self.assertFalse(s._same_snapshot(path, handle, cross_api=True, windows=True))
+
+    def test_change_during_backup_aborts_replacement(self):
+        self.dest.write_bytes(b"old")
+        real_copy = s.shutil.copyfileobj
+        def copy_then_change(source, target):
+            real_copy(source, target)
+            self.dest.write_bytes(b"changed by another writer")
+        with patch.object(s.shutil, "copyfileobj", side_effect=copy_then_change):
+            with self.assertRaises(s.PdfError):
+                s.atomic_save(Writer(), str(self.dest), True)
+        self.assertEqual(self.dest.read_bytes(), b"changed by another writer")
+        self.assertEqual(list(self.root.glob("*.dung-backup-*")), [])
+        self.assertNoTemporary()
 
     def test_backup_on_replace(self):
         self.dest.write_bytes(b"old")
