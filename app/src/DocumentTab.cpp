@@ -436,7 +436,9 @@ QTabWidget#ExcelTools QTabBar::tab:selected { background:white; color:#2864BA; b
                 tryFormulaPick(part,sheet,generation,18);
             });
         });
-        m_rangeTools = createDocumentRangeToolsWidget(this, [this] { return qs(m_doc->selectionAs("text/plain;charset=utf-8")); });
+        m_rangeTools = createDocumentRangeToolsWidget(this,
+            [this] { return qs(m_doc->selectionAs("text/plain;charset=utf-8")); },
+            [this] { return m_doc&&m_doc->inputIdleFor(250); });
         addTool(m_rangeTools, tr("Vùng dữ liệu"));
         connect(m_excelTools, &QTabWidget::currentChanged, this, [this](int) { notifyDocumentRangeTools(m_rangeTools); });
         // Handle is on the document-facing edge of the right panel.

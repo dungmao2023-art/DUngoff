@@ -326,7 +326,7 @@ private:
 // ============================================================ Thống kê vùng / Lỗi / Biểu đồ nhanh
 class RangeTools : public QWidget {
 public:
-    explicit RangeTools(QWidget *p, std::function<QString()> readSelection = {}) : QWidget(p), readSelection_(std::move(readSelection))
+    explicit RangeTools(QWidget *p, std::function<QString()> readSelection = {}, std::function<bool()> inputIdle = {}) : QWidget(p), readSelection_(std::move(readSelection)), inputIdle_(std::move(inputIdle))
     {
         auto *lay = new QVBoxLayout(this);
         lay->addWidget(new QLabel(QStringLiteral("<b>Công cụ vùng dữ liệu</b><br>Dán vùng ô (từ Excel) hoặc mở CSV/XLSX. Chỉ đọc — dữ liệu gốc không bị sửa.")));
@@ -341,10 +341,15 @@ public:
         lay->addWidget(vi_);
         if (readSelection_) {
             live_ = new QCheckBox(QStringLiteral("Tự cập nhật thống kê vùng chọn"));
+            live_->setObjectName(QStringLiteral("RangeLiveRefresh"));
             live_->setToolTip(QStringLiteral("Chỉ đọc vùng khi panel đang hiện. Tắt nếu chọn vùng rất lớn."));
             lay->addWidget(live_);
             timer_ = new QTimer(this); timer_->setSingleShot(true); timer_->setInterval(220);
-            connect(timer_, &QTimer::timeout, this, [this] { if (isVisible() && live_->isChecked()) readAndSummarize(); });
+            connect(timer_, &QTimer::timeout, this, [this] {
+                if(!isVisible()||!live_->isChecked())return;
+                if(inputIdle_&&!inputIdle_()){timer_->start();return;}
+                readAndSummarize();
+            });
             connect(live_, &QCheckBox::toggled, this, [this](bool enabled) { if (enabled) scheduleRefresh(); else timer_->stop(); });
         }
         auto *row2 = new QGridLayout;
@@ -361,6 +366,15 @@ public:
         });
     }
     void scheduleRefresh() { if (timer_ && live_->isChecked() && isVisible()) timer_->start(); }
+protected:
+    void hideEvent(QHideEvent* event) override {
+        if(timer_)timer_->stop();
+        QWidget::hideEvent(event);
+    }
+    void showEvent(QShowEvent* event) override {
+        QWidget::showEvent(event);
+        scheduleRefresh();
+    }
 private:
     void readAndSummarize() {
         const auto reader = readSelection_ ? readSelection_ : hooks().selectedRangeText;
@@ -485,6 +499,7 @@ private:
     QPlainTextEdit *input_{}, *out_{};
     QCheckBox *vi_{}, *live_{};
     QTimer* timer_{};
+    std::function<bool()> inputIdle_;
     std::function<QString()> readSelection_;
 };
 
@@ -751,7 +766,7 @@ QWidget* createFormulaAssistantWidget(QWidget *p) { return new FormulaAssistant(
 void notifyFormulaSelection(QWidget* w, const QString& ref) { if (auto* p = dynamic_cast<FormulaAssistant*>(w)) p->selectedReference(ref); }
 void notifyFormulaSheet(QWidget* w,int part,const QString& name) { if(auto* p=dynamic_cast<FormulaAssistant*>(w))p->sheetChanged(part,name); }
 QWidget* createRangeToolsWidget(QWidget *p) { return new RangeTools(p); }
-QWidget* createDocumentRangeToolsWidget(QWidget* p, std::function<QString()> readSelection) { return new RangeTools(p, std::move(readSelection)); }
+QWidget* createDocumentRangeToolsWidget(QWidget* p, std::function<QString()> readSelection, std::function<bool()> inputIdle) { return new RangeTools(p, std::move(readSelection), std::move(inputIdle)); }
 void notifyDocumentRangeTools(QWidget* widget) { if (auto* r = dynamic_cast<RangeTools*>(widget)) r->scheduleRefresh(); }
 QWidget* createTemplateExportWidget(QWidget *p) { return new TemplateExportWidget(p); }
 QWidget* createLawLinksWidget(QWidget *p) { return new LawLinks(p); }
