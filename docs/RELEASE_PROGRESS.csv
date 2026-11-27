@@ -19,7 +19,7 @@ id,priority,group,weight,stage,remaining_low_hours,remaining_high_hours,evidence
 "X02","P0","Excel","5","integrated","4","12","#27/#60 merged; sheet identity guards, CI 45905276261 PASS both OS; GUI"
 "X03","P0","Excel","8","integrated","4","12","#35; hàm engine Windows; GUI"
 "X04","P0","Excel","5","partial","6","18","#74/#131 merged; CI 46019564770 Windows/Linux PASS fill series preview and bounds; actual drag handle pending"
-"X05","P0","Excel","5","partial","6","18","#83/#102 merged; native sort and modal formatting target guards CI PASS; validation/protection and GUI pending"
+"X05","P0","Excel","5","partial","6","18","#83/#102 merged; native sort and modal formatting target guards CI PASS; protected sheet and validation roundtrip gate added; fresh CI and GUI creation/configuration pending"
 "X06","P0","Excel","8","integrated","8","24","#44/#47 merged; chart OOXML and native sheet source; edit type/title and GUI pending"
 "X07","P0","Excel","8","partial","12","36","#55/#94/#115 merged; actual XLSX value/category refresh and group totals after reopen CI 45972714392 both OS; creation/configuration and GUI pending"
 "X08","P0","Excel","5","integrated","4","12","#61/#76/#80 merged; safe CSV parser, composite keys, import limits; real data and GUI pending"
