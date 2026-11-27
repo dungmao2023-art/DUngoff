@@ -51,6 +51,8 @@ An toàn (đã có kiểm thử):
 - Không qua shell: đối số truyền riêng từng cái, giá trị nhập không "chèn lệnh" được.
 - `command` chỉ là tên trần (tìm trong PATH) hoặc đường dẫn **tương đối** trong thư mục tool. Từ chối đường dẫn tuyệt đối, `..`, ổ đĩa, liên kết tượng trưng thoát thư mục, `cmd`/`powershell`/`wscript`…, `.bat`/`.cmd`/`.lnk`.
 - Hiển thị đúng lệnh sẽ chạy và **hỏi xác nhận lần đầu**; xác nhận gắn với dấu vân tay SHA-256 của cả thư mục, sửa script là phải xác nhận lại. Không chạy gì ngầm.
+- Dấu vân tay v2 tính cả thư mục rỗng và tệp; tối đa 500 mục, 8 MiB tệp. Xác nhận v1 phải thực hiện lại một lần. Lỗi đọc hoặc thay đổi trong khi quét bị từ chối.
+- Tool ngoài không phải sandbox: chương trình đã xác nhận có quyền của người dùng, có thể gọi tiến trình khác và truy cập dữ liệu ngoài thư mục tool. Dấu vân tay không bảo đảm an toàn tuyệt đối, không kiểm soát chương trình cài ngoài hoặc thay đổi đồng thời sau khi kiểm tra.
 - Có giới hạn thời gian, nút Dừng và nhật ký.
 - Tool ngoài hỏng (JSON sai, thiếu trường) bị bỏ qua kèm lý do hiển thị trên trang.
 

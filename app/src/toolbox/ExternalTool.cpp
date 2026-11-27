@@ -21,6 +21,7 @@
 #include <QStandardPaths>
 #include <QTimer>
 #include <algorithm>
+#include <cmath>
 
 namespace toolbox {
 namespace {
@@ -64,35 +65,56 @@ bool strField(const QJsonObject& o, const char* key, QString* out, QString* err,
 }
 
 QString sha256Dir(const QString& dir, QString* err) {
-    QStringList files;
-    qint64 total = 0;
-    QDirIterator it(dir, QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot | QDir::System, QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        const QString p = it.next();
-        const QFileInfo fi(p);
-        if (fi.isSymLink()) { *err = QStringLiteral("thư mục tool có liên kết tượng trưng (%1) — không cho phép").arg(fi.fileName()); return {}; }
-        total += fi.size();
-        files << p;
-        if (files.size() > kMaxToolDirFiles) { *err = QStringLiteral("thư mục tool có quá %1 tệp").arg(kMaxToolDirFiles); return {}; }
-        if (total > kMaxToolDirBytes) { *err = QStringLiteral("thư mục tool lớn hơn 8 MB"); return {}; }
+    const QFileInfo root(dir);
+    if(!root.isDir()||root.isSymLink()||root.canonicalFilePath()!=dir){
+        *err=QStringLiteral("thư mục tool không còn đúng vị trí đã xác minh");return {};
     }
-    // thư mục con là liên kết tượng trưng cũng bị từ chối
-    QDirIterator dt(dir, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot | QDir::System, QDirIterator::Subdirectories);
-    while (dt.hasNext()) {
-        const QFileInfo fi(dt.next());
-        if (fi.isSymLink()) { *err = QStringLiteral("thư mục tool có liên kết tượng trưng (%1) — không cho phép").arg(fi.fileName()); return {}; }
-    }
-    files.sort();
-    QCryptographicHash h(QCryptographicHash::Sha256);
+    QStringList entries;
+    qint64 total=0;
     const QDir base(dir);
-    for (const QString& p : files) {
-        QFile f(p);
-        if (!f.open(QIODevice::ReadOnly)) { *err = QStringLiteral("không đọc được %1").arg(QFileInfo(p).fileName()); return {}; }
-        h.addData(base.relativeFilePath(p).toUtf8());
-        h.addData(QByteArray(1, '\0'));
-        h.addData(QByteArray::number(f.size()));
-        h.addData(QByteArray(1, '\0'));
-        while (!f.atEnd()) h.addData(f.read(1 << 16));
+    QDirIterator it(dir,QDir::AllEntries|QDir::Hidden|QDir::NoDotAndDotDot|QDir::System,QDirIterator::Subdirectories);
+    while(it.hasNext()){
+        const QString path=it.next();const QFileInfo fi(path);
+        if(fi.isSymLink()||(!fi.isFile()&&!fi.isDir())){
+            *err=QStringLiteral("tool chứa liên kết hoặc mục không phải tệp/thư mục thường: %1").arg(fi.fileName());return {};
+        }
+        if(entries.size()>=kMaxToolDirFiles){
+            *err=QStringLiteral("thư mục tool có quá %1 mục (tệp và thư mục)").arg(kMaxToolDirFiles);return {};
+        }
+        if(fi.isFile()){
+            if(fi.size()<0||fi.size()>kMaxToolDirBytes-total){*err=QStringLiteral("thư mục tool lớn hơn 8 MB");return {};}
+            total+=fi.size();
+        }
+        entries<<base.relativeFilePath(path);
+    }
+    entries.sort();
+    QCryptographicHash h(QCryptographicHash::Sha256);
+    // Versioned fingerprint: all old approvals must be renewed once.
+    h.addData(QByteArray("DungOffice-tool-v2\0",19));
+    total=0;
+    for(const QString& name:entries){
+        const QString path=base.filePath(name);const QFileInfo fi(path);
+        if(fi.isSymLink()||(!fi.isFile()&&!fi.isDir())||fi.canonicalFilePath()!=path){
+            *err=QStringLiteral("mục tool thay đổi khi kiểm tra: %1").arg(name);return {};
+        }
+        h.addData(fi.isDir()?QByteArray("D\0",2):QByteArray("F\0",2));
+        h.addData(name.toUtf8());h.addData(QByteArray(1,'\0'));
+        if(fi.isDir())continue;
+        QFile f(path);
+        if(!f.open(QIODevice::ReadOnly)){*err=QStringLiteral("không đọc được %1").arg(name);return {};}
+        const qint64 size=f.size();
+        if(size<0||size>kMaxToolDirBytes-total){*err=QStringLiteral("thư mục tool lớn hơn 8 MB");return {};}
+        h.addData(QByteArray::number(size));h.addData(QByteArray(1,'\0'));
+        qint64 remaining=size;
+        while(remaining>0){
+            const auto bytes=f.read(qMin<qint64>(remaining,65536));
+            if(bytes.isEmpty()||f.error()!=QFileDevice::NoError){*err=QStringLiteral("không đọc đủ %1").arg(name);return {};}
+            h.addData(bytes);remaining-=bytes.size();
+        }
+        if(!f.atEnd()||f.error()!=QFileDevice::NoError||f.size()!=size){
+            *err=QStringLiteral("tệp tool thay đổi khi đọc: %1").arg(name);return {};
+        }
+        total+=size;
     }
     return QString::fromLatin1(h.result().toHex());
 }
@@ -258,7 +280,10 @@ ParseResult loadToolDir(const QString& root, const QString& folder) {
     if (QFileInfo(mf).isSymLink()) return fail(QStringLiteral("tool.json là liên kết tượng trưng — không cho phép"));
     if (mf.size() > kMaxManifestBytes) return fail(QStringLiteral("tool.json lớn hơn 256 KB"));
     if (!mf.open(QIODevice::ReadOnly)) return fail(QStringLiteral("không đọc được tool.json"));
-    r = parseManifest(mf.readAll(), cdir);
+    const QByteArray manifestBytes=mf.read(kMaxManifestBytes+1);
+    if(mf.error()!=QFileDevice::NoError||!mf.atEnd()||manifestBytes.size()>kMaxManifestBytes)
+        return fail(QStringLiteral("không đọc đủ tool.json hoặc tệp vượt 256 KB"));
+    r = parseManifest(manifestBytes, cdir);
     mf.close();
     if (!r.ok) return r;
 
@@ -274,6 +299,10 @@ ParseResult loadToolDir(const QString& root, const QString& folder) {
     }
     r.spec.fingerprint = sha256Dir(cdir, &err);
     if (r.spec.fingerprint.isEmpty()) return fail(err);
+    // Ensure the manifest used to build the executable spec matches what was hashed.
+    if(QFileInfo(mf).isSymLink()||!mf.open(QIODevice::ReadOnly)||
+       mf.read(kMaxManifestBytes+1)!=manifestBytes||mf.error()!=QFileDevice::NoError||!mf.atEnd())
+        return fail(QStringLiteral("tool.json thay đổi khi quét; hãy quét lại"));
     return r;
 }
 
@@ -355,7 +384,7 @@ Prepared prepare(const ToolSpec& s, const QMap<QString, QString>& values) {
             bool ok = false;
             if (v.contains(QLatin1Char(','))) return fail(QStringLiteral("\"%1\": không phải số (dùng dấu chấm cho phần thập phân, không dùng dấu phẩy)").arg(f.label));
             const double d = QLocale::c().toDouble(v.trimmed(), &ok);
-            if (!ok) return fail(QStringLiteral("\"%1\": không phải số (dùng dấu chấm cho phần thập phân)").arg(f.label));
+            if (!ok || !std::isfinite(d)) return fail(QStringLiteral("\"%1\": không phải số hữu hạn (dùng dấu chấm cho phần thập phân)").arg(f.label));
             if ((f.hasMin && d < f.min) || (f.hasMax && d > f.max)) return fail(QStringLiteral("\"%1\": ngoài khoảng cho phép").arg(f.label));
             v = v.trimmed();
         } else if (f.type == QLatin1String("choice")) {
@@ -403,6 +432,9 @@ Prepared prepare(const ToolSpec& s, const QMap<QString, QString>& values) {
     p.cmd.program = program;
     p.cmd.args = args;
     p.cmd.workDir = (s.workingDir == QLatin1String(".")) ? s.dir : QFileInfo(QDir(s.dir).filePath(s.workingDir)).canonicalFilePath();
+    if(p.cmd.workDir.isEmpty()||!QFileInfo(p.cmd.workDir).isDir()||
+       (p.cmd.workDir!=s.dir&&!isInside(p.cmd.workDir,s.dir)))
+        return fail(QStringLiteral("Thư mục chạy đã thay đổi hoặc không còn trong thư mục tool."));
     p.cmd.timeoutSec = s.timeoutSec;
     p.ok = true;
     return p;
