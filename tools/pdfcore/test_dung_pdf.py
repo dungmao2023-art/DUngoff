@@ -5,6 +5,8 @@ import os
 import sys
 import tempfile
 import unittest
+import shutil
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -31,6 +33,7 @@ def sha(path):
 class DungPdfTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="dungpdf-")
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.a = make_pdf(os.path.join(self.tmp, "a.pdf"), 3, "A")
         self.b = make_pdf(os.path.join(self.tmp, "b.pdf"), 2, "B")
 
@@ -62,12 +65,16 @@ class DungPdfTests(unittest.TestCase):
             self.assertEqual(len(out.pages), 2)
 
     def test_parse_pages_rejects_bad_ranges(self):
-        for spec in ["0", "4", "3-1", "", "x"]:
-            with self.assertRaises((d.PdfError, ValueError)):
+        for spec in ["0", "4", "3-1", "", "x", "-", "1,,2", "1 2", "1-2-3", "1,"]:
+            with self.assertRaises(d.PdfError):
                 d.parse_pages(spec, 3)
 
     def test_parse_pages_open_ended(self):
-        self.assertEqual(d.parse_pages("2-", 4), [1, 2, 3])
+        self.assertEqual(d.parse_pages("2-", 4), [1, 2, 3])  # zero-based indexes: pages 2–4
+
+    def test_parse_pages_first_page_and_order(self):
+        self.assertEqual(d.parse_pages("1,3,1", 3), [0, 2, 0])
+        self.assertEqual(d.parse_pages("-2", 3), [0, 1])
 
     def test_split_each_writes_one_file_per_page(self):
         out_dir = self.p("split")
@@ -134,6 +141,64 @@ class DungPdfTests(unittest.TestCase):
             f.write(data[: len(data) // 2])
         with self.assertRaises(d.PdfError):
             d.open_readonly(cut)
+
+    def test_source_cannot_be_replaced_even_with_confirmation(self):
+        before = sha(self.a)
+        for operation in (
+            lambda: d.extract(self.a, "1", self.a, allow_replace=True),
+            lambda: d.rotate(self.a, "1", 90, self.a, allow_replace=True),
+            lambda: d.compress(self.a, self.a, allow_replace=True),
+            lambda: d.merge([self.a, self.b], self.a, allow_replace=True),
+        ):
+            with self.assertRaises(d.PdfError):
+                operation()
+            self.assertEqual(sha(self.a), before)
+
+    def test_source_hardlink_cannot_be_replaced(self):
+        alias = self.p("alias.pdf")
+        try:
+            os.link(self.a, alias)
+        except OSError as exc:
+            self.skipTest(str(exc))
+        before = sha(self.a)
+        with self.assertRaises(d.PdfError):
+            d.extract(self.a, "1", alias, allow_replace=True)
+        self.assertEqual(sha(alias), before)
+        self.assertEqual(sha(self.a), before)
+
+    def test_destination_created_during_save_is_not_overwritten(self):
+        target = self.p("race.pdf")
+        publish = "rename" if os.name == "nt" else "link"
+        real_publish = getattr(os, publish)
+        def competing_writer(src, dest):
+            with open(dest, "xb") as f:
+                f.write(b"other writer")
+            real_publish(src, dest)
+        with patch.object(d.os, publish, side_effect=competing_writer):
+            with self.assertRaises(d.PdfError):
+                d.extract(self.a, "1", target)
+        with open(target, "rb") as f:
+            self.assertEqual(f.read(), b"other writer")
+        self.assertFalse(any(n.startswith("~dung-") for n in os.listdir(self.tmp)))
+
+    def test_split_preflights_all_existing_destinations(self):
+        out_dir = self.p("split")
+        os.makedirs(out_dir)
+        existing = os.path.join(out_dir, "a-trang002.pdf")
+        with open(existing, "wb") as f:
+            f.write(b"keep")
+        with self.assertRaises(d.PdfError):
+            d.split_each(self.a, out_dir)
+        self.assertFalse(os.path.exists(os.path.join(out_dir, "a-trang001.pdf")))
+        with open(existing, "rb") as f:
+            self.assertEqual(f.read(), b"keep")
+
+    def test_rotate_overlapping_ranges_only_once(self):
+        out = self.p("rotate.pdf")
+        d.rotate(self.a, "1,1-2", 90, out)
+        with pikepdf.open(out) as pdf:
+            self.assertEqual(int(pdf.pages[0].Rotate), 90)
+            self.assertEqual(int(pdf.pages[1].Rotate), 90)
 
     def test_no_temp_files_left_behind(self):
         d.merge([self.a, self.b], self.p("gop.pdf"))

@@ -4,83 +4,21 @@
 Quy tắc an toàn (theo docs/DATA_SAFETY.md):
 - Không bao giờ ghi đè tệp gốc: luôn ghi ra tệp mới.
 - Ghi vào tệp tạm "~dung-xxxx-tên.pdf" cùng thư mục, kiểm tra header %PDF
-  và EOF, rồi mới đổi tên nguyên tử sang đích.
+  và EOF, rồi công bố tệp mới không ghi đè (rename trên Windows, hardlink trên POSIX); thay đích đã xác nhận dùng os.replace.
 - Nếu đích đã tồn tại: từ chối trừ khi allow_replace=True, và khi đó sao lưu
   tệp cũ thành "tên.dung-backup-YYYYMMDD-HHMMSS.pdf" trước khi thay.
 - Tệp gốc được đọc ở chế độ chỉ đọc, không bao giờ mở để ghi.
 """
 from __future__ import annotations
 
-import datetime as _dt
 import os
-import secrets
-import shutil
-from dataclasses import dataclass, field
-from typing import Iterable, List, Optional, Sequence
+from typing import List, Optional, Sequence
 
 import pikepdf
-
-
-class PdfError(Exception):
-    """Lỗi do người dùng hoặc tệp đầu vào, có thông điệp tiếng Việt."""
-
-
-@dataclass
-class SaveResult:
-    written: str
-    backup: Optional[str] = None
-    warnings: List[str] = field(default_factory=list)
-
-
-# ---------------------------------------------------------------- an toàn ghi
-
-def _backup_path(path: str) -> str:
-    stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    root, ext = os.path.splitext(path)
-    candidate = f"{root}.dung-backup-{stamp}{ext}"
-    n = 1
-    while os.path.exists(candidate):
-        candidate = f"{root}.dung-backup-{stamp}-{n}{ext}"
-        n += 1
-    return candidate
-
-
-def _looks_like_pdf(path: str) -> bool:
-    with open(path, "rb") as f:
-        head = f.read(8)
-        f.seek(0, os.SEEK_END)
-        size = f.tell()
-        f.seek(max(0, size - 2048))
-        tail = f.read()
-    return head.startswith(b"%PDF-") and b"%%EOF" in tail
-
-
-def atomic_save(pdf: pikepdf.Pdf, dest: str, allow_replace: bool = False) -> SaveResult:
-    """Ghi `pdf` ra `dest` theo đúng quy tắc an toàn ở trên."""
-    dest = os.path.abspath(dest)
-    folder = os.path.dirname(dest)
-    if not os.path.isdir(folder):
-        raise PdfError(f"Thư mục đích không tồn tại: {folder}")
-
-    backup = None
-    if os.path.exists(dest):
-        if not allow_replace:
-            raise PdfError("Tệp đích đã tồn tại. Chọn tên khác hoặc xác nhận thay thế.")
-        backup = _backup_path(dest)
-
-    tmp = os.path.join(folder, f"~dung-{secrets.token_hex(4)}-{os.path.basename(dest)}")
-    try:
-        pdf.save(tmp, linearize=True)
-        if not _looks_like_pdf(tmp):
-            raise PdfError("Tệp tạm ghi ra không hợp lệ, đã hủy. Tệp gốc không thay đổi.")
-        if backup:
-            shutil.copy2(dest, backup)
-        os.replace(tmp, dest)  # đổi tên nguyên tử trên cùng ổ đĩa
-    finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-    return SaveResult(written=dest, backup=backup)
-
+if __package__:
+    from .pdf_save import PdfError, SaveResult, atomic_save, _ensure_distinct_destination, parse_pages
+else:
+    from pdf_save import PdfError, SaveResult, atomic_save, _ensure_distinct_destination, parse_pages
 
 # ------------------------------------------------------------- thao tác PDF
 
@@ -93,29 +31,10 @@ def open_readonly(path: str, password: Optional[str] = None) -> pikepdf.Pdf:
         raise PdfError(f"Không mở được PDF (có thể hỏng): {e}")
 
 
-def parse_pages(spec: str, total: int) -> List[int]:
-    """Chuyển chuỗi kiểu '1-3,5,8-' thành danh sách chỉ số 0-based, có kiểm tra."""
-    result: List[int] = []
-    for part in spec.replace(" ", "").split(","):
-        if not part:
-            continue
-        if "-" in part:
-            a, _, b = part.partition("-")
-            start = int(a) if a else 1
-            end = int(b) if b else total
-        else:
-            start = end = int(part)
-        if start < 1 or end > total or start > end:
-            raise PdfError(f"Khoảng trang không hợp lệ: {part} (tài liệu có {total} trang)")
-        result.extend(range(start - 1, end))
-    if not result:
-        raise PdfError("Chưa chọn trang nào.")
-    return result
-
-
 def merge(paths: Sequence[str], dest: str, allow_replace: bool = False) -> SaveResult:
     if len(paths) < 2:
         raise PdfError("Cần ít nhất hai tệp để gộp.")
+    _ensure_distinct_destination(paths, dest)
     out = pikepdf.new()
     sources = []
     try:
@@ -132,6 +51,7 @@ def merge(paths: Sequence[str], dest: str, allow_replace: bool = False) -> SaveR
 
 def extract(path: str, pages_spec: str, dest: str, allow_replace: bool = False,
             password: Optional[str] = None) -> SaveResult:
+    _ensure_distinct_destination([path], dest)
     src = open_readonly(path, password)
     try:
         indexes = parse_pages(pages_spec, len(src.pages))
@@ -152,8 +72,13 @@ def split_each(path: str, out_dir: str, password: Optional[str] = None) -> List[
     written: List[str] = []
     try:
         stem = os.path.splitext(os.path.basename(path))[0]
-        for i in range(len(src.pages)):
-            dest = os.path.join(out_dir, f"{stem}-trang{i + 1:03d}.pdf")
+        targets = [os.path.join(out_dir, f"{stem}-trang{i + 1:03d}.pdf")
+                   for i in range(len(src.pages))]
+        for dest in targets:
+            _ensure_distinct_destination([path], dest)
+            if os.path.lexists(dest):
+                raise PdfError(f"Tệp đích đã tồn tại: {dest}")
+        for i, dest in enumerate(targets):
             out = pikepdf.new()
             out.pages.append(src.pages[i])
             try:
@@ -167,11 +92,12 @@ def split_each(path: str, out_dir: str, password: Optional[str] = None) -> List[
 
 def rotate(path: str, pages_spec: str, degrees: int, dest: str,
            allow_replace: bool = False, password: Optional[str] = None) -> SaveResult:
+    _ensure_distinct_destination([path], dest)
     if degrees % 90 != 0:
         raise PdfError("Chỉ xoay theo bội số của 90 độ.")
     src = open_readonly(path, password)
     try:
-        for i in parse_pages(pages_spec, len(src.pages)):
+        for i in dict.fromkeys(parse_pages(pages_spec, len(src.pages))):
             page = src.pages[i]
             page.rotate(degrees, relative=True)
         return atomic_save(src, dest, allow_replace)
@@ -186,6 +112,7 @@ def compress(path: str, dest: str, allow_replace: bool = False,
     Không nén lại ảnh (không mất chất lượng). Nếu kết quả lớn hơn bản gốc,
     vẫn ghi nhưng cảnh báo để người dùng biết.
     """
+    _ensure_distinct_destination([path], dest)
     src = open_readonly(path, password)
     try:
         warnings: List[str] = []
