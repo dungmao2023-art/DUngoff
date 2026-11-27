@@ -21,6 +21,7 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QFileInfo>
+#include <QDateTime>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
@@ -42,6 +43,26 @@
 using namespace dungpdf;
 
 namespace {
+// Refresh metadata on each check; QFileInfo caches its observations.
+struct PdfSourceSnapshot {
+    QString path, canonical;
+    qint64 size = -1;
+    QDateTime modified, birth;
+    explicit PdfSourceSnapshot(const QString& source) : path(source) {
+        const QFileInfo f(path);
+        if (!f.isFile() || !f.isReadable()) return;
+        canonical = f.canonicalFilePath();
+        size = f.size();
+        modified = f.lastModified();
+        birth = f.birthTime();
+    }
+    bool unchanged() const {
+        const QFileInfo f(path);
+        return !canonical.isEmpty() && size >= 0 && modified.isValid() &&
+            f.isFile() && f.isReadable() && f.canonicalFilePath() == canonical &&
+            f.size() == size && f.lastModified() == modified && f.birthTime() == birth;
+    }
+};
 QString human(qint64 b) {
     if (b < 1024) return QStringLiteral("%1 B").arg(b);
     if (b < 1024 * 1024) return QStringLiteral("%1 KB").arg(b / 1024.0, 0, 'f', 1);
@@ -875,6 +896,8 @@ QWidget* PdfToolsDialog::buildOcr() {
         if (!pdfMode) output->clear();
         if (m_ocrFile->text().isEmpty()) { status->setText(tr("Hãy chọn tệp PDF.")); return; }
         const auto source = m_ocrFile->text();
+        const PdfSourceSnapshot snapshot(source);
+        if (!snapshot.unchanged()) { status->setText(tr("Không xác minh được PDF nguồn.")); return; }
         const auto inf = printrender::pdfInfo(source);
         if (!inf.ok) { status->setText(inf.error); return; }
         const int first = page->value(), end = last->value();
@@ -896,12 +919,14 @@ QWidget* PdfToolsDialog::buildOcr() {
                 status->setText(tr("Chọn tệp PDF mới chưa tồn tại.")); return;
             }
         }
+        if (!snapshot.unchanged()) { status->setText(tr("PDF nguồn đã thay đổi; hãy chọn lại tệp.")); return; }
         QTemporaryDir temp;
         if (!temp.isValid()) { status->setText(tr("Không tạo được thư mục tạm.")); return; }
         const QString image = temp.filePath(QStringLiteral("ocr.png"));
         QStringList recognized;
         QList<Input> pdfPages;
         QString failure;
+        bool sourceChanged = false;
         const int count = end - first + 1;
         // Separate modal progress window: keep the source dialog disabled throughout.
         QProgressDialog progress(tr("Đang chuẩn bị OCR…"), tr("Dừng"), 0, count);
@@ -915,9 +940,11 @@ QWidget* PdfToolsDialog::buildOcr() {
         progress.setValue(0);
         for (int p = first; p <= end; ++p) {
             if (progress.wasCanceled()) break;
+            if (!snapshot.unchanged()) { sourceChanged = true; break; }
             progress.setLabelText(tr("Trang %1 · %2/%3").arg(p).arg(p-first+1).arg(count));
             QString err;
             const QImage img = printrender::renderPage(source, p, QSize(3000,3000), &err);
+            if (!snapshot.unchanged()) { sourceChanged = true; break; }
             if (img.isNull() || !img.save(image, "PNG")) {
                 failure = tr("Trang %1: %2").arg(p).arg(err.isEmpty() ? tr("Không lưu được ảnh tạm.") : err);
                 break;
@@ -953,6 +980,10 @@ QWidget* PdfToolsDialog::buildOcr() {
         const bool cancelled = progress.wasCanceled();
         progress.hide();
         setEnabled(true);
+        if (sourceChanged || !snapshot.unchanged()) {
+            status->setText(tr("PDF nguồn đã thay đổi trong khi OCR. Đã bỏ kết quả lượt này; hãy chọn lại tệp."));
+            return;
+        }
         if (pdfMode) {
             if (cancelled || !failure.isEmpty() || pdfPages.size()!=count) {
                 status->setText(cancelled ? tr("Đã hủy. Không tạo PDF đầu ra.") : tr("Không tạo PDF: %1").arg(failure));
