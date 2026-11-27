@@ -178,8 +178,8 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 {tr("Hàng & cột"), {
                     B(".uno:InsertRowsBefore", tr("Chèn hàng"), 0xE710, "+≡", false),
                     B(".uno:InsertColumnsBefore", tr("Chèn cột"), 0xE710, "+‖", false),
-                    B(".uno:DeleteRows", tr("Xoá hàng"), 0xE74D, "−≡", false),
-                    B(".uno:DeleteColumns", tr("Xoá cột"), 0xE74D, "−‖", false),
+                    B("xl:deleteRow", tr("Xoá hàng…"), 0xE74D, "−≡", false),
+                    B("xl:deleteColumn", tr("Xoá cột…"), 0xE74D, "−‖", false),
                     B("xl:colWidth", tr("Rộng cột"), 0xE746, "↔|", false),
                     B("xl:rowHeight", tr("Cao hàng"), 0xE745, "↕|", false),
                     B(".uno:SetOptimalColumnWidth", tr("Vừa cột"), 0xE746, "⇔", false),
