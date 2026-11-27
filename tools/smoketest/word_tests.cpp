@@ -564,6 +564,36 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                 fs::remove(edited,ec);
                 const auto editedResult=reopened->saveAs(edited);
                 check(editedResult.ok,"Lưu bảng sau thêm hàng/cột: "+editedResult.message);
+                step("Word — xóa hàng/cột và hoàn tác");
+                auto selectMarkedCell=[&]{
+                    run(*reopened,w::findNext("TABLE_CELL_MARKER",false));
+                    const bool found=has(selText(*reopened),"TABLE_CELL_MARKER");
+                    check(found,"Tìm đúng ô trước khi xóa");
+                    if(found){
+                        reopened->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+                        reopened->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+                        reopened->waitInputIdle();
+                    }
+                    return found;
+                };
+                auto saveTable=[&](const char* filename){
+                    const fs::path target=out/filename;
+                    fs::remove(target,ec);
+                    const auto result=reopened->saveAs(target);
+                    check(result.ok,std::string("Lưu bảng ")+filename+": "+result.message);
+                };
+                if(selectMarkedCell()){
+                    run(*reopened,".uno:DeleteRows");
+                    saveTable("word-table-row-deleted.docx");
+                    run(*reopened,".uno:Undo");
+                    saveTable("word-table-row-restored.docx");
+                    if(selectMarkedCell()){
+                        run(*reopened,".uno:DeleteColumns");
+                        saveTable("word-table-column-deleted.docx");
+                        run(*reopened,".uno:Undo");
+                        saveTable("word-table-column-restored.docx");
+                    }
+                }
             }
         }
     }
