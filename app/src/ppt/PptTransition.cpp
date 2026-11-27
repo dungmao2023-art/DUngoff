@@ -465,6 +465,57 @@ Result createMasterBackgroundCopy(const QString& source,const QString& destinati
 Result createCopy(const QString& source, const QString& destination, int slide1, const Options& options) {
     return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchXml(xml, options, out); });
 }
+Result createRangeCopy(const QString& source,const QString& destination,int first,int last,const Options& options){
+    const QFileInfo dst(destination),src(source);
+    if(!source.endsWith(QLatin1String(".pptx"),Qt::CaseInsensitive)||!destination.endsWith(QLatin1String(".pptx"),Qt::CaseInsensitive)||
+       dst.exists()||dst.isSymLink()||!QDir(dst.absolutePath()).exists()||!src.isFile())
+        return fail(QStringLiteral("Chọn nguồn PPTX và tên PPTX mới chưa tồn tại."));
+    QString error;const auto slides=slideEntries(source,&error);
+    if(first<1||last<first||last>slides.size()||last-first+1>100)
+        return fail(error.isEmpty()?QStringLiteral("Chọn khoảng slide hợp lệ, tối đa 100 slide mỗi lần."):error);
+    if(first==last)return createCopy(source,destination,first,options);
+    // Bound repeated package rewrites; a future single-pass ZIP writer can raise this.
+    if(src.size()>100LL*1024*1024 || src.size()*(last-first+1)>1024LL*1024*1024)
+        return fail(QStringLiteral("Gói quá lớn cho chuyển cảnh hàng loạt; hãy chọn ít slide hơn."));
+    ft::ZipReader original;if(!original.open(source,&error))return fail(error);
+    QHash<QString,QByteArray> patches;qint64 totalXml=0;
+    for(int i=first;i<=last;++i){
+        QByteArray xml,patched;const auto entry=slides.at(i-1);
+        if(!read(original,entry,&xml,&error))return fail(error);
+        const auto result=patchXml(xml,options,&patched);
+        if(!result.ok)return fail(QStringLiteral("Slide %1: ").arg(i)+result.error);
+        totalXml+=patched.size();
+        if(totalXml>64LL*1024*1024)return fail(QStringLiteral("Tổng XML slide quá lớn; hãy chia nhỏ khoảng."));
+        patches.insert(entry,patched);
+    }
+    QTemporaryDir temp(QDir(dst.absolutePath()).filePath(QStringLiteral(".DungOffice-ppt-XXXXXX")));
+    if(!temp.isValid())return fail(QStringLiteral("Không tạo được thư mục tạm."));
+    QString current=source;
+    for(int i=first;i<=last;++i){
+        const QString next=temp.filePath(QStringLiteral("step-%1.pptx").arg(i));
+        const auto entry=slides.at(i-1);
+        if(!dung::word::replaceZipEntry(current,next,entry,patches.value(entry),&error))return fail(error);
+        if(current!=source&&!QFile::remove(current))return fail(QStringLiteral("Không dọn được bản tạm."));
+        current=next;
+    }
+    {
+        ft::ZipReader check;
+        if(!check.open(current,&error)||check.entries().size()!=original.entries().size())
+            return fail(QStringLiteral("Gói đầu ra không qua kiểm tra: ")+error);
+        if(slideEntries(current,&error)!=slides)return fail(QStringLiteral("Thứ tự slide đầu ra thay đổi."));
+        for(const auto& old:original.entries()){
+            const auto* now=check.find(old.name);if(!now)return fail(QStringLiteral("Mất mục: ")+old.name);
+            if(patches.contains(old.name)){
+                QByteArray actual;
+                if(!check.read(*now,&actual,&error,32LL*1024*1024)||actual!=patches.value(old.name))
+                    return fail(QStringLiteral("Slide đầu ra không khớp: ")+old.name);
+            }else if(old.crc!=now->crc||old.usize!=now->usize||old.csize!=now->csize||old.method!=now->method)
+                return fail(QStringLiteral("Mục ngoài khoảng chọn bị thay đổi: ")+old.name);
+        }
+    }
+    if(!QFile::rename(current,destination))return fail(QStringLiteral("Không đặt được tên đích; không ghi đè."));
+    return {true,{}};
+}
 Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options) {
     return createAnimationSequenceCopy(source, destination, slide1, {options});
 }
