@@ -192,6 +192,14 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     } else if (name == QLatin1String("exportPdf")) {
         tab->exportPdf();
     } else if (name == QLatin1String("symbols")) {
+        doc->waitInputIdle();
+        QPointer<DocumentTab> live(tab);
+        const auto selected=doc->selectionAs("text/plain;charset=utf-8");
+        const auto caret=doc->lastPayload(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR);
+        const auto selection=doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION);
+        if(selected.empty()&&caret.empty()){
+            QMessageBox::information(parent,QObject::tr("Chèn ký hiệu"),QObject::tr("Đặt con trỏ vào văn bản trước khi chèn."));return true;
+        }
         QDialog dlg(parent);
         dlg.setWindowTitle(QObject::tr("Chèn ký hiệu"));
         auto* lay = new QVBoxLayout(&dlg);
@@ -217,9 +225,29 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         QObject::connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
         lay->addWidget(box);
         if (dlg.exec() == QDialog::Accepted && !edit->text().isEmpty()) {
+            if(!live||live->readOnly()||live->document()!=doc||!live->view())return true;
             doc->waitInputIdle();
-            if (!doc->paste("text/plain;charset=utf-8", ss(edit->text())))
-                QMessageBox::warning(parent, QObject::tr("Chèn ký hiệu"), QObject::tr("Engine không xác nhận chèn ký hiệu."));
+            auto unchanged=[&]{
+                return live&&!live->readOnly()&&live->document()==doc&&live->view()&&
+                    doc->selectionAs("text/plain;charset=utf-8")==selected&&
+                    doc->lastPayload(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR)==caret&&
+                    doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION)==selection;
+            };
+            if(!unchanged()){
+                QMessageBox::warning(live.data(),QObject::tr("Chèn ký hiệu"),QObject::tr("Vị trí hoặc vùng chữ thay đổi. Chưa chèn ký hiệu."));return true;
+            }
+            if(!selected.empty()){
+                if(QMessageBox::question(live.data(),QObject::tr("Thay vùng chữ"),
+                    QObject::tr("Ký hiệu sẽ thay thế vùng chữ đang chọn. Tiếp tục?"),
+                    QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return true;
+                if(!live||live->document()!=doc||live->readOnly())return true;
+                doc->waitInputIdle();
+                if(!unchanged()){QMessageBox::warning(live.data(),QObject::tr("Chèn ký hiệu"),QObject::tr("Vùng chữ thay đổi. Chưa chèn."));return true;}
+            }
+            if(!doc->paste("text/plain;charset=utf-8",ss(edit->text())))
+                QMessageBox::warning(live.data(),QObject::tr("Chèn ký hiệu"),QObject::tr("Engine không xác nhận chèn ký hiệu."));
+            doc->waitInputIdle();
+            if(live&&live->view())live->view()->setFocus();
         }
     } else if (name == QLatin1String("mailMerge")) {
         QDialog dlg(parent);
@@ -298,13 +326,36 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
                                                        QObject::tr("Ảnh (*.png *.jpg *.jpeg *.gif *.bmp *.svg)"));
         if (!f.isEmpty()) send(tab, insertImage(ss(QUrl::fromLocalFile(f).toString())));
     } else if (name == QLatin1String("link")) {
+        doc->waitInputIdle();
+        QPointer<DocumentTab> live(tab);
+        const auto selected=doc->selectionAs("text/plain;charset=utf-8");
+        const auto caret=doc->lastPayload(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR);
+        const auto selection=doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION);
+        if(selected.empty()&&caret.empty()){
+            QMessageBox::information(parent,QObject::tr("Liên kết"),QObject::tr("Đặt con trỏ hoặc chọn chữ trước khi chèn liên kết."));return true;
+        }
         bool ok = false;
         const QString url = QInputDialog::getText(parent, QObject::tr("Liên kết"), QObject::tr("Địa chỉ (URL):"), QLineEdit::Normal,
                                                   QStringLiteral("https://"), &ok);
         if (!ok || url.trimmed().isEmpty()) return true;
-        QString text = QString::fromUtf8(doc->selectionAs("text/plain;charset=utf-8").c_str());
-        if (text.isEmpty()) text = url.trimmed();
-        send(tab, hyperlink(ss(text), ss(url.trimmed())));
+        const QUrl target(url.trimmed(),QUrl::StrictMode);
+        const bool web=(target.scheme()==QLatin1String("https")||target.scheme()==QLatin1String("http"))&&!target.host().isEmpty()&&target.userInfo().isEmpty();
+        const bool mail=target.scheme()==QLatin1String("mailto")&&!target.path().isEmpty();
+        if(!target.isValid()||(!web&&!mail)){
+            QMessageBox::warning(parent,QObject::tr("Liên kết"),QObject::tr("Chỉ chèn địa chỉ HTTP, HTTPS hoặc mailto hợp lệ. Chưa chèn liên kết."));return true;
+        }
+        if(!live||live->readOnly()||live->document()!=doc||!live->view())return true;
+        doc->waitInputIdle();
+        if(doc->selectionAs("text/plain;charset=utf-8")!=selected||
+           doc->lastPayload(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR)!=caret||
+           doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION)!=selection){
+            QMessageBox::warning(live.data(),QObject::tr("Liên kết"),QObject::tr("Vị trí hoặc vùng chữ thay đổi. Chưa chèn liên kết."));return true;
+        }
+        QString text=QString::fromUtf8(selected.c_str());
+        if(text.isEmpty())text=url.trimmed();
+        send(live.data(),hyperlink(ss(text),ss(target.toString(QUrl::FullyEncoded))));
+        doc->waitInputIdle();
+        if(live&&live->view())live->view()->setFocus();
     } else if (name == QLatin1String("find") || name == QLatin1String("replace")) {
         bool ok = false;
         const QString what = QInputDialog::getText(parent, QObject::tr("Tìm"), QObject::tr("Tìm:"), QLineEdit::Normal, QString(), &ok);
