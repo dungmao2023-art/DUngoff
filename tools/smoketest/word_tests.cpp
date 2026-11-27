@@ -532,6 +532,8 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
         run(*table,".uno:GoToEndOfDoc");
         run(*table,w::insertTable(4,5));
         table->waitInputIdle();
+        table->typeText(u"TABLE_CELL_MARKER");
+        table->waitInputIdle();
         const fs::path dest=out/"word-table-custom.docx";
         fs::remove(dest,ec);
         const auto saved=table->saveAs(dest);
@@ -545,6 +547,23 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                 fs::remove(rt,ec);
                 const auto result=reopened->saveAs(rt);
                 check(result.ok,"Roundtrip bảng tùy chọn: "+result.message);
+                step("Word — thêm hàng và cột trong bảng hiện có");
+                run(*reopened,w::findNext("TABLE_CELL_MARKER",false));
+                check(has(selText(*reopened),"TABLE_CELL_MARKER"),"Chọn đúng ô trong bảng");
+                reopened->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+                reopened->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+                reopened->waitInputIdle();
+                run(*reopened,".uno:InsertRowsAfter");
+                run(*reopened,w::findNext("TABLE_CELL_MARKER",false));
+                check(has(selText(*reopened),"TABLE_CELL_MARKER"),"Giữ nội dung ô sau khi thêm hàng");
+                reopened->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+                reopened->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+                reopened->waitInputIdle();
+                run(*reopened,".uno:InsertColumnsAfter");
+                const fs::path edited=out/"word-table-edited.docx";
+                fs::remove(edited,ec);
+                const auto editedResult=reopened->saveAs(edited);
+                check(editedResult.ok,"Lưu bảng sau thêm hàng/cột: "+editedResult.message);
             }
         }
     }
