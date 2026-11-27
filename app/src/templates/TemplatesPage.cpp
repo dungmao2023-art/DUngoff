@@ -193,9 +193,15 @@ void TemplatesPage::installPackage() {
 void TemplatesPage::showSources() {
     const tpl::LibInfo lib = tpl::installed();
     QString html = tr("<h3>Nguồn chính thức</h3><p>Luôn đối chiếu với bản đang được cơ quan công bố.</p><ul>");
-    for (const tpl::Source& s : tpl::sources(lib))
-        html += QStringLiteral("<li><b>%1</b> — %2<br><a href=\"%3\">%3</a><br><i>%4</i></li>")
-                    .arg(s.group.toHtmlEscaped(), s.document.toHtmlEscaped(), s.url.toHtmlEscaped(), s.guide.toHtmlEscaped());
+    for (const tpl::Source& s : tpl::sources(lib)){
+        const QUrl url(s.url,QUrl::StrictMode);
+        const bool allowed=url.isValid()&&!url.host().isEmpty()&&url.userInfo().isEmpty()&&
+            (url.scheme()==QLatin1String("https")||url.scheme()==QLatin1String("http"));
+        const auto link=allowed?QStringLiteral("<a href=\"%1\">%2</a>").arg(url.toString(QUrl::FullyEncoded).toHtmlEscaped(),s.url.toHtmlEscaped()):
+            s.url.toHtmlEscaped();
+        html += QStringLiteral("<li><b>%1</b> — %2<br>%3<br><i>%4</i></li>")
+                    .arg(s.group.toHtmlEscaped(),s.document.toHtmlEscaped(),link,s.guide.toHtmlEscaped());
+    }
     html += QStringLiteral("</ul>");
     QDialog dlg(this);
     dlg.setWindowTitle(tr("Nguồn chính thức"));
