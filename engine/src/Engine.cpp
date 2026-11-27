@@ -1182,7 +1182,12 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
     // cùng thư mục với đích (dùng tiền tố \\?\ khi đường dẫn dài) và đổi tên để thay thế đích.
     fs::path stage = m_workDir / fs::u8path("~luu-" + randomToken() + "." + ext);
     const std::string stageUrl = toFileUrl(stage);
+    const bool wasModified = m_modified;
     bool ok = onEngine([&] { return m_doc->saveAs(stageUrl.c_str(), ext.c_str(), nullptr); });
+    // Staging is not a successful user save. Some engines clear the modified
+    // flag during saveAs even if publication subsequently fails or is PDF-only.
+    // Only clear it after successful publication of a native editable document.
+    if (wasModified) m_modified = true;
     if (!ok) {
         fs::remove(stage, ec);
         r.message = "Engine không ghi được tệp.";
@@ -1207,9 +1212,11 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
     fs::path sibling = target.parent_path() / fs::u8path("~dung-" + randomToken() + "." + ext);
     fs::copy_file(longPath(stage), longPath(sibling), fs::copy_options::none, ec);
     if (ec) {
-        fs::remove(longPath(sibling), ec);
-        fs::remove(stage, ec);
-        r.message = "Không ghi được vào thư mục đích: " + ec.message() + "." + longNote + " Tệp đích chưa bị thay đổi.";
+        const auto em = ec.message();
+        std::error_code cleanup;
+        fs::remove(longPath(sibling), cleanup);
+        fs::remove(stage, cleanup);
+        r.message = "Không ghi được vào thư mục đích: " + em + "." + longNote + " Tệp đích chưa bị thay đổi.";
         return r;
     }
     fs::rename(longPath(sibling), longPath(target), ec); // thay thế nguyên tử trong cùng thư mục
