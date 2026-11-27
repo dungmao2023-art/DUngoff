@@ -934,6 +934,7 @@ void Document::postKey(int type, int charCode, int keyCode) {
 }
 
 void Document::postMouse(int type, int x, int y, int count, int buttons, int modifier) {
+    m_lastInputMs = steadyMs();
     if (m_readOnly && count >= 2) count = 1; // không cho nhấp đúp để vào chế độ sửa ô
     onEngine([&] { m_doc->postMouseEvent(type, x, y, count, buttons, modifier); });
     if (type != LOK_MOUSEEVENT_MOUSEMOVE) emitSynthetic();
@@ -1006,6 +1007,11 @@ bool Document::paste(const std::string& mime, const std::string& data) {
     const bool ok = onEngine([&] { return m_doc->paste(mime.c_str(), data.c_str(), data.size()); });
     emitSynthetic();
     return ok;
+}
+
+bool Document::inputIdleFor(int quietMs) const {
+    const auto last=std::max(m_lastInputMs.load(),m_lastEventMs.load());
+    return last==0 || steadyMs()-last>=quietMs;
 }
 
 void Document::waitInputIdle(int quietMs, int maxMs) {
