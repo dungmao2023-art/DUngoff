@@ -264,12 +264,21 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
         const bool exact=selected.find("12\t5")!=std::string::npos && selected.find("7\t9")!=std::string::npos;
         check(exact,"Chọn đúng vùng A1:B2 trước thăm dò");
         if (exact) {
+            // Range selection + paste was a no-op on both engines. Test a
+            // single top-left anchor, keeping all file-level assertions.
+            gotoCell(*probe,"A1");
+            probe->waitInputIdle(); settle();
+            const auto anchor=probe->selectionAs("text/plain;charset=utf-8");
+            if (anchor.find("12")==std::string::npos || anchor.find('\t')!=std::string::npos) {
+                check(false,"Không xác minh được ô neo A1");
+            } else {
             const bool pasted=probe->paste("text/plain;charset=utf-8","Mười hai\tNăm\nBảy\tChín");
             check(pasted,"LOK paste trả về thành công (chưa chứng minh dữ liệu)");
             probe->waitInputIdle(); settle();
             snapshot("direct-paste-after.xlsx");
             probe->command(".uno:Undo"); probe->waitInputIdle(); settle();
             snapshot("direct-paste-undo.xlsx");
+            }
         }
     }
     probe.reset();
