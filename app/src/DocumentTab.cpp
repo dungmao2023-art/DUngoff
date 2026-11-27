@@ -833,7 +833,20 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
                 notifyFormulaSheet(m_formulaAssistant,part,qs(m_doc->partName(part)));
         }
         if(changed) {
-            rebuildParts();
+            // Navigation within a fixed list does not require rebuilding every
+            // page label. For presentations, retain the existing thumbnails
+            // but queue a refresh of all indices in case a native reorder
+            // also changed the selection. Structural size callbacks still
+            // rebuild, so old slide images cannot survive a changed count.
+            if(type==LOK_CALLBACK_SET_PART&&m_slides&&m_slides->count()==count&&part>=0&&part<count) {
+                m_rebuildingParts=true;
+                m_slides->setCurrentRow(part);
+                m_rebuildingParts=false;
+                if(m_slideRefresh&&!m_pptNotes) {
+                    for(int i=0;i<count;++i)m_pendingThumbnails.insert(i);
+                    if(isVisible())m_slideRefresh->start(40);
+                }
+            } else rebuildParts();
             m_view->resetForPartChange();
         }
         if(m_pdfComparison)refreshPdfComparison();
