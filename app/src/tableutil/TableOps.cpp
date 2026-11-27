@@ -314,7 +314,7 @@ bool writeCsvCopy(const QString &path, const Table &t, QString &error, QChar sep
 }
 
 // ---------------- Exact CSV group summary ----------------
-CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol,bool includeExtrema)
+CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol,bool includeExtrema,bool includeAverage)
 {
     CsvGroupResult r;
     if(keyCol<0 || keyCol>=source.header.size() || valueCol<-1 || valueCol>=source.header.size() || keyCol==valueCol) {
@@ -369,12 +369,27 @@ CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol,bool include
     if(valueCol>=0){
         r.table.header << QObject::tr("Số ô có số") << QObject::tr("Tổng");
         if(includeExtrema)r.table.header << QObject::tr("Nhỏ nhất") << QObject::tr("Lớn nhất");
+        if(includeAverage)r.table.header << QObject::tr("Trung bình");
     }
     for(const auto& g:groups){
         QStringList row{g.key,QString::number(g.rows)};
         if(valueCol>=0){
             row<<QString::number(g.numbers)<<(g.numbers?decimalText(g.sum):QString());
             if(includeExtrema)row<<(g.numbers?decimalText(g.minimum):QString())<<(g.numbers?decimalText(g.maximum):QString());
+            if(includeAverage){
+                QString average;
+                if(g.numbers){
+                    const qint64 n=g.numbers;
+                    qint64 rounded=g.sum/n;
+                    const qint64 remainder=g.sum%n;
+                    const qint64 magnitude=remainder<0?-remainder:remainder;
+                    // Round to four decimal places, ties away from zero, without
+                    // multiplying the sum or converting to binary floating point.
+                    if(magnitude>=n-magnitude)rounded+=remainder<0?-1:1;
+                    average=decimalText(rounded);
+                }
+                row<<average;
+            }
         }
         r.table.rows.append(row);
     }
@@ -618,7 +633,7 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
         }
         selected.insert(col); names.insert(name.toCaseFolded());
     }
-    if((spec.groupExtrema&&(spec.groupKey<0||spec.groupValue<0)) ||
+    if(((spec.groupExtrema||spec.groupAverage)&&(spec.groupKey<0||spec.groupValue<0)) ||
        (spec.groupKey<0 && spec.groupValue>=0) ||
        (spec.groupKey>=0 && spec.groupKey==spec.groupValue) ||
        (project && spec.groupKey>=0 && (!selected.contains(spec.groupKey) ||
@@ -678,7 +693,7 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
     if(spec.groupKey>=0){
         const int key=project?int(spec.outputColumns.indexOf(spec.groupKey)):spec.groupKey;
         const int value=spec.groupValue<0?-1:project?int(spec.outputColumns.indexOf(spec.groupValue)):spec.groupValue;
-        const auto grouped=groupCsv(result.table,key,value,spec.groupExtrema);
+        const auto grouped=groupCsv(result.table,key,value,spec.groupExtrema,spec.groupAverage);
         if(!grouped.ok){result.error=grouped.error;result.table={};return result;}
         result.grouped=true;result.groupedInputRows=result.table.rows.size();result.table=grouped.table;
     }
@@ -712,6 +727,7 @@ QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpe
     }
     // Version 5 is reserved for the join wrapper; version 6 adds numeric extrema.
     if(spec.groupExtrema){obj.insert("version",6);obj.insert("groupExtrema",true);}
+    if(spec.groupAverage){obj.insert("version",7);obj.insert("groupAverage",true);obj.insert("groupExtrema",spec.groupExtrema);}
     return QJsonDocument(obj).toJson(QJsonDocument::Indented);
 }
 
@@ -725,7 +741,7 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return fail();
     const auto obj = doc.object();
     const int version=obj.value("version").toInt(-1);
-    if ((version != 1 && version != 2 && version != 3 && version != 4 && version != 6) || !obj.value("header").isArray()
+    if ((version != 1 && version != 2 && version != 3 && version != 4 && version != 6 && version != 7) || !obj.value("header").isArray()
         || obj.value("header").toArray() != QJsonArray::fromStringList(header)) return fail();
     const int filter = obj.value("filterCol").toInt(-2);
     const int sort = obj.value("sortCol").toInt(-2);
@@ -758,14 +774,19 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
         candidate.cleanCol=clean;candidate.cleanKind=ColumnKind(kind);candidate.moneyLocale=MoneyLocale(locale);
         candidate.dedupCol=dedup;candidate.dedupFold=obj.value("dedupFold").toBool();
     } else if(obj.contains("cleanCol")||obj.contains("cleanKind")||obj.contains("moneyLocale")||obj.contains("dedupCol")||obj.contains("dedupFold"))return fail();
-    if(version==4||version==6){
+    if(version==4||version==6||version==7){
         candidate.groupKey=obj.value("groupKey").toInt(-2);candidate.groupValue=obj.value("groupValue").toInt(-2);
         if(candidate.groupKey<0 || candidate.groupKey>=header.size() || candidate.groupValue<-1 || candidate.groupValue>=header.size())return fail();
     }else if(obj.contains("groupKey")||obj.contains("groupValue"))return fail();
     if(version==6){
         if(!obj.value("groupExtrema").isBool()||!obj.value("groupExtrema").toBool())return fail();
         candidate.groupExtrema=true;
+    }else if(version==7){
+        if(!obj.value("groupAverage").isBool()||!obj.value("groupAverage").toBool()||
+           !obj.value("groupExtrema").isBool())return fail();
+        candidate.groupAverage=true;candidate.groupExtrema=obj.value("groupExtrema").toBool();
     }else if(obj.contains("groupExtrema"))return fail();
+    if(version!=7&&obj.contains("groupAverage"))return fail();
     const auto checked = filterSort(Table{header, {}}, candidate);
     if (!checked.ok) { error = checked.error; return false; }
     spec = candidate;
