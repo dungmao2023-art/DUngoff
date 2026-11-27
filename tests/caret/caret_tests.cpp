@@ -17,6 +17,8 @@
 #include <QPointer>
 #include <QTimer>
 #include <QThread>
+#include <QStackedWidget>
+#include <QLineEdit>
 #include <functional>
 #include <cstdlib>
 #include <iostream>
@@ -99,6 +101,8 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
     auto doc = eng.open(dung::fromUtf8(path.toUtf8().toStdString()), &err);
     check((bool)doc, label + ": mở tài liệu", QString::fromStdString(err));
     if (!doc) return;
+    // Construct before the stack-owned view, so stack-local view dies first.
+    QStackedWidget host;
     TileView view(doc.get());
     view.resize(900, 700);
     QPointer<TileView> pv(&view);
@@ -246,18 +250,35 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
             check(view.caretShownNow(), label + ": ngay sau khi gõ/di chuyển con trỏ đặc (hiện, chưa vào pha tắt)");
         }
     }
-    // Lifecycle assertions come after the independent caret/selection
-    // checks. Qt offscreen top-level hide/show may not reactivate keyboard
-    // focus (unlike a child page in the real stacked document area).
-    view.hide();
-    check(view.cachedTileCount()<=16&&!view.renderPending(),
-          label+": tab ẩn giải phóng cache và dừng render chờ");
-    view.show();
-    view.activateWindow();
+    // Realistic tab lifecycle: two child pages of the same active window.
+    host.resize(900,700);
+    host.addWidget(&view);
+    auto* alternate=new QLineEdit(&host);
+    host.addWidget(alternate);
+    host.setCurrentWidget(&view);
+    host.show();
+    QApplication::setActiveWindow(&host);
+    view.setFocus();
+    pump(500);
+    host.setCurrentWidget(alternate);
+    alternate->setFocus();
+    pump(50);
+    check(view.cachedTileCount()<=16&&!view.renderPending()&&!view.hasFocus(),
+          label+": tab ẩn giải phóng cache, dừng render và mất focus");
+    host.setCurrentWidget(&view);
     view.setFocus();
     pump(500);
     check(waitFor([&]{return !view.renderPending();},8000)&&view.cachedTileCount()>0,
-          label+": mở lại tab tiếp tục render");
+          label+": chuyển lại tab trong cùng cửa sổ khôi phục render");
+    check(view.hasFocus(),label+": chuyển lại tab khôi phục focus bàn phím");
+    if(label=="docx") {
+        click(vp,QPoint(140,120));
+        check(waitFor([&]{return view.hasCaret();},3000),
+              label+": con trỏ chữ sau khi trở lại tab");
+        view.freezeBlink(true);
+        check(view.caretShownNow(),label+": con trỏ thực sự hiện sau khi trở lại tab");
+        view.unfreezeBlink();
+    }
     doc->setEventSink(nullptr);
 }
 }  // namespace
