@@ -122,10 +122,66 @@ class DungPdfTests(unittest.TestCase):
         self.assertIn("mật khẩu", str(ctx.exception))
         with self.assertRaises(d.PdfError):
             d.open_readonly(enc, password="sai")
-        res = d.extract(enc, "1", self.p("giai-ma.pdf"), password="1234")
+        out_dir = self.p("encrypted-split")
+        os.makedirs(out_dir)
+        for action, dest in (
+            (lambda: d.extract(enc, "1", self.p("giai-ma.pdf"), password="1234"), self.p("giai-ma.pdf")),
+            (lambda: d.rotate(enc, "1", 90, self.p("rotate-enc.pdf"), password="1234"), self.p("rotate-enc.pdf")),
+            (lambda: d.compress(enc, self.p("compress-enc.pdf"), password="1234"), self.p("compress-enc.pdf")),
+        ):
+            with self.assertRaisesRegex(d.PdfError, "không còn mật khẩu"):
+                action()
+            self.assertFalse(os.path.exists(dest))
+        with self.assertRaisesRegex(d.PdfError, "không còn mật khẩu"):
+            d.split_each(enc, out_dir, password="1234")
+        self.assertEqual(os.listdir(out_dir), [])
+        res = d.extract(enc, "1", self.p("giai-ma.pdf"), password="1234", allow_decrypted_output=True)
+        self.assertTrue(any("không còn mật khẩu" in w for w in res.warnings))
         with pikepdf.open(res.written) as out:
             self.assertEqual(len(out.pages), 1)
         self.assertEqual(sha(enc), enc_hash)  # tệp gốc vẫn còn nguyên
+
+    def test_encrypted_exports_with_consent_are_readable_and_preserve_source(self):
+        enc = self.p("protected.pdf")
+        with pikepdf.open(self.a) as src:
+            src.save(enc, encryption=pikepdf.Encryption(owner="owner", user="1234"))
+        before = sha(enc)
+        rotated = d.rotate(enc, "1", 90, self.p("rotated.pdf"), password="1234",
+                           allow_decrypted_output=True)
+        compressed = d.compress(enc, self.p("compressed.pdf"), password="1234",
+                                allow_decrypted_output=True)
+        for result in (rotated, compressed):
+            self.assertTrue(any("không còn mật khẩu" in w for w in result.warnings))
+            with pikepdf.open(result.written) as out:
+                self.assertFalse(out.is_encrypted)
+                self.assertEqual(len(out.pages), 3)
+        with pikepdf.open(rotated.written) as out:
+            self.assertEqual(int(out.pages[0].Rotate), 90)
+        out_dir = self.p("allowed-split")
+        os.makedirs(out_dir)
+        files = d.split_each(enc, out_dir, password="1234", allow_decrypted_output=True)
+        self.assertEqual(len(files), 3)
+        for filename in files:
+            with pikepdf.open(filename) as out:
+                self.assertFalse(out.is_encrypted)
+                self.assertEqual(len(out.pages), 1)
+        self.assertEqual(sha(enc), before)
+
+    def test_merge_encrypted_empty_user_password_requires_consent(self):
+        enc = self.p("empty-user.pdf")
+        with pikepdf.open(self.a) as src:
+            src.save(enc, encryption=pikepdf.Encryption(owner="owner", user=""))
+        before = sha(enc)
+        dest = self.p("merged-decrypted.pdf")
+        with self.assertRaisesRegex(d.PdfError, "không còn mật khẩu"):
+            d.merge([self.b, enc], dest)
+        self.assertFalse(os.path.exists(dest))
+        res = d.merge([self.b, enc], dest, allow_decrypted_output=True)
+        self.assertTrue(res.warnings)
+        with pikepdf.open(dest) as out:
+            self.assertEqual(len(out.pages), 5)
+            self.assertFalse(out.is_encrypted)
+        self.assertEqual(sha(enc), before)
 
     def test_large_document_merge(self):
         big = make_pdf(self.p("lon.pdf"), 300, "Lon")

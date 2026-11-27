@@ -39,7 +39,7 @@ id,priority,group,weight,stage,remaining_low_hours,remaining_high_hours,evidence
 "D03","P0","PDF","8","integrated","6","18","#15/#26/#27; ODG copy, fidelity"
 "D04","P0","PDF","13","scoped","32","100","PoDoFo/PDFium feasibility + giới hạn hỗ trợ; sửa gốc mọi PDF chưa định lượng"
 "D05","P0","PDF","5","integrated","8","24","#42 merged; Unicode vector stamp; preview and native GUI pending"
-"D06","P0","PDF","8","partial","8","24","#31/#40/#63 merged; layout OCR, Linux actual OCR PASS 45907636579; Windows build PASS; runtime package/GUI pending"
+"D06","P0","PDF","8","partial","8","24","#31/#40/#63 merged; layout OCR, Linux actual OCR PASS 45907636579; Windows build PASS; #111 source metadata guard CI 45953089425 PASS both OS; runtime package/GUI pending"
 "D07","P0","PDF","13","scoped","24","80","Prototype form/annotation/redaction; chữ ký an toàn, không cam kết đầy đủ"
 "E01","P0","Tiện ích","5","partial","8","24","Kho mẫu; kiểm số lượng/licensing/roundtrip"
 "E02","P0","Tiện ích","5","partial","8","24","Kho luật; hiệu lực cần đối chiếu"
