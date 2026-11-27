@@ -551,7 +551,19 @@ CleanCell cleanMoney(const QString &s, MoneyLocale loc)
     bool neg = false;
     if (v.startsWith(QLatin1Char('-'))) { neg = true; v.remove(0, 1); }
     else if (v.startsWith(QLatin1Char('(')) && v.endsWith(QLatin1Char(')'))) { neg = true; v = v.mid(1, v.size() - 2); }
-    v.remove(QLatin1Char(' ')); v.remove(QChar(0x00A0));
+    v=v.trimmed();
+    // Accept space-grouped thousands only in complete three-digit groups.
+    // Arbitrary embedded spaces can be IDs or separated values, never join them.
+    v.replace(QChar(0x00A0),QLatin1Char(' '));
+    v.replace(QChar(0x202F),QLatin1Char(' '));
+    if(v.contains(QLatin1Char(' '))){
+        const QString decimal=loc==MoneyLocale::VN?QStringLiteral(","):QStringLiteral(".");
+        const QRegularExpression grouped(QStringLiteral("^[0-9]{1,3}( [0-9]{3})+(?:%1[0-9]+)?$").arg(QRegularExpression::escape(decimal)));
+        if(!grouped.match(v).hasMatch()){
+            r.warning=QObject::tr("Khoảng trắng phân nhóm số không hợp lệ: giữ nguyên.");return r;
+        }
+        v.remove(QLatin1Char(' '));
+    }
 
     static const QRegularExpression onlyOk(QStringLiteral("^[0-9.,]+$"));
     if (v.isEmpty() || !onlyOk.match(v).hasMatch()) { r.warning = QObject::tr("Có ký tự không phải số/tiền: giữ nguyên."); return r; }
@@ -563,6 +575,7 @@ CleanCell cleanMoney(const QString &s, MoneyLocale loc)
     if (di >= 0) {
         if (v.indexOf(dec, di + 1) >= 0) { r.warning = QObject::tr("Nhiều dấu thập phân: giữ nguyên."); return r; }
         intPart = v.left(di); frac = v.mid(di + 1);
+        if(frac.isEmpty()){r.warning=QObject::tr("Thiếu chữ số sau dấu thập phân: giữ nguyên.");return r;}
         if (frac.contains(thou)) { r.warning = QObject::tr("Dấu nghìn nằm sau dấu thập phân: giữ nguyên."); return r; }
     }
     if (intPart.contains(thou)) {
@@ -573,6 +586,7 @@ CleanCell cleanMoney(const QString &s, MoneyLocale loc)
         intPart = g.join(QString());
     }
     if (intPart.isEmpty()) intPart = QStringLiteral("0");
+    if(intPart.size()>15){r.warning=QObject::tr("Phần nguyên dài hơn 15 chữ số: giữ nguyên.");return r;}
     if (intPart.size() > 1 && intPart[0] == QLatin1Char('0')) { r.warning = QObject::tr("Số có số 0 đứng đầu: giữ nguyên."); return r; }
     if (!frac.isEmpty()) {
         // Bỏ số 0 thừa cuối phần thập phân, KHÔNG làm tròn.
