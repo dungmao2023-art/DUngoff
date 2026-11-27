@@ -92,6 +92,21 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
     doc->setClientView(512, 512, 7680, 7680, 0, 0, 7680, 7680);
     check(doc->partCount() == 2, "Ban đầu có 2 sheet: " + names(*doc));
 
+    // Move within the same workbook using the native command, not a
+    // reconstructed sheet. Check identity/order and return to original order.
+    step("di chuyển sheet lên đầu và khôi phục thứ tự");
+    doc->setPart(1);
+    doc->command(".uno:Move",ex::sheetMove(toUtf8(doc->workingCopy().stem()),1,false));
+    settle();
+    check(doc->partCount()==2&&doc->partName(0)=="Phụ"&&doc->partName(1)=="Dữ liệu",
+          "Di chuyển Phụ lên đầu, không tạo/xóa sheet: "+names(*doc));
+    doc->setPart(1);
+    doc->command(".uno:Move",ex::sheetMove(toUtf8(doc->workingCopy().stem()),1,false));
+    settle();
+    check(doc->partCount()==2&&doc->partName(0)=="Dữ liệu"&&doc->partName(1)=="Phụ",
+          "Khôi phục đúng thứ tự sheet: "+names(*doc));
+    doc->setPart(0);
+
     // --- Sheet ---
     step("thêm / đổi tên / nhân đôi / xoá sheet");
     doc->command(".uno:Insert", ex::sheetInsert("Mới", 3));
