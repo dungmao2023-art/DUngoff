@@ -89,6 +89,11 @@ private:
     QLabel* m_pdfOriginalImage = nullptr;
     QPushButton* m_pdfCompareButton = nullptr;
     int m_pdfComparedPart = -1;
+    QString m_pdfComparedPath;
+    bool m_pdfComparisonBusy=false;
+    int m_pdfRequestedPart=-1;
+    QString m_pdfRequestedPath;
+    void startPdfComparison();
     std::function<bool(const QString&)> m_saveConflictCheck;
     QString m_savedPath;    // tệp mới mà người dùng đã "Lưu thành" trong phiên này
     QString m_cellAddress;

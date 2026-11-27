@@ -9,6 +9,8 @@
 #include <QPrinter>
 #include <QPageLayout>
 #include <QTemporaryDir>
+#include <QThread>
+#include <memory>
 #include <cstdio>
 #ifdef DUNG_HAVE_QTPDF
 #include <QPdfDocument>
@@ -145,6 +147,19 @@ int main(int argc, char** argv) {
     check(!a.isNull() && a.width() <= 400 && a.height() <= 400, "vẽ trang 1 vừa khung", err);
     check(!a.isNull() && darkPixels(a) > 200, "trang 1 có nội dung (điểm tối)", QStringLiteral("điểm tối: %1").arg(a.isNull() ? 0 : darkPixels(a)));
     check(!a.isNull() && !b.isNull() && a != b, "trang 1 và trang 3 khác nhau");
+    // Same independent QPdfDocument worker pattern as the comparison panel.
+    QImage workerImage;
+    QString workerError;
+    std::unique_ptr<QThread> worker(QThread::create([&] {
+        workerImage=printrender::renderPage(src,3,QSize(400,400),&workerError);
+    }));
+    worker->start();
+    const bool workerDone=worker->wait(15000);
+    check(workerDone,"PDF worker render completes within test timeout");
+    if(workerDone)check(workerError.isEmpty()&&!workerImage.isNull()&&workerImage==b,
+                       "PDF worker renders exact same third-page image as synchronous reference");
+    worker.reset(); // join safely before local results go out of scope (Qt >= 6.4)
+
     check(printrender::renderPage(src,1,QSize(0,400),&err).isNull()&&!err.isEmpty(),"reject empty preview bounds");
     check(printrender::renderPage(src,1,QSize(-1,400),&err).isNull()&&!err.isEmpty(),"reject negative preview bounds");
     const QImage land = printrender::renderPage(src, 2, QSize(400, 400), &err);
