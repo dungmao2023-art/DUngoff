@@ -106,10 +106,14 @@ struct FilterSortSpec {
     ColumnKind cleanKind=ColumnKind::Keep;
     MoneyLocale moneyLocale=MoneyLocale::VN;
     bool dedupFold=false;
+    // Group after projection. These are source indices and must survive projection.
+    int groupKey=-1, groupValue=-1;
 };
 struct FilterSortResult {
     bool ok = false; Table table; QString error;
     qsizetype cleanedCells=0, cleanWarnings=0, removedDuplicates=0, filteredRows=0;
+    qsizetype groupedInputRows=0;
+    bool grouped=false;
 };
 FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec);
 
