@@ -31,6 +31,9 @@ def build(dest):
     ws2["E3"], ws2["E4"] = "old3", "old4"
     ws2["G2"] = "=A2+$B$2"
     ws2["H2"], ws2["I2"] = "oldH", "oldI"
+    # Reverse fill uses the last row/column as source, with relative references.
+    ws2["D2"], ws2["D3"], ws2["D4"] = "old-up-2", "old-up-3", "=A4+$B$2"
+    ws2["G3"], ws2["H3"], ws2["I3"] = "old-left-G", "old-left-H", "=C2+$B$2"
     # Independent contiguous table for the ascending native sort.
     for row, values in enumerate([("Khóa", "Mã", "Giá trị"), (3, "003", 30), (1, "001", 10), (2, "002", 20)], start=10):
         for col, value in enumerate(values, start=11):

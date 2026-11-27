@@ -73,10 +73,13 @@ void DocumentTab::excelAction(const QString& id) {
         return m_doc->currentPart() == cur && m_doc->partCount() == n && m_doc->partName(cur) == originalSheet;
     };
 
-    if (a==QLatin1String("fillDown") || a==QLatin1String("fillRight")) {
-        const bool down=a==QLatin1String("fillDown");
+    if(a==QLatin1String("fillDown")||a==QLatin1String("fillRight")||
+       a==QLatin1String("fillUp")||a==QLatin1String("fillLeft")){
+        const bool down=a==QLatin1String("fillDown"),up=a==QLatin1String("fillUp"),left=a==QLatin1String("fillLeft");
+        const bool vertical=down||up;
         const QString range=m_view->selectedCellRange();
-        const QString title=down?tr("Điền xuống"):tr("Điền sang phải");
+        const QString title=down?tr("Điền xuống"):up?tr("Điền lên"):left?tr("Điền sang trái"):tr("Điền sang phải");
+        const QString sourceEdge=down?tr("hàng đầu"):up?tr("hàng cuối"):left?tr("cột cuối"):tr("cột đầu");
         const auto address=dataassist::bridgeRangeAddress(ss(range));
         const auto ends=range.split(QLatin1Char(':'));
         if(address.empty() || ends.size()!=2) {
@@ -89,10 +92,10 @@ void DocumentTab::excelAction(const QString& id) {
         };
         const auto first=coords(ends.first()),last=coords(ends.last());
         if(first.first<1||first.second<1||last.first<first.first||last.second<first.second||
-           (down?last.first==first.first:last.second==first.second)){
-            QMessageBox::information(this,title,down?tr("Chọn ít nhất hai hàng."):tr("Chọn ít nhất hai cột."));return;
+           (vertical?last.first==first.first:last.second==first.second)){
+            QMessageBox::information(this,title,vertical?tr("Chọn ít nhất hai hàng."):tr("Chọn ít nhất hai cột."));return;
         }
-        const qint64 targets=down?qint64(last.first-first.first)*(last.second-first.second+1):
+        const qint64 targets=vertical?qint64(last.first-first.first)*(last.second-first.second+1):
             qint64(last.second-first.second)*(last.first-first.first+1);
         if(targets>100000){
             QMessageBox::warning(this,title,tr("Mỗi lần điền tối đa 100.000 ô đích. Hãy chia vùng nhỏ hơn."));return;
@@ -100,13 +103,13 @@ void DocumentTab::excelAction(const QString& id) {
         const auto before=m_doc->selectionAs("text/plain;charset=utf-8");
         if(QMessageBox::question(this,title,
            tr("Sheet: %1 · vùng %2\nSao chép %3 vào %4 ô đích. Công thức tương đối sẽ được điều chỉnh; dữ liệu và định dạng ở ô đích có thể bị thay thế, kể cả ô hiển thị trống. Tiếp tục?")
-            .arg(qs(originalSheet),range,down?tr("hàng đầu"):tr("cột đầu")).arg(targets),
+            .arg(qs(originalSheet),range,sourceEdge).arg(targets),
             QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
         if(!sameSheet()||!m_view||m_view->selectedCellRange()!=range||
            m_doc->selectionAs("text/plain;charset=utf-8")!=before){
             QMessageBox::warning(this,title,tr("Vùng hoặc nội dung đã thay đổi trong lúc xác nhận. Chưa điền dữ liệu."));return;
         }
-        cmd(down?".uno:FillDown":".uno:FillRight");
+        cmd(down?".uno:FillDown":up?".uno:FillUp":left?".uno:FillLeft":".uno:FillRight");
         m_doc->waitInputIdle();m_view->setFocus();return;
     } else if(a==QLatin1String("sortAscending")||a==QLatin1String("sortDescending")){
         const bool descending=a==QLatin1String("sortDescending");
