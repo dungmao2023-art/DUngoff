@@ -499,6 +499,28 @@ int runSweepTests(const fs::path& program, const fs::path& out,const fs::path& p
                     fs::remove(roundtrip,ec);
                     const auto again=reopened->saveAs(roundtrip);
                     result("Calc","pivot-roundtrip-save",again.ok,again.message);
+                    if(again.ok){
+                        // Move the first source row to another existing group.
+                        // A stale grouping cache can retain the correct grand total
+                        // while assigning the amount to the wrong category.
+                        reopened.reset();
+                        auto regroup=engine->open(roundtrip,&err);
+                        result("Calc","pivot-regroup-reopen",bool(regroup),err);
+                        if(regroup){
+                            regroup->setClientView(512,512,7680,7680,0,0,7680,7680);
+                            regroup->setPart(0);
+                            enter(*regroup,"B2",u"Mặt hàng 2");
+                            gotoCell(*regroup,"B2");
+                            result("Calc","pivot-category-edit",trim(text(*regroup))=="Mặt hàng 2",trim(text(*regroup)));
+                            gotoCell(*regroup,"G4");
+                            run(*regroup,".uno:RecalcPivotTable");
+                            settle(1000);
+                            const auto target=out/"native-pivot-regroup.xlsx";
+                            fs::remove(target,ec);
+                            const auto finalSave=regroup->saveAs(target);
+                            result("Calc","pivot-regroup-save",finalSave.ok,finalSave.message);
+                        }
+                    }
                 }
             }
         }
