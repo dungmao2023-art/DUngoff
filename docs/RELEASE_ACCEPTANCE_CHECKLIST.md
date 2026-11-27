@@ -58,6 +58,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 
 ### B1 — PDF: ca xử lý tài liệu
 - [ ] D01.1 Đọc PDF văn bản/scan/mật khẩu, trang/zoom, tìm tiếng Việt, chọn/copy chữ, hiển thị kết quả; lỗi mật khẩu rõ.
+  - 28/11: nhánh feat/pdf-text-search-highlights-20261128, code/test 8b50f3f6e50902e95242c1729bdae6bbc5870648. Tô sáng tối đa 1000 kết quả trong vùng chữ trích xuất NFC, không phải highlight canvas PDF; kiểm metadata nguồn và điều kiện tìm trước hiển thị, kiểm lại nguồn khi đọc trang. 4 kiểm tra helper cho dấu Việt/hoa thường/khớp không chồng/giới hạn. Cần CI và GUI thật (copy, tìm dấu Việt, file đổi giữa lượt tìm); metadata không phải hash. Giữ stage.
 - [ ] D02.1 Gộp/tách/xoay/xóa/sắp xếp/nén; preview, page count, hash nguồn, đích không ghi đè; xác nhận trước khi bỏ mã hóa.
 - [ ] D03.1 Chỉnh bản sao ODG chữ/ảnh/hình, Undo, xuất PDF, đối chiếu layout; thông báo giới hạn, không gọi là sửa stream gốc.
 - [ ] D05.1 Watermark, số trang, chữ Unicode và ảnh; xem trước, font nhúng, đúng vị trí/trang.
