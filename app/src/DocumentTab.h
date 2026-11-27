@@ -97,6 +97,7 @@ private:
     bool m_pptNotes = false;
     bool m_rebuildingParts = false;
     QTimer* m_autosave = nullptr;
+    int m_autosaveDeferrals=0;
     QString m_recId;                  // mã bản phục hồi của tài liệu này trong phiên
     bool m_dirtySinceAutosave = false;
     bool m_featureLossConfirmed = false;  // đã xác nhận mất tính năng của tệp gốc trong phiên này
