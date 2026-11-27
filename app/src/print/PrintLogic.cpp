@@ -54,6 +54,17 @@ RangeResult parseRanges(const QString& textIn, int total) {
     return r;
 }
 
+RangeResult filterPages(RangeResult range, PageFilter filter) {
+    if(!range.ok || filter==PageFilter::All) return range;
+    QVector<int> selected;
+    for(int page:range.pages)
+        if((page%2==1)==(filter==PageFilter::Odd)) selected.append(page);
+    range.pages=selected;
+    range.ok=!selected.isEmpty();
+    if(!range.ok) range.error=QObject::tr("Không có trang phù hợp với bộ lọc chẵn/lẻ.");
+    return range;
+}
+
 QVector<int> expandCopies(const QVector<int>& pages, int copies, bool collate) {
     QVector<int> out;
     if (copies < 1) copies = 1;

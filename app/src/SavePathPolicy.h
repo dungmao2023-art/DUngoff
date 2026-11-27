@@ -40,6 +40,11 @@ inline bool sameExistingPath(const QString& left, const QString& right) {
     if (a.isEmpty() || b.isEmpty()) return false;
     return samePathText(a,b);
 }
+inline bool conflictsWithOpenPaths(const QString& target,const QStringList& otherPaths) {
+    for(const QString& path:otherPaths)
+        if(samePathForProtection(target,path)) return true;
+    return false;
+}
 inline bool needsConfirmation(const QString& resolved) {
     if (resolved.isEmpty()) return false;
     const QFileInfo info(resolved);

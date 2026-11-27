@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "PptTransition.h"
+#include "SlideNavigation.h"
 #include <QCoreApplication>
 #include <QFile>
 #include <QTemporaryDir>
@@ -11,6 +12,19 @@ int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     int errors = 0;
     auto check = [&](bool ok, const char* msg) { std::cout << (ok ? "PASS " : "FAIL ") << msg << '\n'; if (!ok) ++errors; };
+    const QSize wide=slideshow::thumbnailSize(16000,9000);
+    const QSize tall=slideshow::thumbnailSize(100,100000);
+    check(wide.width()==128 && wide.height()==72,"thumbnail preserves landscape aspect");
+    check(tall.width()>=1 && tall.height()<=96,"portrait thumbnail bitmap bounded");
+    check(!slideshow::thumbnailSize(0,100).isValid(),"reject invalid thumbnail dimensions");
+    const QVector<bool> visible{false,true,false,true,false};
+    check(slideshow::firstVisible(visible,0)==1,"show skips initial hidden slide");
+    check(slideshow::firstVisible(visible,4)==3,"show from hidden last slide falls back");
+    check(slideshow::firstVisible({false,false},0)==-1,"all hidden slides never shown");
+    check(slideshow::jumpTo(visible,"4")==3,"number then Enter jumps to visible slide");
+    check(slideshow::jumpTo(visible,"3")==-1 && slideshow::jumpTo(visible,"0")==-1 &&
+          slideshow::jumpTo(visible,"6")==-1 && slideshow::jumpTo(visible,"999999999999")==-1,
+          "numeric jump rejects hidden or invalid slides");
     const QByteArray xml = "<p:sld xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld/><p:clrMapOvr/><p:timing/><p:extLst/></p:sld>";
     QByteArray out;
     Options o; o.autoAdvanceMs = 3000;

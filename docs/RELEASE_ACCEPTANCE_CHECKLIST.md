@@ -262,3 +262,14 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - Hoãn macro/VBA, PQ/Pivot nâng cao, OCR/sửa PDF gốc, tích hợp MISA/kho luật và animation phức tạp. Kiểm bộ cài và license thực tế trước phát hành.
 
 - A08.1: batch 2 bổ sung BUILD-INFO.json trong bộ cài (checkout SHA thực tế, run id, engine tag, SHA256 DungOffice.exe), yêu cầu Qt PrintSupport/PDF, qpdf và runtime chính khi đóng gói CI; E2E đối chiếu manifest và hash sau cài. Chưa nghiệm thu batch 2. Ca đích là thư mục giờ bị từ chối trước staging, không tuyên bố đã tiêm lỗi staging.
+
+- Batch 3 (chưa CI): P02 thumbnail tỷ lệ đúng, refresh; P03 nhảy số slide và tránh slide ẩn; A03 không ghi đè tài liệu tab khác; A05 giới hạn raster, từ chối khung lỗi, giữ tỷ lệ bản in trên DPI cao, báo lỗi kết thúc tác vụ. Các bài test được mở rộng nhưng chưa nghiệm thu máy thật.
+
+- Batch 3 A04/X03: tự lưu giữ cờ retry tới khi dữ liệu và metadata commit thành công; sau Save As dùng tên/đường dẫn bản đang làm việc. Thanh công thức thử commit khi rời ô nhập nếu xác minh đúng ô/sheet, Esc huỷ; khi không xác minh được giữ nội dung nháp trong Chi tiết thông báo để sao chép. Test metadata mở rộng; cần kiểm tra GUI Windows trước nghiệm thu.
+
+- Batch 3 P03: chọn màn hình/máy chiếu khi có nhiều màn hình, kiểm tra màn hình chưa ngắt kết nối, hiện cảnh báo nếu slide không render. Chưa thử máy chiếu thật; không đánh dấu accepted.
+
+- Batch 3 A05: chọn tất cả/trang đang xem/khoảng trang, lọc chẵn/lẻ theo số trang gốc; từ chối khoảng trống hoặc không có trang phù hợp. 4 ca kiểm thử logic mới, chưa chạy CI.
+
+## Bằng chứng batch 2 — 27/11/2026
+- PR #123 HEAD d805275053a4a588bc5123e1a6c8898d3b00ae1a, merged main 389a39f56014ee787efabde50ca533774bb3be90. CI 45990409222 Windows/Linux PASS, kiểm thử cài/gỡ tự động Windows 0 lỗi; manifest và SHA256 ứng dụng sau cài khớp. Artifact bộ cài: https://github.com/dungmao2023-art/DUngoff/actions/runs/45990409222/artifacts/15194142868 . Checkout CI là merge candidate 93943a729aff203fa9cc42ee9dd9d4f073162605; không đồng nhất SHA với main sau merge. Chưa tick GUI/máy sạch ngoài CI/máy in thật. Batch 3 chưa CI.

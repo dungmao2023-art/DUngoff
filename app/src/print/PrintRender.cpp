@@ -1,5 +1,6 @@
 #include "PrintRender.h"
 #include <algorithm>
+#include <cmath>
 #include <QPainter>
 #include <QPrinter>
 #include <QPageLayout>
@@ -73,30 +74,43 @@ TextSearch searchText(const QString& path,const QString& query,int first,int las
     result.ok=true;return result;
 }
 
+// Bound raster allocations for malformed pages, oversized preview windows and high-DPI printers.
+static QSize fittedRaster(const QSizeF& pt,const QSize& box) {
+    if (!box.isValid() || box.isEmpty() || !std::isfinite(pt.width()) || !std::isfinite(pt.height()) ||
+        pt.width()<=0 || pt.height()<=0) return {};
+    const double k=std::min({box.width()/pt.width(),box.height()/pt.height(),8192.0/pt.width(),8192.0/pt.height()});
+    if(!std::isfinite(k) || k<=0) return {};
+    return QSize(std::max(1,int(pt.width()*k)),std::max(1,int(pt.height()*k)));
+}
+
 QImage renderPage(const QString& path, int page1, const QSize& box, QString* error) {
+    if(error) error->clear();
     QPdfDocument d;
     const auto e = d.load(path);
     if (e != QPdfDocument::Error::None) { if (error) *error = pdfErr(e); return {}; }
     if (page1 < 1 || page1 > d.pageCount()) { if (error) *error = QObject::tr("Trang %1 không tồn tại.").arg(page1); return {}; }
     const QSizeF pt = d.pagePointSize(page1 - 1);
-    if (pt.isEmpty()) { if (error) *error = QObject::tr("Trang có kích thước bằng 0."); return {}; }
-    const double k = std::min(box.width() / pt.width(), box.height() / pt.height());
-    const QSize px(std::max(1, int(pt.width() * k)), std::max(1, int(pt.height() * k)));
+    const QSize px=fittedRaster(pt,box);
+    if(!px.isValid()) { if(error)*error=QObject::tr("Kích thước trang hoặc vùng xem không hợp lệ.");return {}; }
+    const double k=std::min(px.width()/pt.width(),px.height()/pt.height());
     QImage img = d.render(page1 - 1, px);
     if (img.isNull()) { if (error) *error = QObject::tr("Không vẽ được trang %1.").arg(page1); return {}; }
     // Nền trong suốt → nền trắng để xem/in đúng như giấy.
     QImage out(img.size(), QImage::Format_ARGB32);
+    if(out.isNull()){if(error)*error=QObject::tr("Không đủ bộ nhớ để vẽ trang.");return {};}
     out.fill(Qt::white);
     QPainter p(&out);
     p.drawImage(0, 0, img);
     p.end();
     // Record physical resolution for OCR PDF output (pixel dimensions unchanged).
-    const int dpm = qRound(k * 72.0 / 0.0254);
+    const double physicalDpm=k*72.0/0.0254;
+    const int dpm=std::isfinite(physicalDpm)&&physicalDpm<2147483647.0?qRound(physicalDpm):0;
     if (dpm > 0) { out.setDotsPerMeterX(dpm); out.setDotsPerMeterY(dpm); }
     return out;
 }
 
 bool printPages(const QString& path, QPrinter& printer, const QVector<int>& pages, bool autoOrientation, QString* error) {
+    if(error)error->clear();
     QPdfDocument d;
     const auto e = d.load(path);
     if (e != QPdfDocument::Error::None) { if (error) *error = pdfErr(e); return false; }
@@ -121,16 +135,22 @@ bool printPages(const QString& path, QPrinter& printer, const QVector<int>& page
         first = false;
         const QRect area = printer.pageLayout().paintRectPixels(printer.resolution());
         const QSizeF pt = d.pagePointSize(pg - 1);
-        const double k = std::min(area.width() / pt.width(), area.height() / pt.height());
-        const QSize px(std::max(1, int(pt.width() * k)), std::max(1, int(pt.height() * k)));
+        const QSize px=fittedRaster(pt,area.size());
+        if(!px.isValid()){printer.abort();painter.end();if(error)*error=QObject::tr("Kích thước trang in không hợp lệ.");return false;}
         QImage img = d.render(pg - 1, px);
-        if (img.isNull()) { painter.end(); if (error) *error = QObject::tr("Không vẽ được trang %1.").arg(pg); return false; }
+        if (img.isNull()) { printer.abort();painter.end(); if (error) *error = QObject::tr("Không vẽ được trang %1.").arg(pg); return false; }
         QImage white(img.size(), QImage::Format_ARGB32);
+        if(white.isNull()){printer.abort();painter.end();if(error)*error=QObject::tr("Không đủ bộ nhớ để in.");return false;}
         white.fill(Qt::white);
         { QPainter q(&white); q.drawImage(0, 0, img); }
-        painter.drawImage(QPoint((area.width() - px.width()) / 2, (area.height() - px.height()) / 2), white);
+        // Raster cap must not shrink physical output on high-resolution printers.
+        const QSizeF fitted=QSizeF(white.size()).scaled(QSizeF(area.size()),Qt::KeepAspectRatio);
+        painter.drawImage(QRectF((area.width()-fitted.width())/2,(area.height()-fitted.height())/2,fitted.width(),fitted.height()),white);
     }
-    painter.end();
+    if(!painter.end() || printer.printerState()==QPrinter::Error || printer.printerState()==QPrinter::Aborted) {
+        if(error)*error=QObject::tr("Máy in báo lỗi hoặc đã huỷ tác vụ.");
+        return false;
+    }
     return true;
 }
 

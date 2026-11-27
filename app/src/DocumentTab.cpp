@@ -43,6 +43,8 @@
 #include <QFile>
 #include <QStandardPaths>
 #include <QInputDialog>
+#include <QShortcut>
+#include <QKeySequence>
 #include "word/WordCommands.h"
 #include "word/WordActions.h"
 #include "templates/TemplateLibrary.h"
@@ -178,6 +180,7 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         fx->setObjectName(QStringLiteral("Fx"));
         m_formula = new QLineEdit(fb);
         m_formula->setPlaceholderText(tr("Nội dung hoặc công thức của ô"));
+        m_formula->setToolTip(tr("Sửa nội dung một ô; Enter hoặc rời ô nhập để xác nhận, Esc để huỷ. Nếu vị trí đã thay đổi, nội dung sẽ không bị ghi sang ô khác."));
         m_formula->setReadOnly(m_doc->readOnly());
         fh->addWidget(m_nameBox);
         fh->addWidget(fx);
@@ -213,29 +216,36 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
             edit->cell = dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
                 m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
         });
-        connect(m_formula, &QLineEdit::editingFinished, this, [this, edit] {
-            edit->active = false;
-            // Leaving without Enter discards uncommitted input.
-            if (m_doc) m_formula->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_FORMULA)));
-        });
-        connect(m_formula, &QLineEdit::returnPressed, this, [this, edit] {
+        auto commitFormula = [this, edit](bool focusView) {
             if (!m_doc || !m_view || m_doc->readOnly() || !edit->active) return;
+            const QString draft=m_formula->text();
+            // Clear before invoking a modal dialog or changing focus to avoid double commits.
+            edit->active=false;
             m_doc->waitInputIdle();
-            const auto cell = dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
+            const auto cell=dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
                 m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
-            if (edit->cell.empty() || cell != edit->cell ||
-                m_doc->currentPart() != edit->part || m_doc->partName(edit->part) != edit->sheet) {
-                edit->active = false;
+            if (edit->cell.empty() || cell!=edit->cell || m_doc->currentPart()!=edit->part ||
+                m_doc->partName(edit->part)!=edit->sheet) {
                 m_formula->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_FORMULA)));
-                QMessageBox::warning(this, tr("Thanh công thức"),
-                    tr("Không xác minh được ô ban đầu hoặc sheet đã thay đổi. Chưa ghi dữ liệu. Chọn một ô rồi sửa lại."));
+                QMessageBox box(QMessageBox::Warning,tr("Thanh công thức"),
+                    tr("Không xác minh được ô ban đầu. Chưa ghi dữ liệu vào ô khác. Bạn có thể sao chép nội dung vừa nhập trong phần Chi tiết."),
+                    QMessageBox::Ok,this);
+                box.setDetailedText(draft);
+                box.exec();
                 return;
             }
-            const auto value = ss(m_formula->text());
-            edit->active = false;
-            m_doc->command(".uno:EnterString", dung::Document::stringArg("StringName", value));
+            m_doc->command(".uno:EnterString", dung::Document::stringArg("StringName",ss(draft)));
             m_doc->waitInputIdle();
-            m_view->setFocus();
+            if(focusView) m_view->setFocus();
+        };
+        connect(m_formula,&QLineEdit::editingFinished,this,[commitFormula]{commitFormula(false);});
+        connect(m_formula,&QLineEdit::returnPressed,this,[commitFormula]{commitFormula(true);});
+        auto* cancelFormula=new QShortcut(QKeySequence(Qt::Key_Escape),m_formula);
+        cancelFormula->setContext(Qt::WidgetShortcut);
+        connect(cancelFormula,&QShortcut::activated,this,[this,edit]{
+            edit->active=false;
+            m_formula->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_FORMULA)));
+            if(m_view)m_view->setFocus();
         });
     }
 
@@ -353,12 +363,35 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         m_slides = new QListWidget(this);
         m_slides->setFixedWidth(150);
         m_slides->setIconSize(QSize(128, 96));
+        if (m_doc->kind()==DocKind::Presentation) {
+            m_slides->setFixedWidth(174);
+            m_slides->setViewMode(QListView::IconMode);
+            m_slides->setFlow(QListView::TopToBottom);
+            m_slides->setWrapping(false);
+            m_slides->setMovement(QListView::Static);
+            m_slides->setGridSize(QSize(148,132));
+            m_slides->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            m_slideRefresh=new QTimer(this);
+            m_slideRefresh->setSingleShot(true);
+            m_slideRefresh->setInterval(250);
+            connect(m_slideRefresh,&QTimer::timeout,this,[this]{
+                const int part=m_slideRefreshPart;
+                if(!m_pptNotes && part>=0 && part<m_slides->count() && part<m_doc->partCount())
+                    pptSetThumbnail(m_slides->item(part),m_doc.get(),part);
+            });
+        }
         m_slides->setStyleSheet(QStringLiteral("QListWidget{background:#EEF2F7;border:none;border-right:1px solid #D9E1EC;}"
                                                "QListWidget::item{padding:10px;margin:4px;background:white;border-radius:6px;}"
                                                "QListWidget::item:selected{border:2px solid #1F5FBF;color:#1F5FBF;}"));
         middle->addWidget(m_slides);
         connect(m_slides, &QListWidget::currentRowChanged, this, [this](int row) {
             if (m_rebuildingParts || row < 0 || row == m_doc->currentPart()) return;
+            if(m_slideRefresh && m_slideRefresh->isActive()) {
+                m_slideRefresh->stop();
+                const int old=m_slideRefreshPart;
+                if(!m_pptNotes && old>=0 && old<m_slides->count() && old<m_doc->partCount())
+                    pptSetThumbnail(m_slides->item(old),m_doc.get(),old);
+            }
             m_doc->setPart(row);
             m_view->resetForPartChange();
             refreshPdfComparison();
@@ -625,13 +658,18 @@ void DocumentTab::autosaveTick() {
     if (!rs.hasRoom()) return;  // thư mục phục hồi đã đầy: bỏ qua, không làm gì khác
     const std::string ext = m_doc->recoveryExt();
     if (ext.empty()) return;
+    m_doc->waitInputIdle();
+    if (!m_doc->modified()) return;
+    // Keep retry pending until both data and metadata have been committed.
+    m_dirtySinceAutosave=true;
     if (m_recId.isEmpty()) m_recId = rs.newDocId();
     const QString e = qs(ext);
     std::string err;
-    if (!m_doc->saveRecoveryCopy(toPath(rs.dataPath(m_recId, e)), &err)) return;  // lỗi tự lưu không làm phiền người dùng
+    if (!m_doc->saveRecoveryCopy(toPath(rs.dataPath(m_recId, e)), &err)) return;
     const QString orig = m_doc->isNew() ? QString() : fromPath(m_doc->originalPath());
-    const QString original = m_recOriginSet ? m_recOrigin : orig;
-    if (rs.commit(m_recId, e, qs(m_doc->displayName()), original, original.isEmpty())) {
+    const QString original = recovery::snapshotOrigin(m_savedPath,m_recOriginSet,m_recOrigin,orig);
+    const QString name=m_savedPath.isEmpty()?qs(m_doc->displayName()):QFileInfo(m_savedPath).fileName();
+    if (rs.commit(m_recId, e, name, original, original.isEmpty())) {
         m_dirtySinceAutosave = false;
         if (m_hasAdopted) { recovery::discardEntry(m_adopted); m_hasAdopted = false; }  // đã có bản mới trong phiên này
     }
@@ -677,6 +715,7 @@ void DocumentTab::rebuildParts() {
         m_sheets->setCurrentIndex(cur);
     }
     if (m_slides) {
+        if(m_slideRefresh) m_slideRefresh->stop();
         m_slides->clear();
         for (int i = 0; i < n; ++i) {
             m_slides->addItem(m_doc->kind() == DocKind::Presentation ? tr("Trang chiếu %1").arg(i + 1)
@@ -693,6 +732,10 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
     if (m_rangeTools && (type == LOK_CALLBACK_CELL_ADDRESS || type == LOK_CALLBACK_CELL_SELECTION_AREA ||
         type == LOK_CALLBACK_CELL_FORMULA || type == LOK_CALLBACK_SET_PART))
         notifyDocumentRangeTools(m_rangeTools);
+    if(type==LOK_CALLBACK_INVALIDATE_TILES && m_slideRefresh && !m_pptNotes) {
+        m_slideRefreshPart=m_doc->currentPart();
+        m_slideRefresh->start();
+    }
     const bool modified = m_doc->modified();
     // The first invalidation can arrive before ModifiedStatus=true.
     // A transition to dirty must independently schedule a recovery snapshot.
@@ -834,7 +877,15 @@ static bool samePathUi(const QString& a, const QString& b) {
     return savepath::samePathForProtection(a,b);
 }
 
+bool DocumentTab::checkSaveConflict(const QString& path) {
+    if (!m_saveConflictCheck || !m_saveConflictCheck(path)) return true;
+    QMessageBox::warning(this,tr("Tệp đang mở"),
+        tr("Tệp đích đang được mở ở tab khác. Hãy lưu sang tên khác hoặc đóng tab đó trước. Chưa ghi đè dữ liệu."));
+    return false;
+}
+
 bool DocumentTab::doSave(const QString& path, bool confirmedReplace) {
+    if (!checkSaveConflict(path)) return false;
     dung::SaveOptions opts;
     const bool isPdf = path.endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive);
     const QString original = m_doc->isNew() ? QString() : fromPath(m_doc->originalPath());
@@ -895,6 +946,7 @@ bool DocumentTab::doSave(const QString& path, bool confirmedReplace) {
         opts.allowReplaceExisting = confirmedReplace;
     }
 
+    if (!checkSaveConflict(path)) return false;
     QApplication::setOverrideCursor(Qt::WaitCursor);
     const dung::SaveResult r = m_doc->saveAs(toPath(path), opts);
     QApplication::restoreOverrideCursor();
@@ -947,6 +999,7 @@ bool DocumentTab::saveAs() {
             tr("Chọn một định dạng tài liệu chỉnh sửa được: %1. Muốn tạo PDF, dùng Xuất PDF.").arg(nativeExtensions.join(QStringLiteral(", "))));
         return false;
     }
+    if (!checkSaveConflict(path)) return false;
     const bool exists = savepath::needsConfirmation(path);
     if (exists && QMessageBox::question(this, tr("Xác nhận thay thế"),
         tr("Tệp đích đã tồn tại:\n%1\nBạn có muốn thay thế tệp này không?").arg(QDir::toNativeSeparators(path)),
@@ -963,6 +1016,7 @@ bool DocumentTab::exportPdf() {
         tr("PDF (*.pdf)"), nullptr, QFileDialog::DontConfirmOverwrite);
     if (picked.isEmpty()) return false;
     const QString path = savepath::resolve(picked, QStringLiteral("pdf"), true);
+    if (!checkSaveConflict(path)) return false;
     const bool exists = savepath::needsConfirmation(path);
     if (exists && QMessageBox::question(this, tr("Xác nhận thay thế PDF"),
         tr("Tệp đích đã tồn tại:\n%1\nBạn có muốn thay thế tệp này không?").arg(QDir::toNativeSeparators(path)),

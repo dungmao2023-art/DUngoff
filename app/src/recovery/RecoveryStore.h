@@ -14,6 +14,12 @@
 
 namespace recovery {
 
+// A later Save As takes precedence over the initial source/recovery origin.
+inline QString snapshotOrigin(const QString& savedPath,bool overrideSet,const QString& overridePath,const QString& initialPath) {
+    if(!savedPath.isEmpty()) return savedPath;
+    return overrideSet ? overridePath : initialPath;
+}
+
 struct Entry {
     QString id;            // "<runId>-<docId>"
     QString runId;

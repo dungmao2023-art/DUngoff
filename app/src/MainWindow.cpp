@@ -907,6 +907,14 @@ QColor kindColor(dung::DocKind k) {
 }  // namespace
 
 void MainWindow::addTab(DocumentTab* tab) {
+    tab->setSaveConflictCheck([this,tab](const QString& path) {
+        QStringList others;
+        for(int i=0;i<m_tabs->count();++i) {
+            auto* other=qobject_cast<DocumentTab*>(m_tabs->widget(i));
+            if(other && other!=tab) others.append(other->activeFilePath());
+        }
+        return savepath::conflictsWithOpenPaths(path,others);
+    });
     const int rank = kindRank(tab->document()->kind());
     int pos = 0;
     for (int i = 0; i < m_tabs->count(); ++i) {
