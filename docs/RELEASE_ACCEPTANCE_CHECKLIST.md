@@ -302,3 +302,8 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 
 ## W02 — bảng Word, 28/11/2026
 - #147 merged main ad6a45adfc46627abe2ecb789fd1f3c256c046e5; [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/46049318168), nút chèn hàng/cột. #144/#145/#148 merged vào nhánh staging, CI tương ứng 46046692515/46046699616/46049420196 PASS cả hai OS. #149 tích hợp bị xung đột main; nhánh fix/word-table-controls-current-20261128 áp lại đúng 5 hunk trên main mới, giữ thay đổi khác, thêm kiểm tra Undo sau gộp hàng (hai marker trở lại ô riêng, kích thước 6×5 và nội dung thân văn bản còn nguyên). Mã/test HEAD trước cập nhật tài liệu ba40e1fe9fecb7bd1a787ec3074ecf94650c9a37; cần CI tích hợp mới. GUI Windows thật: chèn/xóa/gộp, hủy xác nhận, Undo, lưu và mở lại MS Word; tách ô, resize và thao tác ảnh chưa hoàn thành. Không nâng stage hoặc trọng số.
+
+
+## X10 — chuẩn hóa đúng/sai, 28/11/2026
+- #150 W02 merged main 1cada28e0c9f965ad50bf26da56796b20685cd5f, [CI 46059678726 Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/46059678726), gồm Undo sau gộp hàng. GUI Windows/MS Word, tách ô/resize/ảnh còn thiếu.
+- X10 nhánh feat/query-boolean-normalization-20261128, mã/test 3cda608f80ef2aac23ef4e52da4211750bad2513: thêm lựa chọn TRUE/FALSE dạng chữ ở cả làm sạch và truy vấn, giữ nguyên số 0/1, mã có 0 đầu, dữ liệu lạ, ô rỗng; đếm cảnh báo, lọc sau chuẩn hóa, lưu/nạp recipe với enum bổ sung (bản cũ từ chối kiểu chưa hỗ trợ). Test logic mới chưa chạy CI. Chưa phải kiểu ô Boolean native hoặc Power Query M. Kiểm GUI, preview, lưu CSV và chạy lại trên Windows. Không tăng stage/trọng số; không thêm dependency.
