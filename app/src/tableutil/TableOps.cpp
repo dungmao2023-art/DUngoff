@@ -314,13 +314,13 @@ bool writeCsvCopy(const QString &path, const Table &t, QString &error, QChar sep
 }
 
 // ---------------- Exact CSV group summary ----------------
-CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol)
+CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol,bool includeExtrema)
 {
     CsvGroupResult r;
     if(keyCol<0 || keyCol>=source.header.size() || valueCol<-1 || valueCol>=source.header.size() || keyCol==valueCol) {
         r.error=QObject::tr("Chọn cột nhóm và cột số hợp lệ, khác nhau."); return r;
     }
-    struct Group { QString key; qsizetype rows=0,numbers=0; qint64 sum=0; };
+    struct Group { QString key; qsizetype rows=0,numbers=0; qint64 sum=0,minimum=0,maximum=0; };
     QList<Group> groups; QHash<QString,qsizetype> indices;
     // No thousands separators, leading-zero codes, exponents or implicit rounding.
     static const QRegularExpression canonical(QStringLiteral(R"(^-?(?:0|[1-9][0-9]{0,13})(?:\.[0-9]{1,4})?\z)"));
@@ -350,27 +350,31 @@ CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol)
            (scaled<0 && g.sum<(std::numeric_limits<qint64>::min)()-scaled)) {
             r.error=QObject::tr("Tổng nhóm vượt phạm vi số hỗ trợ; không xuất kết quả sai.");return r;
         }
+        if(!g.numbers){g.minimum=scaled;g.maximum=scaled;}
+        else {g.minimum=qMin(g.minimum,scaled);g.maximum=qMax(g.maximum,scaled);}
         g.sum+=scaled;++g.numbers;
     }
+    auto decimalText=[](qint64 value){
+        const qint64 whole=value/10000,rem=value%10000;
+        QString text=QString::number(whole);
+        if(value<0&&whole==0)text.prepend(QLatin1Char('-'));
+        if(rem){
+            QString decimal=QString::number(rem<0?-rem:rem).rightJustified(4,QLatin1Char('0'));
+            while(decimal.endsWith(QLatin1Char('0')))decimal.chop(1);
+            text+=QLatin1Char('.')+decimal;
+        }
+        return text;
+    };
     r.table.header << QObject::tr("Nhóm") << QObject::tr("Số dòng");
-    if(valueCol>=0) r.table.header << QObject::tr("Số ô có số") << QObject::tr("Tổng");
-    for(const auto& g:groups) {
+    if(valueCol>=0){
+        r.table.header << QObject::tr("Số ô có số") << QObject::tr("Tổng");
+        if(includeExtrema)r.table.header << QObject::tr("Nhỏ nhất") << QObject::tr("Lớn nhất");
+    }
+    for(const auto& g:groups){
         QStringList row{g.key,QString::number(g.rows)};
-        if(valueCol>=0) {
-            row << QString::number(g.numbers);
-            QString sum;
-            if(g.numbers) {
-                const qint64 whole=g.sum/10000;
-                const qint64 rem=g.sum%10000;
-                sum=QString::number(whole);
-                if(g.sum<0 && whole==0) sum.prepend(QLatin1Char('-'));
-                if(rem) {
-                    QString decimal=QString::number(rem<0?-rem:rem).rightJustified(4,QLatin1Char('0'));
-                    while(decimal.endsWith(QLatin1Char('0'))) decimal.chop(1);
-                    sum+=QLatin1Char('.')+decimal;
-                }
-            }
-            row << sum;
+        if(valueCol>=0){
+            row<<QString::number(g.numbers)<<(g.numbers?decimalText(g.sum):QString());
+            if(includeExtrema)row<<(g.numbers?decimalText(g.minimum):QString())<<(g.numbers?decimalText(g.maximum):QString());
         }
         r.table.rows.append(row);
     }
