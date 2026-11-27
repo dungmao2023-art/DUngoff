@@ -22,6 +22,9 @@ int main(int argc, char** argv) {
     check(slideshow::firstVisible(visible,4)==3,"show from hidden last slide falls back");
     check(slideshow::firstVisible({false,false},0)==-1,"all hidden slides never shown");
     check(slideshow::jumpTo(visible,"4")==3,"number then Enter jumps to visible slide");
+    check(slideshow::adjacentVisible(visible,1,1)==3&&slideshow::adjacentVisible(visible,3,-1)==1,"next and previous skip hidden slides");
+    check(slideshow::adjacentVisible(visible,3,1)==-1&&slideshow::adjacentVisible(visible,1,-1)==-1,"navigation stops at visible ends");
+    check(slideshow::adjacentVisible(visible,-1,1)==-1&&slideshow::adjacentVisible(visible,5,-1)==-1&&slideshow::adjacentVisible(visible,1,0)==-1,"reject invalid navigation inputs");
     check(slideshow::jumpTo(visible,"3")==-1 && slideshow::jumpTo(visible,"0")==-1 &&
           slideshow::jumpTo(visible,"6")==-1 && slideshow::jumpTo(visible,"999999999999")==-1,
           "numeric jump rejects hidden or invalid slides");
