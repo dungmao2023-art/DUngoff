@@ -44,6 +44,7 @@ TemplatesPage::TemplatesPage(QWidget* parent) : QWidget(parent) {
     warn->setStyleSheet(QStringLiteral("background:#FFF7E6;color:#7A5B00;border:1px solid #F0DDAD;border-radius:8px;padding:8px 12px;"));
     v->addWidget(warn);
     m_info = new QLabel(this);
+    m_info->setTextFormat(Qt::PlainText);
     m_info->setStyleSheet(QStringLiteral("color:#697992;"));
     v->addWidget(m_info);
 
