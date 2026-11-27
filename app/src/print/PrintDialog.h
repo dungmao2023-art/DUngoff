@@ -34,6 +34,8 @@ private:
     QComboBox* m_paper = nullptr;
     QComboBox* m_orient = nullptr;
     QComboBox* m_duplex = nullptr;
+    QComboBox* m_pageFilter = nullptr;
+    QComboBox* m_scope = nullptr;
     QSpinBox* m_copies = nullptr;
     QCheckBox* m_collate = nullptr;
     QCheckBox* m_gray = nullptr;

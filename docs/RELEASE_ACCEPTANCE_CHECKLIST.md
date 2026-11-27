@@ -268,3 +268,5 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - Batch 3 A04/X03: tự lưu giữ cờ retry tới khi dữ liệu và metadata commit thành công; sau Save As dùng tên/đường dẫn bản đang làm việc. Thanh công thức thử commit khi rời ô nhập nếu xác minh đúng ô/sheet, Esc huỷ; khi không xác minh được giữ nội dung nháp trong Chi tiết thông báo để sao chép. Test metadata mở rộng; cần kiểm tra GUI Windows trước nghiệm thu.
 
 - Batch 3 P03: chọn màn hình/máy chiếu khi có nhiều màn hình, kiểm tra màn hình chưa ngắt kết nối, hiện cảnh báo nếu slide không render. Chưa thử máy chiếu thật; không đánh dấu accepted.
+
+- Batch 3 A05: chọn tất cả/trang đang xem/khoảng trang, lọc chẵn/lẻ theo số trang gốc; từ chối khoảng trống hoặc không có trang phù hợp. 4 ca kiểm thử logic mới, chưa chạy CI.

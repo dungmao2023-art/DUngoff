@@ -82,6 +82,10 @@ int main(int argc, char** argv) {
     check(!pg(QStringLiteral("99999999999999999999"), 8).ok, "từ chối số quá lớn");
     check(!pg(QString(), 0).ok, "tài liệu 0 trang → lỗi");
 
+    check(filterPages(pg("2-5",6),PageFilter::Odd).pages==QVector<int>({3,5}),"odd pages retain original page numbers");
+    check(filterPages(pg("2-5",6),PageFilter::Even).pages==QVector<int>({2,4}),"even pages retain original page numbers");
+    check(!filterPages(pg("1",6),PageFilter::Even).ok,"empty parity selection rejected");
+    check(!filterPages(pg("9",6),PageFilter::All).ok,"invalid range remains invalid");
     check(expandCopies({1, 2, 3}, 2, true) == QVector<int>({1, 2, 3, 1, 2, 3}), "bản sao theo bộ");
     check(expandCopies({1, 2, 3}, 2, false) == QVector<int>({1, 1, 2, 2, 3, 3}), "bản sao không theo bộ");
     check(expandCopies({4}, 0, true) == QVector<int>({4}), "số bản < 1 coi là 1");

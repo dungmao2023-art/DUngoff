@@ -14,6 +14,8 @@ struct RangeResult {
 // "" hoặc "tất cả" → mọi trang. Cú pháp: "1-3, 5, 8-" ("8-" = đến hết, "-3" = từ đầu đến 3).
 // Dấu phân cách: , hoặc ; — Từ chối: trang < 1, vượt tổng số trang, khoảng ngược (5-2), ký tự lạ.
 RangeResult parseRanges(const QString& text, int total);
+enum class PageFilter { All, Odd, Even };
+RangeResult filterPages(RangeResult range, PageFilter filter);
 
 // Danh sách trang theo thứ tự gửi máy in. collate=true: 1,2,3,1,2,3; false: 1,1,2,2,3,3.
 QVector<int> expandCopies(const QVector<int>& pages, int copies, bool collate);

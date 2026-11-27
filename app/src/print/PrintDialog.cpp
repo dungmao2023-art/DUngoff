@@ -104,11 +104,22 @@ PrintDialog::PrintDialog(QWidget* parent, const QString& pdfPath, int displayPag
     m_collate->setChecked(true);
     m_gray = new QCheckBox(tr("In đen trắng"));
     m_range = new QLineEdit;
-    m_range->setPlaceholderText(tr("Tất cả (hoặc 1-3, 5, 8-)"));
+    m_range->setPlaceholderText(tr("Ví dụ 1-3, 5, 8-"));
+    m_scope=new QComboBox;
+    m_scope->addItems({tr("Tất cả trang"),tr("Trang đang xem"),tr("Khoảng trang tùy chọn")});
+    m_range->setEnabled(false);
+    connect(m_scope,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){
+        m_range->setEnabled(i==2);
+        if(i==2) m_range->setFocus();
+    });
+    m_pageFilter=new QComboBox;
+    m_pageFilter->addItems({tr("Mọi trang đã chọn"),tr("Chỉ trang lẻ"),tr("Chỉ trang chẵn")});
 
     auto* form = new QFormLayout;
     form->addRow(tr("Máy in"), m_printer);
+    form->addRow(tr("Phạm vi in"),m_scope);
     form->addRow(tr("Khoảng trang"), m_range);
+    form->addRow(tr("Lọc trang"),m_pageFilter);
     form->addRow(tr("Số bản"), m_copies);
     form->addRow(QString(), m_collate);
     form->addRow(tr("Khổ giấy"), m_paper);
@@ -159,7 +170,7 @@ PrintDialog::PrintDialog(QWidget* parent, const QString& pdfPath, int displayPag
 
 void PrintDialog::resizeEvent(QResizeEvent* e) {
     QDialog::resizeEvent(e);
-    if (m_img && m_total > 0) showPage(m_cur);
+    if (m_img && m_scroll && m_pageLbl && m_print && m_total > 0) showPage(m_cur);
 }
 
 void PrintDialog::showPage(int page1) {
@@ -180,7 +191,14 @@ void PrintDialog::showPage(int page1) {
 }
 
 void PrintDialog::doPrint() {
-    const auto rr = printlogic::parseRanges(m_range->text(), m_total);
+    const int scope=m_scope->currentIndex();
+    if(scope==2 && m_range->text().trimmed().isEmpty()) {
+        QMessageBox::warning(this,tr("In"),tr("Nhập khoảng trang cần in hoặc chọn Tất cả trang."));
+        return;
+    }
+    const QString range=scope==1?QString::number(m_cur):scope==2?m_range->text():QString();
+    const auto rr=printlogic::filterPages(printlogic::parseRanges(range,m_total),
+        static_cast<printlogic::PageFilter>(m_pageFilter->currentIndex()));
     if (!rr.ok) { QMessageBox::warning(this, tr("In"), rr.error); return; }
     if (QPrinterInfo::availablePrinterNames().isEmpty()) {
         QMessageBox::warning(this, tr("In"), tr("Không thấy máy in nào trên máy này. Hãy cài hoặc bật máy in rồi thử lại."));
