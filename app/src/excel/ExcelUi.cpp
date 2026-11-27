@@ -145,8 +145,8 @@ void DocumentTab::excelAction(const QString& id) {
         layout->addWidget(buttons);
         const auto updatePreview=[&]{
             const qint64 start=startField->value(),step=stepField->value();
-            const qint64 end=start+step*(count-1);
-            const bool valid=step!=0&&end>=-1000000000LL&&end<=1000000000LL;
+            long long end=0;
+            const bool valid=ex::linearSeriesEnd(start,step,count,end);
             apply->setEnabled(valid);
             preview->setText(valid?tr("Ô đầu: %1 · Ô thứ hai: %2 · Ô cuối: %3").arg(start).arg(start+step).arg(end):
                 tr("Bước phải khác 0 và dãy phải nằm trong khoảng ±1 tỷ."));
@@ -157,7 +157,9 @@ void DocumentTab::excelAction(const QString& id) {
         connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
         updatePreview();
         if(dialog.exec()!=QDialog::Accepted||!apply->isEnabled())return;
-        const qint64 start=startField->value(),step=stepField->value(),end=start+step*(count-1);
+        const qint64 start=startField->value(),step=stepField->value();
+        long long end=0;
+        if(!ex::linearSeriesEnd(start,step,count,end))return;
         if(!sameSheet()||!m_view||m_view->selectedCellRange()!=range||
            m_doc->selectionAs("text/plain;charset=utf-8")!=before){
             QMessageBox::warning(this,title,tr("Vùng hoặc nội dung thay đổi. Chưa điền dãy."));return;
