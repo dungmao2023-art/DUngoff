@@ -33,6 +33,17 @@ inline std::string boolArg(const std::string& k, bool v) {
     return "\"" + k + "\":{\"type\":\"boolean\",\"value\":" + (v ? "true" : "false") + "}";
 }
 
+// UI policy: validate count and inputs before multiplication to avoid overflow.
+inline bool linearSeriesEnd(long long start,long long step,int count,long long& end) {
+    constexpr long long limit=1000000000LL;
+    if(count<2||count>10000||start< -limit||start>limit||
+       step< -1000000LL||step>1000000LL||step==0) return false;
+    const auto result=start+step*(count-1);
+    if(result< -limit||result>limit) return false;
+    end=result;
+    return true;
+}
+
 // Linear integer series, UNO arguments are strings parsed by Calc's number formatter.
 // Upstream sc/sdi/scalc.sdi and cellsh1.cxx; real-engine CI must verify these.
 inline std::string fillLinear(bool vertical, long long start, long long step, long long end) {
