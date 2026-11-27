@@ -72,6 +72,12 @@ private:
     void requestHeaders();
     void invalidateTwips(const QRect& r);
     void sendMouse(int type, QMouseEvent* e, int count);
+    void flushDragMove();
+    void clearDragMove();
+    QTimer m_dragTimer;
+    QPoint m_dragTwips;
+    int m_dragButtons=0,m_dragModifiers=0;
+    bool m_dragPending=false;
     static QRect parseRect(const QString& s, bool* ok = nullptr);
     static QVector<QRect> parseRects(const QString& s);
 
