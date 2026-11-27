@@ -206,7 +206,8 @@ AnimScan scanAnimation(const QString& text) {
                 if (path.size() == 6 && path[0] == QLatin1String("sld") && path[1] == QLatin1String("cSld") &&
                     path[2] == QLatin1String("spTree") &&
                     ((path[3] == QLatin1String("sp") && path[4] == QLatin1String("nvSpPr")) ||
-                     (path[3] == QLatin1String("pic") && path[4] == QLatin1String("nvPicPr"))))
+                     (path[3] == QLatin1String("pic") && path[4] == QLatin1String("nvPicPr")) ||
+                     (path[3] == QLatin1String("graphicFrame") && path[4] == QLatin1String("nvGraphicFramePr"))))
                     out.shapes.append({id, xr.attributes().value(QStringLiteral("name")).toString()});
             }
         } else if (xr.isEndElement()) {
@@ -237,7 +238,7 @@ QList<Shape> slideShapes(const QString& source, int slide1, QString* error) {
         if (error) *error = scan.error.isEmpty() ? QStringLiteral("Slide đã có animation/timing; chưa hỗ trợ sửa hoặc ghép hiệu ứng.") : scan.error;
         return {};
     }
-    if (scan.shapes.isEmpty() && error) *error = QStringLiteral("Không có hộp chữ, hình hoặc ảnh độc lập có thể tạo hiệu ứng.");
+    if (scan.shapes.isEmpty() && error) *error = QStringLiteral("Không có hộp chữ, hình, ảnh, bảng hoặc khung biểu đồ độc lập có thể tạo hiệu ứng.");
     return scan.shapes;
 }
 Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTiming>* timing) {
