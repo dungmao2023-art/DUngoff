@@ -640,6 +640,7 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
     int buttons = toLokButtons(e->buttons() | e->button());
     if (type == LOK_MOUSEEVENT_MOUSEBUTTONUP) buttons = m_pressButtons;
     m_doc->postMouse(type, t.x(), t.y(), count, buttons, toLokModifiers(e->modifiers()));
+    if(type==LOK_MOUSEEVENT_MOUSEBUTTONUP)++m_mouseUpDispatches;
 }
 
 void TileView::mousePressEvent(QMouseEvent* e) {
