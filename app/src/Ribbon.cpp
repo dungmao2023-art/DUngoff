@@ -470,22 +470,24 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
         else {
             selector->setEnabled(true);
             if(value!=QLatin1String("enabled")) {
-                const QString text=value.trimmed();
-                int index=selector->findText(text,Qt::MatchFixedString);
+                QString text=value.trimmed();
+                bool addMissing=false;
                 if(selector==m_sizeBox.data()) {
                     bool ok=false;const double pt=text.toDouble(&ok);
-                    if(ok&&pt>=1&&pt<=400) {
-                        index=selector->findText(QString::number(pt));
-                        if(index<0){selector->addItem(QString::number(pt));index=selector->count()-1;}
+                    if(ok&&pt>=1&&pt<=400){text=QString::number(pt);addMissing=true;}
+                } else addMissing=!text.isEmpty();
+                // Most caret movements repeat the current font/size. Skip the
+                // linear model search only if the actual selected item matches.
+                // Never cache engine acknowledgements instead of widget state.
+                const bool same=selector->currentIndex()>=0&&selector->currentText()==text;
+                if(!same) {
+                    int index=selector->findText(text,Qt::MatchFixedString);
+                    if(index<0&&addMissing) {
+                        selector->addItem(text);
+                        index=selector->count()-1;
                     }
+                    if(selector->currentIndex()!=index)selector->setCurrentIndex(index);
                 }
-                // A document may reference a font not enumerated locally.
-                // Show the actual engine state rather than clearing the field.
-                if(selector==m_fontBox.data()&&index<0&&!text.isEmpty()) {
-                    selector->addItem(text);
-                    index=selector->count()-1;
-                }
-                selector->setCurrentIndex(index);
             }
         }
     }
