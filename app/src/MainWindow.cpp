@@ -6,6 +6,7 @@
 #include "ppt/PptActions.h"
 
 #include "DocumentTab.h"
+#include "SavePathPolicy.h"
 #include "EngineHost.h"
 #include "recovery/RecoveryDialog.h"
 #include "recovery/RecoveryStore.h"
@@ -853,8 +854,7 @@ void MainWindow::openPath(const QString& path) {
     // Đã mở rồi -> chuyển tới thẻ đó
     for (int i = 0; i < m_tabs->count(); ++i) {
         auto* t = qobject_cast<DocumentTab*>(m_tabs->widget(i));
-        if (t && !t->document()->isNew() &&
-            QFileInfo(fromPath(t->document()->originalPath())).canonicalFilePath() == QFileInfo(path).canonicalFilePath()) {
+        if (t && savepath::sameExistingPath(t->activeFilePath(),path)) {
             selectDocumentTab(i);
             showDocuments();
             return;
@@ -915,11 +915,15 @@ void MainWindow::addTab(DocumentTab* tab) {
     }
     const int idx = m_tabs->insertTab(pos, tab, tab->title());
     m_tabs->tabBar()->setTabTextColor(idx, kindColor(tab->document()->kind()));
-    m_tabs->setTabToolTip(idx, tab->document()->isNew() ? tab->title()
-                                                        : QDir::toNativeSeparators(fromPath(tab->document()->originalPath())));
+    m_tabs->setTabToolTip(idx, tab->activeFilePath().isEmpty() ? tab->title()
+                                                        : QDir::toNativeSeparators(tab->activeFilePath()));
     connect(tab, &DocumentTab::titleChanged, this, [this, tab] {
         const int i = m_tabs->indexOf(tab);
-        if (i >= 0) m_tabs->setTabText(i, tab->title());
+        if (i >= 0) {
+            m_tabs->setTabText(i, tab->title());
+            m_tabs->setTabToolTip(i, tab->activeFilePath().isEmpty() ? tab->title()
+                                    : QDir::toNativeSeparators(tab->activeFilePath()));
+        }
     });
     connect(tab, &DocumentTab::statusChanged, this, [this, tab] { if (tab == current()) refreshStatus(); });
     connect(tab, &DocumentTab::commandStateChanged, this, [this, tab](const QString& c, const QString& v) {
