@@ -150,6 +150,11 @@ void TemplatesPage::useSelected() {
         QMessageBox::warning(this, tr("Thư viện mẫu"), tr("Tệp đã tồn tại. Dũng Office không ghi đè tệp có sẵn — hãy chọn tên khác."));
         return;
     }
+    const auto current=tpl::installed();
+    bool listed=false;for(const auto& entry:tpl::entries(current))if(entry.relPath==rel)listed=true;
+    if(!current.valid||current.root!=m_root||!listed){
+        QMessageBox::warning(this,tr("Thư viện mẫu"),tr("Gói mẫu đã thay đổi hoặc tệp không còn hợp lệ. Hãy chọn lại mẫu."));reload();return;
+    }
     if (!tpl::makeWorkingCopy(src, dst, &err)) { QMessageBox::warning(this, tr("Thư viện mẫu"), err); return; }
     emit openPath(dst);
 }
