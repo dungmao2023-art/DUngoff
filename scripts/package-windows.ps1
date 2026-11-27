@@ -83,9 +83,7 @@ if ($env:GITHUB_ACTIONS -eq "true") {
 $builtSha = (& git -C $root rev-parse HEAD 2>$null)
 if ($LASTEXITCODE -ne 0) { $builtSha = "" }
 $builtSha = ([string]$builtSha).Trim()
-if ($env:GITHUB_ACTIONS -eq "true" -and ($builtSha -notmatch '^[0-9a-f]{40} (Get-ChildItem $app -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
-Write-Host ("Thư mục chạy được: {0}  ({1:N0} MB)" -f $app, $size)
- -or $builtSha -ne $env:GITHUB_SHA)) {
+if ($env:GITHUB_ACTIONS -eq "true" -and ($builtSha -notmatch '^[0-9a-f]{40}$' -or $builtSha -ne $env:GITHUB_SHA)) {
   throw "Không xác minh được commit thực tế của bộ cài"
 }
 $manifest = [ordered]@{
