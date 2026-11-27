@@ -687,31 +687,55 @@ void DocumentTab::runCommand(const QString& uno) {
 }
 
 // ---- Clipboard: chuyển giữa clipboard nội bộ của engine và clipboard Windows ----
-void DocumentTab::copy() {
+// Do not issue a destructive Cut when the current selection cannot be
+// transferred to the system clipboard using the supported formats.
+static bool publishSelection(dung::Document* doc) {
     auto* mime = new QMimeData;
-    const std::string html = m_doc->selectionAs("text/html");
-    const std::string text = m_doc->selectionAs("text/plain;charset=utf-8");
+    const std::string html = doc->selectionAs("text/html");
+    const std::string text = doc->selectionAs("text/plain;charset=utf-8");
     if (!html.empty()) mime->setHtml(qs(html));
     if (!text.empty()) mime->setText(qs(text));
-    if (html.empty() && text.empty()) { delete mime; return; }
-    QApplication::clipboard()->setMimeData(mime);
-    m_doc->command(".uno:Copy");
+    if (html.empty() && text.empty()) { delete mime; return false; }
+    auto* clipboard = QApplication::clipboard();
+    clipboard->setMimeData(mime);
+    // The platform owns mime after setMimeData; do not dereference it.
+    const auto* actual = clipboard->mimeData();
+    return actual && ((!html.empty() && actual->hasHtml() && actual->html() == qs(html)) ||
+                      (!text.empty() && actual->hasText() && actual->text() == qs(text)));
+}
+
+void DocumentTab::copy() {
+    if (!m_doc) return;
+    m_doc->waitInputIdle();
+    if (publishSelection(m_doc.get())) m_doc->command(".uno:Copy");
 }
 
 void DocumentTab::cut() {
-    if (m_doc->readOnly()) return;
-    copy();
+    if (!m_doc || m_doc->readOnly()) return;
+    m_doc->waitInputIdle();
+    if (!publishSelection(m_doc.get())) {
+        QMessageBox::information(this, tr("Chưa cắt nội dung"),
+            tr("Không sao chép được vùng chọn vào clipboard. Nội dung gốc được giữ nguyên. Hãy chọn văn bản hoặc ô có dữ liệu rồi thử lại."));
+        return;
+    }
     m_doc->command(".uno:Cut");
 }
 
 void DocumentTab::paste() {
-    if (m_doc->readOnly()) return;
+    if (!m_doc || m_doc->readOnly()) return;
     const QMimeData* mime = QApplication::clipboard()->mimeData();
     if (!mime) return;
+    // Capture both representations before calling the engine: clipboard
+    // ownership may change during the first paste attempt.
+    const QString html = mime->hasHtml() ? mime->html() : QString();
+    const QString text = mime->hasText() ? mime->text() : QString();
+    m_doc->waitInputIdle();
     bool ok = false;
-    if (mime->hasHtml()) ok = m_doc->paste("text/html", ss(mime->html()));
-    if (!ok && mime->hasText()) ok = m_doc->paste("text/plain;charset=utf-8", ss(mime->text()));
-    m_view->setFocus();
+    if (!html.isEmpty()) ok = m_doc->paste("text/html", ss(html));
+    if (!ok && !text.isEmpty()) ok = m_doc->paste("text/plain;charset=utf-8", ss(text));
+    if (!ok && (!html.isEmpty() || !text.isEmpty()))
+        QMessageBox::warning(this, tr("Chưa dán được"), tr("Engine chưa xác nhận thao tác dán."));
+    if (m_view) m_view->setFocus();
 }
 
 void DocumentTab::setZoom(int percent) { m_view->setZoom(percent); }
