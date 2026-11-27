@@ -96,6 +96,27 @@ int main(int argc, char **argv)
         CHECK(!filterSort(ragged,spec).ok,"reject projection of ragged rows");
     }
 
+    // ---- Fixed-order query pipeline, with v3 recipes ----
+    {
+        const Table src=T({"ID","Amount","City"},{{"001","1.234,50","X"},{"001","99","X"},{"002","1.234,50","Y"},{"","1.234,50","X"},{"","1.234,50","X"}});
+        const Table before=src;
+        FilterSortSpec p;p.cleanCol=1;p.cleanKind=ColumnKind::Money;p.filterCol=1;p.value="1234.5";
+        p.dedupCol=0;p.sortCol=0;p.outputColumns={1,0};p.outputNames={"Tien","Ma"};
+        auto r=filterSort(src,p);
+        CHECK(r.ok && r.table.rows.size()==4 && r.filteredRows==1 && r.removedDuplicates==0,"clean before filter, retain blank keys");
+        CHECK(r.table.rows.value(2).value(1)=="001" && r.table.rows.value(2).value(0)=="1234.5" && src==before,"sort/project preserves IDs and source");
+        p.filterCol=-1;r=filterSort(src,p);
+        CHECK(r.ok && r.removedDuplicates==1 && r.table.rows.size()==4 && r.table.rows.value(2).value(0)=="1234.5","dedup keeps first source record");
+        const auto json=encodeFilterSortRecipe(src.header,p);FilterSortSpec decoded;QString error;
+        CHECK(decodeFilterSortRecipe(json,src.header,decoded,error) && filterSort(src,decoded).table==r.table,"v3 pipeline recipe roundtrip");
+        CHECK(decoded.cleanCol==1 && decoded.dedupCol==0 && decoded.cleanKind==ColumnKind::Money,"v3 settings restored");
+        p.outputColumns.clear();p.outputNames.clear();
+        CHECK(decodeFilterSortRecipe(encodeFilterSortRecipe(src.header,p),src.header,decoded,error)&&decoded.outputColumns.isEmpty(),"v3 without projection");
+        p.cleanCol=-1;CHECK(!filterSort(src,p).ok,"reject invalid cleaning spec");
+        p.cleanCol=99;CHECK(!filterSort(src,p).ok,"reject invalid clean column");
+        p.cleanCol=1;p.dedupCol=99;CHECK(!filterSort(src,p).ok,"reject invalid dedup column");
+    }
+
     // ---- Ghép bảng ----
     {
         const auto left=T({"ID","B.Name"},{{"001","x"},{"1","y"},{"001","z"},{"","empty"}});
