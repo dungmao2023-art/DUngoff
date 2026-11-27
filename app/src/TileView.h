@@ -27,6 +27,7 @@ public:
     bool hasCaret() const { return m_hasCaret; }
     bool renderPending() const { return !m_deferredPaint.isEmpty() || m_tilePaintTimer.isActive(); }
     int peakTilesPerPaint() const { return m_peakTilesPerPaint; }
+    int cachedTileCount() const { return int(m_tiles.size()); }
     unsigned coalescedDragDispatches() const { return m_dragDispatches; }
     bool hasCellCursor() const { return m_hasCell; }
     QRect caretViewRect() const;        // con trỏ chữ trong toạ độ viewport (rỗng nếu chưa có)
@@ -45,6 +46,8 @@ signals:
 protected:
     void paintEvent(QPaintEvent*) override;
     void resizeEvent(QResizeEvent*) override;
+    void hideEvent(QHideEvent*) override;
+    void showEvent(QShowEvent*) override;
     void scrollContentsBy(int dx, int dy) override;
     void mousePressEvent(QMouseEvent*) override;
     void mouseReleaseEvent(QMouseEvent*) override;
@@ -88,6 +91,8 @@ private:
     int m_zoom = 100;
     long m_docW = 0, m_docH = 0;               // twip
     QHash<quint64, QImage> m_tiles;
+    int tileCacheLimit() const;
+    void trimTileCache(int limit);
     QSet<quint64> m_dirtyTiles; // stale images are usable only on the same part/zoom
     QRegion m_deferredPaint;
     QTimer m_tilePaintTimer;
