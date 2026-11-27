@@ -56,6 +56,17 @@ SidePanel::SidePanel(QWidget* parent) : QWidget(parent) {
     v->addWidget(m_tabs,1);
     auto* foot=new QLabel(tr("Dữ liệu lưu cục bộ · Không tự gửi lên mạng"),m_content);
     foot->setObjectName(QStringLiteral("WorkHint"));foot->setWordWrap(true);v->addWidget(foot);
+    auto* saveRow=new QHBoxLayout;
+    m_saveStatus=new QLabel(tr("Đã lưu"),m_content);
+    m_saveStatus->setObjectName(QStringLiteral("WorkspaceSaveStatus"));
+    m_saveStatus->setWordWrap(true);
+    m_retrySave=new QPushButton(tr("Lưu ngay"),m_content);
+    m_retrySave->setObjectName(QStringLiteral("WorkspaceSaveNow"));
+    m_retrySave->setEnabled(false);
+    saveRow->addWidget(m_saveStatus,1);
+    saveRow->addWidget(m_retrySave);
+    v->addLayout(saveRow);
+    connect(m_retrySave,&QPushButton::clicked,this,[this]{ flush(); });
     outer->addWidget(m_content,1);
     setStyleSheet(QStringLiteral(R"(
 QWidget#SidePanel, QWidget#WorkRail { background: #FBFCFF; }
@@ -88,6 +99,12 @@ QWidget#WorkContent QCalendarWidget QAbstractItemView { selection-background-col
     m_saveTimer->setInterval(800);
     connect(m_saveTimer, &QTimer::timeout, this, &SidePanel::saveNow);
     load();
+    if(!m_readable) {
+        m_tabs->setEnabled(false);
+        m_saveStatus->setText(tr("Chỉ đọc"));
+        foot->setText(tr("Không thể đọc dữ liệu công việc an toàn. Tạm khóa chỉnh sửa để tránh ghi đè; hãy kiểm tra tệp dữ liệu và mở lại ứng dụng."));
+        foot->setStyleSheet(QStringLiteral("color:#A33626;font-size:12px;"));
+    }
 }
 
 void SidePanel::showPage(int index) {
@@ -100,31 +117,46 @@ void SidePanel::showPage(int index) {
 
 void SidePanel::toggleContent() { showPage(m_lastPage); }
 
-void SidePanel::flush() {
-    if (m_saveTimer->isActive()) {
-        m_saveTimer->stop();
-        saveNow();
-    }
+bool SidePanel::flush() {
+    m_saveTimer->stop();
+    return !m_dirty || saveNow();
 }
 
 void SidePanel::scheduleSave() {
-    if (!m_loading) m_saveTimer->start();
+    if (!m_loading && m_readable) {
+        m_dirty=true;
+        m_saveStatus->setText(tr("Chưa lưu"));
+        m_retrySave->setEnabled(true);
+        m_saveTimer->start();
+    }
 }
 
-void SidePanel::saveNow() {
-    QJsonObject o;
+bool SidePanel::saveNow() {
+    if(!m_dirty) return true;
+    if(!m_readable) return false;
+    QJsonObject o=m_workspaceBase;
     o.insert(QStringLiteral("notes"), m_notes);
     o.insert(QStringLiteral("events"), m_events);
     o.insert(QStringLiteral("dayNotes"), m_dayNotes);
     o.insert(QStringLiteral("contacts"), m_contacts);
     o.insert(QStringLiteral("version"), 1);
-    if (!workspace::save(QStringLiteral("workspace"), o))
-        QMessageBox::warning(this, tr("Dũng Office"), tr("Không lưu được ghi chú/lịch/liên hệ vào thư mục dữ liệu."));
+    if (!workspace::save(QStringLiteral("workspace"), o)) {
+        m_saveStatus->setText(tr("Lưu thất bại — nội dung vẫn còn. Kiểm tra thư mục dữ liệu và bấm Lưu ngay."));
+        m_retrySave->setEnabled(true);
+        return false;
+    }
+    m_workspaceBase=o;
+    m_dirty=false;
+    m_saveStatus->setText(tr("Đã lưu"));
+    m_retrySave->setEnabled(false);
+    return true;
 }
 
 void SidePanel::load() {
     m_loading = true;
-    const QJsonObject o = workspace::load(QStringLiteral("workspace"));
+    const QJsonObject o = workspace::load(QStringLiteral("workspace"),&m_readable);
+    if(o.value(QStringLiteral("version")).toInt(1)>1) m_readable=false;
+    m_workspaceBase=o;
     m_notes = o.value(QStringLiteral("notes")).toArray();
     m_events = o.value(QStringLiteral("events")).toArray();
     m_dayNotes = o.value(QStringLiteral("dayNotes")).toObject();
@@ -152,6 +184,7 @@ QWidget* SidePanel::buildNotes() {
     m_noteList->setMinimumWidth(160);
     split->addWidget(m_noteList);
     m_noteText = new QPlainTextEdit(w);
+    m_noteText->setObjectName(QStringLiteral("WorkspaceNoteEditor"));
     m_noteText->setPlaceholderText(tr("Gõ ghi chú ở đây. Dùng \"[ ] việc cần làm\" và \"[x] việc đã xong\" để lập danh sách việc."));
     split->addWidget(m_noteText);split->setStretchFactor(1,1);split->setSizes({220,700});
     v->addWidget(split,1);

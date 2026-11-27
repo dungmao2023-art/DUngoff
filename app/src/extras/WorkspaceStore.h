@@ -9,7 +9,8 @@ namespace workspace {
 // Thư mục dữ liệu, ví dụ %APPDATA%/DungOffice. Tự tạo nếu chưa có.
 QString dataDir();
 // Đọc <tên>.json; trả object rỗng nếu chưa có hoặc hỏng (tệp hỏng được đổi tên thành .hong để không mất).
-QJsonObject load(const QString& name);
+// ok=false nếu không thể đọc hoặc bảo toàn tệp hỏng; không được coi là dữ liệu trống.
+QJsonObject load(const QString& name, bool* ok = nullptr);
 // Ghi nguyên tử (QSaveFile). Trả false nếu lỗi.
 bool save(const QString& name, const QJsonObject& obj);
 }

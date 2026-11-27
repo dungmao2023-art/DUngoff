@@ -24,7 +24,7 @@ public:
     explicit SidePanel(QWidget* parent = nullptr);
     void toggleContent();
     void showPage(int index);
-    void flush(); // ghi ngay các thay đổi đang chờ (gọi khi đóng ứng dụng)
+    bool flush(); // ghi ngay các thay đổi đang chờ (gọi khi đóng ứng dụng)
 
 private:
     QWidget* buildNotes();
@@ -32,7 +32,7 @@ private:
     QWidget* buildContacts();
     void load();
     void scheduleSave();
-    void saveNow();
+    bool saveNow();
     void refreshNoteList();
     void refreshEvents();
     void refreshContacts();
@@ -41,11 +41,16 @@ private:
     QWidget* m_content = nullptr;
     QStackedWidget* m_tabs = nullptr;
     QLabel* m_title = nullptr;
+    QLabel* m_saveStatus = nullptr;
+    QPushButton* m_retrySave = nullptr;
     QList<QPushButton*> m_buttons;
     int m_openPage = -1;
     int m_lastPage = 0;
     QTimer* m_saveTimer;
     bool m_loading = false;
+    bool m_dirty = false;
+    bool m_readable = false;
+    QJsonObject m_workspaceBase;
 
     // Ghi chú
     QJsonArray m_notes;
