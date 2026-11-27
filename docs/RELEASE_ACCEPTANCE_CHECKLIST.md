@@ -262,3 +262,5 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - Hoãn macro/VBA, PQ/Pivot nâng cao, OCR/sửa PDF gốc, tích hợp MISA/kho luật và animation phức tạp. Kiểm bộ cài và license thực tế trước phát hành.
 
 - A08.1: batch 2 bổ sung BUILD-INFO.json trong bộ cài (checkout SHA thực tế, run id, engine tag, SHA256 DungOffice.exe), yêu cầu Qt PrintSupport/PDF, qpdf và runtime chính khi đóng gói CI; E2E đối chiếu manifest và hash sau cài. Chưa nghiệm thu batch 2. Ca đích là thư mục giờ bị từ chối trước staging, không tuyên bố đã tiêm lỗi staging.
+
+- Batch 3 (chưa CI): P02 thumbnail tỷ lệ đúng, refresh; P03 nhảy số slide và tránh slide ẩn; A03 không ghi đè tài liệu tab khác; A05 giới hạn raster, từ chối khung lỗi, giữ tỷ lệ bản in trên DPI cao, báo lỗi kết thúc tác vụ. Các bài test được mở rộng nhưng chưa nghiệm thu máy thật.
