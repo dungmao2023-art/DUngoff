@@ -67,7 +67,7 @@ QString iconNameForCommand(const QString& id) {
         {"tableTools:clean", "clear-format"}, {"tableTools:compare", "compare"}, {"tableTools:dedup", "duplicate-files"},
         // PowerPoint
         {".uno:AssignLayout", "template"}, {".uno:FontHeight", "font-size"}, {".uno:Color", "font-color"}, {".uno:InsertTable", "table"},
-        {".uno:InsertPage", "slide-new"}, {".uno:DuplicatePage", "slide-duplicate"}, {".uno:DeletePage", "delete"},
+        {".uno:InsertPage", "slide-new"}, {".uno:DuplicatePage", "slide-duplicate"}, {".uno:DeletePage", "delete"}, {"ppt.deleteSlide", "delete"},
         {".uno:MovePageUp", "move-up"}, {".uno:MovePageDown", "move-down"},
         {".uno:HideSlide", "eye-off"}, {".uno:ShowSlide", "eye"},
         {"ppt.image", "image"}, {"ppt.rect", "shape"}, {"ppt.textbox", "textbox"},
