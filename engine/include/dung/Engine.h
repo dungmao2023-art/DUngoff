@@ -30,6 +30,9 @@ fs::path fromUtf8(const std::string& s);
 std::string toFileUrl(const fs::path& p);
 // Đường dẫn dài trên Windows: thêm tiền tố \\?\ khi đường dẫn tuyệt đối từ 240 ký tự trở lên (hệ khác: giữ nguyên).
 fs::path longPath(const fs::path& p);
+// Publish complete staged file without replacing a competing destination.
+// On POSIX the caller removes the staged sibling after success.
+bool publishNewFile(const fs::path& sibling, const fs::path& dest, std::error_code& ec);
 
 // Sự kiện từ engine (đến từ luồng của LibreOffice, KHÔNG phải luồng giao diện).
 struct EngineEvent {
