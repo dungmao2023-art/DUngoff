@@ -32,6 +32,15 @@ int main(int argc, char** argv) {
         animated.contains("presetID=\"10\"") && animated.indexOf("<p:timing") > animated.indexOf("<p:transition") &&
         animated.indexOf("<p:timing") < animated.indexOf("<p:extLst"), "animation targets real shape and preserves transition order");
     check(!patchAnimationXml(animated,anim,&out).ok,"refuse overwrite existing animation");
+    QByteArray cleared;
+    check(clearAnimationXml(animated,&cleared).ok&&cleared==animXml,"clear generated animation preserves exact slide bytes");
+    check(!clearAnimationXml(animXml,&cleared).ok&&cleared==animXml,"no timing rejected without changing output");
+    QByteArray emptyTiming=animXml;emptyTiming.replace("<p:extLst/>","<p:timing/><p:extLst/>");
+    check(clearAnimationXml(emptyTiming,&cleared).ok&&cleared==animXml,"clear self-closing timing only");
+    QByteArray duplicateTiming=emptyTiming;duplicateTiming.replace("<p:extLst/>","<p:timing/><p:extLst/>");
+    check(!clearAnimationXml(duplicateTiming,&cleared).ok,"reject duplicate timing");
+    QByteArray complexTiming=animXml;complexTiming.replace("<p:extLst/>","<p:timing><p:tnLst><!-- keep parsing --><p:par/></p:tnLst></p:timing><p:extLst/>");
+    check(clearAnimationXml(complexTiming,&cleared).ok&&cleared==animXml,"clear nested timing while retaining extLst and transition");
     anim.shapeId=43;
     check(!patchAnimationXml(animXml,anim,&out).ok,"reject missing shape");
     const QByteArray masterXml="<p:sldMaster xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:bg><p:bgRef idx=\"1001\"/></p:bg><p:spTree/></p:cSld><p:clrMap/></p:sldMaster>";
@@ -139,6 +148,12 @@ int main(int argc, char** argv) {
             if (!animation.ok) std::cerr << animation.error.toStdString() << '\n';
             check(animation.ok && slideEntries(animDest,&error)==entries,"actual PPTX animation copy");
             check(slideShapes(animDest,1,&error).isEmpty() && !error.isEmpty(),"reject adding to existing timing");
+            const auto clearDest=temp.filePath("cleared-animation.pptx");
+            const auto clearedCopy=createClearAnimationCopy(animDest,clearDest,1);
+            check(clearedCopy.ok&&slideEntries(clearDest,&error)==entries&&!slideShapes(clearDest,1,&error).isEmpty(),"actual PPTX clear and enumerate again");
+            check(!createClearAnimationCopy(animDest,clearDest,1).ok,"refuse overwriting cleared copy");
+            const auto recreated=temp.filePath("recreated-animation.pptx");
+            check(clearedCopy.ok&&createAnimationCopy(clearDest,recreated,1,anim).ok,"create new animation after clearing");
         }
         const auto masters=masterEntries(src,&error);
         check(!masters.isEmpty(),"enumerate actual referenced masters");

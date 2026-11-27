@@ -286,6 +286,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 }}}},
             {tr("Hoạt ảnh"), {{tr("Xuất PPTX"), {
                 {QStringLiteral("ppt.animationCopy"), tr("Thêm hoạt ảnh"), 0xE7B8, QStringLiteral("▷"), false},
+                {QStringLiteral("ppt.clearAnimationCopy"), tr("Xóa hoạt ảnh"), 0xE74D, QStringLiteral("×"), false},
             }}}},
             {tr("Chuyển cảnh"), {{tr("Xuất PPTX"), {
                 {QStringLiteral("ppt.transitionNote"), tr("Đặt chuyển cảnh"), 0xE7B8, QStringLiteral("▷"), false},
