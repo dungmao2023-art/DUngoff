@@ -33,6 +33,8 @@
 #include <QAbstractItemModel>
 #include <QSet>
 #include <QPointer>
+#include <QGuiApplication>
+#include <QScreen>
 #include <functional>
 
 // QListWidget may implement InternalMove by moving rows or by insert/remove.
@@ -100,8 +102,35 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
     dung::Document* d = tab->document();
     if (id == QLatin1String("ppt.show") || id == QLatin1String("ppt.showHere") || id == QLatin1String("ppt.preview")) {
         tab->setPptNotesMode(false);
+        const bool fullscreen = id != QLatin1String("ppt.preview");
         const int start = id == QLatin1String("ppt.show") ? 0 : d->currentPart();
-        new SlideShow(d, start, tab, id != QLatin1String("ppt.preview"));
+        QPointer<DocumentTab> owner(tab);
+        QPointer<QScreen> target(tab->screen());
+        const auto screens = QGuiApplication::screens();
+        if (fullscreen && screens.size() > 1) {
+            QStringList choices;
+            QList<QPointer<QScreen>> candidates;
+            int selected = 0;
+            for (auto* screen : screens) {
+                if (screen == target.data()) selected = choices.size();
+                const auto geometry = screen->geometry();
+                candidates.append(QPointer<QScreen>(screen));
+                choices << QObject::tr("Màn hình %1 · %2 · %3 × %4")
+                    .arg(choices.size() + 1).arg(screen->name()).arg(geometry.width()).arg(geometry.height());
+            }
+            bool ok = false;
+            const auto choice = QInputDialog::getItem(tab, QObject::tr("Màn hình trình chiếu"),
+                QObject::tr("Chọn màn hình hiển thị slide:"), choices, selected, false, &ok);
+            if (!ok || !owner || owner->document() != d) return true;
+            const int index = choices.indexOf(choice);
+            if (index < 0 || index >= candidates.size() || candidates.at(index).isNull()) {
+                QMessageBox::warning(owner.data(), QObject::tr("Trình chiếu"), QObject::tr("Màn hình đã ngắt kết nối. Chọn lại."));
+                return true;
+            }
+            target = candidates.at(index);
+        }
+        if (!owner || owner->document() != d) return true;
+        new SlideShow(d, start, owner.data(), fullscreen, target.data());
     } else if (id == QLatin1String("ppt.notes") || id == QLatin1String("ppt.normal")) {
         tab->setPptNotesMode(id == QLatin1String("ppt.notes"));
     } else if (id == QLatin1String("ppt.fontSize")) {
