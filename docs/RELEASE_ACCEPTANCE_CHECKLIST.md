@@ -275,3 +275,5 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - PR #123 HEAD d805275053a4a588bc5123e1a6c8898d3b00ae1a, merged main 389a39f56014ee787efabde50ca533774bb3be90. CI 45990409222 Windows/Linux PASS, kiểm thử cài/gỡ tự động Windows 0 lỗi; manifest và SHA256 ứng dụng sau cài khớp. Artifact bộ cài: https://github.com/dungmao2023-art/DUngoff/actions/runs/45990409222/artifacts/15194142868 . Checkout CI là merge candidate 93943a729aff203fa9cc42ee9dd9d4f073162605; không đồng nhất SHA với main sau merge. Chưa tick GUI/máy sạch ngoài CI/máy in thật. Batch 3 chưa CI.
 
 - Batch 4 W01/W02/W04: xác minh lại vùng chữ/con trỏ trước khi chọn font/cỡ/màu, chèn bảng/ảnh; kiểm ảnh vẫn đọc được; hộp tìm/thay thống nhất có tìm trước/sau, xác nhận thay toàn bộ. Thêm test tìm ngược trên engine thật; chưa CI và GUI.
+
+- Batch 4 X01/X05: thống nhất hộp tìm/thay Excel, tìm tiếp nhiều lần, khóa phạm vi sheet, xác nhận thay toàn bộ bằng lệnh native đã có test; kiểm tra ô khóa sắp xếp qua cả callback địa chỉ lẫn hình học. Cần CI/GUI, chưa nghiệm thu.

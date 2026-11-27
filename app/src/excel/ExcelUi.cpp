@@ -5,6 +5,10 @@
 #include "../EngineHost.h"
 #include "../TileView.h"
 #include "ExcelCommands.h"
+#ifndef LOK_USE_UNSTABLE_API
+#define LOK_USE_UNSTABLE_API
+#endif
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
 #include <QColorDialog>
 #include <QFontDatabase>
@@ -17,6 +21,8 @@
 #include <QClipboard>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -168,7 +174,7 @@ void DocumentTab::excelAction(const QString& id) {
         const QString cell=m_view->selectedCellRange();
         // An explicitly selected multi-column range can split related rows.
         // Use the existing native auto-region sort from one confirmed key cell.
-        if(dataassist::bridgeCellAddress(ss(cell)).empty()){
+        if(dataassist::bridgeConfirmedCell(ss(cell),m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS)).empty()){
             QMessageBox::information(this,title,tr("Chọn một ô dữ liệu trong cột cần sắp xếp. Không chọn riêng một dải ô; engine sẽ tự xác định vùng dữ liệu liên tục."));
             return;
         }
@@ -340,23 +346,50 @@ void DocumentTab::excelAction(const QString& id) {
         bool ok = false;
         const double cm = QInputDialog::getDouble(this, tr("Chiều cao hàng"), tr("Chiều cao (cm):"), 0.5, 0.1, 20, 2, &ok);
         if (ok && confirmTarget(targetRange, tr("Chiều cao hàng"))) cmd(".uno:RowHeight", ex::rowHeight(ex::cmToHundredthMm(cm)));
-    } else if (a == QLatin1String("replace")) {
-        bool ok = false;
-        const QString f = QInputDialog::getText(this, tr("Tìm và thay thế"), tr("Tìm:"), QLineEdit::Normal, QString(), &ok);
-        if (!ok || f.isEmpty()) return;
-        const QString r = QInputDialog::getText(this, tr("Tìm và thay thế"), tr("Thay bằng:"), QLineEdit::Normal, QString(), &ok);
-        if (!ok) return;
-        if (QMessageBox::question(this, tr("Tìm và thay thế"),
-                tr("Thay tất cả \"%1\" bằng \"%2\" trong giá trị và văn bản của sheet này.\nCông thức KHÔNG bị thay đổi. Tiếp tục?").arg(f, r),
-                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
-        if (!sameSheet()) { QMessageBox::warning(this, tr("Tìm và thay thế"), tr("Sheet đã thay đổi; chưa thay dữ liệu.")); return; }
-        cmd(".uno:ExecuteSearch", ex::replaceAll(ss(f), ss(r)));
-        m_doc->waitInputIdle();
-    } else if (a == QLatin1String("find")) {
-        const QString targetRange = m_view->selectedCellRange();
-        bool ok = false;
-        const QString f = QInputDialog::getText(this, tr("Tìm"), tr("Tìm:"), QLineEdit::Normal, QString(), &ok);
-        if (ok && !f.isEmpty() && confirmTarget(targetRange, tr("Tìm"))) cmd(".uno:ExecuteSearch", ex::findNext(ss(f)));
+    } else if (a==QLatin1String("replace") || a==QLatin1String("find")) {
+        QDialog dlg(this);
+        dlg.setWindowTitle(tr("Tìm và thay thế — %1").arg(qs(originalSheet)));
+        auto* root=new QVBoxLayout(&dlg);
+        auto* form=new QFormLayout;
+        auto* needle=new QLineEdit(&dlg);
+        auto* replacement=new QLineEdit(&dlg);
+        form->addRow(tr("Tìm:"),needle);
+        form->addRow(tr("Thay bằng:"),replacement);
+        root->addLayout(form);
+        auto* note=new QLabel(tr("Tìm tiếp trong sheet hiện tại. Thay tất cả chỉ dùng chế độ giá trị/văn bản, không sửa công thức; cần xác nhận trước khi thay."),&dlg);
+        note->setWordWrap(true);root->addWidget(note);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Close,&dlg);
+        auto* next=buttons->addButton(tr("Tìm tiếp"),QDialogButtonBox::ActionRole);
+        auto* replace=buttons->addButton(tr("Thay tất cả"),QDialogButtonBox::ActionRole);
+        root->addWidget(buttons);
+        auto refresh=[&]{const bool enabled=!needle->text().isEmpty();next->setEnabled(enabled);replace->setEnabled(enabled);};
+        QObject::connect(needle,&QLineEdit::textChanged,&dlg,[&]{refresh();});
+        auto validate=[&]{
+            if(needle->text().isEmpty())return false;
+            if(sameSheet())return true;
+            QMessageBox::warning(&dlg,tr("Tìm và thay thế"),tr("Sheet đã thay đổi. Hãy đóng và mở lại công cụ."));
+            return false;
+        };
+        auto find=[&]{
+            if(!validate())return;
+            cmd(".uno:ExecuteSearch",ex::findNext(ss(needle->text())));
+            m_doc->waitInputIdle();
+            note->setText(tr("Đã gửi lệnh tìm. Đóng hộp thoại để xem ô được chọn; engine chưa xác nhận số kết quả."));
+        };
+        QObject::connect(next,&QPushButton::clicked,&dlg,find);
+        QObject::connect(needle,&QLineEdit::returnPressed,&dlg,find);
+        QObject::connect(replace,&QPushButton::clicked,&dlg,[&]{
+            if(!validate())return;
+            const QString from=needle->text(),to=replacement->text();
+            if(QMessageBox::question(&dlg,tr("Thay tất cả"),
+                tr("Sheet %1: thay mọi lần xuất hiện của «%2» bằng «%3» trong giá trị/văn bản? Công thức không bị sửa.").arg(qs(originalSheet),from,to),
+                QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+            if(!validate())return;
+            cmd(".uno:ExecuteSearch",ex::replaceAll(ss(from),ss(to)));
+            m_doc->waitInputIdle();dlg.accept();
+        });
+        QObject::connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        refresh();needle->setFocus();dlg.exec();
     }
     if (!m_doc || m_doc.get() != originalDoc || !m_view || readOnly()) return;
     if (a.startsWith(QLatin1String("sheet"))) { m_doc->waitInputIdle(); rebuildParts(); m_view->resetForPartChange(); emit statusChanged(); }
