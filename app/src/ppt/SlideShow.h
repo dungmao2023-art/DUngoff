@@ -24,6 +24,7 @@ private:
     dung::Document* m_doc;
     int m_part;
     int m_count;
+    int m_blank = 0; // 0: slide, 1: black, 2: white
     long m_w = 0, m_h = 0; // twip
     QImage m_img;
 };
