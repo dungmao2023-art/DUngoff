@@ -122,15 +122,7 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
           QString("peak=%1 drain=%2 ms").arg(view.peakTilesPerPaint()).arg(renderTiming.elapsed()));
     view.setZoom(originalZoom);
     pump(400);
-    view.hide();
-    check(view.cachedTileCount()<=16&&!view.renderPending(),
-          label+": tab ẩn giải phóng cache và dừng render chờ");
-    view.show();
-    view.activateWindow();
-    view.setFocus();
-    pump(500);
-    check(waitFor([&]{return !view.renderPending();},8000)&&view.cachedTileCount()>0,
-          label+": mở lại tab tiếp tục render");
+
 
     if (wantCell) {
         click(vp, QPoint(120, 60));
@@ -254,6 +246,18 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
             check(view.caretShownNow(), label + ": ngay sau khi gõ/di chuyển con trỏ đặc (hiện, chưa vào pha tắt)");
         }
     }
+    // Lifecycle assertions come after the independent caret/selection
+    // checks. Qt offscreen top-level hide/show may not reactivate keyboard
+    // focus (unlike a child page in the real stacked document area).
+    view.hide();
+    check(view.cachedTileCount()<=16&&!view.renderPending(),
+          label+": tab ẩn giải phóng cache và dừng render chờ");
+    view.show();
+    view.activateWindow();
+    view.setFocus();
+    pump(500);
+    check(waitFor([&]{return !view.renderPending();},8000)&&view.cachedTileCount()>0,
+          label+": mở lại tab tiếp tục render");
     doc->setEventSink(nullptr);
 }
 }  // namespace
