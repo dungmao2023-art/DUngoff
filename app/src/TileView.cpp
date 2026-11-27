@@ -181,6 +181,7 @@ void TileView::updateScrollBars() {
 }
 
 void TileView::sendVisibleArea() {
+    if(!isVisible())return;
     const QPoint h = headerSize();
     const double tpp = twipsPerPx();
     const int x = (int)(horizontalScrollBar()->value() * tpp), y = (int)(verticalScrollBar()->value() * tpp);
@@ -245,6 +246,10 @@ void TileView::hideEvent(QHideEvent* event) {
     m_deferredPaint=QRegion();
     m_headerTimer.stop();
     m_areaTimer.stop();
+    m_synthTimer.stop();
+    m_synthLate.stop();
+    // A pending synthetic refresh must not be lost while hidden.
+    for(auto it=m_tiles.cbegin();it!=m_tiles.cend();++it)m_dirtyTiles.insert(it.key());
     m_blink.stop();
     // Retain nearby tiles for quick tab switching, not an entire scroll history.
     trimTileCache(16);
@@ -479,8 +484,10 @@ QVector<QRect> TileView::parseRects(const QString& s) {
 
 void TileView::refreshAllTiles() {
     for(auto it=m_tiles.cbegin();it!=m_tiles.cend();++it)m_dirtyTiles.insert(it.key());
-    viewport()->update();
-    if (m_isCalc) m_headerTimer.start();
+    if(isVisible()) {
+        viewport()->update();
+        if(m_isCalc)m_headerTimer.start();
+    }
 }
 
 void TileView::invalidateTwips(const QRect& r) {
@@ -510,6 +517,10 @@ void TileView::handleEvent(int type, const QString& payload) {
     case LOK_CALLBACK_INVALIDATE_TILES: {
         // Engine Windows không tự báo làm mới sau khi gõ/ra lệnh: tầng engine phát "SYNTH".
         if (payload == QLatin1String("SYNTH")) {
+            if(!isVisible()) {
+                for(auto it=m_tiles.cbegin();it!=m_tiles.cend();++it)m_dirtyTiles.insert(it.key());
+                break;
+            }
             if (!m_synthTimer.isActive()) m_synthTimer.start();
             // Keep the leading refresh, but render the final fallback only after
             // the input burst ends, not every 250 ms while the user types.
@@ -525,7 +536,7 @@ void TileView::handleEvent(int type, const QString& payload) {
             if (r.height() < 0 || r.height() > 100000000) r.setHeight(100000000);
             invalidateTwips(r);
         }
-        if (m_isCalc) m_headerTimer.start();
+        if (m_isCalc&&isVisible()) m_headerTimer.start();
         break;
     }
     case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED: {
