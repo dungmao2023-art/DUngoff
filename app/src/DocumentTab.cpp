@@ -699,9 +699,10 @@ QString DocumentTab::title() const {
 
 QString DocumentTab::statusText() const {
     QString s = QString::fromUtf8(dung::kindName(m_doc->kind()));
-    // Word has no sheet/slide/page index in this status label.
-    const bool hasParts=m_doc->kind()!=DocKind::Text;
-    const int n=hasParts?m_doc->partCount():0,cur=hasParts?m_doc->currentPart()+1:0;
+    // The part widgets are already synchronized with the engine on part events.
+    // Status painting must not issue two synchronous engine calls on every cell click.
+    const int n=m_sheets?m_sheets->count():m_slides?m_slides->count():0;
+    const int cur=m_sheets?m_sheets->currentIndex()+1:m_slides?m_slides->currentRow()+1:0;
     switch (m_doc->kind()) {
     case DocKind::Spreadsheet: s += tr("  •  Sheet %1/%2").arg(cur).arg(n); break;
     case DocKind::Presentation: s += (m_pptNotes ? tr("  •  Ghi chú %1/%2") : tr("  •  Trang chiếu %1/%2")).arg(cur).arg(n); break;
@@ -809,19 +810,25 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
         break;
     }
     case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED:
-    case LOK_CALLBACK_SET_PART:
-        ++m_pickGeneration;
-        if(m_formulaAssistant) notifyFormulaSheet(m_formulaAssistant,m_doc->currentPart(),qs(m_doc->partName(m_doc->currentPart())));
-        refreshPdfComparison();
-        if ((m_sheets && m_sheets->count() != m_doc->partCount()) ||
-            (m_slides && m_slides->count() != m_doc->partCount()) ||
-            (m_sheets && m_sheets->currentIndex() != m_doc->currentPart()) ||
-            (m_slides && m_slides->currentRow() != m_doc->currentPart())) {
+    case LOK_CALLBACK_SET_PART: {
+        // Writer only needs its updated geometry (already handled by TileView).
+        if(!m_sheets&&!m_slides)break;
+        const int count=m_doc->partCount(),part=m_doc->currentPart();
+        const bool changed=(m_sheets&&(m_sheets->count()!=count||m_sheets->currentIndex()!=part))||
+            (m_slides&&(m_slides->count()!=count||m_slides->currentRow()!=part));
+        if(changed||type==LOK_CALLBACK_SET_PART) {
+            ++m_pickGeneration;
+            if(m_formulaAssistant&&part>=0&&part<count)
+                notifyFormulaSheet(m_formulaAssistant,part,qs(m_doc->partName(part)));
+        }
+        if(changed) {
             rebuildParts();
             m_view->resetForPartChange();
         }
-        emit statusChanged();
+        if(m_pdfComparison)refreshPdfComparison();
+        if(changed||type==LOK_CALLBACK_SET_PART)emit statusChanged();
         break;
+    }
     default:
         break;
     }

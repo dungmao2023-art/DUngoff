@@ -1154,18 +1154,15 @@ void MainWindow::refreshStatus() {
     m_saveLabel->setVisible(docs);
     if (docs) {
         m_toolLabel->setText(QString::fromUtf8(dung::kindName(t->document()->kind())));
-        if (t->readOnly()) m_saveLabel->setText(tr("Chỉ đọc"));
-        else if (t->document()->modified()) m_saveLabel->setText(tr("<span style='color:#AF791D'>● Chưa lưu</span>"));
-        else m_saveLabel->setText(tr("<span style='color:#21866E'>✓ Đã lưu</span>"));
-        const auto& fl = t->document()->featureLoss();
-        if (!fl.empty()) {
-            m_saveLabel->setText(m_saveLabel->text() +
-                tr(" · <span style='color:#AF791D'>⚠ Lưu sẽ mất %1 loại thành phần</span>").arg(fl.size()));
-            m_saveLabel->setToolTip(QString::fromStdString(dung::describeFeatureLoss(fl)));
-        } else {
-            m_saveLabel->setToolTip(QString());
-        }
-        m_saveLabel->setTextFormat(Qt::RichText);
+        QString saveText=t->readOnly()?tr("Chỉ đọc"):
+            t->document()->modified()?tr("<span style='color:#AF791D'>● Chưa lưu</span>"):
+            tr("<span style='color:#21866E'>✓ Đã lưu</span>");
+        const auto& fl=t->document()->featureLoss();
+        if(!fl.empty())saveText+=tr(" · <span style='color:#AF791D'>⚠ Lưu sẽ mất %1 loại thành phần</span>").arg(fl.size());
+        const QString tip=fl.empty()?QString():QString::fromStdString(dung::describeFeatureLoss(fl));
+        if(m_saveLabel->textFormat()!=Qt::RichText)m_saveLabel->setTextFormat(Qt::RichText);
+        if(m_saveLabel->text()!=saveText)m_saveLabel->setText(saveText);
+        if(m_saveLabel->toolTip()!=tip)m_saveLabel->setToolTip(tip);
     }
     if (docs) m_top->setSaveText(t->readOnly() ? tr("● Chỉ đọc") : t->document()->modified() ? tr("● Chưa lưu") : tr("● Đã lưu"));
     else m_top->setSaveText(tr("● Lưu trên máy bạn"));
@@ -1174,7 +1171,7 @@ void MainWindow::refreshStatus() {
     m_zoomLabel->setVisible(docs);
     QString title = tr("Dũng Office");
     if (docs) title = t->title() + QStringLiteral(" — ") + title;
-    setWindowTitle(title);
+    if(windowTitle()!=title)setWindowTitle(title);
 }
 
 void MainWindow::onAppAction(const QString& id) {

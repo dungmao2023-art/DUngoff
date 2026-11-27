@@ -81,14 +81,16 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent) {
 void TopBar::setActive(const QString& kind) {
     for (int i = 0; i < 5; ++i) {
         const bool on = kind == QLatin1String(kKinds[i]);
+        const auto previous=m_tabs[i]->property("active");
+        if(previous.isValid()&&previous.toBool()==on)continue;
         m_tabs[i]->setProperty("active", on);
         m_tabs[i]->style()->unpolish(m_tabs[i]);
         m_tabs[i]->style()->polish(m_tabs[i]);
     }
 }
 
-void TopBar::setSaveText(const QString& html) { m_save->setText(html); }
-void TopBar::setReadyText(const QString& text) { m_ready->setText(text); }
+void TopBar::setSaveText(const QString& html) { if(m_save->text()!=html)m_save->setText(html); }
+void TopBar::setReadyText(const QString& text) { if(m_ready->text()!=text)m_ready->setText(text); }
 
 void TopBar::setCompact(bool compact) {
     m_save->setVisible(!compact);

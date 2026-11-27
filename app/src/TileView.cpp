@@ -53,6 +53,10 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
     horizontalScrollBar()->setSingleStep(40);
     verticalScrollBar()->setSingleStep(40);
 
+    m_dragTimer.setSingleShot(true);
+    m_dragTimer.setInterval(8);
+    m_dragTimer.setTimerType(Qt::PreciseTimer);
+    connect(&m_dragTimer,&QTimer::timeout,this,&TileView::flushDragMove);
     m_tilePaintTimer.setSingleShot(true);
     m_tilePaintTimer.setInterval(8);
     connect(&m_tilePaintTimer,&QTimer::timeout,this,[this] {
@@ -131,6 +135,7 @@ QRect TileView::toView(const QRect& t) const {
 }
 
 void TileView::setZoom(int percent) {
+    flushDragMove();
     percent = std::clamp(percent, 25, 400);
     if (percent == m_zoom) return;
     // Giữ điểm giữa màn hình khi đổi zoom
@@ -147,6 +152,7 @@ void TileView::setZoom(int percent) {
 }
 
 void TileView::resetForPartChange() {
+    clearDragMove();
     m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear(); m_pickValid = false; m_pickComplete = false;
     m_tiles.clear(); m_dirtyTiles.clear(); m_deferredPaint=QRegion(); m_tilePaintTimer.stop();
     m_selection.clear();
@@ -175,6 +181,7 @@ void TileView::updateScrollBars() {
 }
 
 void TileView::sendVisibleArea() {
+    if(!isVisible())return;
     const QPoint h = headerSize();
     const double tpp = twipsPerPx();
     const int x = (int)(horizontalScrollBar()->value() * tpp), y = (int)(verticalScrollBar()->value() * tpp);
@@ -207,6 +214,56 @@ void TileView::requestHeaders() {
     };
     parse(o.value(QStringLiteral("rows")).toArray(), m_rows, m_rowStartPx);
     parse(o.value(QStringLiteral("columns")).toArray(), m_cols, m_colStartPx);
+    viewport()->update();
+}
+
+int TileView::tileCacheLimit() const {
+    // Allow a complete visible viewport plus a small scroll margin, including 4K.
+    const qint64 cols=(qint64(viewport()->width())+kTilePx-1)/kTilePx+2;
+    const qint64 rows=(qint64(viewport()->height())+kTilePx-1)/kTilePx+2;
+    return int(qBound(qint64(64),cols*rows+qint64(24),qint64(600)));
+}
+
+void TileView::trimTileCache(int limit) {
+    const qint64 cx=(qint64(horizontalScrollBar()->value())+viewport()->width()/2)/kTilePx;
+    const qint64 cy=(qint64(verticalScrollBar()->value())+viewport()->height()/2)/kTilePx;
+    while(m_tiles.size()>limit) {
+        auto victim=m_tiles.begin();
+        qint64 farthest=-1;
+        for(auto it=m_tiles.begin();it!=m_tiles.end();++it) {
+            const qint64 dx=qint64(it.key()>>32)-cx;
+            const qint64 dy=qint64(it.key()&0xffffffff)-cy;
+            const qint64 distance=qAbs(dx)+qAbs(dy);
+            if(distance>farthest){farthest=distance;victim=it;}
+        }
+        m_dirtyTiles.remove(victim.key());
+        m_tiles.erase(victim);
+    }
+}
+
+void TileView::hideEvent(QHideEvent* event) {
+    m_tilePaintTimer.stop();
+    m_deferredPaint=QRegion();
+    m_headerTimer.stop();
+    m_areaTimer.stop();
+    if(m_synthTimer.isActive()||m_synthLate.isActive()) {
+        // A pending synthetic refresh must not be lost while hidden.
+        for(auto it=m_tiles.cbegin();it!=m_tiles.cend();++it)m_dirtyTiles.insert(it.key());
+    }
+    m_synthTimer.stop();
+    m_synthLate.stop();
+    m_blink.stop();
+    // Retain nearby tiles for quick tab switching, not an entire scroll history.
+    trimTileCache(16);
+    QAbstractScrollArea::hideEvent(event);
+}
+
+void TileView::showEvent(QShowEvent* event) {
+    QAbstractScrollArea::showEvent(event);
+    // Set engine zoom/visible area before the first paint of a reopened tab.
+    m_areaTimer.stop();
+    sendVisibleArea();
+    m_blink.start();
     viewport()->update();
 }
 
@@ -251,12 +308,7 @@ void TileView::paintEvent(QPaintEvent* ev) {
                     img.fill(Qt::white);
                     m_doc->paintTile(img.bits(),kTilePx,kTilePx,tx*tileTwips(),ty*tileTwips(),tileTwips(),tileTwips());
                     ++rendered;
-                    if(it==m_tiles.end()&&m_tiles.size()>=600) {
-                        // Evict one tile, not the entire viewport/cache.
-                        auto victim=m_tiles.begin();
-                        m_dirtyTiles.remove(victim.key());
-                        m_tiles.erase(victim);
-                    }
+                    if(it==m_tiles.end())trimTileCache(tileCacheLimit()-1);
                     it=m_tiles.insert(key,img);
                     m_dirtyTiles.remove(key);
                 }
@@ -436,8 +488,10 @@ QVector<QRect> TileView::parseRects(const QString& s) {
 
 void TileView::refreshAllTiles() {
     for(auto it=m_tiles.cbegin();it!=m_tiles.cend();++it)m_dirtyTiles.insert(it.key());
-    viewport()->update();
-    if (m_isCalc) m_headerTimer.start();
+    if(isVisible()) {
+        viewport()->update();
+        if(m_isCalc)m_headerTimer.start();
+    }
 }
 
 void TileView::invalidateTwips(const QRect& r) {
@@ -467,6 +521,10 @@ void TileView::handleEvent(int type, const QString& payload) {
     case LOK_CALLBACK_INVALIDATE_TILES: {
         // Engine Windows không tự báo làm mới sau khi gõ/ra lệnh: tầng engine phát "SYNTH".
         if (payload == QLatin1String("SYNTH")) {
+            if(!isVisible()) {
+                for(auto it=m_tiles.cbegin();it!=m_tiles.cend();++it)m_dirtyTiles.insert(it.key());
+                break;
+            }
             if (!m_synthTimer.isActive()) m_synthTimer.start();
             // Keep the leading refresh, but render the final fallback only after
             // the input burst ends, not every 250 ms while the user types.
@@ -482,7 +540,7 @@ void TileView::handleEvent(int type, const QString& payload) {
             if (r.height() < 0 || r.height() > 100000000) r.setHeight(100000000);
             invalidateTwips(r);
         }
-        if (m_isCalc) m_headerTimer.start();
+        if (m_isCalc&&isVisible()) m_headerTimer.start();
         break;
     }
     case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED: {
@@ -561,6 +619,7 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 }
 
 void TileView::mousePressEvent(QMouseEvent* e) {
+    flushDragMove();
     if (m_isCalc) {
         const auto old=selectionPaintRegion();
         m_cellArea = QRect();
@@ -580,6 +639,7 @@ void TileView::mousePressEvent(QMouseEvent* e) {
     sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, e, m_clickCount);
 }
 void TileView::mouseReleaseEvent(QMouseEvent* e) {
+    flushDragMove(); // final queued position must reach engine before release
     sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, e, m_clickCount);
     m_clickCount = 1;
     if (m_isCalc && e->button() == Qt::LeftButton && m_pickValid) {
@@ -614,10 +674,41 @@ QString TileView::selectedCellRange(bool verifyGesture) {
     const auto range = dataassist::bridgeRangeAddress((a + QLatin1Char(':') + b).toStdString());
     return QString::fromStdString(range);
 }
+void TileView::clearDragMove() {
+    m_dragTimer.stop();
+    m_dragPending=false;
+}
+
+void TileView::flushDragMove() {
+    if(!m_dragPending)return;
+    const QPoint pos=m_dragTwips;
+    const int buttons=m_dragButtons,modifiers=m_dragModifiers;
+    clearDragMove();
+    const UiTiming timing("drag");
+    ++m_dragDispatches;
+    m_doc->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,pos.x(),pos.y(),1,buttons,modifiers);
+}
+
 void TileView::mouseMoveEvent(QMouseEvent* e) {
-    if (e->buttons() != Qt::NoButton) sendMouse(LOK_MOUSEEVENT_MOUSEMOVE, e, 1);
+    if(e->buttons()==Qt::NoButton){flushDragMove();return;}
+    // Preserve paths for drawing objects, slides, multi-button and modified drags.
+    // Ordinary text/cell selection depends on the latest pointer endpoint.
+    const bool simple=(m_isCalc||m_doc->kind()==dung::DocKind::Text)&&
+        e->buttons()==Qt::LeftButton&&e->modifiers()==Qt::NoModifier;
+    const QPoint pos=e->position().toPoint(),h=headerSize();
+    if(!simple||(m_isCalc&&(pos.x()<h.x()||pos.y()<h.y()))) {
+        flushDragMove();
+        sendMouse(LOK_MOUSEEVENT_MOUSEMOVE,e,1);
+        return;
+    }
+    m_dragTwips=toTwips(pos);
+    m_dragButtons=toLokButtons(e->buttons());
+    m_dragModifiers=toLokModifiers(e->modifiers());
+    m_dragPending=true;
+    if(!m_dragTimer.isActive())m_dragTimer.start();
 }
 void TileView::mouseDoubleClickEvent(QMouseEvent* e) {
+    flushDragMove();
     setFocus();
     restartBlink();
     m_clickCount = 2;
@@ -626,6 +717,7 @@ void TileView::mouseDoubleClickEvent(QMouseEvent* e) {
 }
 
 void TileView::wheelEvent(QWheelEvent* e) {
+    flushDragMove();
     if (e->modifiers() & Qt::ControlModifier) {
         setZoom(m_zoom + (e->angleDelta().y() > 0 ? 10 : -10));
         e->accept();
@@ -635,6 +727,7 @@ void TileView::wheelEvent(QWheelEvent* e) {
 }
 
 void TileView::keyPressEvent(QKeyEvent* e) {
+    flushDragMove();
     const UiTiming timing("key");
     if (m_composing && e->key() == Qt::Key_Escape) { cancelComposition(); e->accept(); return; }
     const LokKey k = toLokKey(e);
@@ -652,6 +745,7 @@ void TileView::keyReleaseEvent(QKeyEvent* e) {
 }
 
 void TileView::inputMethodEvent(QInputMethodEvent* e) {
+    flushDragMove();
     const UiTiming timing("ime");
     if (m_doc->readOnly()) { e->ignore(); return; }
     restartBlink();
@@ -685,6 +779,7 @@ void TileView::cancelComposition() {
 }
 
 void TileView::focusOutEvent(QFocusEvent* e) {
+    flushDragMove();
     carettrace::log("focus: RA");
     cancelComposition();
     QAbstractScrollArea::focusOutEvent(e);
