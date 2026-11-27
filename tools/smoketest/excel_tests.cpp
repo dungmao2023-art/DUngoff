@@ -67,6 +67,16 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
     fs::create_directories(out, ec);
     watchdog(150);
     std::string err;
+    step("kiểm tra giới hạn điền dãy");
+    long long end=0;
+    check(ex::linearSeriesEnd(10,3,4,end)&&end==19,"dãy tăng 10,13,16,19");
+    check(ex::linearSeriesEnd(7,-3,4,end)&&end==-2,"dãy giảm qua số 0");
+    check(ex::linearSeriesEnd(999999999,1,2,end)&&end==1000000000LL,"chấp nhận biên trên");
+    check(ex::linearSeriesEnd(-999999999,-1,2,end)&&end==-1000000000LL,"chấp nhận biên dưới");
+    check(!ex::linearSeriesEnd(1,0,4,end),"từ chối bước 0");
+    check(!ex::linearSeriesEnd(1,1,1,end)&&!ex::linearSeriesEnd(1,1,10001,end),"từ chối số ô ngoài giới hạn");
+    check(!ex::linearSeriesEnd(1000000000,1,2,end)&&!ex::linearSeriesEnd(-1000000000,-1,2,end),"từ chối vượt ±1 tỷ");
+    check(!ex::linearSeriesEnd(1,9223372036854775807LL,10000,end),"từ chối đầu vào cực lớn trước phép nhân");
     step("khởi động engine");
     auto engine = Engine::create(program, out / "profile", out / "work", &err);
     check((bool)engine, "Khởi động engine " + err);
