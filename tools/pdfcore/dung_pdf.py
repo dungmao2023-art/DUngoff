@@ -4,117 +4,19 @@
 Quy tắc an toàn (theo docs/DATA_SAFETY.md):
 - Không bao giờ ghi đè tệp gốc: luôn ghi ra tệp mới.
 - Ghi vào tệp tạm "~dung-xxxx-tên.pdf" cùng thư mục, kiểm tra header %PDF
-  và EOF, rồi công bố tệp mới bằng hardlink không ghi đè; thay đích đã xác nhận dùng os.replace.
+  và EOF, rồi công bố tệp mới không ghi đè (rename trên Windows, hardlink trên POSIX); thay đích đã xác nhận dùng os.replace.
 - Nếu đích đã tồn tại: từ chối trừ khi allow_replace=True, và khi đó sao lưu
   tệp cũ thành "tên.dung-backup-YYYYMMDD-HHMMSS.pdf" trước khi thay.
 - Tệp gốc được đọc ở chế độ chỉ đọc, không bao giờ mở để ghi.
 """
 from __future__ import annotations
 
-import datetime as _dt
 import os
 import re
-import tempfile
-import shutil
-from dataclasses import dataclass, field
-from typing import Iterable, List, Optional, Sequence
+from typing import List, Optional, Sequence
 
 import pikepdf
-
-
-class PdfError(Exception):
-    """Lỗi do người dùng hoặc tệp đầu vào, có thông điệp tiếng Việt."""
-
-
-@dataclass
-class SaveResult:
-    written: str
-    backup: Optional[str] = None
-    warnings: List[str] = field(default_factory=list)
-
-
-# ---------------------------------------------------------------- an toàn ghi
-
-def _backup_path(path: str) -> str:
-    stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    root, ext = os.path.splitext(path)
-    candidate = f"{root}.dung-backup-{stamp}{ext}"
-    n = 1
-    while os.path.exists(candidate):
-        candidate = f"{root}.dung-backup-{stamp}-{n}{ext}"
-        n += 1
-    return candidate
-
-
-def _looks_like_pdf(path: str) -> bool:
-    with open(path, "rb") as f:
-        head = f.read(8)
-        f.seek(0, os.SEEK_END)
-        size = f.tell()
-        f.seek(max(0, size - 2048))
-        tail = f.read()
-    return head.startswith(b"%PDF-") and b"%%EOF" in tail
-
-
-def _ensure_distinct_destination(sources: Iterable[str], dest: str) -> None:
-    """Reject direct paths, symlinks and hardlinks to any original input."""
-    normalized = os.path.normcase(os.path.realpath(dest))
-    for source in sources:
-        if normalized == os.path.normcase(os.path.realpath(source)):
-            raise PdfError("Tệp đích trùng tệp nguồn. Hãy chọn tên mới.")
-        try:
-            same = os.path.samefile(source, dest)
-        except FileNotFoundError:
-            same = False
-        except OSError as exc:
-            raise PdfError(f"Không xác minh được tệp đích: {exc}") from exc
-        if same:
-            raise PdfError("Tệp đích trùng tệp nguồn. Hãy chọn tên mới.")
-
-
-def atomic_save(pdf: pikepdf.Pdf, dest: str, allow_replace: bool = False) -> SaveResult:
-    """Ghi `pdf` ra `dest` theo đúng quy tắc an toàn ở trên."""
-    dest = os.path.abspath(dest)
-    folder = os.path.dirname(dest)
-    if not os.path.isdir(folder):
-        raise PdfError(f"Thư mục đích không tồn tại: {folder}")
-
-    backup = None
-    replace_existing = os.path.lexists(dest)
-    if replace_existing:
-        if not allow_replace:
-            raise PdfError("Tệp đích đã tồn tại. Chọn tên khác hoặc xác nhận thay thế.")
-        if os.path.islink(dest) or not os.path.isfile(dest):
-            raise PdfError("Không thay thế liên kết hoặc đích không phải tệp thường.")
-        backup = _backup_path(dest)
-
-    fd, tmp = tempfile.mkstemp(prefix="~dung-", suffix=".pdf", dir=folder)
-    os.close(fd)
-    try:
-        pdf.save(tmp, linearize=True)
-        if not _looks_like_pdf(tmp):
-            raise PdfError("Tệp tạm ghi ra không hợp lệ, đã hủy. Tệp gốc không thay đổi.")
-        if replace_existing:
-            # Exclusive backup creation: never overwrite an existing backup.
-            with open(dest, "rb") as original, open(backup, "xb") as saved:
-                shutil.copyfileobj(original, saved)
-            os.replace(tmp, dest)
-        else:
-            # Unlike os.replace, link cannot clobber a concurrently created file.
-            # Fail closed on filesystems without hardlink support.
-            try:
-                os.link(tmp, dest)
-            except FileExistsError as exc:
-                raise PdfError("Tệp đích vừa được tạo. Hãy chọn tên khác.") from exc
-            except OSError as exc:
-                raise PdfError(f"Không công bố được bản sao an toàn: {exc}") from exc
-    except OSError as exc:
-        raise PdfError(f"Không lưu được PDF: {exc}") from exc
-    finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-    return SaveResult(written=dest, backup=backup)
-
+from pdf_save import PdfError, SaveResult, atomic_save, _ensure_distinct_destination
 
 # ------------------------------------------------------------- thao tác PDF
 
