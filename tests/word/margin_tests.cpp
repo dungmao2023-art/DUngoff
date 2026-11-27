@@ -357,7 +357,17 @@ void roundTrip(dung::Engine& eng, dung::Document& src, const QString& tag, const
     check((bool)d2, "[" + tag + "] nạp bản đã vá lại vào engine", QString::fromStdString(err));
     if (!d2) return;
     QFile::remove(res);
-    const auto sr = d2->saveAs(dung::fromUtf8(res.toUtf8().toStdString()));
+    dung::SaveOptions options;
+    bool customXmlOnly=true,hasBlocking=false;
+    for(const auto& item:d2->featureLoss())if(item.blocking){
+        hasBlocking=true;customXmlOnly=customXmlOnly&&item.id=="xml-tuy-bien"&&!item.certain;
+    }
+    if(hasBlocking&&customXmlOnly){
+        const auto refused=d2->saveAs(dung::fromUtf8(res.toUtf8().toStdString()));
+        check(!refused.ok&&!QFileInfo::exists(res),"["+tag+"] chặn lưu khi chưa xác nhận XML tùy biến",QString::fromStdString(refused.message));
+        options.allowFeatureLoss=true;
+    }
+    const auto sr = d2->saveAs(dung::fromUtf8(res.toUtf8().toStdString()),options);
     check(sr.ok, "[" + tag + "] Lưu thành DOCX từ bản đã nạp", QString::fromStdString(sr.message));
     if (!sr.ok) return;
     const ReadResult after = readDocxMargins(res);
