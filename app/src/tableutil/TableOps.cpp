@@ -584,6 +584,37 @@ CleanCell cleanMoney(const QString &s, MoneyLocale loc)
     return r;
 }
 
+CleanCell cleanBoolean(const QString &s)
+{
+    CleanCell r; r.value=s;
+    const auto key=s.trimmed().toCaseFolded();
+    if(key.isEmpty())return r;
+    if(key==QStringLiteral("true")||key==QStringLiteral("yes")||
+       key==QStringLiteral(u"đúng")||key==QStringLiteral(u"có"))
+        r.value=QStringLiteral("TRUE");
+    else if(key==QStringLiteral("false")||key==QStringLiteral("no")||
+            key==QStringLiteral(u"sai")||key==QStringLiteral(u"không"))
+        r.value=QStringLiteral("FALSE");
+    else {
+        // Never infer boolean from a number: even 0/1 may be identifiers.
+        r.warning=QObject::tr("Không nhận ra giá trị đúng/sai: giữ nguyên.");
+        return r;
+    }
+    r.converted=r.value!=s;
+    return r;
+}
+
+static CleanCell cleanByKind(const QString& value, ColumnKind kind, MoneyLocale locale)
+{
+    switch(kind){
+        case ColumnKind::Date: return cleanDate(value);
+        case ColumnKind::Money: return cleanMoney(value,locale);
+        case ColumnKind::Boolean: return cleanBoolean(value);
+        case ColumnKind::Keep: { CleanCell r; r.value=value; return r; }
+    }
+    CleanCell r; r.value=value;r.warning=QObject::tr("Kiểu làm sạch không hợp lệ.");return r;
+}
+
 CleanResult cleanTable(const Table &t, const QList<QPair<QString, ColumnKind>> &kinds, MoneyLocale loc)
 {
     CleanResult res; res.cleaned = t;
@@ -594,7 +625,7 @@ CleanResult cleanTable(const Table &t, const QList<QPair<QString, ColumnKind>> &
         for (int i = 0; i < t.rows.size(); ++i) {
             if (c >= t.rows[i].size()) continue;
             const QString before = t.rows[i][c];
-            const CleanCell cc = k.second == ColumnKind::Date ? cleanDate(before) : cleanMoney(before, loc);
+            const CleanCell cc = cleanByKind(before,k.second,loc);
             if (cc.converted) { res.cleaned.rows[i][c] = cc.value; res.changes.push_back({i, c, before, cc.value}); }
             else if (!cc.warning.isEmpty())
                 res.warnings << QObject::tr("Dòng %1, cột '%2' (%3): %4").arg(i + 2).arg(k.first, before, cc.warning);
@@ -609,7 +640,7 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
     const auto valid = [&](int col) { return col == -1 || (col >= 0 && col < source.header.size()); };
     if (!valid(spec.filterCol) || !valid(spec.sortCol) || !valid(spec.cleanCol) || !valid(spec.dedupCol) || !valid(spec.groupKey) || !valid(spec.groupValue)
         || (spec.mode!=FilterMode::Equal && spec.mode!=FilterMode::Contains && spec.mode!=FilterMode::Blank && spec.mode!=FilterMode::NotBlank)
-        || (spec.cleanKind!=ColumnKind::Keep && spec.cleanKind!=ColumnKind::Date && spec.cleanKind!=ColumnKind::Money)
+        || (spec.cleanKind!=ColumnKind::Keep && spec.cleanKind!=ColumnKind::Date && spec.cleanKind!=ColumnKind::Money && spec.cleanKind!=ColumnKind::Boolean)
         || (spec.moneyLocale!=MoneyLocale::VN && spec.moneyLocale!=MoneyLocale::EN)
         || ((spec.cleanCol<0)!=(spec.cleanKind==ColumnKind::Keep))) {
         result.error = QObject::tr("Cột lọc hoặc sắp xếp không hợp lệ.");
@@ -651,7 +682,7 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
     for (auto row : source.rows) {
         if(spec.cleanCol>=0) {
             const auto value=row[spec.cleanCol];
-            const auto clean=spec.cleanKind==ColumnKind::Date?cleanDate(value):cleanMoney(value,spec.moneyLocale);
+            const auto clean=cleanByKind(value,spec.cleanKind,spec.moneyLocale);
             if(clean.converted) {row[spec.cleanCol]=clean.value;++result.cleanedCells;}
             if(!clean.warning.isEmpty())++result.cleanWarnings;
         }
@@ -771,7 +802,7 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
         const int clean=obj.value("cleanCol").toInt(-2), kind=obj.value("cleanKind").toInt(-1);
         const int locale=obj.value("moneyLocale").toInt(-1), dedup=obj.value("dedupCol").toInt(-2);
         if(clean < -1 || clean>=header.size() || dedup < -1 || dedup>=header.size()
-            || kind<int(ColumnKind::Keep) || kind>int(ColumnKind::Money)
+            || kind<int(ColumnKind::Keep) || kind>int(ColumnKind::Boolean)
             || locale<int(MoneyLocale::VN) || locale>int(MoneyLocale::EN) || !obj.value("dedupFold").isBool())return fail();
         candidate.cleanCol=clean;candidate.cleanKind=ColumnKind(kind);candidate.moneyLocale=MoneyLocale(locale);
         candidate.dedupCol=dedup;candidate.dedupFold=obj.value("dedupFold").toBool();
