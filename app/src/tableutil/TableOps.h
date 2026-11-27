@@ -89,7 +89,10 @@ bool isProtectedText(const QString &s);
 CleanCell cleanDate(const QString &s);                              // -> dd/mm/yyyy nếu chắc chắn
 CleanCell cleanMoney(const QString &s, MoneyLocale loc = MoneyLocale::VN); // -> số thuần "1500000" / "1500000.5"
 
-enum class ColumnKind { Keep, Date, Money };
+// Explicit text normalization only; CSV output does not acquire native cell types.
+CleanCell cleanBoolean(const QString &s); // TRUE/FALSE, unknown values preserved
+// Keep existing recipe enum values stable.
+enum class ColumnKind { Keep, Date, Money, Boolean };
 struct CleanChange { int row; int col; QString before; QString after; };
 struct CleanResult {
     Table cleaned;
