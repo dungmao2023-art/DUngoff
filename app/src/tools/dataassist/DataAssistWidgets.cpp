@@ -48,7 +48,8 @@ using namespace dataassist;
 namespace {
 class FormulaAssistant : public QWidget {
 public:
-    explicit FormulaAssistant(QWidget *p) : QWidget(p)
+    explicit FormulaAssistant(QWidget *p, dataassist::Hooks scoped = {}, bool useScoped = false)
+        : QWidget(p), scoped_(std::move(scoped)), useScoped_(useScoped)
     {
         auto *lay = new QVBoxLayout(this);
         auto* intro = new QLabel(QStringLiteral("<b>ƒx · Tôi muốn…</b><br>Gõ việc cần làm (vd. “cộng tổng”, “tìm theo mã”) hoặc chọn nhóm hàm. Engine bảng tính tính kết quả."));
@@ -94,7 +95,8 @@ public:
         lay->addWidget(new QLabel(QStringLiteral("Ô kết quả (sheet hiện tại)")));
         lay->addLayout(targetRow);
         connect(useTarget, &QPushButton::clicked, this, [this] {
-            const QString addr = hooks().selectedCellAddress ? hooks().selectedCellAddress() : QString();
+            const auto& h = activeHooks();
+            const QString addr = h.selectedCellAddress ? h.selectedCellAddress() : QString();
             const auto cell = bridgeCellAddress(addr.toStdString());
             if (cell.empty()) { status_->setText(QStringLiteral("Hãy chọn một ô kết quả hợp lệ, không chọn cả vùng.")); return; }
             cancelPick();
@@ -147,11 +149,12 @@ public:
         connect(insert_, &QPushButton::clicked, this, [this] {
             const SyntaxCheck sc = quickSyntaxCheck(result_->text());
             if (!sc.ok) { status_->setText(QStringLiteral("Chưa chèn: ") + sc.message); return; }
-            if (!hooks().insertFormulaAt) { status_->setText(QStringLiteral("Chưa nối với tab Excel đang mở — hãy dùng “Sao chép công thức” rồi dán vào ô.")); return; }
+            const auto& h = activeHooks();
+            if (!h.insertFormulaAt) { status_->setText(QStringLiteral("Chưa nối với tab Excel đang mở — hãy dùng “Sao chép công thức” rồi dán vào ô.")); return; }
             const auto cell = bridgeCellAddress(target_->text().toStdString());
             if (cell.empty()) { status_->setText(QStringLiteral("Hãy nhập một ô A1 hợp lệ (A1–XFD1048576) hoặc bấm Lấy ô.")); return; }
             QString res, msg;
-            if (!hooks().insertFormulaAt(QString::fromStdString(cell), result_->text(), &res, &msg)) { status_->setText(msg.isEmpty() ? QStringLiteral("Không chèn được (không có tab Excel đang mở?).") : msg); return; }
+            if (!h.insertFormulaAt(QString::fromStdString(cell), result_->text(), &res, &msg)) { status_->setText(msg.isEmpty() ? QStringLiteral("Không chèn được (không có tab Excel đang mở?).") : msg); return; }
             QString note = QStringLiteral("Đã gửi công thức tới ô kết quả; giá trị đọc lại: ") + (res.isEmpty() ? QStringLiteral("(trống)") : res) + QStringLiteral(". Hoàn tác bằng Ctrl+Z.");
             if (res.startsWith(QLatin1Char('#')) || res.startsWith(QStringLiteral("Err:"))) {
                 const QString fn = result_->text().mid(1, result_->text().indexOf(QLatin1Char('(')) - 1);
@@ -204,6 +207,9 @@ public:
         }
     }
 private:
+    const dataassist::Hooks& activeHooks() const { return useScoped_ ? scoped_ : dataassist::hooks(); }
+    dataassist::Hooks scoped_;
+    bool useScoped_ = false;
     void cancelPick() {pendingPick_=nullptr;}
     void armPick(QLineEdit* field) {
         pendingPick_=field;
@@ -708,6 +714,9 @@ public:
 }  // namespace
 
 QWidget* createFormulaAssistantWidget(QWidget *p) { return new FormulaAssistant(p); }
+QWidget* createDocumentFormulaAssistantWidget(QWidget* p, dataassist::Hooks scoped) {
+    return new FormulaAssistant(p, std::move(scoped), true);
+}
 void notifyFormulaSelection(QWidget* w, const QString& ref) { if (auto* p = dynamic_cast<FormulaAssistant*>(w)) p->selectedReference(ref); }
 void notifyFormulaSheet(QWidget* w,int part,const QString& name) { if(auto* p=dynamic_cast<FormulaAssistant*>(w))p->sheetChanged(part,name); }
 QWidget* createRangeToolsWidget(QWidget *p) { return new RangeTools(p); }
