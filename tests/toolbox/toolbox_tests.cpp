@@ -279,6 +279,16 @@ int main(int argc, char** argv) {
     { auto x = v; x[QStringLiteral("ten")] = QStringLiteral("a\nb"); CHECK(!prepare(spec, x).ok, "ô một dòng chứa xuống dòng bị từ chối"); }
     { auto x = v; x[QStringLiteral("ten")] = QString(5000, QLatin1Char('a')); CHECK(!prepare(spec, x).ok, "giá trị quá dài bị từ chối"); }
 
+    // Empty directories are part of the approved tool layout.
+    CHECK(QDir().mkpath(good+QStringLiteral("/empty-work")),"tạo thư mục con rỗng để kiểm");
+    const auto changedDir=loadToolDir(root,QStringLiteral("chao"));
+    CHECK(changedDir.ok&&changedDir.spec.fingerprint!=spec.fingerprint,"thêm thư mục rỗng đổi dấu vân tay");
+    CHECK(!prepare(spec,v).ok&&!isConfirmed(changedDir.spec),"thay đổi thư mục phải xác nhận lại");
+    CHECK(QDir(good).rmdir(QStringLiteral("empty-work")),"dọn thư mục kiểm thử");
+    CHECK(prepare(spec,v).ok,"khôi phục bố cục và nội dung cũ khớp xác nhận");
+    { auto x=v;x[QStringLiteral("so")]=QStringLiteral("nan");
+      CHECK(!prepare(spec,x).ok,"không chấp nhận NaN trong trường số"); }
+
     // Sửa script SAU khi xác nhận => phải xác nhận lại
     writeFile(good + QStringLiteral("/run.bin"), "#!/bin/sh\necho hacked\n");
     auto p2 = prepare(spec, v);
