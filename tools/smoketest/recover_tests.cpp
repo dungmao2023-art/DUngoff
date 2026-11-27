@@ -105,6 +105,32 @@ int dungRunRecoverTests(const fs::path& program, const fs::path& out) {
     check(d->modified(), "Cờ 'đã sửa' vẫn là true sau khi tạo bản phục hồi (không bị coi là lần lưu)");
     check(d->suggestSaveAsPath().parent_path() != out / "rec", "Tài liệu mới: gợi ý Lưu thành không nằm trong thư mục phục hồi");
 
+    step("tự lưu thất bại không làm mất bản phục hồi trước");
+    const auto firstRecovery = readAll(rec);
+    const fs::path blockedParent = out / "recovery-parent-is-file";
+    { std::ofstream block(longPath(blockedParent), std::ios::binary); block << "BLOCK"; }
+    why.clear();
+    check(!d->saveRecoveryCopy(blockedParent / "invalid.docx", &why) &&
+          why.find("Không tạo được thư mục phục hồi") != std::string::npos,
+          "Báo đúng lỗi thư mục đích bị chặn: " + why);
+    check(readAll(rec) == firstRecovery && d->modified(),
+          "Bản phục hồi trước và cờ chưa lưu giữ nguyên");
+    const auto blockedDest = out / "rec" / "directory.docx";
+    fs::create_directories(longPath(blockedDest), ec);
+    const auto sentinel = blockedDest / "keep.txt";
+    { std::ofstream keep(longPath(sentinel), std::ios::binary); keep << "KEEP"; }
+    why.clear();
+    check(!d->saveRecoveryCopy(blockedDest, &why) && !why.empty(),
+          "Không thay thế thư mục bằng tệp phục hồi: " + why);
+    check(readAll(sentinel) == std::vector<char>({'K','E','E','P'}),
+          "Dữ liệu trong thư mục đích giữ nguyên");
+    int leftovers = 0;
+    for (const auto& item : fs::directory_iterator(longPath(rec.parent_path())))
+        if (item.path().filename().u8string().rfind("~rec-", 0) == 0) ++leftovers;
+    check(leftovers == 0, "Không sót tệp tạm phục hồi cạnh đích");
+    check(readAll(rec) == firstRecovery && d->modified(),
+          "Bản phục hồi trước còn nguyên sau cả hai lỗi");
+
     step("mở lại bản phục hồi");
     auto d2 = engine->open(rec, &err);
     check((bool)d2, "Mở lại bản phục hồi " + err);
