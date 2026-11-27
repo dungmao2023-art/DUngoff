@@ -624,6 +624,12 @@ void DocumentTab::autosaveTick() {
     }
 }
 
+QString DocumentTab::activeFilePath() const {
+    if (!m_savedPath.isEmpty()) return m_savedPath;
+    if (m_doc->isNew()) return {};
+    return fromPath(m_doc->originalPath());
+}
+
 QString DocumentTab::title() const {
     QString t = m_savedPath.isEmpty() ? qs(m_doc->displayName()) : QFileInfo(m_savedPath).fileName();
     if (m_doc->readOnly()) t += tr(" (chỉ đọc)");
@@ -904,7 +910,11 @@ bool DocumentTab::saveAs() {
         return false;
     }
     QStringList filters;
-    for (const auto* f : natives) filters << qs(f->label) + QStringLiteral(" (*.") + qs(f->ext) + QLatin1Char(')');
+    QStringList nativeExtensions;
+    for (const auto* f : natives) {
+        filters << qs(f->label) + QStringLiteral(" (*.") + qs(f->ext) + QLatin1Char(')');
+        nativeExtensions << qs(f->ext);
+    }
     const QString suggested = m_savedPath.isEmpty() ? fromPath(m_doc->suggestSaveAsPath()) : m_savedPath;
     QString selected = filters.first();
     const QString picked = QFileDialog::getSaveFileName(this, tr("Lưu thành"), suggested,
@@ -912,6 +922,12 @@ bool DocumentTab::saveAs() {
     if (picked.isEmpty()) return false;
     const int i = filters.indexOf(selected);
     const QString path = savepath::resolve(picked, qs(natives[std::max(0, i)]->ext));
+    // Save As must keep an editable format; PDF export is a separate action.
+    if (!savepath::nativeSuffixAllowed(path,nativeExtensions)) {
+        QMessageBox::warning(this,tr("Định dạng lưu không phù hợp"),
+            tr("Chọn một định dạng tài liệu chỉnh sửa được: %1. Muốn tạo PDF, dùng Xuất PDF.").arg(nativeExtensions.join(QStringLiteral(", "))));
+        return false;
+    }
     const bool exists = savepath::needsConfirmation(path);
     if (exists && QMessageBox::question(this, tr("Xác nhận thay thế"),
         tr("Tệp đích đã tồn tại:\n%1\nBạn có muốn thay thế tệp này không?").arg(QDir::toNativeSeparators(path)),
@@ -977,7 +993,15 @@ bool DocumentTab::maybeClose() {
     QPushButton* discard = box.addButton(tr("Không lưu"), QMessageBox::DestructiveRole);
     box.addButton(tr("Huỷ"), QMessageBox::RejectRole);
     box.exec();
-    if (box.clickedButton() == saveBtn) return save();
+    if (box.clickedButton() == saveBtn) {
+        if (!save()) return false;
+        // Never close while the document still has unsaved changes.
+        if (m_doc->modified()) {
+            QMessageBox::warning(this,tr("Chưa lưu xong"),tr("Tài liệu vẫn có thay đổi chưa lưu. Giữ thẻ mở để bảo vệ nội dung."));
+            return false;
+        }
+        return true;
+    }
     if (box.clickedButton() == discard) { dropRecovery(); return true; }
     return false;
 }
