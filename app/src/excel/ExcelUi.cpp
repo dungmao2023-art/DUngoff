@@ -84,7 +84,7 @@ void DocumentTab::excelAction(const QString& id) {
         }
         auto coords=[](const QString& cell){
             int pos=0,col=0;
-            while(pos<cell.size()&&cell[pos]>='A'&&cell[pos]<='Z'){col=col*26+cell[pos].unicode()-'A'+1;++pos;}
+            while(pos<cell.size()&&cell[pos].unicode()>='A'&&cell[pos].unicode()<='Z'){col=col*26+cell[pos].unicode()-'A'+1;++pos;}
             return QPair<int,int>(cell.mid(pos).toInt(),col);
         };
         const auto first=coords(ends.first()),last=coords(ends.last());
