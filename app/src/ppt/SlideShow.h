@@ -2,6 +2,7 @@
 #include "dung/Engine.h"
 #include <QImage>
 #include <QWidget>
+#include <QPointF>
 class QScreen;
 
 // Trình chiếu toàn màn hình trong cửa sổ Qt: vẽ từng trang bằng paintPartTile,
@@ -15,6 +16,8 @@ protected:
     void paintEvent(QPaintEvent*) override;
     void keyPressEvent(QKeyEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
+    void mouseMoveEvent(QMouseEvent*) override;
+    void leaveEvent(QEvent*) override;
     void resizeEvent(QResizeEvent*) override;
 
 private:
@@ -22,6 +25,8 @@ private:
     void go(int delta);
     void jumpToSlide();
     void render();
+    QRectF slideRect() const;
+    bool documentStable();
 
     dung::Document* m_doc;
     int m_part;
@@ -29,4 +34,7 @@ private:
     int m_blank = 0; // 0: slide, 1: black, 2: white
     long m_w = 0, m_h = 0; // twip
     QImage m_img;
+    bool m_laser = false, m_showNumber = false, m_fullscreen = false;
+    bool m_pointerInside = false;
+    QPointF m_pointer;
 };
