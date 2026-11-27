@@ -2,6 +2,7 @@
 #include "DataAssistWidgets.h"
 #include "DataChecks.h"
 #include "FormulaCatalog.h"
+#include "ExcelBridge.h"
 #include "TemplateExport.h"
 #include "MailMergeCore.h"
 #include "TableOps.h"
@@ -66,6 +67,14 @@ public:
         autoPick_ = new QCheckBox(QStringLiteral("Tự lấy vùng khi chọn trên bảng tính"));
         autoPick_->setChecked(true); lay->addWidget(autoPick_);
         form_ = new QFormLayout; lay->addLayout(form_);
+        separator_ = new QComboBox;
+        separator_->addItem(QStringLiteral("Dấu phẩy (,)"), QStringLiteral(","));
+        separator_->addItem(QStringLiteral("Dấu chấm phẩy (;)"), QStringLiteral(";"));
+        separator_->setToolTip(QStringLiteral("Chọn dấu ngăn đối số theo cài đặt bảng tính; không đổi nội dung các đối số."));
+        auto* separatorRow = new QFormLayout;
+        separatorRow->addRow(QStringLiteral("Dấu ngăn đối số"), separator_);
+        lay->addLayout(separatorRow);
+        connect(separator_, &QComboBox::currentIndexChanged, this, [this]{ rebuild(); });
         connect(pairs_, &QSpinBox::valueChanged, this, [this](int) {
             if (!cur_ || !hasConditionPairs(*cur_)) return;
             cancelPick();
@@ -86,9 +95,10 @@ public:
         lay->addLayout(targetRow);
         connect(useTarget, &QPushButton::clicked, this, [this] {
             const QString addr = hooks().selectedCellAddress ? hooks().selectedCellAddress() : QString();
-            if (addr.isEmpty()) { status_->setText(QStringLiteral("Chưa nhận được địa chỉ ô từ engine.")); return; }
+            const auto cell = bridgeCellAddress(addr.toStdString());
+            if (cell.empty()) { status_->setText(QStringLiteral("Hãy chọn một ô kết quả hợp lệ, không chọn cả vùng.")); return; }
             cancelPick();
-            target_->setText(addr);
+            target_->setText(QString::fromStdString(cell));
         });
         result_ = new QLineEdit; result_->setPlaceholderText(QStringLiteral("Công thức sẽ hiện ở đây — sửa tự do được"));
         lay->addWidget(result_);
@@ -138,9 +148,10 @@ public:
             const SyntaxCheck sc = quickSyntaxCheck(result_->text());
             if (!sc.ok) { status_->setText(QStringLiteral("Chưa chèn: ") + sc.message); return; }
             if (!hooks().insertFormulaAt) { status_->setText(QStringLiteral("Chưa nối với tab Excel đang mở — hãy dùng “Sao chép công thức” rồi dán vào ô.")); return; }
-            if (target_->text().trimmed().isEmpty()) { status_->setText(QStringLiteral("Hãy nhập ô kết quả hoặc bấm Lấy ô.")); return; }
+            const auto cell = bridgeCellAddress(target_->text().toStdString());
+            if (cell.empty()) { status_->setText(QStringLiteral("Hãy nhập một ô A1 hợp lệ (A1–XFD1048576) hoặc bấm Lấy ô.")); return; }
             QString res, msg;
-            if (!hooks().insertFormulaAt(target_->text(), result_->text(), &res, &msg)) { status_->setText(msg.isEmpty() ? QStringLiteral("Không chèn được (không có tab Excel đang mở?).") : msg); return; }
+            if (!hooks().insertFormulaAt(QString::fromStdString(cell), result_->text(), &res, &msg)) { status_->setText(msg.isEmpty() ? QStringLiteral("Không chèn được (không có tab Excel đang mở?).") : msg); return; }
             QString note = QStringLiteral("Đã gửi công thức tới ô kết quả; giá trị đọc lại: ") + (res.isEmpty() ? QStringLiteral("(trống)") : res) + QStringLiteral(". Hoàn tác bằng Ctrl+Z.");
             if (res.startsWith(QLatin1Char('#')) || res.startsWith(QStringLiteral("Err:"))) {
                 const QString fn = result_->text().mid(1, result_->text().indexOf(QLatin1Char('(')) - 1);
@@ -168,10 +179,11 @@ public:
             status_->setText(QStringLiteral("Chưa xác minh được địa chỉ vùng; nhập địa chỉ thủ công nếu vùng nằm ngoài màn hình."));
             return;
         }
+        const auto range = bridgeRangeAddress(reference.toStdString());
+        if (range.empty()) { status_->setText(QStringLiteral("Vùng chọn không phải địa chỉ A1 hợp lệ.")); return; }
         QLineEdit* e = pendingPick_;
         if (e==target_ || e==quickA_ || e==quickB_) {
-            static const QRegularExpression cell(QStringLiteral("^\\$?[A-Z]{1,3}\\$?[1-9][0-9]*$"),QRegularExpression::CaseInsensitiveOption);
-            if(!cell.match(reference).hasMatch()) {
+            if(bridgeCellAddress(reference.toStdString()).empty()) {
                 status_->setText(QStringLiteral("Chỉ chọn một ô, không chọn cả vùng."));
                 return;
             }
@@ -228,8 +240,9 @@ private:
         const auto args = hasConditionPairs(*cur_) ? conditionArgs(*cur_, pairs_->value()) : cur_->args;
         for (const ArgInfo &a : args) {
             auto *e = new QLineEdit; e->setPlaceholderText(a.hint);
-            static const QRegularExpression referenceHint(QStringLiteral("\\b[A-Z]{1,3}[1-9][0-9]*\\b"), QRegularExpression::CaseInsensitiveOption);
-            e->setProperty("referenceArg", referenceHint.match(a.hint).hasMatch());
+            // Only auto-fill pure references, not conditions such as A1>=5.
+            // Explicit pick remains available for composing expressions.
+            e->setProperty("referenceArg", !bridgeRangeAddress(a.hint.toStdString()).empty());
             if (edits_.size() < saved.size()) e->setText(saved.at(edits_.size()));
             edits_.push_back(e);
             auto* field = new QWidget;
@@ -250,14 +263,15 @@ private:
     {
         if (!cur_) return;
         QStringList v; for (auto *e : edits_) v << e->text();
-        const BuildResult b = buildFormula(*cur_, v);
+        const QChar sep = separator_ && separator_->currentData().toString() == QStringLiteral(";") ? QLatin1Char(';') : QLatin1Char(',');
+        const BuildResult b = buildFormula(*cur_, v, sep);
         if (b.ok) { result_->setText(b.formula); status_->clear(); }
         else { result_->clear(); status_->setText(b.error); }
     }
     QLineEdit *search_{}, *result_{}, *target_{}, *quickA_{}, *quickB_{}, *pendingPick_{};
     int sheetPart_=-1;
     QString sheetName_;
-    QComboBox *cat_{};
+    QComboBox *cat_{}, *separator_{};
     QSpinBox *pairs_{};
     QCheckBox *autoPick_{};
     QListWidget *list_{};
