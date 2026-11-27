@@ -96,18 +96,29 @@ def basic(path):
 
 def verify_delete_undo(path):
     root = Path(path).parent
-    original = openpyxl.load_workbook(path)
+    original = openpyxl.load_workbook(root / "excel-delete-baseline.xlsx")
     def values(ws):
         return {(c.row, c.column): (c.value, c.data_type)
                 for row in ws.iter_rows() for c in row if c.value is not None}
-    for filename, mode in (("excel-row-deleted.xlsx", "row"),
+    def compare_sheet(actual, expected, label):
+        a, b = values(actual), values(expected)
+        diffs = sorted(k for k in a.keys() | b.keys() if a.get(k) != b.get(k))
+        for k in diffs[:20]:
+            print(f"[DIFF] {label} {actual.cell(*k).coordinate}: {b.get(k)!r} -> {a.get(k)!r}")
+        check(not diffs, label + f": {len(diffs)} changed cells")
+    check(original.sheetnames == ["Dữ liệu", "Phụ"], "isolated deletion fixture sheet names")
+    check([tuple(original["Phụ"].cell(r,c).value for c in (11,12,13)) for r in (10,11,12,13)] ==
+          [("Khóa","Mã","Giá trị"),(1,"001",10),(2,"002",20),(3,"003",30)],
+          "isolated deletion fixture expected sorted table")
+    for filename, mode in (("excel-delete-control.xlsx", "undo"),
+                           ("excel-row-deleted.xlsx", "row"),
                            ("excel-column-deleted.xlsx", "column"),
                            ("excel-row-restored.xlsx", "undo"),
                            ("excel-column-restored.xlsx", "undo")):
         candidate = openpyxl.load_workbook(root / filename)
         check(candidate.sheetnames == original.sheetnames, filename + ": sheet identity preserved")
-        check(values(candidate["Dữ liệu"]) == values(original["Dữ liệu"]),
-              filename + ": other sheet values and formulas preserved")
+        compare_sheet(candidate["Dữ liệu"], original["Dữ liệu"],
+                      filename + ": other sheet values and formulas preserved")
         aux = candidate["Phụ"]
         if mode == "row":
             check([tuple(aux.cell(r,c).value for c in (11,12,13)) for r in (10,11,12)] ==
@@ -118,8 +129,8 @@ def verify_delete_undo(path):
                   [("Khóa","Giá trị"),(1,10),(2,20),(3,30)],
                   filename + ": deletes selected whole column only")
         else:
-            check(values(aux) == values(original["Phụ"]),
-                  filename + ": Undo restores all auxiliary values, formula strings and cell types")
+            compare_sheet(aux, original["Phụ"],
+                          filename + ": all auxiliary values, formula strings and cell types preserved")
         check(aux["A2"].value == 10 and aux["B2"].value == 5,
               filename + ": unrelated cells preserved")
 
