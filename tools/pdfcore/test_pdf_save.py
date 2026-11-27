@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pdf_save as s
@@ -61,6 +62,30 @@ class SaveSafetyTests(unittest.TestCase):
         with self.assertRaises(s.PdfError):
             s.atomic_save(Writer(), str(self.dest))
         self.assertEqual(self.dest.read_bytes(), b"old")
+
+    def test_windows_cross_api_ctime_and_same_api_changes(self):
+        fields = dict(st_dev=1, st_ino=42, st_size=3, st_mtime_ns=100, st_ctime_ns=90, st_birthtime_ns=90)
+        path_stat = SimpleNamespace(**fields)
+        handle_stat = SimpleNamespace(**dict(fields, st_ctime_ns=110))
+        self.assertTrue(s._same_snapshot(path_stat, handle_stat, cross_api=True, windows=True))
+        self.assertFalse(s._same_snapshot(path_stat, handle_stat, windows=True))
+        self.assertFalse(s._same_snapshot(path_stat, handle_stat, cross_api=True, windows=False))
+        for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_birthtime_ns"):
+            changed = SimpleNamespace(**dict(vars(handle_stat), **{field: 999}))
+            self.assertFalse(s._same_snapshot(path_stat, changed, cross_api=True, windows=True))
+
+    def test_change_during_backup_aborts_replacement(self):
+        self.dest.write_bytes(b"old")
+        real_copy = s.shutil.copyfileobj
+        def copy_and_change(source, target):
+            real_copy(source, target)
+            self.dest.write_bytes(b"another writer changed file")
+        with patch.object(s.shutil, "copyfileobj", side_effect=copy_and_change):
+            with self.assertRaises(s.PdfError):
+                s.atomic_save(Writer(), str(self.dest), True)
+        self.assertEqual(self.dest.read_bytes(), b"another writer changed file")
+        self.assertEqual(list(self.root.glob("*.dung-backup-*")), [])
+        self.assertNoTemporary()
 
     def test_backup_on_replace(self):
         self.dest.write_bytes(b"old")
@@ -122,11 +147,31 @@ class SaveSafetyTests(unittest.TestCase):
         self.assertEqual(backup.read_bytes(), b"other backup")
         self.assertNoTemporary()
 
+    def test_backup_publication_failure_never_replaces_destination(self):
+        self.dest.write_bytes(b"old")
+        with patch.object(s, "_publish_new", side_effect=s.PdfError("backup blocked")):
+            with patch.object(s, "_replace_existing") as replace:
+                with self.assertRaisesRegex(s.PdfError, "backup blocked"):
+                    s.atomic_save(Writer(), str(self.dest), True)
+                replace.assert_not_called()
+        self.assertEqual(self.dest.read_bytes(), b"old")
+        self.assertEqual(list(self.root.glob("*.dung-backup-*")), [])
+        self.assertNoTemporary()
+
     def test_replace_failure_preserves_complete_backup(self):
         self.dest.write_bytes(b"old")
-        with patch.object(s.os, "replace", side_effect=OSError("file locked")):
-            with self.assertRaises(s.PdfError):
-                s.atomic_save(Writer(), str(self.dest), True)
+        backup = self.root / "out.dung-backup-locked.pdf"
+        def locked(tmp, dest):
+            # Verify the final replacement boundary itself, not an earlier
+            # failure in publication or stat checks.
+            self.assertEqual(Path(dest), self.dest)
+            self.assertEqual(backup.read_bytes(), b"old")
+            raise OSError("file locked")
+        with patch.object(s, "_backup_path", return_value=str(backup)):
+            with patch.object(s, "_replace_existing", side_effect=locked) as replace:
+                with self.assertRaisesRegex(s.PdfError, "file locked"):
+                    s.atomic_save(Writer(), str(self.dest), True)
+                replace.assert_called_once()
         self.assertEqual(self.dest.read_bytes(), b"old")
         backups = list(self.root.glob("*.dung-backup-*"))
         self.assertEqual(len(backups), 1)
