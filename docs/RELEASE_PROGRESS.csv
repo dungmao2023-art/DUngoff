@@ -6,7 +6,7 @@ id,priority,group,weight,stage,remaining_low_hours,remaining_high_hours,evidence
 "A05","P0","Chung","5","integrated","3","10","Print tests; máy in thật"
 "A06","P0","Chung","5","partial","6","16","CaptureShots; bố cục và DPI"
 "A07","P0","Chung","3","integrated","2","5","#37 merged, offscreen PASS; native"
-"A08","P0","Chung","5","integrated","4","12","#27 installer CI; đúng SHA main và máy sạch"
+"A08","P0","Chung","5","integrated","4","12","#123 CI 45990409222 cài/gỡ 0 lỗi, manifest/hash PASS; kiểm main và máy sạch thực tế còn lại"
 "A09","P0","Chung","5","partial","6","16","Audit nguồn/license/runtime/SBOM"
 "A10","P0","Chung","5","partial","5","14","Stress 5000 dòng; đo máy thật"
 "W01","P0","Word","5","integrated","3","8","#27 DOCX CI; test GUI"
