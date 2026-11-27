@@ -164,12 +164,13 @@ class DungPdfTests(unittest.TestCase):
 
     def test_destination_created_during_save_is_not_overwritten(self):
         target = self.p("race.pdf")
-        real_link = os.link
+        publish = "rename" if os.name == "nt" else "link"
+        real_publish = getattr(os, publish)
         def competing_writer(src, dest):
             with open(dest, "xb") as f:
                 f.write(b"other writer")
-            real_link(src, dest)
-        with patch.object(d.os, "link", side_effect=competing_writer):
+            real_publish(src, dest)
+        with patch.object(d.os, publish, side_effect=competing_writer):
             with self.assertRaises(d.PdfError):
                 d.extract(self.a, "1", target)
         with open(target, "rb") as f:
