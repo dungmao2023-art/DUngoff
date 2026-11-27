@@ -62,6 +62,10 @@ signals:
     // Yêu cầu MainWindow mở tệp `patchedPath` (bản sao đã vá) trong thẻ mới; tệp tạm được xoá sau khi tín hiệu trả về.
     void openCopyRequested(const QString& patchedPath, const QString& originalPath, const QString& displayName);
 
+protected:
+    void hideEvent(QHideEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+
 private:
     void onEngineEvent(int type, const QString& payload);
     void tryFormulaPick(int part,const std::string& sheet,unsigned generation,int retries);
