@@ -202,6 +202,8 @@ struct TableToolsDialog::Impl {
     ColumnKind cleanKind=ColumnKind::Keep; MoneyLocale queryLocale=MoneyLocale::VN;
     bool dedupFold=false;
     int groupKey=-1,groupValue=-1;
+    QueryJoinSpec queryJoin;
+    QStringList queryHeader;
     QPlainTextEdit* report = nullptr;
     Table tableA;
     bool haveA = false;
@@ -266,6 +268,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     form4->addRow(tr("Sắp xếp theo cột (chữ):"), d->sortCol);
     form4->addRow(d->ignoreCase); form4->addRow(d->descending);
     l4->addLayout(form4);
+    auto* joinStep=new QPushButton(tr("Ghép bảng thứ hai trước quy trình…"));l4->addWidget(joinStep);
     auto* extraSteps=new QPushButton(tr("Làm sạch và bỏ trùng trong quy trình…"));l4->addWidget(extraSteps);
     auto* chooseColumns = new QPushButton(tr("Chọn và đổi tên cột đầu ra…")); l4->addWidget(chooseColumns);
     auto* groupStep=new QPushButton(tr("Tổng hợp nhóm cuối quy trình…"));l4->addWidget(groupStep);
@@ -297,14 +300,14 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->filterCol->clear(); d->sortCol->clear();
         d->outputColumns.clear(); d->outputNames.clear();
         d->cleanCol=-1;d->dedupCol=-1;d->cleanKind=ColumnKind::Keep;d->queryLocale=MoneyLocale::VN;d->dedupFold=false;
-        d->groupKey=-1;d->groupValue=-1;
+        d->groupKey=-1;d->groupValue=-1;d->queryJoin={};d->queryHeader.clear();
         d->filterCol->addItem(tr("Không lọc"), -1);
         d->sortCol->addItem(tr("Giữ thứ tự gốc"), -1);
         auto* form = qobject_cast<QFormLayout*>(d->kindHost->layout());
         while (form->rowCount() > 0) form->removeRow(0);
         d->kindBoxes.clear();
         if (!d->haveA) { if (!err.isEmpty() && !d->a->path().isEmpty()) d->report->setPlainText(err); return; }
-        d->tableA = t;
+        d->tableA = t;d->queryHeader=t.header;
         for (int i = 0; i < t.header.size(); ++i) {
             const auto label = tr("%1 · %2").arg(i + 1).arg(t.header[i]);
             d->filterCol->addItem(label, i);
@@ -421,6 +424,51 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         spec.groupKey=d->groupKey;spec.groupValue=d->groupValue;
         return spec;
     };
+    auto resetQueryColumns=[this](const QStringList& header){
+        d->queryHeader=header;
+        d->filterCol->clear();d->sortCol->clear();
+        d->filterCol->addItem(tr("Không lọc"),-1);d->sortCol->addItem(tr("Giữ thứ tự gốc"),-1);
+        for(int i=0;i<header.size();++i){
+            const auto label=tr("%1 · %2").arg(i+1).arg(header[i]);
+            d->filterCol->addItem(label,i);d->sortCol->addItem(label,i);
+        }
+        d->filterMode->setCurrentIndex(0);d->filterValue->clear();d->ignoreCase->setChecked(false);d->descending->setChecked(false);
+        d->outputColumns.clear();d->outputNames.clear();
+        d->cleanCol=-1;d->dedupCol=-1;d->cleanKind=ColumnKind::Keep;d->queryLocale=MoneyLocale::VN;d->dedupFold=false;
+        d->groupKey=-1;d->groupValue=-1;
+    };
+    connect(joinStep,&QPushButton::clicked,this,[this,needA,resetQueryColumns]{
+        if(!needA())return;
+        QDialog dlg(this);dlg.setWindowTitle(tr("Ghép bảng trước quy trình"));auto* form=new QFormLayout(&dlg);
+        auto* enabled=new QCheckBox(tr("Ghép bảng thứ hai trước khi xử lý"),&dlg);
+        enabled->setChecked(d->queryJoin.enabled);
+        auto* left=new QComboBox(&dlg);auto* right=new QComboBox(&dlg);auto* kind=new QComboBox(&dlg);
+        Table tableB;QString error;const bool haveB=d->b->load(tableB,error);
+        for(int i=0;i<d->tableA.header.size();++i)left->addItem(tr("%1 · %2").arg(i+1).arg(d->tableA.header[i]),i);
+        if(haveB)for(int i=0;i<tableB.header.size();++i)right->addItem(tr("%1 · %2").arg(i+1).arg(tableB.header[i]),i);
+        kind->addItem(tr("Left — giữ mọi dòng bảng trái"),int(JoinKind::Left));
+        kind->addItem(tr("Inner — chỉ giữ dòng khớp"),int(JoinKind::Inner));
+        left->setCurrentIndex(qMax(0,left->findData(d->queryJoin.leftKey)));
+        right->setCurrentIndex(qMax(0,right->findData(d->queryJoin.rightKey)));
+        kind->setCurrentIndex(kind->findData(int(d->queryJoin.kind)));
+        auto* note=new QLabel(tr("Chọn bảng thứ hai tại tab So sánh hai bảng. Ghép trước các bước khác, có thể lọc và tổng hợp theo cột B. Thay cấu hình ghép sẽ đặt lại các bước sau để tránh sai cột."),&dlg);
+        note->setWordWrap(true);form->addRow(note);form->addRow(enabled);form->addRow(tr("Khóa A:"),left);form->addRow(tr("Khóa B:"),right);form->addRow(tr("Kiểu ghép:"),kind);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);form->addRow(buttons);
+        connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        connect(buttons,&QDialogButtonBox::accepted,&dlg,[&]{
+            QueryJoinSpec candidate;
+            candidate.enabled=enabled->isChecked();
+            if(candidate.enabled){
+                if(!haveB||right->currentIndex()<0||left->currentIndex()<0){QMessageBox::warning(&dlg,tr("Ghép bảng"),tr("Chưa có bảng thứ hai hợp lệ."));return;}
+                candidate.leftKey=left->currentData().toInt();candidate.rightKey=right->currentData().toInt();
+                candidate.kind=JoinKind(kind->currentData().toInt());candidate.rightHeader=tableB.header;
+            }
+            const auto schema=queryJoinInput(Table{d->tableA.header,{}},Table{tableB.header,{}},candidate);
+            if(!schema.ok){QMessageBox::warning(&dlg,tr("Ghép bảng"),schema.error);return;}
+            d->queryJoin=candidate;resetQueryColumns(schema.table.header);dlg.accept();
+        });
+        dlg.exec();
+    });
     connect(extraSteps,&QPushButton::clicked,this,[this,needA] {
         if(!needA())return;
         QDialog dlg(this);dlg.setWindowTitle(tr("Quy trình dữ liệu"));
@@ -429,8 +477,8 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         auto* locale=new QComboBox(&dlg);auto* dedup=new QComboBox(&dlg);
         auto* fold=new QCheckBox(tr("Bỏ khoảng trắng đầu/cuối và không phân biệt hoa/thường khi bỏ trùng"),&dlg);
         clean->addItem(tr("Không làm sạch"),-1);dedup->addItem(tr("Không bỏ trùng"),-1);
-        for(int i=0;i<d->tableA.header.size();++i){
-            const auto label=tr("%1 · %2").arg(i+1).arg(d->tableA.header[i]);
+        for(int i=0;i<d->queryHeader.size();++i){
+            const auto label=tr("%1 · %2").arg(i+1).arg(d->queryHeader[i]);
             clean->addItem(label,i);dedup->addItem(label,i);
         }
         kind->addItem(tr("Ngày → dd/mm/yyyy"),int(ColumnKind::Date));
@@ -455,10 +503,10 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         auto* form=new QFormLayout(&dlg);
         auto* key=new QComboBox(&dlg);auto* value=new QComboBox(&dlg);
         key->addItem(tr("Không tổng hợp"),-1);value->addItem(tr("Chỉ đếm dòng"),-1);
-        for(int i=0;i<d->tableA.header.size();++i){
+        for(int i=0;i<d->queryHeader.size();++i){
             const auto pos=d->outputColumns.indexOf(i);
             if(!d->outputColumns.isEmpty()&&pos<0)continue;
-            const auto name=pos>=0?d->outputNames[pos]:d->tableA.header[i];
+            const auto name=pos>=0?d->outputNames[pos]:d->queryHeader[i];
             const auto label=tr("%1 · %2").arg(i+1).arg(name);
             key->addItem(label,i);value->addItem(label,i);
         }
@@ -471,7 +519,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         connect(buttons,&QDialogButtonBox::accepted,&dlg,[&]{
             auto spec=recipeSpec();spec.groupKey=key->currentData().toInt();
             spec.groupValue=spec.groupKey<0?-1:value->currentData().toInt();
-            const auto checked=filterSort(Table{d->tableA.header,{}},spec);
+            const auto checked=filterSort(Table{d->queryHeader,{}},spec);
             if(!checked.ok){QMessageBox::warning(&dlg,tr("Tổng hợp"),checked.error);return;}
             d->groupKey=spec.groupKey;d->groupValue=spec.groupValue;dlg.accept();
         });
@@ -485,13 +533,13 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         note->setWordWrap(true); layout->addWidget(note);
         auto* list=new QListWidget(&dlg); layout->addWidget(list,1);
         QList<int> order=d->outputColumns;
-        for(int i=0;i<d->tableA.header.size();++i)if(!order.contains(i))order.append(i);
+        for(int i=0;i<d->queryHeader.size();++i)if(!order.contains(i))order.append(i);
         for(int i:order) {
             const auto pos=d->outputColumns.indexOf(i);
-            auto* item=new QListWidgetItem(pos>=0?d->outputNames[pos]:d->tableA.header[i],list);
+            auto* item=new QListWidgetItem(pos>=0?d->outputNames[pos]:d->queryHeader[i],list);
             item->setData(Qt::UserRole,i);
             item->setFlags(item->flags()|Qt::ItemIsUserCheckable|Qt::ItemIsEditable);
-            item->setToolTip(tr("Cột nguồn %1: %2").arg(i+1).arg(d->tableA.header[i]));
+            item->setToolTip(tr("Cột nguồn %1: %2").arg(i+1).arg(d->queryHeader[i]));
             item->setCheckState(d->outputColumns.isEmpty()||pos>=0?Qt::Checked:Qt::Unchecked);
         }
         auto* ordering=new QHBoxLayout;
@@ -516,7 +564,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
                 spec.outputColumns.append(list->item(i)->data(Qt::UserRole).toInt()); spec.outputNames.append(list->item(i)->text().trimmed());
             }
             if(spec.outputColumns.isEmpty()) { QMessageBox::warning(&dlg,tr("Cột đầu ra"),tr("Chọn ít nhất một cột.")); return; }
-            const auto checked=filterSort(Table{d->tableA.header,{}},spec);
+            const auto checked=filterSort(Table{d->queryHeader,{}},spec);
             if(!checked.ok) { QMessageBox::warning(&dlg,tr("Cột đầu ra"),checked.error); return; }
             d->outputColumns=spec.outputColumns; d->outputNames=spec.outputNames; dlg.accept();
         });
@@ -525,21 +573,26 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     connect(saveRecipe, &QPushButton::clicked, this, [this, needA, recipeSpec] {
         if (!needA()) return;
         const auto spec = recipeSpec();
-        const auto validated = filterSort(Table{d->tableA.header, {}}, spec);
+        const auto validated = filterSort(Table{d->queryHeader, {}}, spec);
         if (!validated.ok) { QMessageBox::warning(this, tr("Cấu hình"), validated.error); return; }
+        if(d->queryJoin.enabled){
+            Table right;QString err;
+            if(!d->b->load(right,err)||right.header!=d->queryJoin.rightHeader){QMessageBox::warning(this,tr("Cấu hình"),tr("Chọn đúng bảng thứ hai trước khi lưu cấu hình."));return;}
+        }
+        const auto bytes=encodeQueryRecipe(d->tableA.header,d->queryJoin,spec);
+        if(bytes.isEmpty()||bytes.size()>1024*1024){QMessageBox::warning(this,tr("Cấu hình"),tr("Cấu hình không hợp lệ hoặc quá lớn."));return;}
         const auto path = QFileDialog::getSaveFileName(this, tr("Lưu cấu hình (có tên cột và điều kiện lọc)"), QString(), tr("Cấu hình JSON (*.json)"));
         if (path.isEmpty()) return;
         QFile f(path);
         if (!f.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
             QMessageBox::warning(this, tr("Cấu hình"), tr("Không tạo được tệp mới: %1").arg(f.errorString())); return;
         }
-        const auto bytes = encodeFilterSortRecipe(d->tableA.header, spec);
-        if (f.write(bytes) != bytes.size() || !f.flush()) {
+         if (f.write(bytes) != bytes.size() || !f.flush()) {
             QMessageBox::warning(this, tr("Cấu hình"), tr("Ghi không đầy đủ. Không sử dụng tệp cấu hình vừa tạo.")); return;
         }
         d->report->setPlainText(tr("Đã lưu cấu hình. Không lưu đường dẫn hoặc các dòng dữ liệu nguồn."));
     });
-    connect(loadRecipe, &QPushButton::clicked, this, [this, needA] {
+    connect(loadRecipe, &QPushButton::clicked, this, [this, needA,resetQueryColumns] {
         if (!needA()) return;
         const auto path = QFileDialog::getOpenFileName(this, tr("Nạp cấu hình lọc và sắp xếp"), QString(), tr("Cấu hình JSON (*.json)"));
         if (path.isEmpty()) return;
@@ -547,10 +600,14 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         if (!f.open(QIODevice::ReadOnly) || f.size() > 1024 * 1024) {
             QMessageBox::warning(this, tr("Cấu hình"), tr("Không đọc được tệp hoặc tệp lớn hơn 1 MB.")); return;
         }
-        FilterSortSpec spec; QString error;
-        if (!decodeFilterSortRecipe(f.read(1024 * 1024 + 1), d->tableA.header, spec, error)) {
+        FilterSortSpec spec;QueryJoinSpec candidate;QString error;Table right;QString rightError;
+        d->b->load(right,rightError);
+        if (!decodeQueryRecipe(f.read(1024 * 1024 + 1), d->tableA.header,right.header,candidate,spec,error)) {
             QMessageBox::warning(this, tr("Cấu hình"), error); return;
         }
+        const auto schema=queryJoinInput(Table{d->tableA.header,{}},Table{right.header,{}},candidate);
+        if(!schema.ok){QMessageBox::warning(this,tr("Cấu hình"),schema.error);return;}
+        d->queryJoin=candidate;resetQueryColumns(schema.table.header);
         d->filterCol->setCurrentIndex(d->filterCol->findData(spec.filterCol));
         d->sortCol->setCurrentIndex(d->sortCol->findData(spec.sortCol));
         d->filterMode->setCurrentIndex(d->filterMode->findData(int(spec.mode)));
@@ -565,12 +622,18 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     });
     connect(run4, &QPushButton::clicked, this, [this, askSave, save, needA, recipeSpec] {
         if (!needA()) return;
-        const auto r = filterSort(d->tableA, recipeSpec());
+        Table right;QString error;
+        if(d->queryJoin.enabled&&!d->b->load(right,error)){QMessageBox::warning(this,tr("Ghép bảng"),error);return;}
+        const auto input=queryJoinInput(d->tableA,right,d->queryJoin);
+        if(!input.ok){QMessageBox::warning(this,tr("Ghép bảng"),input.error);return;}
+        if(input.table.header!=d->queryHeader){QMessageBox::warning(this,tr("Quy trình"),tr("Cấu trúc cột đã thay đổi; hãy thiết lập lại."));return;}
+        const auto r = filterSort(input.table, recipeSpec());
         if (!r.ok) { QMessageBox::warning(this, tr("Lọc và sắp xếp"), r.error); return; }
         QString rep = tr("Kết quả: %1 / %2 dòng. Sắp xếp dạng chữ, không ép kiểu; nguồn không bị sửa.")
             .arg(r.table.rows.size()).arg(d->tableA.rows.size());
         rep += tr("\nLàm sạch %1 ô; %2 cảnh báo (giữ nguyên ô không chắc chắn); lọc bỏ %3 dòng; bỏ trùng %4 dòng.")
             .arg(r.cleanedCells).arg(r.cleanWarnings).arg(r.filteredRows).arg(r.removedDuplicates);
+        if(d->queryJoin.enabled)rep+=tr("\nGhép: %1 khớp, %2 không khớp.").arg(input.matched).arg(input.unmatched);
         if(r.grouped)rep+=tr("\nTổng hợp %1 dòng thành %2 nhóm.").arg(r.groupedInputRows).arg(r.table.rows.size());
         rep += QStringLiteral("\n") + r.table.header.join(QStringLiteral(" | "));
         for (int i = 0; i < r.table.rows.size() && i < 20; ++i)
