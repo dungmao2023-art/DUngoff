@@ -260,3 +260,5 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - Tạo mẫu PPTX bằng python-pptx (MIT) nếu cần, dùng ở công cụ phát triển, không cài Python cho người dùng: https://python-pptx.readthedocs.io/en/stable/user/intro.html . Dùng mẫu tự thiết kế hoặc có giấy phép rõ, không sao chép mẫu thương mại.
 - A05.1: sửa đường dự phòng thiếu Qt PDF để người dùng lưu bản in PDF mới, không ghi đè, trước khi mở trình xem ngoài; thêm test bản sao tồn tại sau khi file tạm mất. Windows CI đã yêu cầu Qt PDF; vẫn cần test máy in thật. Không cài thêm runtime.
 - Hoãn macro/VBA, PQ/Pivot nâng cao, OCR/sửa PDF gốc, tích hợp MISA/kho luật và animation phức tạp. Kiểm bộ cài và license thực tế trước phát hành.
+
+- A08.1: batch 2 bổ sung BUILD-INFO.json trong bộ cài (checkout SHA thực tế, run id, engine tag, SHA256 DungOffice.exe), yêu cầu Qt PrintSupport/PDF, qpdf và runtime chính khi đóng gói CI; E2E đối chiếu manifest và hash sau cài. Chưa nghiệm thu batch 2. Ca đích là thư mục giờ bị từ chối trước staging, không tuyên bố đã tiêm lỗi staging.
