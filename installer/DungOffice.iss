@@ -173,20 +173,17 @@ var
 
 procedure InitializeWizard;
 begin
+  // Preselect agreement, while keeping the license visible and reject option available.
+  WizardForm.LicenseAcceptedRadio.Checked := True;
   DictPage := CreateOutputMsgMemoPage(wpSelectComponents,
     'Từ điển chính tả tiếng Việt',
     'Giấy phép và nguồn của thành phần tuỳ chọn này',
     'Vui lòng đọc thông tin dưới đây. Nếu không muốn cài từ điển, bấm "Quay lại" và bỏ chọn thành phần này.',
-    'Đây là DỮ LIỆU RIÊNG (tệp .dic và .aff), không phải mã chương trình của Dũng Office.' + #13#10 +
-    'Nó được cài vào thư mục riêng "dictionaries\vi" cạnh ứng dụng; có thể xoá bất cứ lúc nào, ứng dụng vẫn chạy bình thường.' + #13#10 + #13#10 +
-    'Tác giả và nguồn:' + #13#10 +
-    '- Danh sách từ gốc: Hồ Ngọc Đức, Dự án Từ điển tiếng Việt miễn phí (gói GNU Aspell 0.60 Vietnamese, bản 0.01.1-1, 2004).' + #13#10 +
-    '- Chuyển sang Hunspell: László Németh. Sửa luật và đóng gói: Ivan Garcia, Nguyễn Xuân Minh (hunspell-vi).' + #13#10 +
-    '- Kho gốc: https://github.com/1ec5/hunspell-vi (commit 39cc647f0cf3bdfc579980a2c3aac3f6f4203fe6).' + #13#10 + #13#10 +
-    'Giấy phép: GNU General Public License. Theo tệp README gốc, danh sách từ có điều khoản GPL phiên bản 2; phần đóng gói của hunspell-vi theo GPL phiên bản 3 (hoặc mới hơn).' + #13#10 +
-    'Bạn có quyền dùng, sao chép, sửa và phân phối lại theo các giấy phép đó; không có bảo hành. Mã nguồn chính là các tệp .dic/.aff được cài kèm, bản gốc ở liên kết trên.' + #13#10 +
-    'Văn bản đầy đủ: tệp GPL-2.0.txt và GPL-3.0.txt trong thư mục dictionaries\vi sau khi cài.' + #13#10 + #13#10 +
-    'Từ điển này không được liên kết vào chương trình Dũng Office (giấy phép MPL-2.0); hai bên chỉ được phân phối chung trong một bộ cài.');
+    'Từ điển tiếng Việt tùy chọn (GPL), cài riêng tại dictionaries\vi.' + #13#10 + #13#10 +
+    'Nguồn: https://github.com/1ec5/hunspell-vi (commit 39cc647f0cf3bdfc579980a2c3aac3f6f4203fe6).' + #13#10 +
+    'Tác giả: Hồ Ngọc Đức, László Németh, Ivan Garcia, Nguyễn Xuân Minh.' + #13#10 +
+    'Danh sách từ: GPL v2; phần đóng gói: GPL v3 hoặc mới hơn theo nguồn gốc. Giữ nguyên dữ liệu và thông báo gốc, không liên kết với mã Dũng Office.' + #13#10 +
+    'Giấy phép đầy đủ: GPL-2.0.txt, GPL-3.0.txt, NOTICE-vi.txt trong dictionaries\vi. Có thể bỏ chọn hoặc gỡ từ điển mà ứng dụng vẫn chạy.');
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
