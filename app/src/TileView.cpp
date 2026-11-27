@@ -152,6 +152,7 @@ void TileView::setZoom(int percent) {
 }
 
 void TileView::resetForPartChange() {
+    m_visibleAreaSent=false;
     clearDragMove();
     m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear(); m_pickValid = false; m_pickComplete = false;
     m_tiles.clear(); m_dirtyTiles.clear(); m_deferredPaint=QRegion(); m_tilePaintTimer.stop();
@@ -186,7 +187,17 @@ void TileView::sendVisibleArea() {
     const double tpp = twipsPerPx();
     const int x = (int)(horizontalScrollBar()->value() * tpp), y = (int)(verticalScrollBar()->value() * tpp);
     const int w = (int)((viewport()->width() - h.x()) * tpp), hh = (int)((viewport()->height() - h.y()) * tpp);
-    m_doc->setClientView(kTilePx, kTilePx, tileTwips(), tileTwips(), x, y, std::max(w, 1), std::max(hh, 1));
+    const QRect area(x,y,std::max(w,1),std::max(hh,1));
+    const int tileSize=tileTwips();
+    // Resize/scroll timers can repeat a geometry already sent by setZoom.
+    // Only skip the redundant synchronous engine call, not header refresh.
+    if(!m_visibleAreaSent||m_sentVisibleArea!=area||m_sentTileTwips!=tileSize) {
+        m_doc->setClientView(kTilePx,kTilePx,tileSize,tileSize,area.x(),area.y(),area.width(),area.height());
+        ++m_visibleAreaDispatches;
+        m_visibleAreaSent=true;
+        m_sentVisibleArea=area;
+        m_sentTileTwips=tileSize;
+    }
     if (m_isCalc) m_headerTimer.start();
 }
 
@@ -259,6 +270,7 @@ void TileView::hideEvent(QHideEvent* event) {
 }
 
 void TileView::showEvent(QShowEvent* event) {
+    m_visibleAreaSent=false;
     QAbstractScrollArea::showEvent(event);
     // Set engine zoom/visible area before the first paint of a reopened tab.
     m_areaTimer.stop();
