@@ -420,9 +420,10 @@ QTabWidget#ExcelTools QTabBar::tab:selected { background:white; color:#2864BA; b
         notifyFormulaSheet(m_formulaAssistant,m_doc->currentPart(),qs(m_doc->partName(m_doc->currentPart())));
         addTool(m_formulaAssistant, tr("ƒx · Tôi muốn"));
         connect(m_view, &TileView::cellSelectionFinished, this, [this] {
+            const unsigned generation = ++m_pickGeneration;
+            if(!m_formulaAssistant || !m_formulaAssistant->isVisible())return;
             const int part = m_doc->currentPart();
             const auto sheet = m_doc->partName(part);
-            const unsigned generation = ++m_pickGeneration;
             QTimer::singleShot(180, this, [this, part, sheet, generation] {
                 tryFormulaPick(part,sheet,generation,18);
             });
@@ -761,12 +762,13 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
     }
     switch (type) {
     case LOK_CALLBACK_CELL_ADDRESS:
+        if(m_cellAddress==payload)break;
         m_cellAddress = payload;
         if (m_nameBox && !m_nameBox->hasFocus()) m_nameBox->setText(payload);
         emit statusChanged();
         break;
     case LOK_CALLBACK_CELL_FORMULA:
-        if (m_formula && !m_formula->hasFocus()) m_formula->setText(payload);
+        if (m_formula && !m_formula->hasFocus() && m_formula->text()!=payload) m_formula->setText(payload);
         break;
     case LOK_CALLBACK_STATE_CHANGED: {
         QString cmd, value;
@@ -781,6 +783,7 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
             value = payload.mid(eq + 1);
         }
         if (cmd.isEmpty()) break;
+        if (m_states.contains(cmd) && m_states.value(cmd)==value) break;
         m_states.insert(cmd, value);
         if (cmd == QLatin1String(".uno:ModifiedStatus")) emit titleChanged();
         emit commandStateChanged(cmd, value);
