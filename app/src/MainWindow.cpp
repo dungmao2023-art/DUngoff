@@ -1287,7 +1287,12 @@ void MainWindow::showAbout() {
 }
 
 void MainWindow::closeEvent(QCloseEvent* e) {
-    if (!m_side->flush()) { e->ignore(); return; }
+    if (!m_side->flush()) {
+        e->ignore();
+        showWork(0);
+        QMessageBox::warning(this,tr("Dũng Office"),tr("Chưa thể đóng ứng dụng: dữ liệu công việc chưa lưu được. Kiểm tra thư mục dữ liệu và thử Lưu ngay."));
+        return;
+    }
     m_projects->flush();
     while (m_tabs->count() > 0) {
         selectDocumentTab(0);
