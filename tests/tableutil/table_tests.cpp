@@ -306,6 +306,17 @@ int main(int argc, char **argv)
     CHECK(!cleanMoney("1234567890123456789").converted, "số >15 chữ số giữ nguyên (không qua double)");
     CHECK(cleanMoney("12abc").value == "12abc" && !cleanMoney("12abc").warning.isEmpty(), "chữ lẫn số giữ nguyên");
     CHECK(cleanMoney("0,5").value == "0.5", "0,5 hợp lệ");
+    CHECK(cleanMoney(",5").value=="0.5"&&cleanMoney(".5",MoneyLocale::EN).value=="0.5","leading decimal with digits");
+    for(const QString& bad:{QStringLiteral(","),QStringLiteral("."),QStringLiteral("1,"),QStringLiteral("1 2"),QStringLiteral("12 34"),QStringLiteral("1  000"),QStringLiteral("1 000.000"),QStringLiteral("1,2 3"),QStringLiteral("123.456.789.012.345.678"),QStringLiteral("VNĐ 1234567890123456")}){
+        const auto result=cleanMoney(bad);
+        CHECK(!result.converted&&result.value==bad&&!result.warning.isEmpty(),"invalid or unsafe money preserved with warning");
+    }
+    CHECK(cleanMoney("1 234 567,50").value=="1234567.5"&&cleanMoney(QStringLiteral("1\u00a0234,5")).value=="1234.5","strict space and NBSP grouping");
+    CHECK(cleanMoney("1 234.50",MoneyLocale::EN).value=="1234.5"&&!cleanMoney("1.",MoneyLocale::EN).converted,"English space grouping and incomplete decimal");
+    const Table unsafeMoney=T({"ID","Money"},{{"001","1 2"},{"002",","},{"003","1 234,50"}});
+    FilterSortSpec moneySpec;moneySpec.cleanCol=1;moneySpec.cleanKind=ColumnKind::Money;
+    const auto moneyResult=filterSort(unsafeMoney,moneySpec);
+    CHECK(moneyResult.ok&&moneyResult.cleanedCells==1&&moneyResult.cleanWarnings==2&&moneyResult.table.rows[0][1]=="1 2"&&moneyResult.table.rows[1][1]==","&&moneyResult.table.rows[2][1]=="1234.5","query preserves malformed values instead of inventing numbers");
     CHECK(isProtectedText("007") && isProtectedText("12345678901234567") && !isProtectedText("0") && !isProtectedText("1500"), "nhận diện chuỗi cần bảo vệ");
 
     // ---- Làm sạch cả bảng + CSV ----
