@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "../../app/src/extras/WorkspaceStore.h"
-#include <QCoreApplication>
+#include <QApplication>
+#include <QLabel>
+#include <QPushButton>
+#include <QPlainTextEdit>
+#include <QJsonArray>
+#include "../../app/src/extras/SidePanel.h"
 #include <QStandardPaths>
 #include <QFile>
 #include <QDir>
@@ -18,7 +23,7 @@ static QByteArray readRaw(const QString& path) {
     return f.readAll();
 }
 int main(int argc,char** argv) {
-    QCoreApplication app(argc,argv);
+    QApplication app(argc,argv);
     app.setOrganizationName(QStringLiteral("DungOfficeWorkspaceTests"));
     app.setApplicationName(QUuid::createUuid().toString(QUuid::WithoutBraces));
     QStandardPaths::setTestModeEnabled(true);
@@ -39,8 +44,36 @@ int main(int argc,char** argv) {
         else if(!workspace::load(QStringLiteral("blocked"),&readable).isEmpty()||readable||
                 workspace::save(QStringLiteral("blocked"),doc)) result=9;
     }
+    if(!result) {
+        const QJsonObject seed{{QStringLiteral("version"),1},
+            {QStringLiteral("futureField"),QStringLiteral("preserve")},
+            {QStringLiteral("notes"),QJsonArray{QJsonObject{{QStringLiteral("text"),QStringLiteral("Old note")}}}}};
+        if(!workspace::save(QStringLiteral("workspace"),seed)) result=10;
+        else {
+            const auto before=readRaw(path);
+            SidePanel panel;
+            auto* editor=panel.findChild<QPlainTextEdit*>(QStringLiteral("WorkspaceNoteEditor"));
+            auto* retry=panel.findChild<QPushButton*>(QStringLiteral("WorkspaceSaveNow"));
+            auto* status=panel.findChild<QLabel*>(QStringLiteral("WorkspaceSaveStatus"));
+            if(!editor||!retry||!status||editor->toPlainText()!=QStringLiteral("Old note")) result=11;
+            else {
+                editor->setPlainText(QStringLiteral("Ghi chú chưa lưu"));
+                if(!retry->isEnabled()||!writeRaw(path,"corrupt during edit")||panel.flush()||
+                    !retry->isEnabled()||editor->toPlainText()!=QStringLiteral("Ghi chú chưa lưu")||
+                    readRaw(path)!="corrupt during edit") result=12;
+                else if(!writeRaw(path,before)) result=13;
+                else {
+                    retry->click();
+                    const auto saved=workspace::load(QStringLiteral("workspace"));
+                    if(retry->isEnabled()||saved.value(QStringLiteral("futureField"))!=seed.value(QStringLiteral("futureField"))||
+                       saved.value(QStringLiteral("notes")).toArray().at(0).toObject().value(QStringLiteral("text")).toString()!=QStringLiteral("Ghi chú chưa lưu"))
+                        result=14;
+                }
+            }
+        }
+    }
     QDir(dir).removeRecursively();
     if(result) std::fprintf(stderr,"WORKSPACE_STORE_FAIL %d\n",result);
-    else std::puts("WORKSPACE_STORE_PASS Unicode, corrupt overwrite guard, two preserved backups, recovery save, unreadable target rejected");
+    else std::puts("WORKSPACE_STORE_PASS Unicode, corrupt overwrite guard, two preserved backups, recovery save, unreadable target rejected, note retry preserves pending edits");
     return result;
 }
