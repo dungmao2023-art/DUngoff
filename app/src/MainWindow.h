@@ -52,6 +52,7 @@ private:
     void showHome();
     void showDocuments();
     void showProjects();
+    void showWork(int index);
     void showTemplates();
     void showToolbox();
     void onCurrentTabChanged();

@@ -254,8 +254,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         return true;
     };
     ch->addWidget(m_stack, 1);
-    m_side = new SidePanel(content);
-    ch->addWidget(m_side);
+    m_side = new SidePanel(m_stack);
+    m_stack->addWidget(m_side);
 
     setCentralWidget(central);
 
@@ -466,6 +466,15 @@ QWidget* MainWindow::buildSidebar() {
     auto* tmpl = make(tr("Kho mẫu"), sym("templates"), true);
     auto* proj = make(tr("Dự án"), sym("projects"), true);
     auto* tools = make(tr("Công cụ"), sym("tools"), true);
+    section(tr("QUẢN TRỊ CÔNG VIỆC"));
+    auto* notes=make(tr("Ghi chú"),app(QStringLiteral("N"),QColor("#9C6F2E")),true);
+    auto* calendar=make(tr("Lịch"),app(QStringLiteral("▦"),QColor("#2864BA")),true);
+    auto* contacts=make(tr("Liên hệ"),app(QStringLiteral("LH"),QColor("#267B69")),true);
+    const QList<QPushButton*> workButtons{notes,calendar,contacts};
+    for(int i=0;i<workButtons.size();++i){
+        side->setProperty(qPrintable(QStringLiteral("workBtn%1").arg(i)),QVariant::fromValue<QObject*>(workButtons[i]));
+        connect(workButtons[i],&QPushButton::clicked,this,[this,i]{showWork(i);});
+    }
     auto* open = make(tr("Mở tệp"), sym("open"), false);
     auto* about = make(tr("Giới thiệu"), sym("about"), false);
     bv->addStretch(1);
@@ -646,7 +655,7 @@ void MainWindow::showPalette() {
     add("templates", tr("Kho mẫu"));
     add("tools", tr("Công cụ"));
     add("projects", tr("Dự án"));
-    add("work", tr("Công việc · Ghi chú · Lịch · Liên hệ"));
+    add("work",tr("Ghi chú"));add("calendar",tr("Lịch công việc"));add("contacts",tr("Danh bạ liên hệ"));
     add("zoomIn", tr("Phóng to"), QStringLiteral("Ctrl+="));
     add("zoomOut", tr("Thu nhỏ"), QStringLiteral("Ctrl+-"));
     add("about", tr("Giới thiệu Dũng Office"));
@@ -664,7 +673,9 @@ void MainWindow::runCommand(const QString& id) {
     else if (id == QLatin1String("templates")) showTemplates();
     else if (id == QLatin1String("tools")) showToolbox();
     else if (id == QLatin1String("projects")) showProjects();
-    else if (id == QLatin1String("work")) m_side->toggleContent();
+    else if (id == QLatin1String("work")) showWork(0);
+    else if (id == QLatin1String("calendar")) showWork(1);
+    else if (id == QLatin1String("contacts")) showWork(2);
     else if (id == QLatin1String("newDoc")) newDoc(DocKind::Text);
     else if (id == QLatin1String("newXlsx")) newDoc(DocKind::Spreadsheet);
     else if (id == QLatin1String("newPpt")) newDoc(DocKind::Presentation);
@@ -718,6 +729,13 @@ void MainWindow::showToolbox() {
     m_stack->setCurrentWidget(m_toolbox);
     if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
         if (auto* b = qobject_cast<QPushButton*>(side->property("toolBtn").value<QObject*>())) b->setChecked(true);
+    refreshStatus();
+}
+
+void MainWindow::showWork(int index) {
+    m_side->showPage(index);
+    m_stack->setCurrentWidget(m_side);
+    if(auto* b=qobject_cast<QPushButton*>(m_sideBar->property(qPrintable(QStringLiteral("workBtn%1").arg(index))).value<QObject*>()))b->setChecked(true);
     refreshStatus();
 }
 
@@ -1319,6 +1337,9 @@ int MainWindow::captureShots(const QString& dir) {
         {"toolbox", [this] { showToolbox(); }},
         {"projects", [this] { showProjects(); }},
         {"feedback", [this] { showFeedback(); }},
+        {"notes",[this]{showWork(0);}},
+        {"calendar",[this]{showWork(1);}},
+        {"contacts",[this]{showWork(2);}},
     };
     const QSize sizes[] = {{1366, 768}, {1920, 1080}, {1100, 700}, {800, 600}};
     for (const QSize& sz : sizes) {

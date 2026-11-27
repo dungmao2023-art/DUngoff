@@ -23,6 +23,7 @@ class SidePanel : public QWidget {
 public:
     explicit SidePanel(QWidget* parent = nullptr);
     void toggleContent();
+    void showPage(int index);
     void flush(); // ghi ngay các thay đổi đang chờ (gọi khi đóng ứng dụng)
 
 private:
@@ -37,7 +38,6 @@ private:
     void refreshContacts();
     void markCalendar();
 
-    void showPage(int index);
     QWidget* m_content = nullptr;
     QStackedWidget* m_tabs = nullptr;
     QLabel* m_title = nullptr;
@@ -58,6 +58,7 @@ private:
     QJsonObject m_dayNotes;
     QPlainTextEdit* m_dayNote = nullptr;
     QCalendarWidget* m_cal = nullptr;
+    QLabel* m_dateTitle = nullptr;
     QListWidget* m_eventList = nullptr;
     QLineEdit* m_eventTitle = nullptr;
 

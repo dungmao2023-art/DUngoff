@@ -26,6 +26,8 @@
 #include <QVBoxLayout>
 #include <QVariantAnimation>
 #include <QEasingCurve>
+#include <QSplitter>
+#include <QLocale>
 
 namespace {
 const QStringList kStatuses = {QObject::tr("Mới"), QObject::tr("Đang liên hệ"), QObject::tr("Chờ phản hồi"),
@@ -42,67 +44,24 @@ SidePanel::SidePanel(QWidget* parent) : QWidget(parent) {
     m_content = new QWidget(this);
     m_content->setObjectName(QStringLiteral("WorkContent"));
     m_content->setAttribute(Qt::WA_StyledBackground, true);
-    m_content->setFixedWidth(360);
-    auto* v = new QVBoxLayout(m_content);
-    v->setContentsMargins(12, 12, 12, 12);
-    v->setSpacing(10);
-    auto* heading = new QHBoxLayout;
-    m_title = new QLabel(tr("Ghi chú"), m_content);
-    m_title->setObjectName(QStringLiteral("WorkTitle"));
-    heading->addWidget(m_title, 1);
-    auto* close = new QPushButton(tr("×"), m_content);
-    close->setObjectName(QStringLiteral("WorkClose"));
-    close->setFixedSize(30, 30);
-    close->setToolTip(tr("Thu gọn quản trị công việc"));
-    close->setAccessibleName(close->toolTip());
-    heading->addWidget(close);
-    v->addLayout(heading);
-    m_tabs = new QStackedWidget(m_content);
-    for (QWidget* page : {buildNotes(), buildCalendar(), buildContacts()}) {
-        auto* scroll = new QScrollArea(m_tabs);
-        scroll->setWidgetResizable(true);
-        scroll->setFrameShape(QFrame::NoFrame);
-        scroll->setWidget(page);
-        m_tabs->addWidget(scroll);
+    auto* v=new QVBoxLayout(m_content);
+    v->setContentsMargins(22,18,22,16);v->setSpacing(14);
+    m_title=new QLabel(tr("Ghi chú"),m_content);m_title->setObjectName(QStringLiteral("WorkTitle"));
+    v->addWidget(m_title);
+    m_tabs=new QStackedWidget(m_content);
+    for(QWidget* page:{buildNotes(),buildCalendar(),buildContacts()}){
+        auto* scroll=new QScrollArea(m_tabs);scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);scroll->setWidget(page);m_tabs->addWidget(scroll);
     }
-    v->addWidget(m_tabs, 1);
-    auto* foot = new QLabel(tr("Lưu cục bộ · Không gửi lên mạng"), m_content);
-    foot->setObjectName(QStringLiteral("WorkHint"));
-    foot->setWordWrap(true);
-    v->addWidget(foot);
-    outer->addWidget(m_content);
-
-    auto* rail = new QWidget(this);
-    rail->setObjectName(QStringLiteral("WorkRail"));
-    rail->setAttribute(Qt::WA_StyledBackground, true);
-    rail->setFixedWidth(72);
-    auto* rv = new QVBoxLayout(rail);
-    rv->setContentsMargins(4, 8, 4, 8);
-    rv->setSpacing(4);
-    const QStringList labels{tr("Ghi chú"), tr("Lịch"), tr("Liên hệ")};
-    const QStringList glyphs{QStringLiteral("✎"), QStringLiteral("▦"), QStringLiteral("♙")};
-    for (int i = 0; i < labels.size(); ++i) {
-        auto* button = new QPushButton(glyphs[i] + QLatin1Char('\n') + labels[i], rail);
-        button->setObjectName(QStringLiteral("WorkTab"));
-        button->setCheckable(true);
-        button->setFixedHeight(58);
-        button->setToolTip(labels[i]);
-        button->setAccessibleName(labels[i]);
-        button->setCursor(Qt::PointingHandCursor);
-        m_buttons.append(button);
-        rv->addWidget(button);
-        connect(button, &QPushButton::clicked, this, [this, i] {
-            showPage(m_openPage == i ? -1 : i);
-        });
-    }
-    rv->addStretch(1);
-    outer->addWidget(rail);
-    connect(close, &QPushButton::clicked, this, [this] { showPage(-1); });
+    v->addWidget(m_tabs,1);
+    auto* foot=new QLabel(tr("Dữ liệu lưu cục bộ · Không tự gửi lên mạng"),m_content);
+    foot->setObjectName(QStringLiteral("WorkHint"));foot->setWordWrap(true);v->addWidget(foot);
+    outer->addWidget(m_content,1);
     setStyleSheet(QStringLiteral(R"(
 QWidget#SidePanel, QWidget#WorkRail { background: #FBFCFF; }
 QWidget#WorkRail { border-left: 1px solid #DCE5F2; }
 QWidget#WorkContent { background: #F4F8FF; border-left: 1px solid #DCE5F2; }
-QLabel#WorkTitle { font-size: 17px; font-weight: 700; color: #17294D; }
+QLabel#WorkTitle { font-size: 25px; font-weight: 700; color: #17294D; }
 QLabel#WorkHint { font-size: 11px; color: #6B7A99; }
 QPushButton#WorkTab { background: transparent; border: none; border-right: 3px solid transparent; border-radius: 8px; font-size: 11px; color: #4A5A7C; }
 QPushButton#WorkTab:hover, QPushButton#WorkTab:focus { background: #EEF4FF; }
@@ -122,10 +81,7 @@ QWidget#WorkContent QCalendarWidget QToolButton { color: #1B4A90; background: #E
 QWidget#WorkContent QCalendarWidget QWidget#qt_calendar_navigationbar { background: #EEF4FF; }
 QWidget#WorkContent QCalendarWidget QAbstractItemView { selection-background-color: #2864BA; selection-color: white; }
 )"));
-    m_content->setFixedWidth(0);
-    m_content->hide();
-    setFixedWidth(72);
-    showPage(-1);
+    showPage(0);
 
     m_saveTimer = new QTimer(this);
     m_saveTimer->setSingleShot(true);
@@ -135,50 +91,14 @@ QWidget#WorkContent QCalendarWidget QAbstractItemView { selection-background-col
 }
 
 void SidePanel::showPage(int index) {
-    const int from = m_content->isHidden() ? 0 : m_content->width();
-    if (index < 0 || index >= m_buttons.size()) {
-        m_openPage = -1;
-    } else {
-        m_openPage = m_lastPage = index;
-        m_tabs->setCurrentIndex(index);
-        m_title->setText(m_buttons[index]->accessibleName());
-    }
-    for (int i = 0; i < m_buttons.size(); ++i)
-        m_buttons[i]->setChecked(i == m_openPage);
-
-    // Animate just the content; the right-hand rail never moves off screen.
-    auto* anim = findChild<QVariantAnimation*>(QStringLiteral("WorkPanelWidth"), Qt::FindDirectChildrenOnly);
-    if (!anim) {
-        anim = new QVariantAnimation(this);
-        anim->setObjectName(QStringLiteral("WorkPanelWidth"));
-        anim->setEasingCurve(QEasingCurve::OutCubic);
-        connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant& value) {
-            const int width = value.toInt();
-            m_content->setFixedWidth(width);
-            setFixedWidth(72 + width);
-        });
-        connect(anim, &QVariantAnimation::finished, this, [this] {
-            if (m_openPage < 0) m_content->hide();
-        });
-    }
-    anim->stop();
-    const int to = m_openPage < 0 ? 0 : 360;
-    m_content->setFixedWidth(from);
-    setFixedWidth(72 + from);
-    if (m_openPage >= 0) m_content->show();
-    if (from == to) {
-        if (m_openPage < 0) m_content->hide();
-        return;
-    }
-    anim->setDuration(qBound(80, 220 * qAbs(to - from) / 360, 220));
-    anim->setStartValue(from);
-    anim->setEndValue(to);
-    anim->start();
+    if(index<0||index>=m_tabs->count())return;
+    static const QStringList titles{tr("Ghi chú"),tr("Lịch công việc"),tr("Danh bạ liên hệ")};
+    m_tabs->setCurrentIndex(index);
+    m_title->setText(titles[index]);
+    m_lastPage=index;
 }
 
-void SidePanel::toggleContent() {
-    showPage(m_openPage < 0 ? m_lastPage : -1);
-}
+void SidePanel::toggleContent() { showPage(m_lastPage); }
 
 void SidePanel::flush() {
     if (m_saveTimer->isActive()) {
@@ -228,11 +148,13 @@ QWidget* SidePanel::buildNotes() {
     row->addWidget(del);
     v->addLayout(row);
     m_noteList = new QListWidget(w);
-    m_noteList->setMaximumHeight(130);
-    v->addWidget(m_noteList);
+    auto* split=new QSplitter(Qt::Horizontal,w);
+    m_noteList->setMinimumWidth(160);
+    split->addWidget(m_noteList);
     m_noteText = new QPlainTextEdit(w);
     m_noteText->setPlaceholderText(tr("Gõ ghi chú ở đây. Dùng \"[ ] việc cần làm\" và \"[x] việc đã xong\" để lập danh sách việc."));
-    v->addWidget(m_noteText, 1);
+    split->addWidget(m_noteText);split->setStretchFactor(1,1);split->setSizes({220,700});
+    v->addWidget(split,1);
 
     connect(add, &QPushButton::clicked, this, [this] {
         QJsonObject n;
@@ -304,12 +226,25 @@ QWidget* SidePanel::buildCalendar() {
     m_cal = new QCalendarWidget(w);
     m_cal->setGridVisible(true);
     m_cal->setFirstDayOfWeek(Qt::Monday);
-    v->addWidget(m_cal);
-    v->addWidget(new QLabel(tr("Ghi chú ngày đang chọn"), w));
+    m_cal->setLocale(QLocale(QLocale::Vietnamese,QLocale::Vietnam));
+    m_cal->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
+    auto* split=new QSplitter(Qt::Horizontal,w);
+    split->setChildrenCollapsible(false);
+    split->addWidget(m_cal);
+    auto* details=new QWidget(split);
+    auto* detail=new QVBoxLayout(details);
+    detail->setContentsMargins(12,0,0,0);
+    m_dateTitle=new QLabel(details);
+    m_dateTitle->setStyleSheet(QStringLiteral("font-size:18px;font-weight:700;color:#17294D;"));
+    detail->addWidget(m_dateTitle);
+    auto* today=new QPushButton(tr("Hôm nay"),details);
+    connect(today,&QPushButton::clicked,this,[this]{m_cal->setSelectedDate(QDate::currentDate());});
+    detail->addWidget(today,0,Qt::AlignLeft);
+    detail->addWidget(new QLabel(tr("Ghi chú ngày đang chọn"),details));
     m_dayNote = new QPlainTextEdit(w);
     m_dayNote->setPlaceholderText(tr("Ghi chú riêng cho ngày này…"));
     m_dayNote->setMaximumHeight(100);
-    v->addWidget(m_dayNote);
+    detail->addWidget(m_dayNote);
     connect(m_dayNote, &QPlainTextEdit::textChanged, this, [this] {
         const QString day = m_cal->selectedDate().toString(Qt::ISODate);
         const QString note = m_dayNote->toPlainText();
@@ -323,15 +258,17 @@ QWidget* SidePanel::buildCalendar() {
     add->setObjectName(QStringLiteral("WorkPrimary"));
     row->addWidget(m_eventTitle, 1);
     row->addWidget(add);
-    v->addLayout(row);
-    m_eventList = new QListWidget(w);
-    v->addWidget(m_eventList, 1);
+    detail->addLayout(row);
+    m_eventList = new QListWidget(details);
+    detail->addWidget(m_eventList,1);
     auto* del = new QPushButton(tr("Xoá mục đang chọn"), w);
-    v->addWidget(del);
-    auto* hint = new QLabel(tr("Nhấp đúp vào một việc để đánh dấu xong / chưa xong."), w);
+    detail->addWidget(del);
+    auto* hint = new QLabel(tr("Nhấp đúp vào một việc để đánh dấu xong / chưa xong."), details);
     hint->setStyleSheet(QStringLiteral("color:#697992;font-size:11px;"));
     hint->setWordWrap(true);
-    v->addWidget(hint);
+    detail->addWidget(hint);
+    split->addWidget(details);split->setStretchFactor(0,3);split->setStretchFactor(1,2);
+    v->addWidget(split,1);
 
     auto addEvent = [this] {
         const QString t = m_eventTitle->text().trimmed();
@@ -374,6 +311,7 @@ QWidget* SidePanel::buildCalendar() {
 void SidePanel::refreshEvents() {
     m_eventList->clear();
     const QString day = m_cal->selectedDate().toString(Qt::ISODate);
+    m_dateTitle->setText(QLocale(QLocale::Vietnamese,QLocale::Vietnam).toString(m_cal->selectedDate(),QStringLiteral("dddd, dd/MM/yyyy")));
     { QSignalBlocker b(m_dayNote); m_dayNote->setPlainText(m_dayNotes.value(day).toString()); }
     for (int i = 0; i < m_events.size(); ++i) {
         const QJsonObject e = m_events[i].toObject();
@@ -415,12 +353,16 @@ QWidget* SidePanel::buildContacts() {
     m_filter = new QComboBox(w);
     m_filter->addItem(tr("Mọi trạng thái"));
     m_filter->addItems(kStatuses);
-    top->addWidget(m_search, 1);
+    top->addWidget(m_search, 1);top->addWidget(m_filter);
     v->addLayout(top);
-    v->addWidget(m_filter);
     m_table = new QTableWidget(0, 4, w);
     m_table->setHorizontalHeaderLabels({tr("Tên"), tr("Điện thoại"), tr("Email"), tr("Trạng thái")});
-    m_table->horizontalHeader()->setStretchLastSection(true);
+    m_table->horizontalHeader()->setSectionResizeMode(0,QHeaderView::Stretch);
+    m_table->horizontalHeader()->setSectionResizeMode(1,QHeaderView::ResizeToContents);
+    m_table->horizontalHeader()->setSectionResizeMode(2,QHeaderView::Stretch);
+    m_table->horizontalHeader()->setSectionResizeMode(3,QHeaderView::ResizeToContents);
+    m_table->setAlternatingRowColors(true);
+    m_table->verticalHeader()->setDefaultSectionSize(36);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->verticalHeader()->hide();
