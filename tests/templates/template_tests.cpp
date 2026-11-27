@@ -80,6 +80,15 @@ int main(int argc, char** argv) {
     CHECK(!tpl::installFromDir(empty.path()).ok, "thư mục không phải gói bị từ chối");
     CHECK(tpl::installed().version == QStringLiteral("2025.1"), "gói hiện tại giữ nguyên khi cài thất bại");
     CHECK(tpl::compareVersion("2026.10", "2026.9") > 0, "so sánh phiên bản theo số, không theo chuỗi");
+    const auto invalid=makePack(tmp.path(),QStringLiteral("invalid"),QStringLiteral("2027.1"),{sub+QStringLiteral("Mẫu.docx")});
+    write(invalid+QStringLiteral("/manifest.json"),"{\"id\":\"../escape\",\"version\":\"2027.1\"}");
+    CHECK(!tpl::readInfo(invalid).valid&&!tpl::installFromDir(invalid).ok,"mã gói thoát thư mục bị từ chối");
+    CHECK(!tpl::installed(QStringLiteral("../escape")).valid,"không đọc gói ngoài thư mục mẫu");
+    write(invalid+QStringLiteral("/manifest.json"),"{\"id\":\"thu-vien-bieu-mau\",\"version\":\"2027.1\"}");
+    write(invalid+QStringLiteral("/00_HUONG_DAN_VA_DANH_MUC/DANH_MUC_TAP_TIN.csv"),"Duong_dan,Tinh_trang,Nguon_goc,URL,Dinh_dang\n../ban-lam-viec.docx,,,,DOCX\n");
+    CHECK(!tpl::installFromDir(invalid).ok,"đường dẫn danh mục thoát thư mục bị từ chối");
+    CHECK(tpl::installed().version=="2025.1"&&QFile::exists(dst),"gói đang cài và tài liệu làm việc giữ nguyên");
+    CHECK(!tpl::installFromDir(tpl::installed().root).ok,"không tự cài đè từ gói đang cài");
     // Gói thật (tệp .zip do CI tạo từ thư mục templates/): giải nén bằng công cụ của hệ điều hành rồi cài.
     const QString zip = qEnvironmentVariable("DUNG_TEST_ZIP");
     if (!zip.isEmpty()) {
