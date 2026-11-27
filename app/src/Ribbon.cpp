@@ -36,9 +36,19 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     m_tabs->setDrawBase(false);
     m_tabs->setExpanding(false);
     m_pages = new QStackedWidget(this);
-    m_pages->setFixedHeight(100);
-    v->addWidget(m_tabs);
-    v->addWidget(m_pages);
+    m_pages->setFixedHeight(124);
+    auto* header=new QHBoxLayout;header->setContentsMargins(0,0,0,0);header->setSpacing(4);
+    header->addWidget(m_tabs,1);
+    auto* fold=new QToolButton(this);fold->setObjectName(QStringLiteral("RibbonFold"));
+    fold->setCheckable(true);fold->setAutoRaise(true);fold->setFocusPolicy(Qt::NoFocus);
+    fold->setArrowType(Qt::UpArrow);fold->setToolTip(tr("Thu gọn thanh công cụ"));fold->setAccessibleName(fold->toolTip());
+    header->addWidget(fold);v->addLayout(header);v->addWidget(m_pages);
+    connect(fold,&QToolButton::toggled,this,[this,fold](bool collapsed){
+        m_pages->setVisible(!collapsed);fold->setArrowType(collapsed?Qt::DownArrow:Qt::UpArrow);
+        fold->setToolTip(collapsed?tr("Mở thanh công cụ"):tr("Thu gọn thanh công cụ"));
+        fold->setAccessibleName(fold->toolTip());
+    });
+    connect(m_tabs,&QTabBar::tabBarClicked,this,[fold](int){if(fold->isChecked())fold->setChecked(false);});
     connect(m_tabs, &QTabBar::currentChanged, m_pages, &QStackedWidget::setCurrentIndex);
 }
 
@@ -406,9 +416,9 @@ QWidget* Ribbon::buildPage(const Tab& t) {
         auto* row = new QGridLayout;
         row->setContentsMargins(0,0,0,0);row->setSpacing(2);
         int buttonIndex=0;
-        const int rows=fontGroup?1:(g.buttons.size()>3?2:1);
+        const int rows=fontGroup?(g.buttons.size()>7?2:1):(g.buttons.size()>3?2:1);
         for (const Btn& b : g.buttons) {
-            if(fontGroup && b.id==QLatin1String("word:font"))continue;
+            if(fontGroup && (b.id==QLatin1String("word:font")||b.id==QLatin1String("word:size")))continue;
             if(m_lastKind==int(DocKind::Spreadsheet)&&b.id==QLatin1String("xl:fontName"))continue;
             auto* tb = new QToolButton(gw);
             tb->setObjectName(QStringLiteral("RibbonButton"));

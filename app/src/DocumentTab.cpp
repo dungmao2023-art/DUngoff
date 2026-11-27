@@ -585,9 +585,26 @@ QLabel#AssistantGroup { color:#6B7A99; font-size:11px; font-weight:700; padding-
         m_sheets->setDrawBase(false);
         m_sheets->setExpanding(false);
         auto* sh = new QHBoxLayout;
-        sh->setContentsMargins(52, 0, 0, 0);
-        sh->addWidget(m_sheets);
-        sh->addStretch(1);
+        sh->setContentsMargins(8,2,8,2);
+        sh->setSpacing(4);
+        m_sheets->setUsesScrollButtons(true);
+        m_sheets->setElideMode(Qt::ElideRight);
+        auto sheetArrow=[this](Qt::ArrowType type,const QString& name,int delta){
+            auto* b=new QToolButton(this);b->setArrowType(type);b->setFixedSize(24,26);
+            b->setFocusPolicy(Qt::NoFocus);b->setToolTip(name);b->setAccessibleName(name);
+            connect(b,&QToolButton::clicked,this,[this,delta]{
+                if(m_sheets->count())m_sheets->setCurrentIndex(qBound(0,m_sheets->currentIndex()+delta,m_sheets->count()-1));
+            });
+            return b;
+        };
+        sh->addWidget(sheetArrow(Qt::LeftArrow,tr("Sheet trước"),-1));
+        sh->addWidget(sheetArrow(Qt::RightArrow,tr("Sheet sau"),1));
+        sh->addWidget(m_sheets,1);
+        auto* addSheet=new QPushButton(QStringLiteral("+"),this);
+        addSheet->setFixedSize(28,28);addSheet->setToolTip(tr("Thêm sheet mới"));addSheet->setAccessibleName(addSheet->toolTip());
+        addSheet->setEnabled(!readOnly());addSheet->setFocusPolicy(Qt::NoFocus);
+        connect(addSheet,&QPushButton::clicked,this,[this]{excelAction(QStringLiteral("xl:sheetAdd"));});
+        sh->addWidget(addSheet);
         v->addLayout(sh);
         m_sheets->setContextMenuPolicy(Qt::CustomContextMenu);
         connect(m_sheets, &QTabBar::customContextMenuRequested, this, [this](const QPoint& p) { excelSheetMenu(p); });

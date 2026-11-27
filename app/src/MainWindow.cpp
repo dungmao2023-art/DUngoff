@@ -181,15 +181,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_tabs->setDocumentMode(true);
     m_tabs->tabBar()->setElideMode(Qt::ElideRight); // tên dài cắt phần cuối, giữ phần đầu
     m_tabs->tabBar()->setUsesScrollButtons(true);
-    auto* groupRow = new QHBoxLayout;
-    groupRow->setContentsMargins(8, 3, 8, 3);
-    groupRow->addWidget(new QLabel(tr("Tài liệu:"), m_docArea));
-    m_docGroup = new QComboBox(m_docArea);
-    for (const auto& name : {tr("Word"), tr("Excel"), tr("PowerPoint"), tr("PDF"), tr("Khác"), tr("Tất cả")}) m_docGroup->addItem(name);
-    groupRow->addWidget(m_docGroup); groupRow->addStretch(1);
-    dv->addLayout(groupRow);
+    m_docGroup = new QComboBox(m_tabs);
+    for (const auto& name : {tr("Word"),tr("Excel"),tr("PowerPoint"),tr("PDF"),tr("Khác"),tr("Tất cả")})m_docGroup->addItem(name);
+    m_docGroup->setToolTip(tr("Lọc tài liệu đang mở theo ứng dụng"));
+    m_docGroup->setAccessibleName(m_docGroup->toolTip());
+    m_tabs->setCornerWidget(m_docGroup,Qt::TopRightCorner);
     dv->addWidget(m_ribbon);
-    dv->addWidget(m_tabs, 1);
+    dv->addWidget(m_tabs,1);
     connect(m_docGroup, &QComboBox::currentIndexChanged, this, [this](int group) {
         if (m_groupChanging) return;
         int match = -1;
@@ -288,6 +286,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     statusBar()->addPermanentWidget(m_roLabel);
     auto zoomButton=[this](const QString& id,const QString& label,int delta){
         auto* b=new QToolButton(this);b->setFixedSize(26,25);b->setIcon(dung::ui::icon(dung::ui::iconNameForCommand(id),theme::kBlueDark));
+        b->setObjectName(QStringLiteral("DocumentZoomButton"));
         b->setIconSize(QSize(17,17));b->setToolTip(label);b->setAccessibleName(label);b->setFocusPolicy(Qt::NoFocus);
         b->setStyleSheet(QStringLiteral("QToolButton{background:#E8F0FF;border:1px solid #CBD8EC;border-radius:5px;} QToolButton:hover{background:#CEDFFF;}"));
         connect(b,&QToolButton::clicked,this,[this,delta]{if(current())m_zoom->setValue(qBound(25,m_zoom->value()+delta,400));});
@@ -1183,6 +1182,7 @@ void MainWindow::refreshStatus() {
     m_roLabel->setVisible(docs && t->readOnly());
     m_zoom->setVisible(docs);
     m_zoomLabel->setVisible(docs);
+    for(auto* button:statusBar()->findChildren<QToolButton*>(QStringLiteral("DocumentZoomButton")))button->setVisible(docs);
     QString title = tr("Dũng Office");
     if (docs) title = t->title() + QStringLiteral(" — ") + title;
     setWindowTitle(title);
