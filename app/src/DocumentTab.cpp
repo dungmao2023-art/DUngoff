@@ -831,9 +831,7 @@ int DocumentTab::zoom() const { return m_view->zoom(); }
 
 // ---- Lưu an toàn ----
 static bool samePathUi(const QString& a, const QString& b) {
-    const QString ca = QFileInfo(a).canonicalFilePath(), cb = QFileInfo(b).canonicalFilePath();
-    if (!ca.isEmpty() && !cb.isEmpty()) return ca.compare(cb, Qt::CaseInsensitive) == 0;
-    return QFileInfo(a).absoluteFilePath().compare(QFileInfo(b).absoluteFilePath(), Qt::CaseInsensitive) == 0;
+    return savepath::samePathForProtection(a,b);
 }
 
 bool DocumentTab::doSave(const QString& path, bool confirmedReplace) {
