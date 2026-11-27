@@ -540,7 +540,7 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
 {
     FilterSortResult result;
     const auto valid = [&](int col) { return col == -1 || (col >= 0 && col < source.header.size()); };
-    if (!valid(spec.filterCol) || !valid(spec.sortCol) || !valid(spec.cleanCol) || !valid(spec.dedupCol)
+    if (!valid(spec.filterCol) || !valid(spec.sortCol) || !valid(spec.cleanCol) || !valid(spec.dedupCol) || !valid(spec.groupKey) || !valid(spec.groupValue)
         || (spec.mode!=FilterMode::Equal && spec.mode!=FilterMode::Contains && spec.mode!=FilterMode::Blank && spec.mode!=FilterMode::NotBlank)
         || (spec.cleanKind!=ColumnKind::Keep && spec.cleanKind!=ColumnKind::Date && spec.cleanKind!=ColumnKind::Money)
         || (spec.moneyLocale!=MoneyLocale::VN && spec.moneyLocale!=MoneyLocale::EN)
@@ -566,7 +566,13 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
         }
         selected.insert(col); names.insert(name.toCaseFolded());
     }
-    if (project || spec.cleanCol>=0 || spec.dedupCol>=0) for (const auto& row:source.rows) if (row.size()!=source.header.size()) {
+    if((spec.groupKey<0 && spec.groupValue>=0) ||
+       (spec.groupKey>=0 && spec.groupKey==spec.groupValue) ||
+       (project && spec.groupKey>=0 && (!selected.contains(spec.groupKey) ||
+        (spec.groupValue>=0 && !selected.contains(spec.groupValue))))){
+        result.error=QObject::tr("Chọn khóa nhóm và cột số khác nhau; phải giữ các cột này trong bước chọn cột.");return result;
+    }
+    if (project || spec.cleanCol>=0 || spec.dedupCol>=0 || spec.groupKey>=0) for (const auto& row:source.rows) if (row.size()!=source.header.size()) {
         result.error=QObject::tr("Nguồn có dòng sai số cột; chưa chọn/đổi tên cột."); return result;
     }
     const auto cs = spec.ignoreCase ? Qt::CaseInsensitive : Qt::CaseSensitive;
@@ -616,6 +622,13 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
             row=projected;
         }
     }
+    if(spec.groupKey>=0){
+        const int key=project?int(spec.outputColumns.indexOf(spec.groupKey)):spec.groupKey;
+        const int value=spec.groupValue<0?-1:project?int(spec.outputColumns.indexOf(spec.groupValue)):spec.groupValue;
+        const auto grouped=groupCsv(result.table,key,value);
+        if(!grouped.ok){result.error=grouped.error;result.table={};return result;}
+        result.grouped=true;result.groupedInputRows=result.table.rows.size();result.table=grouped.table;
+    }
     result.ok = true;
     return result;
 }
@@ -635,11 +648,14 @@ QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpe
         obj.insert("outputColumns",columns);
         obj.insert("outputNames",QJsonArray::fromStringList(spec.outputNames));
     }
-    if(spec.cleanCol>=0 || spec.dedupCol>=0 || spec.cleanKind!=ColumnKind::Keep || spec.moneyLocale!=MoneyLocale::VN || spec.dedupFold) {
+    if(spec.cleanCol>=0 || spec.dedupCol>=0 || spec.cleanKind!=ColumnKind::Keep || spec.moneyLocale!=MoneyLocale::VN || spec.dedupFold || spec.groupKey!=-1 || spec.groupValue!=-1) {
         obj.insert("version",3);
         obj.insert("cleanCol",spec.cleanCol);obj.insert("cleanKind",int(spec.cleanKind));
         obj.insert("moneyLocale",int(spec.moneyLocale));obj.insert("dedupCol",spec.dedupCol);
         obj.insert("dedupFold",spec.dedupFold);
+    }
+    if(spec.groupKey!=-1 || spec.groupValue!=-1){
+        obj.insert("version",4);obj.insert("groupKey",spec.groupKey);obj.insert("groupValue",spec.groupValue);
     }
     return QJsonDocument(obj).toJson(QJsonDocument::Indented);
 }
@@ -654,7 +670,7 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return fail();
     const auto obj = doc.object();
     const int version=obj.value("version").toInt(-1);
-    if ((version != 1 && version != 2 && version != 3) || !obj.value("header").isArray()
+    if ((version != 1 && version != 2 && version != 3 && version != 4) || !obj.value("header").isArray()
         || obj.value("header").toArray() != QJsonArray::fromStringList(header)) return fail();
     const int filter = obj.value("filterCol").toInt(-2);
     const int sort = obj.value("sortCol").toInt(-2);
@@ -668,7 +684,7 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     candidate.value = obj.value("value").toString();
     candidate.ignoreCase = obj.value("ignoreCase").toBool();
     candidate.descending = obj.value("descending").toBool();
-    if(version==2 || (version==3 && (obj.contains("outputColumns") || obj.contains("outputNames")))) {
+    if(version==2 || (version>=3 && (obj.contains("outputColumns") || obj.contains("outputNames")))) {
         if(!obj.value("outputColumns").isArray() || !obj.value("outputNames").isArray()) return fail();
         const auto columns=obj.value("outputColumns").toArray(), names=obj.value("outputNames").toArray();
         if(columns.isEmpty() || columns.size()!=names.size() || columns.size()>header.size()) return fail();
@@ -678,7 +694,7 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
             candidate.outputNames.append(names[i].toString());
         }
     } else if(obj.contains("outputColumns") || obj.contains("outputNames")) return fail();
-    if(version==3) {
+    if(version>=3) {
         const int clean=obj.value("cleanCol").toInt(-2), kind=obj.value("cleanKind").toInt(-1);
         const int locale=obj.value("moneyLocale").toInt(-1), dedup=obj.value("dedupCol").toInt(-2);
         if(clean < -1 || clean>=header.size() || dedup < -1 || dedup>=header.size()
@@ -687,6 +703,10 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
         candidate.cleanCol=clean;candidate.cleanKind=ColumnKind(kind);candidate.moneyLocale=MoneyLocale(locale);
         candidate.dedupCol=dedup;candidate.dedupFold=obj.value("dedupFold").toBool();
     } else if(obj.contains("cleanCol")||obj.contains("cleanKind")||obj.contains("moneyLocale")||obj.contains("dedupCol")||obj.contains("dedupFold"))return fail();
+    if(version==4){
+        candidate.groupKey=obj.value("groupKey").toInt(-2);candidate.groupValue=obj.value("groupValue").toInt(-2);
+        if(candidate.groupKey<0 || candidate.groupKey>=header.size() || candidate.groupValue<-1 || candidate.groupValue>=header.size())return fail();
+    }else if(obj.contains("groupKey")||obj.contains("groupValue"))return fail();
     const auto checked = filterSort(Table{header, {}}, candidate);
     if (!checked.ok) { error = checked.error; return false; }
     spec = candidate;
