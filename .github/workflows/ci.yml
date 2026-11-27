@@ -18,8 +18,9 @@ concurrency:
 
 env:
   LO_VERSION: "26.8.3"
-  ENGINE_TAG: "engine-26.8.3.1-headless"
-  ENGINE_SHA256: "03261237878855c27013ff81ba03d766fd794ff49f88d711a013747f7325cac1"
+  # Candidate v2: SHA-256 verified in preflight 46084197395. Keep v1 release and rollback archive.
+  ENGINE_TAG: "engine-26.8.3.2-headless"
+  ENGINE_SHA256: "cb7664001dfb51a31467f2b1849e294e6564d607a91baea5c4efa215010ad492"
   QT_VERSION: "6.8.3"
 
 jobs:
@@ -903,7 +904,7 @@ jobs:
           name: report-windows
           path: report/
       - name: Phát hành (chỉ khi gắn tag v*)
-        if: (startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != '') && steps.full.outcome == 'success'
+        if: false # Candidate evaluation: no public or private installer release before approval.
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag != '' && inputs.release_tag || github.ref_name }}
