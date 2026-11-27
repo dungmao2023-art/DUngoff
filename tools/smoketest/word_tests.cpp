@@ -308,6 +308,9 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     settle();
     run(d, w::findNext("bar", false));
     check(selText(d) == "bar", "Tìm 'bar' chọn đúng từ", "vùng chọn='" + snippet(selText(d), 30) + "'");
+    run(d, ".uno:GoToEndOfDoc");
+    run(d, w::findNext("bar", true));
+    check(selText(d)=="bar","Tìm ngược chọn đúng từ",snippet(selText(d),30));
     run(d, w::replaceAll("foo", "baz"));
     selectAll(d);
     const std::string afterReplace = selText(d);
