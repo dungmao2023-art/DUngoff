@@ -203,8 +203,8 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     B("xl:fillRight", tr("Điền sang phải"), 0xE72A, "→", false),
                 }},
                 {tr("Sắp xếp & lọc"), {
-                    B(".uno:SortAscending", tr("Tăng dần"), 0xE8CB, "A↓", false),
-                    B(".uno:SortDescending", tr("Giảm dần"), 0xE8CB, "Z↓", false),
+                    B("xl:sortAscending", tr("Tăng dần"), 0xE8CB, "A↓", false),
+                    B("xl:sortDescending", tr("Giảm dần"), 0xE8CB, "Z↓", false),
                     B(".uno:DataFilterAutoFilter", tr("Bộ lọc"), 0xE71C, "⏷", true),
                 }},
                 {tr("PivotTable"), {
