@@ -22,6 +22,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFormLayout>
+#include <QSpinBox>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QVBoxLayout>
@@ -112,18 +113,51 @@ void DocumentTab::excelAction(const QString& id) {
             QMessageBox::information(this,title,tr("Chọn 2–10.000 ô trong đúng một hàng hoặc một cột."));return;
         }
         const auto before=m_doc->selectionAs("text/plain;charset=utf-8");
-        bool ok=false;
-        const int start=QInputDialog::getInt(this,title,tr("Số nguyên bắt đầu:"),1,-1000000000,1000000000,1,&ok);
-        if(!ok)return;
-        const int step=QInputDialog::getInt(this,title,tr("Bước tăng/giảm (âm để giảm):"),1,-1000000,1000000,1,&ok);
-        if(!ok)return;
-        if(step==0){QMessageBox::warning(this,title,tr("Bước phải khác 0."));return;}
-        const qint64 end=qint64(start)+qint64(step)*(count-1);
-        if(end< -1000000000LL||end>1000000000LL){QMessageBox::warning(this,title,tr("Dãy vượt giới hạn ±1 tỷ."));return;}
-        if(QMessageBox::question(this,title,
-           tr("Sheet %1 · %2: ghi %3 số nguyên từ %4 đến %5, bước %6. Toàn bộ vùng chọn (kể cả ô đầu) có thể bị ghi đè. Tiếp tục?")
-              .arg(qs(originalSheet),range).arg(count).arg(start).arg(end).arg(step),
-           QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        QDialog dialog(this);
+        dialog.setWindowTitle(title);
+        auto* layout=new QVBoxLayout(&dialog);
+        auto* context=new QLabel(tr("Sheet %1 · %2 · %3 ô").arg(qs(originalSheet),range).arg(count),&dialog);
+        context->setTextFormat(Qt::PlainText);
+        context->setWordWrap(true);
+        layout->addWidget(context);
+        auto* form=new QFormLayout;
+        auto* startField=new QSpinBox(&dialog);
+        startField->setRange(-1000000000,1000000000);
+        startField->setValue(1);
+        auto* stepField=new QSpinBox(&dialog);
+        stepField->setRange(-1000000,1000000);
+        stepField->setValue(1);
+        form->addRow(tr("Bắt đầu"),startField);
+        form->addRow(tr("Bước tăng/giảm"),stepField);
+        layout->addLayout(form);
+        auto* preview=new QLabel(&dialog);
+        preview->setWordWrap(true);
+        layout->addWidget(preview);
+        auto* warning=new QLabel(tr("Toàn bộ vùng chọn có thể bị ghi đè, kể cả ô đầu. Chỉ tiếp tục khi đúng vùng."),&dialog);
+        warning->setWordWrap(true);
+        layout->addWidget(warning);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);
+        auto* apply=buttons->button(QDialogButtonBox::Ok);
+        apply->setText(tr("Điền dãy"));
+        apply->setAutoDefault(false);
+        auto* cancel=buttons->button(QDialogButtonBox::Cancel);
+        cancel->setDefault(true);
+        layout->addWidget(buttons);
+        const auto updatePreview=[&]{
+            const qint64 start=startField->value(),step=stepField->value();
+            const qint64 end=start+step*(count-1);
+            const bool valid=step!=0&&end>=-1000000000LL&&end<=1000000000LL;
+            apply->setEnabled(valid);
+            preview->setText(valid?tr("Ô đầu: %1 · Ô thứ hai: %2 · Ô cuối: %3").arg(start).arg(start+step).arg(end):
+                tr("Bước phải khác 0 và dãy phải nằm trong khoảng ±1 tỷ."));
+        };
+        connect(startField,&QSpinBox::valueChanged,&dialog,[&](int){updatePreview();});
+        connect(stepField,&QSpinBox::valueChanged,&dialog,[&](int){updatePreview();});
+        connect(buttons,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);
+        connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+        updatePreview();
+        if(dialog.exec()!=QDialog::Accepted||!apply->isEnabled())return;
+        const qint64 start=startField->value(),step=stepField->value(),end=start+step*(count-1);
         if(!sameSheet()||!m_view||m_view->selectedCellRange()!=range||
            m_doc->selectionAs("text/plain;charset=utf-8")!=before){
             QMessageBox::warning(this,title,tr("Vùng hoặc nội dung thay đổi. Chưa điền dãy."));return;
