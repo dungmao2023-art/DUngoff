@@ -73,6 +73,7 @@ bool listZipNames(const fs::path& zipFile, std::vector<std::string>& names, std:
 std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawNames) {
     int fonts = 0, macro = 0, formctl = 0, activex = 0, smartart = 0, slicers = 0, timelines = 0, model = 0, ink = 0, masters = 0, layouts = 0;
     int connections=0, signatures=0, external=0;
+    int embedded=0, customXml=0, threadedComments=0, richData=0, vbaSignatures=0, customRibbon=0;
     for (const auto& raw : rawNames) {
         const std::string n = lower(raw);
         if ((startsWith(n, "word/fonts/") && endsWith(n, ".odttf")) ||
@@ -80,6 +81,22 @@ std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawName
             ++fonts;
         else if (endsWith(n, "/vbaproject.bin"))
             ++macro;
+        else if (endsWith(n,"/vbaprojectsignature.bin") ||
+                 endsWith(n,"/vbaprojectsignatureagile.bin") ||
+                 endsWith(n,"/vbaprojectsignaturev3.bin"))
+            ++vbaSignatures;
+        else if ((startsWith(n,"word/embeddings/") || startsWith(n,"xl/embeddings/") ||
+                  startsWith(n,"ppt/embeddings/")) && !endsWith(n,"/") && !contains(n,"/_rels/"))
+            ++embedded;
+        else if (startsWith(n,"customxml/item") && endsWith(n,".xml") && !startsWith(n,"customxml/itemprops"))
+            ++customXml;
+        else if (startsWith(n,"xl/threadedcomments/threadedcomment") && endsWith(n,".xml"))
+            ++threadedComments;
+        else if ((startsWith(n,"xl/richdata/") && !endsWith(n,"/") && !contains(n,"/_rels/")) ||
+                 n=="xl/metadata.xml")
+            ++richData;
+        else if (n=="customui/customui.xml" || n=="customui/customui14.xml")
+            ++customRibbon;
         else if (contains(n, "/ctrlprops/ctrlprop") && endsWith(n, ".xml"))
             ++formctl;
         else if (contains(n, "/activex/") && !endsWith(n, "/"))
@@ -136,6 +153,20 @@ std::vector<FeatureLoss> classifyEntries(const std::vector<std::string>& rawName
         "Tham chiếu và dữ liệu liên kết ngoài có thể thay đổi khi lưu; chưa xác nhận refresh. Giữ bản gốc.",external,false);
     add("chu-ky-ooxml", "Chữ ký số tài liệu",
         "Sửa nội dung có thể làm mất hiệu lực chữ ký. Không dùng bản xuất làm tài liệu đã ký; giữ nguyên bản gốc.",signatures,false);
+    // These features are detected by part name only. Do not imply that an
+    // actual engine roundtrip has demonstrated loss or that their contents are safe.
+    add("doi-tuong-nhung","Đối tượng / tệp nhúng",
+        "Đối tượng nhúng có thể bị thay đổi hoặc không mở được trong bản lưu mới. Chưa kiểm chứng bảo toàn nội dung nhúng; không thay thế bản gốc.",embedded,false);
+    add("xml-tuy-bien","Dữ liệu XML tùy biến",
+        "Có thể chứa dữ liệu biểu mẫu hoặc liên kết nội dung. Chưa kiểm chứng khả năng giữ nguyên khi lưu; giữ bản gốc.",customXml,false);
+    add("binh-luan-luong","Bình luận theo luồng Excel",
+        "Chưa kiểm chứng bảo toàn luồng trả lời, người tham gia và nội dung khi lưu. Kiểm tra lại bản sao.",threadedComments,false);
+    add("du-lieu-nang-cao","Metadata / kiểu dữ liệu nâng cao Excel",
+        "Có thể chứa kiểu dữ liệu phong phú hoặc metadata công thức. Chưa xác nhận bảo toàn đầy đủ khi lưu hay làm mới.",richData,false);
+    add("chu-ky-vba","Chữ ký dự án VBA",
+        "Không xác minh chữ ký VBA và không chạy macro. Bản lưu mới không được coi là dự án VBA đã ký; giữ nguyên tệp nguồn.",vbaSignatures,false);
+    add("ribbon-tuy-bien","Ribbon Office tùy biến",
+        "Chưa kiểm chứng bảo toàn menu và nút tùy biến; các nút có thể phụ thuộc macro không được chạy.",customRibbon,false);
     add("muc-ve-tay", "Nét vẽ tay (ink)",
         "Nét vẽ tay có thể bị mất hoặc đổi thành hình.", ink, false);
     if (masters >= 2)
