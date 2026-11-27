@@ -73,6 +73,22 @@ std::size_t pathChars(const fs::path& p) {
     return (ec ? p : a).native().size();
 }
 
+// Publish a complete sibling without replacing any entry that appeared after
+// destination selection. Fail closed on unsupported filesystems.
+bool publishNewFile(const fs::path& sibling, const fs::path& dest, std::error_code& ec) {
+    ec.clear();
+#ifdef _WIN32
+    if (!MoveFileExW(longPath(sibling).c_str(), longPath(dest).c_str(), 0)) {
+        ec = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+        return false;
+    }
+#else
+    fs::create_hard_link(longPath(sibling), longPath(dest), ec);
+    if (ec) return false;
+#endif
+    return true;
+}
+
 namespace {
 
 std::string randomToken() {
@@ -1212,7 +1228,11 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
         r.message = "Không ghi được vào thư mục đích: " + ec.message() + "." + longNote + " Tệp đích chưa bị thay đổi.";
         return r;
     }
-    fs::rename(longPath(sibling), longPath(target), ec); // thay thế nguyên tử trong cùng thư mục
+    if (exists) {
+        fs::rename(longPath(sibling), longPath(target), ec);
+    } else {
+        publishNewFile(sibling, target, ec);
+    }
     if (ec) {
         const std::string em = ec.message();
         fs::remove(longPath(sibling), ec);
@@ -1220,6 +1240,7 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
         r.message = "Không đưa được tệp vào vị trí đích: " + em + "." + longNote;
         return r;
     }
+    fs::remove(longPath(sibling), ec); // POSIX publication leaves staged hard link
     fs::remove(stage, ec);
     r.ok = true;
     r.written = target;
