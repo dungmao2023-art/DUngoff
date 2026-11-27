@@ -12,6 +12,7 @@
 class QTabBar;
 class QStackedWidget;
 class QToolButton;
+class QComboBox;
 
 class Ribbon : public QWidget {
     Q_OBJECT
@@ -37,6 +38,7 @@ private:
     QTabBar* m_tabs;
     QStackedWidget* m_pages;
     QHash<QString, QPointer<QToolButton>> m_buttons;
+    QPointer<QComboBox> m_fontBox,m_sizeBox;
     int m_lastKind = -1;
     bool m_lastReadOnly = false;
 };

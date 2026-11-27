@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QStyle>
 #include <QVBoxLayout>
+#include <QApplication>
 
 namespace shell {
 
@@ -92,6 +93,18 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent) {
     m_ready = new QLabel(tr("Sẵn sàng"), m_links);
     m_ready->setObjectName(QStringLiteral("TopReady"));
     l->addWidget(m_ready);
+    auto control=[&](QStyle::StandardPixmap iconId,const QString& tooltip,const QString& colors,auto action){
+        auto* b=new QPushButton(m_links);b->setFixedSize(28,28);b->setIcon(style()->standardIcon(iconId));
+        b->setIconSize(QSize(14,14));b->setToolTip(tooltip);b->setAccessibleName(tooltip);
+        b->setFocusPolicy(Qt::NoFocus);b->setCursor(Qt::PointingHandCursor);
+        b->setStyleSheet(QStringLiteral("QPushButton{border:1px solid #CBD8EC;border-radius:5px;background:%1;} QPushButton:hover{background:%2;}").arg(colors.section('|',0,0),colors.section('|',1,1)));
+        connect(b,&QPushButton::clicked,this,action);l->addWidget(b);
+    };
+    control(QStyle::SP_TitleBarMinButton,tr("Thu nhỏ cửa sổ"),QStringLiteral("#E8F0FF|#CEDFFF"),[this]{window()->showMinimized();});
+    control(QStyle::SP_TitleBarMaxButton,tr("Phóng to / Khôi phục"),QStringLiteral("#E3F5EC|#C9E8D7"),[this]{
+        if(window()->isMaximized())window()->showNormal();else window()->showMaximized();
+    });
+    control(QStyle::SP_TitleBarCloseButton,tr("Đóng Dũng Office"),QStringLiteral("#FBE8E8|#F4CACA"),[this]{window()->close();});
     v->addWidget(m_links);
 }
 

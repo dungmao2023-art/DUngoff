@@ -277,3 +277,5 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - Batch 4 W01/W02/W04: xác minh lại vùng chữ/con trỏ trước khi chọn font/cỡ/màu, chèn bảng/ảnh; kiểm ảnh vẫn đọc được; hộp tìm/thay thống nhất có tìm trước/sau, xác nhận thay toàn bộ. Thêm test tìm ngược trên engine thật; chưa CI và GUI.
 
 - Batch 4 X01/X05: thống nhất hộp tìm/thay Excel, tìm tiếp nhiều lần, khóa phạm vi sheet, xác nhận thay toàn bộ bằng lệnh native đã có test; kiểm tra ô khóa sắp xếp qua cả callback địa chỉ lẫn hình học. Cần CI/GUI, chưa nghiệm thu.
+
+- Batch 4 UI theo yêu cầu: tay nắm Mẫu có nhãn; Tôi muốn chọn hàm trước, mở đối số tuần tự, ẩn tùy chọn và phép tính nhanh, chỉ hiện đích khi có công thức; ribbon icon-only và tooltip, font/cỡ chữ trực tiếp đầu Trang đầu Word/Excel/PPT; nút cửa sổ và zoom có ô màu. Giữ title bar hệ thống; cần chụp màn hình Windows 800x600/1280x800 và kiểm tra trạng thái font/selection thật trước nghiệm thu.

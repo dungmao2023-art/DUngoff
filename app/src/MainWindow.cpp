@@ -25,6 +25,7 @@
 #include "shell/QuickPalette.h"
 #include "shell/ShellIcons.h"
 #include "shell/TopBar.h"
+#include "ui/Icons.h"
 
 #include <QAction>
 #include <QApplication>
@@ -278,7 +279,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     statusBar()->addWidget(m_status, 1);
     statusBar()->addPermanentWidget(m_saveLabel);
     statusBar()->addPermanentWidget(m_roLabel);
+    auto zoomButton=[this](const QString& id,const QString& label,int delta){
+        auto* b=new QToolButton(this);b->setFixedSize(26,25);b->setIcon(dung::ui::icon(dung::ui::iconNameForCommand(id),theme::kBlueDark));
+        b->setIconSize(QSize(17,17));b->setToolTip(label);b->setAccessibleName(label);b->setFocusPolicy(Qt::NoFocus);
+        b->setStyleSheet(QStringLiteral("QToolButton{background:#E8F0FF;border:1px solid #CBD8EC;border-radius:5px;} QToolButton:hover{background:#CEDFFF;}"));
+        connect(b,&QToolButton::clicked,this,[this,delta]{if(current())m_zoom->setValue(qBound(25,m_zoom->value()+delta,400));});
+        return b;
+    };
+    statusBar()->addPermanentWidget(zoomButton(QStringLiteral("zoomOut"),tr("Thu nhỏ tài liệu"),-10));
     statusBar()->addPermanentWidget(m_zoom);
+    statusBar()->addPermanentWidget(zoomButton(QStringLiteral("zoomIn"),tr("Phóng to tài liệu"),10));
     statusBar()->addPermanentWidget(m_zoomLabel);
     connect(m_zoom, &QSlider::valueChanged, this, [this](int z) {
         m_zoomLabel->setText(QStringLiteral("%1%").arg(z));
@@ -299,7 +309,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_top, &shell::TopBar::quickLinkClicked, this, &MainWindow::runCommand);
     connect(m_tabs, &QTabWidget::tabCloseRequested, this, &MainWindow::closeTab);
     connect(m_tabs, &QTabWidget::currentChanged, this, &MainWindow::onCurrentTabChanged);
-    connect(m_ribbon, &Ribbon::unoCommand, this, [this](const QString& c) { if (auto* t = current()) t->runCommand(c); });
+    connect(m_ribbon, &Ribbon::unoCommand, this, [this](const QString& c) {
+        if (auto* t = current()) {
+            if(t->readOnly() && (c.startsWith(QLatin1String(".uno:CharFontName#"))||c.startsWith(QLatin1String(".uno:FontHeight#"))))return;
+            t->runCommand(c);
+        }
+    });
     connect(m_ribbon, &Ribbon::appAction, this, &MainWindow::onAppAction);
 
     // ---- Phím tắt ứng dụng ----
