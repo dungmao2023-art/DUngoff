@@ -26,6 +26,7 @@ public:
     dung::DocKind kind() const { return m_doc->kind(); }
     bool readOnly() const { return m_doc->readOnly(); }
     QString title() const;
+    QString activeFilePath() const;
     QString statusText() const;
     const QHash<QString, QString>& states() const { return m_states; }
     TileView* view() const { return m_view; }
