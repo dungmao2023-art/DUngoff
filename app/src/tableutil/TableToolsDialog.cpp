@@ -318,7 +318,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         for (const QString& h : t.header) {
             auto* it = new QListWidgetItem(h); it->setFlags(it->flags() | Qt::ItemIsUserCheckable); it->setCheckState(Qt::Unchecked); d->dupCols->addItem(it);
             d->keyCol->addItem(h);
-            auto* c = new QComboBox; c->addItem(tr("Giữ nguyên"), int(ColumnKind::Keep)); c->addItem(tr("Ngày → dd/mm/yyyy"), int(ColumnKind::Date)); c->addItem(tr("Số tiền → số thuần"), int(ColumnKind::Money));
+            auto* c = new QComboBox; c->addItem(tr("Giữ nguyên"), int(ColumnKind::Keep)); c->addItem(tr("Ngày → dd/mm/yyyy"), int(ColumnKind::Date)); c->addItem(tr("Số tiền → số thuần"), int(ColumnKind::Money)); c->addItem(tr("Đúng/sai → TRUE/FALSE (chữ)"), int(ColumnKind::Boolean));
             form->addRow(h, c); d->kindBoxes << c;
         }
     };
@@ -493,10 +493,12 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         }
         kind->addItem(tr("Ngày → dd/mm/yyyy"),int(ColumnKind::Date));
         kind->addItem(tr("Số tiền → số thuần"),int(ColumnKind::Money));
+        kind->addItem(tr("Đúng/sai → TRUE/FALSE (chữ)"),int(ColumnKind::Boolean));
         locale->addItem(tr("Việt Nam: 1.234,56"),int(MoneyLocale::VN));
         locale->addItem(tr("Anh: 1,234.56"),int(MoneyLocale::EN));
         clean->setCurrentIndex(clean->findData(d->cleanCol));dedup->setCurrentIndex(dedup->findData(d->dedupCol));
-        kind->setCurrentIndex(d->cleanKind==ColumnKind::Money?1:0);locale->setCurrentIndex(locale->findData(int(d->queryLocale)));
+        const int savedKind=kind->findData(int(d->cleanKind));
+        kind->setCurrentIndex(savedKind<0?0:savedKind);locale->setCurrentIndex(locale->findData(int(d->queryLocale)));
         fold->setChecked(d->dedupFold);
         form->addRow(tr("1. Cột làm sạch:"),clean);form->addRow(tr("Kiểu:"),kind);form->addRow(tr("Định dạng số:"),locale);
         auto* note=new QLabel(tr("2. Lọc theo thiết lập ở tab chính. 3. Bỏ trùng theo khóa dưới đây, giữ dòng đầu tiên sau lọc. Khóa rỗng luôn giữ. 4. Sắp xếp. 5. Chọn cột đầu ra. 6. Tổng hợp nhóm (nếu bật)."),&dlg);note->setWordWrap(true);form->addRow(note);
