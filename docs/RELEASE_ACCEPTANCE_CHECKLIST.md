@@ -249,3 +249,7 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - #113: lỗi Windows trước đó là bộ kiểm thử lưu PDF; batch dùng main đã chứa #117, kiểm lại query ragged rows.
 - Tiết kiệm Actions: chuẩn bị nhiều commit trên nhánh không mở PR, kiểm tra xung đột, mở đúng một PR khi đủ nhóm độc lập; không trigger từng commit. Giữ nguyên CI bắt buộc của PR và main; không build engine hoặc release. Nếu batch đang CI, chuẩn bị nhánh kế tiếp riêng thay vì liên tục push làm hủy job.
 - #112 chưa gom vì chưa xác minh pikepdf runtime; #110 vẫn probe FAIL, không bật GUI. Giữ nguyên 33.83%, ca B0/B1 chưa tick.
+
+## Bằng chứng batch 1 — 27/11/2026
+- #122 HEAD 4be659dbed17a4c9d8dca09b8ec6015f224641ba, merged b61207982979aaaa0684268f27c4911491021e11. [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45977512404): engine smoke, recovery, PDF save, table tools, keymap/caret offscreen và các bộ test bắt buộc thành công. #113/#116/#118/#119/#120/#121 đóng vì đã gom vào #122, không merge lặp.
+- Batch 2 đang chuẩn bị: A01/A03 tên đích và tab; A04 dirty/recovery, Undo/Redo Unicode; X01 thanh công thức; A02 IME; đối chiếu đường dẫn Unicode. Chưa có CI của batch 2; không tick ca GUI hoặc nâng stage.
