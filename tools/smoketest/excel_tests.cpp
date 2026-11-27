@@ -237,7 +237,7 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
 
     // Probe actual range replacement with the existing synchronous LOK paste API.
     // Never expose it in the UI until saved cells and Undo both pass.
-    step("Thăm dò dán bảng HTML trực tiếp và Undo");
+    step("Thăm dò dán text/plain không tham số MIME và Undo");
     auto probe = engine->createNew(DocKind::Spreadsheet, &err);
     check(bool(probe), "Tạo workbook thăm dò " + err);
     if (probe) {
@@ -264,6 +264,9 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
         const bool exact=selected.find("12\t5")!=std::string::npos && selected.find("7\t9")!=std::string::npos;
         check(exact,"Chọn đúng vùng A1:B2 trước thăm dò");
         if (exact) {
+            // Synthetic test data only: inspect native HTML export for a later style-preserving probe.
+            const auto nativeHtml = probe->selectionAs("text/html");
+            std::cout << "[TIN] Native HTML selection (first 4096 bytes): " << nativeHtml.substr(0,4096) << "\n";
             // Range selection + paste was a no-op on both engines. Test a
             // single top-left anchor, keeping all file-level assertions.
             gotoCell(*probe,"A1");
@@ -272,8 +275,9 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
             if (anchor.find("12")==std::string::npos || anchor.find('\t')!=std::string::npos) {
                 check(false,"Không xác minh được ô neo A1");
             } else {
-            // Plain TSV returned success without changing cells on both engines.
-            const bool pasted=probe->paste("text/html","<html><body><table><tr><td>Mười hai</td><td>Năm</td></tr><tr><td>Bảy</td><td>Chín</td></tr></table></body></html>");
+            // HTML imported all four values and Undo restored the originals, but lost bold.
+            // Probe the bare MIME flavor; charset-qualified text previously did nothing.
+            const bool pasted=probe->paste("text/plain","Mười hai\tNăm\nBảy\tChín");
             check(pasted,"LOK paste trả về thành công (chưa chứng minh dữ liệu)");
             probe->waitInputIdle(); settle();
             snapshot("direct-paste-after.xlsx");
