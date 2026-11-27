@@ -25,6 +25,15 @@ Copy-Item $exe $app
    --no-opengl-sw --no-compiler-runtime (Join-Path $app "DungOffice.exe")
 if ($LASTEXITCODE) { throw "windeployqt lỗi" }
 
+# Project avatars use bundled WebP. Ensure the release has its decoder even
+# when windeployqt's dependency scan does not infer dynamically loaded codecs.
+$webp = Join-Path $QtDir "plugins\imageformats\qwebp.dll"
+if (-not (Test-Path $webp)) { throw "Thiếu Qt Image Formats (qwebp.dll); cài module qtimageformats." }
+$imgPlugins = Join-Path $app "imageformats"
+New-Item -ItemType Directory -Force -Path $imgPlugins | Out-Null
+Copy-Item $webp (Join-Path $imgPlugins "qwebp.dll") -Force
+
+
 # C++ runtime đặt cạnh ứng dụng (không cần cài VC++ Redistributable, không cần quyền admin)
 if ($env:VCToolsRedistDir) {
   $crt = Get-ChildItem -Path (Join-Path $env:VCToolsRedistDir "x64") -Directory -Filter "Microsoft.VC*.CRT" | Select-Object -First 1
