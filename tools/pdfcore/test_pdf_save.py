@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pdf_save as s
@@ -61,6 +62,30 @@ class SaveSafetyTests(unittest.TestCase):
         with self.assertRaises(s.PdfError):
             s.atomic_save(Writer(), str(self.dest))
         self.assertEqual(self.dest.read_bytes(), b"old")
+
+    def test_windows_cross_api_ctime_and_same_api_changes(self):
+        fields = dict(st_dev=1, st_ino=42, st_size=3, st_mtime_ns=100, st_ctime_ns=90, st_birthtime_ns=90)
+        path_stat = SimpleNamespace(**fields)
+        handle_stat = SimpleNamespace(**dict(fields, st_ctime_ns=110))
+        self.assertTrue(s._same_snapshot(path_stat, handle_stat, cross_api=True, windows=True))
+        self.assertFalse(s._same_snapshot(path_stat, handle_stat, windows=True))
+        self.assertFalse(s._same_snapshot(path_stat, handle_stat, cross_api=True, windows=False))
+        for field in ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_birthtime_ns"):
+            changed = SimpleNamespace(**dict(vars(handle_stat), **{field: 999}))
+            self.assertFalse(s._same_snapshot(path_stat, changed, cross_api=True, windows=True))
+
+    def test_change_during_backup_aborts_replacement(self):
+        self.dest.write_bytes(b"old")
+        real_copy = s.shutil.copyfileobj
+        def copy_and_change(source, target):
+            real_copy(source, target)
+            self.dest.write_bytes(b"another writer changed file")
+        with patch.object(s.shutil, "copyfileobj", side_effect=copy_and_change):
+            with self.assertRaises(s.PdfError):
+                s.atomic_save(Writer(), str(self.dest), True)
+        self.assertEqual(self.dest.read_bytes(), b"another writer changed file")
+        self.assertEqual(list(self.root.glob("*.dung-backup-*")), [])
+        self.assertNoTemporary()
 
     def test_backup_on_replace(self):
         self.dest.write_bytes(b"old")
