@@ -24,7 +24,7 @@
 TileView::TileView(dung::Document* doc, QWidget* parent)
     : QAbstractScrollArea(parent), m_doc(doc), m_isCalc(doc->kind() == dung::DocKind::Spreadsheet) {
     setFocusPolicy(Qt::StrongFocus);
-    setAttribute(Qt::WA_InputMethodEnabled, true);
+    setAttribute(Qt::WA_InputMethodEnabled, !m_doc->readOnly());
     viewport()->setAttribute(Qt::WA_OpaquePaintEvent, true);
     viewport()->setMouseTracking(false);
     setFrameShape(QFrame::NoFrame);
@@ -556,6 +556,8 @@ void TileView::keyReleaseEvent(QKeyEvent* e) {
 }
 
 void TileView::inputMethodEvent(QInputMethodEvent* e) {
+    if (m_doc->readOnly()) { e->ignore(); return; }
+    restartBlink();
     // Chuẩn IME: preedit hiển thị ngay trong tài liệu (engine tự gạch chân), commit thay chữ đang soạn rồi chốt.
     // Logic quyết định nằm ở imePlan (hàm thuần, có test đơn vị).
     bool unsupported = false, after = false;
@@ -594,7 +596,7 @@ void TileView::focusOutEvent(QFocusEvent* e) {
 
 QVariant TileView::inputMethodQuery(Qt::InputMethodQuery q) const {
     if (q == Qt::ImCursorRectangle) return m_hasCaret ? toView(m_caret) : (m_hasCell ? toView(m_cellCursor) : QRect());
-    if (q == Qt::ImEnabled) return true;
+    if (q == Qt::ImEnabled) return !m_doc->readOnly();
     if (q == Qt::ImHints) return int(Qt::ImhNone);
     return QAbstractScrollArea::inputMethodQuery(q);
 }
