@@ -812,4 +812,53 @@ JoinResult joinLookup(const Table& left, const Table& right, int leftKey, int ri
     r.ok=true; return r;
 }
 
+JoinResult queryJoinInput(const Table& left,const Table& right,const QueryJoinSpec& join){
+    if(!join.enabled){JoinResult r;r.ok=true;r.table=left;return r;}
+    if(join.rightHeader.isEmpty()||join.rightHeader!=right.header){
+        JoinResult r;r.error=QObject::tr("Cấu trúc bảng thứ hai đã thay đổi hoặc chưa được chọn. Hãy chọn đúng nguồn.");return r;
+    }
+    return joinLookup(left,right,join.leftKey,join.rightKey,join.kind);
+}
+
+QByteArray encodeQueryRecipe(const QStringList& leftHeader,const QueryJoinSpec& join,const FilterSortSpec& steps){
+    if(!join.enabled)return encodeFilterSortRecipe(leftHeader,steps);
+    const auto schema=queryJoinInput(Table{leftHeader,{}},Table{join.rightHeader,{}},join);
+    if(!schema.ok)return {};
+    const auto inner=QJsonDocument::fromJson(encodeFilterSortRecipe(schema.table.header,steps));
+    QJsonObject obj{{"version",5},{"header",QJsonArray::fromStringList(leftHeader)},
+        {"rightHeader",QJsonArray::fromStringList(join.rightHeader)},{"leftKey",join.leftKey},
+        {"rightKey",join.rightKey},{"joinKind",int(join.kind)},{"steps",inner.object()}};
+    return QJsonDocument(obj).toJson(QJsonDocument::Indented);
+}
+
+bool decodeQueryRecipe(const QByteArray& json,const QStringList& leftHeader,const QStringList& rightHeader,
+                       QueryJoinSpec& join,FilterSortSpec& steps,QString& error){
+    error.clear();
+    auto fail=[&]{error=QObject::tr("Cấu hình ghép không hợp lệ hoặc cấu trúc nguồn đã thay đổi.");return false;};
+    if(json.size()>1024*1024)return fail();
+    QJsonParseError parse;
+    const auto doc=QJsonDocument::fromJson(json,&parse);
+    if(parse.error!=QJsonParseError::NoError||!doc.isObject())return fail();
+    const auto obj=doc.object();
+    if(obj.value("version").toInt(-1)!=5){
+        FilterSortSpec candidate;
+        if(!decodeFilterSortRecipe(json,leftHeader,candidate,error))return false;
+        join={};steps=candidate;return true;
+    }
+    if(!obj.value("header").isArray()||obj.value("header").toArray()!=QJsonArray::fromStringList(leftHeader)||
+       !obj.value("rightHeader").isArray()||obj.value("rightHeader").toArray()!=QJsonArray::fromStringList(rightHeader)||
+       !obj.value("steps").isObject())return fail();
+    QueryJoinSpec candidate;
+    candidate.enabled=true;candidate.rightHeader=rightHeader;
+    candidate.leftKey=obj.value("leftKey").toInt(-1);candidate.rightKey=obj.value("rightKey").toInt(-1);
+    const int kind=obj.value("joinKind").toInt(-1);
+    if(kind!=int(JoinKind::Left)&&kind!=int(JoinKind::Inner))return fail();
+    candidate.kind=JoinKind(kind);
+    const auto schema=queryJoinInput(Table{leftHeader,{}},Table{rightHeader,{}},candidate);
+    if(!schema.ok){error=schema.error;return false;}
+    FilterSortSpec inner;
+    if(!decodeFilterSortRecipe(QJsonDocument(obj.value("steps").toObject()).toJson(),schema.table.header,inner,error))return false;
+    join=candidate;steps=inner;return true;
+}
+
 } // namespace tbl
