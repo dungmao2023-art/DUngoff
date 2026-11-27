@@ -113,6 +113,22 @@ def stress(orig, res):
 
 if __name__ == "__main__":
     basic(sys.argv[1])
+    from pathlib import Path
+    folder = Path(sys.argv[1]).parent
+    cells = ("A1", "B1", "A2", "B2", "C1", "A3")
+    before = openpyxl.load_workbook(folder / "direct-paste-before.xlsx").active
+    after = openpyxl.load_workbook(folder / "direct-paste-after.xlsx").active
+    undo = openpyxl.load_workbook(folder / "direct-paste-undo.xlsx").active
+    original = [12, "=2+3", 7, 9, "OUTSIDE", "BELOW"]
+    check([before[c].value for c in cells] == original, "Direct paste baseline")
+    check(bool(before["A1"].font.b), "Baseline A1 bold")
+    print("[TIN] Direct paste actual:", [after[c].value for c in cells])
+    check([after[c].value for c in cells] == ["Mười hai", "Năm", "Bảy", "Chín", "OUTSIDE", "BELOW"],
+          "Direct paste changes exactly four cells")
+    check(all(after[c].data_type == "s" for c in cells[:4]), "Direct paste produces real strings")
+    check(bool(after["A1"].font.b), "Direct paste preserves destination bold")
+    check([undo[c].value for c in cells] == original, "One Undo restores all original values and formula")
+    check(bool(undo["A1"].font.b), "One Undo preserves destination bold")
     if len(sys.argv) >= 4:
         stress(sys.argv[2], sys.argv[3])
     print("\nKẾT QUẢ XÁC MINH EXCEL: " + ("CÓ LỖI" if fails else "ĐẠT"))
