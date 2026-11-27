@@ -337,7 +337,7 @@ int main(int argc, char** argv) {
         check(!r4.ok, "Từ chối thay tệp đích đã tồn tại khi chưa xác nhận");
     }
 
-    step("lưu thất bại sau khi engine ghi tệp tạm");
+    step("từ chối lưu vào thư mục đích bị chặn");
     {
         const auto blocked = viDir / "blocked-target.xlsx";
         fs::create_directories(blocked);
@@ -347,7 +347,7 @@ int main(int argc, char** argv) {
         replace.allowReplaceExisting = true;
         auto failed = doc->saveAs(blocked, replace);
         check(!failed.ok, "Đích là thư mục: không báo đã lưu");
-        check(doc->modified(), "Lỗi sau staging vẫn giữ trạng thái chưa lưu");
+        check(doc->modified(), "Lỗi lưu vẫn giữ trạng thái chưa lưu");
         check(readAll(sentinel) == std::vector<char>({'K','E','E','P'}), "Không đổi dữ liệu tại đích bị chặn");
         check(readAll(original) == originalBytes, "Lỗi lưu không đổi tệp gốc");
     }
