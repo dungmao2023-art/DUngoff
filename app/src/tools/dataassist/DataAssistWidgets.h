@@ -19,6 +19,7 @@ Hooks &hooks();
 }  // namespace dataassist
 
 QWidget* createFormulaAssistantWidget(QWidget *parent = nullptr);
+QWidget* createDocumentFormulaAssistantWidget(QWidget* parent, dataassist::Hooks scopedHooks);
 void notifyFormulaSelection(QWidget* widget, const QString& reference);   // ƒx · Tôi muốn
 void notifyFormulaSheet(QWidget* widget, int part, const QString& name);
 QWidget* createRangeToolsWidget(QWidget *parent = nullptr);
