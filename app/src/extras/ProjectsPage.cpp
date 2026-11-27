@@ -5,6 +5,7 @@
 #include <QDesktopServices>
 #include <QFrame>
 #include <QGridLayout>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
 #include <QMessageBox>
