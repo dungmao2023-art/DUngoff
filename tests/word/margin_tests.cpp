@@ -157,6 +157,19 @@ void testPatchXml() {
     // Chỉ khác ở các thuộc tính lề: xoá mọi số trong thuộc tính lề rồi so sánh phần còn lại không khả thi → so độ dài hợp lý
     check(out.size() > multiDoc().size(), "XML mới dài hơn (có pgMar tạo thêm)");
 
+    // Custom dialog uses tenths of a millimeter; verify asymmetric roundtrip.
+    MarginSpec custom;
+    custom.left=mmToTwips(31.5);custom.right=mmToTwips(17.2);
+    custom.top=mmToTwips(22.3);custom.bottom=mmToTwips(19.8);
+    QByteArray customXml;
+    const auto cp=patchDocumentXml(multiDoc(),custom,&customXml);
+    const auto cr=readDocumentXmlMargins(customXml);
+    bool customOk=cp.ok&&cr.ok&&cr.sections.size()==3;
+    for(const auto& section:cr.sections)
+        customOk=customOk&&section.left==*custom.left&&section.right==*custom.right&&
+            section.top==*custom.top&&section.bottom==*custom.bottom;
+    check(customOk&&customXml.contains("Phần 1"),"lề tùy chỉnh lẻ mm: tất cả section đúng, giữ nội dung");
+
     // Chỉ lề trên/dưới: giữ trái/phải
     MarginSpec ul; ul.top = 1000; ul.bottom = 1100;
     QByteArray out2;
