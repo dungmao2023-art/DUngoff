@@ -246,10 +246,12 @@ void TileView::hideEvent(QHideEvent* event) {
     m_deferredPaint=QRegion();
     m_headerTimer.stop();
     m_areaTimer.stop();
+    if(m_synthTimer.isActive()||m_synthLate.isActive()) {
+        // A pending synthetic refresh must not be lost while hidden.
+        for(auto it=m_tiles.cbegin();it!=m_tiles.cend();++it)m_dirtyTiles.insert(it.key());
+    }
     m_synthTimer.stop();
     m_synthLate.stop();
-    // A pending synthetic refresh must not be lost while hidden.
-    for(auto it=m_tiles.cbegin();it!=m_tiles.cend();++it)m_dirtyTiles.insert(it.key());
     m_blink.stop();
     // Retain nearby tiles for quick tab switching, not an entire scroll history.
     trimTileCache(16);
@@ -258,7 +260,9 @@ void TileView::hideEvent(QHideEvent* event) {
 
 void TileView::showEvent(QShowEvent* event) {
     QAbstractScrollArea::showEvent(event);
-    m_areaTimer.start();
+    // Set engine zoom/visible area before the first paint of a reopened tab.
+    m_areaTimer.stop();
+    sendVisibleArea();
     m_blink.start();
     viewport()->update();
 }
