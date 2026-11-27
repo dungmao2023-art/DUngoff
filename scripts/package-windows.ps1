@@ -75,7 +75,7 @@ Copy-Item (Join-Path $root "THIRD_PARTY_NOTICES.md") $app
 # The Basic Windows CI requires PDF preview and qpdf. Fail before producing
 # an installer if packaging omitted a required component.
 if ($env:GITHUB_ACTIONS -eq "true") {
-  foreach ($relative in "DungOffice.exe","Qt6Core.dll","Qt6Widgets.dll","Qt6PrintSupport.dll","Qt6Pdf.dll","platforms\qwindows.dll","engine\program\mergedlo.dll","qpdf\qpdf.exe","LICENSE","THIRD_PARTY_NOTICES.md") {
+  foreach ($relative in "DungOffice.exe","Qt6Core.dll","Qt6Widgets.dll","Qt6PrintSupport.dll","Qt6Pdf.dll","platforms\qwindows.dll","imageformats\qwebp.dll","engine\program\mergedlo.dll","qpdf\qpdf.exe","LICENSE","THIRD_PARTY_NOTICES.md") {
     $path = Join-Path $app $relative
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Thiếu thành phần Basic: $relative" }
   }

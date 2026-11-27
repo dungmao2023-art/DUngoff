@@ -286,3 +286,5 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 
 ## Batch 5 — chưa kích hoạt CI theo yêu cầu
 - E03: workspace JSON kiểm tra đủ byte ghi, từ chối ghi đè tệp hỏng/khóa/symlink, giữ bản hỏng cũ bằng tên riêng; chặn đóng cửa sổ nếu ghi chú/lịch/liên hệ còn lỗi lưu. Thêm test Unicode, quarantine và khóa ghi. Khóa chỉ bảo vệ lúc I/O, chưa giải quyết xung đột hai phiên đã đọc dữ liệu cũ. Không mở PR hoặc build mới trước báo cáo sẵn sàng.
+
+- Batch 5: Dự án chỉ còn ba link cố định TFT Labs, Trending Việt Nam, Sử Việt (URL cấu hình từ FloatMenu https://suviet.id.vn/; chưa xác nhận site live) với avatar WebP nguyên bản từ Popup_3_Du_An_Preview.html, đóng gói qrc; giữ nguyên projects.json/ảnh cũ nhưng không đọc hoặc ghi nữa. Lệnh Update chuyển vào tìm nhanh. Thêm Qt imageformats chính thức để đọc WebP ngoại tuyến; chưa build/kiểm tra runtime. 

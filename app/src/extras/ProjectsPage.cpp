@@ -1,290 +1,61 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "ProjectsPage.h"
-#include "../update/UpdateDialog.h"
-
-#include "WorkspaceStore.h"
-
 #include <QDesktopServices>
-#include <QDir>
-#include <QFile>
-#include <QFileDialog>
-#include <QFileInfo>
 #include <QFrame>
-#include <QGridLayout>
 #include <QHBoxLayout>
-#include <QInputDialog>
-#include <QJsonObject>
 #include <QLabel>
-#include <QListWidget>
-#include <QMessageBox>
 #include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <QMessageBox>
 
 namespace {
-const char* kRepo = "https://github.com/dungmao2023-art/DUngoff";
-
-QString escapeHtml(const QString& s) { return s.toHtmlEscaped(); }
-int c_row(const QListWidgetItem* it) { return it ? it->data(Qt::UserRole).toInt() : -1; }
-
-// Danh sách đạt / chưa đạt của Dũng Office. Chỉ ghi "đạt" cho mục đã có kiểm thử tự động hoặc đã chạy thật.
-struct Item { const char* text; bool done; };
-const Item kOfficeItems[] = {
-    {"Mở, sửa, lưu DOCX / XLSX / PPTX trên engine thật (kiểm thử tự động)", true},
-    {"Lưu ra bản mới, không ghi đè tệp gốc; sao lưu trước khi thay", true},
-    {"Công cụ PDF: gộp, tách, xoay, nén, mở tệp có mật khẩu", true},
-    {"Bộ cài Windows ngoại tuyến, không cần quyền quản trị", true},
-    {"Sửa lỗi gõ chữ không hiện (đã kiểm ở mức engine, chờ thử trên máy thật)", true},
-    {"Ghi chú, Lịch, Liên hệ cục bộ", true},
-    {"Căn lề chuẩn văn bản hành chính Việt Nam", false},
-    {"Kho mẫu theo quy định pháp luật Việt Nam", false},
-    {"OCR tiếng Việt ngoại tuyến", false},
-    {"Tự lưu và khôi phục sau sự cố", false},
-    {"Chuyển font TCVN3/VNI sang Unicode", false},
-    {"Đọc số tiền thành chữ", false},
-    {"Ký số bộ cài (hiện Windows SmartScreen còn cảnh báo)", false},
-    {"Xác nhận định dạng Excel nâng cao (data bar) bằng Excel thật", false},
+struct Project { const char* title; const char* url; const char* image; const char* mark; const char* color; };
+constexpr Project kProjects[] = {
+    {"TFT Labs","https://tft2.id.vn/",":/projects/ornn.webp","TFT","#4C62A2"},
+    {"Trending Việt Nam","https://trend.id.vn/",":/projects/trend.webp","TVN","#AD4962"},
+    {"Sử Việt","https://suviet.id.vn/",":/projects/sv.webp","SV","#287B6C"}
 };
-}  // namespace
-
-ProjectsPage::ProjectsPage(QWidget* parent) : QWidget(parent) {
-    auto* outer = new QVBoxLayout(this);
-    outer->setContentsMargins(0, 0, 0, 0);
-    auto* scroll = new QScrollArea(this);
-    scroll->setWidgetResizable(true);
-    scroll->setFrameShape(QFrame::NoFrame);
+}
+ProjectsPage::ProjectsPage(QWidget* parent):QWidget(parent){
+    auto* outer=new QVBoxLayout(this);
+    outer->setContentsMargins(0,0,0,0);
+    auto* scroll=new QScrollArea(this);scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);
     outer->addWidget(scroll);
-    auto* body = new QWidget(scroll);
-    scroll->setWidget(body);
-    auto* v = new QVBoxLayout(body);
-    v->setContentsMargins(24, 20, 24, 20);
-    v->setSpacing(16);
-    auto* title = new QLabel(tr("Dự án"), body);
-    title->setStyleSheet(QStringLiteral("font-size:22px;font-weight:700;color:#1C2940;"));
+    auto* body=new QWidget(scroll);scroll->setWidget(body);
+    auto* v=new QVBoxLayout(body);v->setContentsMargins(24,22,24,22);v->setSpacing(16);
+    auto* title=new QLabel(tr("Các dự án"),body);title->setStyleSheet(QStringLiteral("font-size:24px;font-weight:700;color:#1C2940;"));
     v->addWidget(title);
-    v->addWidget(buildHeader());
-    auto* sub = new QLabel(tr("Các dự án khác của tác giả"), body);
-    sub->setStyleSheet(QStringLiteral("font-size:16px;font-weight:700;color:#1C2940;margin-top:8px;"));
-    v->addWidget(sub);
-    load();
-    auto* cols = new QHBoxLayout;
-    cols->setSpacing(14);
-    for (int i = 0; i < 3; ++i) cols->addWidget(buildColumn(i), 1);
-    v->addLayout(cols);
+    for(const Project& project:kProjects){
+        auto* card=new QFrame(body);card->setObjectName(QStringLiteral("ProjectLinkCard"));
+        card->setStyleSheet(QStringLiteral("QFrame#ProjectLinkCard{background:white;border:1px solid #DEE5F0;border-radius:12px;}"));
+        auto* row=new QHBoxLayout(card);row->setContentsMargins(16,14,16,14);row->setSpacing(16);
+        auto* avatar=new QLabel(card);avatar->setObjectName(QStringLiteral("ProjectAvatar"));
+        avatar->setFixedSize(84,84);avatar->setAlignment(Qt::AlignCenter);
+        avatar->setStyleSheet(QStringLiteral("background:#EEF4FA;color:%1;border-radius:12px;font-size:22px;font-weight:700;").arg(QString::fromLatin1(project.color)));
+        const QPixmap pm(QString::fromLatin1(project.image));
+        avatar->setProperty("loadedOriginalAvatar",!pm.isNull());
+        if(!pm.isNull())avatar->setPixmap(pm.scaled(avatar->size(),Qt::KeepAspectRatio,Qt::SmoothTransformation));
+        else avatar->setText(QString::fromLatin1(project.mark));
+        row->addWidget(avatar);
+        auto* labels=new QVBoxLayout;
+        auto* name=new QLabel(QString::fromUtf8(project.title),card);
+        name->setStyleSheet(QStringLiteral("font-size:17px;font-weight:700;color:#17294D;"));name->setWordWrap(true);
+        labels->addWidget(name);
+        const QUrl url(QString::fromLatin1(project.url));
+        auto* link=new QLabel(url.toString(),card);link->setTextFormat(Qt::PlainText);link->setWordWrap(true);
+        link->setStyleSheet(QStringLiteral("color:#697992;"));labels->addWidget(link);
+        row->addLayout(labels,1);
+        auto* visit=new QPushButton(tr("Truy cập ↗"),card);visit->setObjectName(QStringLiteral("ProjectVisit"));
+        visit->setAccessibleName(tr("Truy cập %1").arg(name->text()));visit->setToolTip(url.toString());
+        visit->setCursor(Qt::PointingHandCursor);
+        visit->setStyleSheet(QStringLiteral("QPushButton{background:#2864BA;color:white;border:0;border-radius:8px;padding:9px 14px;font-weight:600;} QPushButton:hover{background:#1B4A90;}"));
+        connect(visit,&QPushButton::clicked,this,[this,url]{
+            if(!QDesktopServices::openUrl(url))QMessageBox::warning(this,tr("Mở website"),tr("Không mở được trình duyệt. Địa chỉ: %1").arg(url.toString()));
+        });
+        row->addWidget(visit);v->addWidget(card);
+    }
     v->addStretch(1);
-    for (int i = 0; i < 3; ++i) refreshColumn(i);
-}
-
-void ProjectsPage::flush() { save(); }
-
-QWidget* ProjectsPage::buildHeader() {
-    auto* card = new QFrame(this);
-    card->setStyleSheet(QStringLiteral("QFrame#PHead{background:#fff;border:1px solid #DEE5F0;border-radius:12px;}"));
-    card->setObjectName(QStringLiteral("PHead"));
-    auto* v = new QVBoxLayout(card);
-    v->setContentsMargins(18, 16, 18, 16);
-    auto* row = new QHBoxLayout;
-    auto* name = new QLabel(tr("<b style='font-size:17px'>Dũng Office</b><br><span style='color:#697992'>Phiên bản %1 · miễn phí trọn đời · tác giả Trần Văn Dũng</span>")
-                                .arg(QStringLiteral(DUNG_VERSION)), card);
-    name->setTextFormat(Qt::RichText);
-    row->addWidget(name, 1);
-    auto* upd = new QPushButton(tr("⟳ Update"), card);
-    upd->setToolTip(tr("Kiểm tra bản mới. Ứng dụng chỉ kết nối mạng khi bạn bấm; không tự cài."));
-    upd->setStyleSheet(QStringLiteral("QPushButton{background:#275DD6;color:white;border:0;border-radius:8px;padding:9px 18px;font-weight:700;}QPushButton:hover{background:#1A4CBE;}"));
-    connect(upd, &QPushButton::clicked, this, [this] { UpdateDialog dlg(this); dlg.exec(); });
-    auto* repo = new QPushButton(tr("Mã nguồn"), card);
-    connect(repo, &QPushButton::clicked, this, [] { QDesktopServices::openUrl(QUrl(QString::fromLatin1(kRepo))); });
-    row->addWidget(upd);
-    row->addWidget(repo);
-    v->addLayout(row);
-
-    int done = 0, total = 0;
-    QString okHtml, todoHtml;
-    for (const Item& it : kOfficeItems) {
-        ++total;
-        const QString line = QStringLiteral("<div style='margin:3px 0'>%1 %2</div>").arg(it.done ? QStringLiteral("✅") : QStringLiteral("⬜"), escapeHtml(tr(it.text)));
-        if (it.done) { ++done; okHtml += line; } else todoHtml += line;
-    }
-    auto* sum = new QLabel(tr("<b>Tiến độ:</b> %1/%2 mục đạt").arg(done).arg(total), card);
-    v->addWidget(sum);
-    auto* two = new QHBoxLayout;
-    auto* okBox = new QLabel(QStringLiteral("<b style='color:#21866E'>ĐẠT</b>") + okHtml, card);
-    auto* todoBox = new QLabel(QStringLiteral("<b style='color:#AF791D'>CHƯA ĐẠT</b>") + todoHtml, card);
-    for (QLabel* l : {okBox, todoBox}) { l->setTextFormat(Qt::RichText); l->setWordWrap(true); l->setAlignment(Qt::AlignTop | Qt::AlignLeft); two->addWidget(l, 1); }
-    v->addLayout(two);
-    auto* note = new QLabel(tr("Mục \"đạt\" chỉ ghi khi đã có kiểm thử tự động hoặc đã chạy thật; các mục khác vẫn đang phát triển."), card);
-    note->setStyleSheet(QStringLiteral("color:#697992;font-size:11px;"));
-    v->addWidget(note);
-    return card;
-}
-
-QWidget* ProjectsPage::buildColumn(int i) {
-    auto* card = new QFrame(this);
-    card->setObjectName(QStringLiteral("PCol"));
-    card->setStyleSheet(QStringLiteral("QFrame#PCol{background:#fff;border:1px solid #DEE5F0;border-radius:12px;}"));
-    auto* v = new QVBoxLayout(card);
-    v->setContentsMargins(16, 16, 16, 16);
-    Col& c = m_cols[i];
-    c.avatar = new QLabel(card);
-    c.avatar->setFixedSize(120, 120);
-    c.avatar->setAlignment(Qt::AlignCenter);
-    c.avatar->setStyleSheet(QStringLiteral("background:#EAF0FF;border-radius:14px;color:#275DD6;font-size:36px;font-weight:700;"));
-    v->addWidget(c.avatar, 0, Qt::AlignHCenter);
-    auto* pick = new QPushButton(tr("Chọn ảnh đại diện"), card);
-    connect(pick, &QPushButton::clicked, this, [this, i] { chooseImage(i); });
-    v->addWidget(pick);
-    c.name = new QLabel(card);
-    c.name->setStyleSheet(QStringLiteral("font-size:16px;font-weight:700;"));
-    c.name->setAlignment(Qt::AlignHCenter);
-    c.name->setWordWrap(true);
-    v->addWidget(c.name);
-    c.link = new QLabel(card);
-    c.link->setAlignment(Qt::AlignHCenter);
-    c.link->setWordWrap(true);
-    c.link->setTextFormat(Qt::RichText);
-    c.link->setOpenExternalLinks(false);
-    connect(c.link, &QLabel::linkActivated, this, [](const QString& u) {
-        if (u.startsWith(QStringLiteral("https://")) || u.startsWith(QStringLiteral("http://"))) QDesktopServices::openUrl(QUrl(u));
-    });
-    v->addWidget(c.link);
-    auto* edit = new QPushButton(tr("Sửa tên và liên kết"), card);
-    connect(edit, &QPushButton::clicked, this, [this, i] {
-        QJsonObject p = m_projects[i].toObject();
-        bool ok = false;
-        const QString n = QInputDialog::getText(this, tr("Tên dự án"), tr("Tên:"), QLineEdit::Normal, p.value(QStringLiteral("name")).toString(), &ok);
-        if (!ok) return;
-        const QString u = QInputDialog::getText(this, tr("Liên kết dự án"), tr("Địa chỉ (bắt đầu bằng https://):"), QLineEdit::Normal,
-                                                p.value(QStringLiteral("url")).toString(), &ok);
-        if (!ok) return;
-        p.insert(QStringLiteral("name"), n.trimmed());
-        p.insert(QStringLiteral("url"), u.trimmed());
-        m_projects[i] = p;
-        save();
-        refreshColumn(i);
-    });
-    v->addWidget(edit);
-    auto* hdr = new QLabel(tr("<b>Đạt / chưa đạt</b> (nhấp đúp để đổi)"), card);
-    hdr->setTextFormat(Qt::RichText);
-    v->addWidget(hdr);
-    c.list = new QListWidget(card);
-    c.list->setMinimumHeight(140);
-    v->addWidget(c.list, 1);
-    connect(c.list, &QListWidget::itemDoubleClicked, this, [this, i](QListWidgetItem* it) {
-        QJsonObject p = m_projects[i].toObject();
-        QJsonArray items = p.value(QStringLiteral("items")).toArray();
-        const int k = c_row(it);
-        if (k < 0 || k >= items.size()) return;
-        QJsonObject o = items[k].toObject();
-        o.insert(QStringLiteral("done"), !o.value(QStringLiteral("done")).toBool());
-        items[k] = o;
-        p.insert(QStringLiteral("items"), items);
-        m_projects[i] = p;
-        save();
-        refreshColumn(i);
-    });
-    auto* btns = new QHBoxLayout;
-    auto* add = new QPushButton(tr("+ Mục"), card);
-    auto* del = new QPushButton(tr("Xoá mục"), card);
-    btns->addWidget(add);
-    btns->addWidget(del);
-    v->addLayout(btns);
-    connect(add, &QPushButton::clicked, this, [this, i] {
-        bool ok = false;
-        const QString t = QInputDialog::getText(this, tr("Thêm mục"), tr("Nội dung (mặc định là chưa đạt):"), QLineEdit::Normal, QString(), &ok).trimmed();
-        if (!ok || t.isEmpty()) return;
-        QJsonObject p = m_projects[i].toObject();
-        QJsonArray items = p.value(QStringLiteral("items")).toArray();
-        QJsonObject o;
-        o.insert(QStringLiteral("text"), t);
-        o.insert(QStringLiteral("done"), false);
-        items.append(o);
-        p.insert(QStringLiteral("items"), items);
-        m_projects[i] = p;
-        save();
-        refreshColumn(i);
-    });
-    connect(del, &QPushButton::clicked, this, [this, i] {
-        auto* it = m_cols[i].list->currentItem();
-        if (!it) return;
-        QJsonObject p = m_projects[i].toObject();
-        QJsonArray items = p.value(QStringLiteral("items")).toArray();
-        const int k = c_row(it);
-        if (k < 0 || k >= items.size()) return;
-        items.removeAt(k);
-        p.insert(QStringLiteral("items"), items);
-        m_projects[i] = p;
-        save();
-        refreshColumn(i);
-    });
-    return card;
-}
-
-void ProjectsPage::load() {
-    const QJsonObject o = workspace::load(QStringLiteral("projects"));
-    m_projects = o.value(QStringLiteral("projects")).toArray();
-    while (m_projects.size() < 3) {
-        QJsonObject p;
-        p.insert(QStringLiteral("name"), tr("Dự án %1").arg(m_projects.size() + 1));
-        p.insert(QStringLiteral("url"), QString());
-        p.insert(QStringLiteral("image"), QString());
-        p.insert(QStringLiteral("items"), QJsonArray());
-        m_projects.append(p);
-    }
-}
-
-void ProjectsPage::save() {
-    QJsonObject o;
-    o.insert(QStringLiteral("projects"), m_projects);
-    o.insert(QStringLiteral("version"), 1);
-    if (!workspace::save(QStringLiteral("projects"), o))
-        QMessageBox::warning(this, tr("Dũng Office"), tr("Không lưu được danh sách dự án."));
-}
-
-void ProjectsPage::refreshColumn(int i) {
-    Col& c = m_cols[i];
-    const QJsonObject p = m_projects[i].toObject();
-    const QString name = p.value(QStringLiteral("name")).toString();
-    c.name->setText(name);
-    const QString url = p.value(QStringLiteral("url")).toString();
-    if (url.startsWith(QStringLiteral("https://")) || url.startsWith(QStringLiteral("http://")))
-        c.link->setText(QStringLiteral("<a href=\"%1\">%2</a>").arg(url.toHtmlEscaped(), url.toHtmlEscaped()));
-    else
-        c.link->setText(tr("<i style='color:#697992'>Chưa có liên kết</i>"));
-    QPixmap pm;
-    const QString img = p.value(QStringLiteral("image")).toString();
-    if (!img.isEmpty() && pm.load(img)) {
-        c.avatar->setPixmap(pm.scaled(c.avatar->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    } else {
-        c.avatar->setPixmap(QPixmap());
-        c.avatar->setText(name.isEmpty() ? QStringLiteral("?") : name.left(1).toUpper());
-    }
-    c.list->clear();
-    const QJsonArray items = p.value(QStringLiteral("items")).toArray();
-    for (int k = 0; k < items.size(); ++k) {
-        const QJsonObject o = items[k].toObject();
-        const bool done = o.value(QStringLiteral("done")).toBool();
-        auto* it = new QListWidgetItem((done ? QStringLiteral("✅ ") : QStringLiteral("⬜ ")) + o.value(QStringLiteral("text")).toString());
-        it->setData(Qt::UserRole, k);
-        c.list->addItem(it);
-    }
-}
-
-void ProjectsPage::chooseImage(int i) {
-    const QString f = QFileDialog::getOpenFileName(this, tr("Chọn ảnh đại diện"), QString(), tr("Ảnh (*.png *.jpg *.jpeg *.bmp *.gif)"));
-    if (f.isEmpty()) return;
-    // Sao chép vào thư mục dữ liệu để ảnh vẫn còn nếu tệp gốc bị di chuyển; không động vào tệp gốc.
-    QDir().mkpath(workspace::dataDir() + QStringLiteral("/avatars"));
-    const QString dst = workspace::dataDir() + QStringLiteral("/avatars/project%1.%2").arg(i + 1).arg(QFileInfo(f).suffix().toLower());
-    QFile::remove(dst);
-    if (!QFile::copy(f, dst)) {
-        QMessageBox::warning(this, tr("Dũng Office"), tr("Không sao chép được ảnh."));
-        return;
-    }
-    QJsonObject p = m_projects[i].toObject();
-    p.insert(QStringLiteral("image"), dst);
-    m_projects[i] = p;
-    save();
-    refreshColumn(i);
 }

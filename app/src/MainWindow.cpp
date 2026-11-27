@@ -13,6 +13,7 @@
 #include "word/WordActions.h"
 #include "HomePage.h"
 #include "extras/ProjectsPage.h"
+#include "update/UpdateDialog.h"
 #include "extras/SidePanel.h"
 #include "templates/TemplateLibrary.h"
 #include "templates/TemplatesPage.h"
@@ -668,6 +669,7 @@ void MainWindow::showPalette() {
     add("zoomIn", tr("Phóng to"), QStringLiteral("Ctrl+="));
     add("zoomOut", tr("Thu nhỏ"), QStringLiteral("Ctrl+-"));
     add("about", tr("Giới thiệu Dũng Office"));
+    add("updateOffice",tr("Kiểm tra cập nhật Dũng Office"));
     add("feedback", tr("Góp ý & cải tiến Dũng Office"));
     m_palette->setEntries(e);
     m_palette->popup();
@@ -691,6 +693,7 @@ void MainWindow::runCommand(const QString& id) {
     else if (id == QLatin1String("newPpt")) newDoc(DocKind::Presentation);
     else if (id == QLatin1String("openPdf")) openDialog(QStringLiteral("PDF (*.pdf)"));
     else if (id == QLatin1String("about")) showAbout();
+    else if(id==QLatin1String("updateOffice")){UpdateDialog dlg(this);dlg.exec();}
     else if (id == QLatin1String("feedback")) showFeedback();
     else onAppAction(id);
 }
@@ -1288,7 +1291,7 @@ void MainWindow::showAbout() {
 
 void MainWindow::closeEvent(QCloseEvent* e) {
     if(!m_side->flush()){e->ignore();return;}
-    m_projects->flush();
+
     while (m_tabs->count() > 0) {
         selectDocumentTab(0);
         showDocuments();

@@ -34,7 +34,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libreoffice-calc libreoffice-writer libreoffice-impress libreoffice-draw \
-            qt6-base-dev qt6-base-private-dev libgl-dev cmake ninja-build python3-openpyxl python3-pip \
+            qt6-base-dev qt6-base-private-dev qt6-image-formats-plugins libgl-dev cmake ninja-build python3-openpyxl python3-pip \
             xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils qpdf tesseract-ocr tesseract-ocr-eng tesseract-ocr-vie poppler-utils
           pip3 install --break-system-packages python-docx python-pptx
           mkdir -p report
@@ -353,7 +353,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           arch: win64_msvc2022_64
-          modules: qtpdf
+          modules: qtpdf qtimageformats
           cache: true
       - name: Cache engine headless
         uses: actions/cache@v4
