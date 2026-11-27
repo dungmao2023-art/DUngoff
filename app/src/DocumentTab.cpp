@@ -377,9 +377,18 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
             m_slideRefresh->setSingleShot(true);
             m_slideRefresh->setInterval(250);
             connect(m_slideRefresh,&QTimer::timeout,this,[this]{
-                const int part=m_slideRefreshPart;
-                if(!m_pptNotes && part>=0 && part<m_slides->count() && part<m_doc->partCount())
+                if(m_pptNotes||m_pendingThumbnails.isEmpty())return;
+                // Defer thumbnail work while typing or dragging; one slide per tick.
+                if(!isVisible()||!m_doc->inputIdleFor(150)) {
+                    m_slideRefresh->start(250);
+                    return;
+                }
+                const int current=m_slides->currentRow();
+                const int part=m_pendingThumbnails.contains(current)?current:*m_pendingThumbnails.cbegin();
+                m_pendingThumbnails.remove(part);
+                if(part>=0&&part<m_slides->count()&&part<m_doc->partCount())
                     pptSetThumbnail(m_slides->item(part),m_doc.get(),part);
+                if(!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
             });
         }
         m_slides->setStyleSheet(QStringLiteral("QListWidget{background:#EEF2F7;border:none;border-right:1px solid #D9E1EC;}"
@@ -388,12 +397,8 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         middle->addWidget(m_slides);
         connect(m_slides, &QListWidget::currentRowChanged, this, [this](int row) {
             if (m_rebuildingParts || row < 0 || row == m_doc->currentPart()) return;
-            if(m_slideRefresh && m_slideRefresh->isActive()) {
-                m_slideRefresh->stop();
-                const int old=m_slideRefreshPart;
-                if(!m_pptNotes && old>=0 && old<m_slides->count() && old<m_doc->partCount())
-                    pptSetThumbnail(m_slides->item(old),m_doc.get(),old);
-            }
+            // Do not render the old thumbnail synchronously on a slide click.
+            if(m_slideRefresh&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(250);
             m_doc->setPart(row);
             m_view->resetForPartChange();
             refreshPdfComparison();
@@ -684,7 +689,9 @@ QString DocumentTab::title() const {
 
 QString DocumentTab::statusText() const {
     QString s = QString::fromUtf8(dung::kindName(m_doc->kind()));
-    const int n = m_doc->partCount(), cur = m_doc->currentPart() + 1;
+    // Word has no sheet/slide/page index in this status label.
+    const bool hasParts=m_doc->kind()!=DocKind::Text;
+    const int n=hasParts?m_doc->partCount():0,cur=hasParts?m_doc->currentPart()+1:0;
     switch (m_doc->kind()) {
     case DocKind::Spreadsheet: s += tr("  •  Sheet %1/%2").arg(cur).arg(n); break;
     case DocKind::Presentation: s += (m_pptNotes ? tr("  •  Ghi chú %1/%2") : tr("  •  Trang chiếu %1/%2")).arg(cur).arg(n); break;
@@ -709,14 +716,16 @@ void DocumentTab::rebuildParts() {
         m_sheets->setCurrentIndex(cur);
     }
     if (m_slides) {
-        if(m_slideRefresh) m_slideRefresh->stop();
+        if(m_slideRefresh)m_slideRefresh->stop();
+        m_pendingThumbnails.clear();
         m_slides->clear();
         for (int i = 0; i < n; ++i) {
             m_slides->addItem(m_doc->kind() == DocKind::Presentation ? tr("Trang chiếu %1").arg(i + 1)
                                                                     : tr("Trang %1").arg(i + 1));
-            if (m_doc->kind() == DocKind::Presentation && !m_pptNotes) pptSetThumbnail(m_slides->item(i), m_doc.get(), i);
+            if(m_slideRefresh&&!m_pptNotes)m_pendingThumbnails.insert(i);
         }
         m_slides->setCurrentRow(cur);
+        if(m_slideRefresh&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
     }
     m_rebuildingParts = false;
 }
@@ -747,8 +756,8 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
         type == LOK_CALLBACK_CELL_FORMULA || type == LOK_CALLBACK_SET_PART))
         notifyDocumentRangeTools(m_rangeTools);
     if(type==LOK_CALLBACK_INVALIDATE_TILES && m_slideRefresh && !m_pptNotes) {
-        m_slideRefreshPart=m_doc->currentPart();
-        m_slideRefresh->start();
+        m_pendingThumbnails.insert(m_slides->currentRow());
+        m_slideRefresh->start(250);
     }
     const bool modified = m_doc->modified();
     // The first invalidation can arrive before ModifiedStatus=true.
