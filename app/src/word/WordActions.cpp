@@ -84,6 +84,7 @@ struct WordInsertTarget {
 [[maybe_unused]] static bool applyMarginsByPatch(DocumentTab* tab, QWidget* parent, const MarginSpec& spec, const QString& label) {
     auto* doc = tab->document();
     if (doc->kind() != dung::DocKind::Text) return false;
+    QPointer<DocumentTab> live(tab);
     auto mm = [](const std::optional<qint32>& v) { return v ? QString::number(twipsToMm(*v), 'f', 1) : QStringLiteral("—"); };
     const QString base = QString::fromUtf8(doc->displayName().c_str());
     const bool notDocx = !doc->isNew() && !base.endsWith(QLatin1String(".docx"), Qt::CaseInsensitive);
@@ -95,7 +96,9 @@ struct WordInsertTarget {
                       .arg(label, mm(spec.left), mm(spec.right), mm(spec.top), mm(spec.bottom));
     if (notDocx) msg += QObject::tr("\n• Bản sao được lưu ở định dạng .docx (tệp gốc không phải .docx).");
     msg += QObject::tr("\n\nTiếp tục?");
-    if (QMessageBox::question(parent, QObject::tr("Lề trang"), msg) != QMessageBox::Yes) return true;
+    if (QMessageBox::question(parent, QObject::tr("Lề trang"), msg,
+        QMessageBox::Yes|QMessageBox::No,QMessageBox::No) != QMessageBox::Yes) return true;
+    if (!live || live->document()!=doc || live->readOnly()) return true;
 
     QTemporaryDir td(QDir::tempPath() + QStringLiteral("/DungOffice-le-XXXXXX"));
     auto fail = [&](const QString& why) {
@@ -136,15 +139,16 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
 
     if (name == QLatin1String("acceptAllReview") || name == QLatin1String("rejectAllReview")) {
         const bool accept = name == QLatin1String("acceptAllReview");
+        QPointer<DocumentTab> live(tab);
         if (QMessageBox::question(parent,QObject::tr("Xử lý toàn bộ thay đổi"),
             accept ? QObject::tr("Chấp nhận tất cả thay đổi được theo dõi trong tài liệu đang mở? Nội dung xóa được chấp nhận sẽ bị loại bỏ.") :
                      QObject::tr("Từ chối tất cả thay đổi được theo dõi trong tài liệu đang mở? Nội dung chèn được theo dõi sẽ bị loại bỏ."),
             QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return true;
-        if(tab->readOnly() || tab->document()!=doc) return true;
+        if(!live || live->readOnly() || live->document()!=doc || !live->view()) return true;
         doc->waitInputIdle();
         doc->command(accept ? ".uno:AcceptAllTrackedChanges" : ".uno:RejectAllTrackedChanges","",true);
         doc->waitInputIdle();
-        tab->view()->setFocus();
+        if(live&&live->view())live->view()->setFocus();
     } else if (name == QLatin1String("addComment")) {
         doc->waitInputIdle();
         QPointer<DocumentTab> live(tab);
@@ -172,16 +176,16 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         if(live&&live->view())live->view()->setFocus();
     } else if (name == QLatin1String("headerEnable") || name == QLatin1String("footerEnable")) {
         const bool header = name == QLatin1String("headerEnable");
+        const WordInsertTarget target(tab);
         bool ok = false;
         const QString style = QInputDialog::getText(parent,
             header ? QObject::tr("Bật đầu trang") : QObject::tr("Bật chân trang"),
             QObject::tr("Tên kiểu trang (Page Style) của phần cần sửa. Với tài liệu mới, thường là Default Page Style. "
                         "Lệnh chỉ bật, không tắt hay xóa nội dung đã có. Sau khi bật, bấm vào vùng đầu/chân trang để nhập chữ hoặc trường số trang."),
             QLineEdit::Normal, QStringLiteral("Default Page Style"), &ok).trimmed();
-        if (!ok || style.isEmpty()) return true;
-        doc->waitInputIdle();
-        send(tab, enablePageBand(header, ss(style)));
-        tab->view()->setFocus();
+        if (!ok || style.isEmpty() || !target.verify()) return true;
+        send(target.tab.data(), enablePageBand(header, ss(style)));
+        if(target.tab && target.tab->view()) target.tab->view()->setFocus();
     } else if (name == QLatin1String("footnote") || name == QLatin1String("endnote")) {
         if (!doc->selectionAs("text/plain;charset=utf-8").empty()) {
             QMessageBox::information(parent, QObject::tr("Chú thích"), QObject::tr("Đặt con trỏ sau từ cần chú thích, bỏ vùng bôi đen rồi thực hiện lại."));
@@ -218,8 +222,9 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         }
     } else if (name.startsWith(QLatin1String("style"))) {
         const auto& st = paragraphStyles();
-        const int i = name.mid(5).toInt();
-        if (i >= 0 && i < static_cast<int>(st.size())) send(tab, paragraphStyle(st[static_cast<size_t>(i)].styleName));
+        bool ok = false;
+        const int i = name.mid(5).toInt(&ok);
+        if (ok && i >= 0 && i < static_cast<int>(st.size())) send(tab, paragraphStyle(st[static_cast<size_t>(i)].styleName));
     } else if (name == QLatin1String("print")) {
         tab->printDocument();
     } else if (name == QLatin1String("exportPdf")) {
