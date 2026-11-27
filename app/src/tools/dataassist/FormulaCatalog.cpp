@@ -180,6 +180,8 @@ QVector<ArgInfo> conditionArgs(const FuncInfo& f, int pairs) {
 }
 BuildResult buildFormula(const FuncInfo &f, const QStringList &argValues, QChar sep)
 {
+    if (sep != QLatin1Char(',') && sep != QLatin1Char(';'))
+        return {false, {}, QStringLiteral("Dấu ngăn đối số phải là dấu phẩy hoặc chấm phẩy.")};
     QVector<ArgInfo> args = f.args;
     if (hasConditionPairs(f)) {
         const int prefix = f.name == QLatin1String("COUNTIFS") ? 0 : 1;
@@ -205,8 +207,10 @@ BuildResult buildFormula(const FuncInfo &f, const QStringList &argValues, QChar 
     }
     for (int i = lastFilled + 1; i < args.size(); ++i)
         if (!args[i].optional) { r.error = QStringLiteral("Thiếu đối số \"%1\"").arg(args[i].name); return r; }
-    r.ok = true;
     r.formula = QLatin1Char('=') + f.name + QLatin1Char('(') + used.join(sep) + QLatin1Char(')');
+    const auto syntax = quickSyntaxCheck(r.formula);
+    if (!syntax.ok) { r.error = syntax.message; r.formula.clear(); return r; }
+    r.ok = true;
     return r;
 }
 
@@ -215,17 +219,41 @@ SyntaxCheck quickSyntaxCheck(const QString &formula)
     SyntaxCheck r;
     const QString f = formula.trimmed();
     if (!f.startsWith(QLatin1Char('='))) { r.ok = false; r.message = QStringLiteral("Công thức phải bắt đầu bằng dấu ="); return r; }
-    int depth = 0; bool inStr = false;
+    // Lightweight structural check only: engine parses function names,
+    // operators, references and argument semantics. Preserve quoted sheet
+    // names, escaped quotes and array/structured-reference delimiters.
+    QVector<QChar> stack;
+    QChar quote;
     for (int i = 1; i < f.size(); ++i) {
         const QChar c = f[i];
-        if (c == QLatin1Char('"')) { inStr = !inStr; continue; }
-        if (inStr) continue;
-        if (c == QLatin1Char('(')) ++depth;
-        else if (c == QLatin1Char(')')) { if (--depth < 0) { r.ok = false; r.message = QStringLiteral("Thừa dấu đóng ngoặc ) ở vị trí %1").arg(i + 1); return r; } }
+        if (!quote.isNull()) {
+            if (c == quote) {
+                if (i + 1 < f.size() && f[i+1] == quote) { ++i; continue; }
+                quote = QChar();
+            }
+            continue;
+        }
+        // Excel table column headers can contain literal apostrophes.
+        if (!stack.isEmpty() && stack.last() == QLatin1Char(']')) {
+            if (c == QLatin1Char('\'') && i + 1 < f.size()) { ++i; continue; }
+            if (c == QLatin1Char('[')) stack << QLatin1Char(']');
+            else if (c == QLatin1Char(']')) stack.removeLast();
+            continue;
+        }
+        if (c == QLatin1Char('"') || c == QLatin1Char('\'')) { quote = c; continue; }
+        if (c == QLatin1Char('(')) stack << QLatin1Char(')');
+        else if (c == QLatin1Char('{')) stack << QLatin1Char('}');
+        else if (c == QLatin1Char('[')) stack << QLatin1Char(']');
+        else if (c == QLatin1Char(')') || c == QLatin1Char('}') || c == QLatin1Char(']')) {
+            if (stack.isEmpty() || stack.last() != c) {
+                return {false, QStringLiteral("Dấu đóng %1 không khớp ở vị trí %2.").arg(c).arg(i + 1)};
+            }
+            stack.removeLast();
+        }
     }
-    if (inStr) { r.ok = false; r.message = QStringLiteral("Thiếu dấu nháy đóng \""); return r; }
-    if (depth > 0) { r.ok = false; r.message = QStringLiteral("Thiếu %1 dấu đóng ngoặc )").arg(depth); return r; }
-    if (f.size() == 1) { r.ok = false; r.message = QStringLiteral("Công thức trống"); return r; }
+    if (!quote.isNull()) return {false, QStringLiteral("Thiếu dấu nháy đóng %1.").arg(quote)};
+    if (!stack.isEmpty()) return {false, QStringLiteral("Thiếu dấu đóng %1.").arg(stack.last())};
+    if (f.mid(1).trimmed().isEmpty()) return {false, QStringLiteral("Công thức trống")};
     return r;
 }
 
