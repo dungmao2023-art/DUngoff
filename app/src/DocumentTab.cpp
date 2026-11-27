@@ -348,7 +348,7 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         auto* rv = new QVBoxLayout(rail);
         rv->setContentsMargins(0, 0, 0, 0);
         rv->addStretch(1);
-        auto* toggle = panelHandle(rail, true, QString(), QStringLiteral("TemplatePanelHandle"));
+        auto* toggle = panelHandle(rail, true, tr("Mẫu"), QStringLiteral("TemplatePanelHandle"));
         rv->addWidget(toggle);
         rv->addStretch(1);
         middle->addWidget(rail);
@@ -356,7 +356,7 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         connect(toggle, &QPushButton::clicked, this, [=] {
             const bool open = !panelExpanded(templates);
             if (open) reload();
-            slidePanel(templates, open, 228, toggle, true, QString());
+            slidePanel(templates, open, 228, toggle, true, tr("Mẫu"));
         });
     }
     if (m_doc->kind() == DocKind::Presentation || m_doc->kind() == DocKind::Drawing) {
