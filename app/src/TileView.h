@@ -8,6 +8,7 @@
 #include <QHash>
 #include <QImage>
 #include <QRegion>
+#include <QSet>
 #include <QTimer>
 #include <QVector>
 
@@ -77,6 +78,9 @@ private:
     int m_zoom = 100;
     long m_docW = 0, m_docH = 0;               // twip
     QHash<quint64, QImage> m_tiles;
+    QSet<quint64> m_dirtyTiles; // stale images are usable only on the same part/zoom
+    QRegion m_deferredPaint;
+    QTimer m_tilePaintTimer;
     QRect m_cellCursor, m_caret;   // twip; m_caret có thể rộng 0 nên dùng cờ m_hasCaret/m_hasCell, KHÔNG dùng isEmpty()
     QRect m_cellArea;              // vùng nhiều ô (CELL_SELECTION_AREA)
     bool m_hasCaret = false, m_hasCell = false;
