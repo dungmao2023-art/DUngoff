@@ -1,3 +1,72 @@
+# Tổng rà soát engine — cổng quyết định một đợt build (28/11/2026)
+
+Bản đối chiếu main: 46c14efacd2ab87ca9914a43bf6d617023b704a9. Giữ nguyên engine đang hoạt động và checksum. Không đổi tag CI, không kích hoạt workflow build engine chỉ vì cập nhật tài liệu. Kết quả dưới đây là phân loại dựa trên mã, log và cấu hình, KHÔNG phải nghiệm thu máy thật.
+
+## 1. Baseline và blocker quan trọng nhất
+
+- `.github/workflows/ci.yml` đang ghim Windows `engine-26.8.3.1-headless`, SHA256 `03261237878855c27013ff81ba03d766fd794ff49f88d711a013747f7325cac1`. Linux dùng engine hệ thống; khác phiên bản/backend nên PASS một OS không thay OS kia.
+- Engine v2 `engine-26.8.3.2-headless`: [run 45500311461](https://github.com/dungmao2023-art/DUngoff/actions/runs/45500311461) build và bước đóng gói/phát hành thành công. [Báo cáo cố định cd4e440](https://github.com/dungmao2023-art/DUngoff/tree/cd4e4408c903a48797c061fdc8d69487004c271b/round-1). Tự kiểm `dung-api-test.txt` thoát 1 vì `ModuleNotFoundError: No module named 'dung_api'`; workflow copy test vào /tmp trong khi module nằm share/Scripts/python, test chỉ thêm program và thư mục test vào sys.path. Không chứng minh UNO/provider không hoạt động; sửa đường tìm module, profile/endpoint riêng, kiểm checksum artifact đã có và chạy lại trước khi quyết định build. Không tự động sử dụng engine v2 cho người dùng.
+- V2 đã cấu hình vi, myspell, Python nội bộ, release build; có vi_VN.aff/dic. Bộ cài app hiện phân phối từ điển GPL riêng có checksum; không cần đưa toàn bộ từ điển trở lại engine.
+- #57 [CI 45901046539](https://github.com/dungmao2023-art/DUngoff/actions/runs/45901046539) thất bại giao tiếp dialog/tạo TOC; #49 là thí nghiệm cũ. #110 dán TSV không đạt, không bật GUI. #158 [CI 46079201540](https://github.com/dungmao2023-art/DUngoff/actions/runs/46079201540) Windows PASS, Linux sửa ô mở khóa và giữ range/dropdown PASS nhưng lỗi chính sách blank/stop; chưa xác định chính xác flag nào. #153 merged, [CI 46077805614](https://github.com/dungmao2023-art/DUngoff/actions/runs/46077805614) hai OS PASS. Không nâng stage từ audit này.
+
+## 2. Font, tiếng Việt, render — không bỏ sót
+
+| Nhóm | Bằng chứng hiện tại | Cổng quyết định |
+|---|---|---|
+| Font list/đổi font | #153 Windows log: commandValues CharFontName 142 họ; Word Alef, Excel Arial 16, PPT DejaVu Sans PASS; PDF xuất Times New Roman. Ribbon và Excel dialog dùng QFontDatabase, Word dùng danh sách engine. | APP: dùng danh sách engine làm chuẩn cho tài liệu, giữ font thực tại con trỏ, font mixed, chọn size/style/preview, thông báo font thiếu; không tự đổi tên font tài liệu. Test Qt/LOK font inventory và roundtrip 3 định dạng. |
+| Font discovery | Windows log: Cannot load default config file, sau đó mở fc_local.conf; warning without FcInit. Fontconfig 2.17.1 override + FreeType hvf build patch, giữ Skia theo README. | RUNTIME trước: kiểm config root, font Windows user/system, thư mục engine, profile sạch, Unicode path, cache; chỉ patch SVP/fontconfig init nếu cấu hình đúng vẫn fail. |
+| Font substitution | Engine.cpp seedFontSubstitution ép 6 biến thể Aptos -> Carlito Always=true; ghi cả máy có Aptos, notice xác nhận Always=false từng không đạt. Carlito tương thích số đo Calibri, không phải bảo đảm Aptos. | RUNTIME/ENGINE có điều kiện: phát hiện font thật, thay khi thiếu, giữ tên gốc, không đổi profile người dùng tùy tiện. Test có/không Aptos, Arial/Calibri/Times New Roman/Cambria, Vietnamese NFC/NFD, bold/italic, ký hiệu; so số trang, dòng, PDF font embedding và độ lệch layout. |
+| Font nhúng | CI có test chặn lưu DOCX font nhúng để tránh mất. Không đồng nghĩa hỗ trợ chỉnh sửa. | FILTER có điều kiện: kiểm DOCX/PPTX có font nhúng, embedding rights, giữ relationship và byte font khi không chỉnh, không nhúng lại font không có quyền. Nếu mất, tiếp tục chặn; phân loại import/export trước patch. |
+| Font mới cài / font miễn phí | Carlito, Liberation Sans kèm OFL notice; không phân phối font Microsoft. | APP/RUNTIME: test cài font user/system, restart/refresh an toàn; xem xét Liberation Serif/Mono, Noto (chỉ sau kiểm license/coverage/checksum), không cần biên dịch để thêm dữ liệu font. |
+| Chính tả | script fetch-dict-vi đã pin checksum, dict_tests + spellprobe; gạch chân đỏ chưa chứng minh, bộ âm tiết khác Hunspell. | RUNTIME/APP trước: language vi-VN, kiểm lỗi đúng/sai và suggest thực, hai kiểu đặt dấu, thêm từ cá nhân; nếu spell callback/service không khả dụng mới patch engine hoặc dùng thư viện Hunspell độc lập có license phù hợp. |
+| IME / DPI | TileView inputMethodEvent, imePlan và Document::postExtTextInput gọi postWindowExtTextInputEvent; preedit_tests.cpp có ca engine, chưa UniKey/EVKey thật. | APP trước; test preedit/commit/replace, Ctrl+Z, focus, DPI 100/125/150/200, nhiều tab. Chỉ patch API/backend khi tái hiện lỗi dưới engine trực tiếp. |
+| Render/caret/tile | Windows SVP thiếu invalidation native được ghi trong WINDOWS_ENGINE.md; synthetic event workaround và CI PASS. | Đo latency/RAM/p95 và event native đối chiếu. Nếu vẫn chậm hoặc mất vùng, sửa callback SVP, không gỡ workaround cho tới khi đạt. |
+| Đường dẫn dài, in, PDF export | App có bản làm việc và test recovery/print; chưa máy thật. | APP/RUNTIME trước; engine manifest/filter chỉ khi lỗi tái hiện độc lập; test Windows sạch, unicode path, printer A4, lỗi lưu/đầy đĩa. |
+
+## 3. Chức năng chỉnh sửa — một bridge, không vá riêng từng nút
+
+Ưu tiên API UNO đã có của LibreOffice. Giai đoạn 0: kiểm cả v1/v2 trên tài liệu ĐANG MỞ qua LOK (không chỉ tạo tài liệu trong soffice khác). Kiểm ABI và symbol, gọi trên engine thread/SolarMutex, xác định chính xác document/view, JSON có schema và allowlist thao tác, giá trị lỗi rõ, UndoContext, read-only, callback invalidation. Không expose macro URL tùy ý, socket public hoặc arbitrary UNO từ tài liệu. Không dùng file args chung cho hai tab. Nếu không có đường truy cập an toàn vào model sống thì mới thiết kế native bridge versioned trong engine, patch nhỏ và kiểm ABI v1/v2. Không chuyển qua process khác bằng cách save/reopen rồi gọi đó là chỉnh realtime.
+
+| Chức năng | API / hướng | Phân loại |
+|---|---|---|
+| Word tách ô, chiều rộng/cao, ảnh/anchor/wrap | XTextTableCursor.splitRange, thuộc tính table/cell và graphic object | Bridge nếu LOK không đủ, UI Qt kéo/preview riêng |
+| Word TOC mới / heading / styles / section / lề / page bands | DocumentIndex, XDocumentIndexesSupplier, PageStyles | #57 blocker dialog; bridge hoặc dialog transport; giữ refresh native có sẵn |
+| Word sửa/xóa comment / Review | Annotation fields, native review command, selection ID, Undo | App/bridge tùy probe, #159 đã có CI; không xóa nhầm bình luận |
+| Excel dán vùng/copy/cut/paste special | LOK clipboard/selection, UNO XCellRangeData + công thức/kiểu theo từng ca | #110 fail; bridge nếu clipboard không đủ, không setDataArray đè công thức/format |
+| Excel fill handle | native fill series/selection/mouse; app geometry/drag | App trước; bridge nếu không thể chọn vùng/dispatch chính xác |
+| Excel validation/protection/conditional formatting | TableValidation, XProtectable, conditional formats | Bridge tạo/sửa; #158 filter flag Linux fail cần diff XML và so cùng engine trước khi patch |
+| Excel chart | Chart2/series/source/title/type | Bridge nếu dialog không hoạt động; chart native cột và refresh đã có |
+| Excel PivotTable | XDataPilotTables.insertNewByName, descriptor, row/col/value/sum/count | Bridge nếu LOK không đủ; fixture output/cache/refresh XLSX thật |
+| PPT select/move/resize/rotate/align/group/z-order | Drawing XShape/XShapes/XShapeGrouper, position/size, selection | App geometry + bridge; giữ Undo và group/animation refs |
+| PPT master/theme/layout | draw pages/master interfaces, OOXML roundtrip | Bridge/filter có điều kiện, không tạo master giả |
+| PPT animation playback/transition | XPresentation2/XSlideShowController/XSlideShowView, engine thực | SlideShow.cpp chỉ paintPartTile ảnh tĩnh. Probe trình chiếu native/headless và surface/callback; nếu cần patch xuất frame theo clock/click, làm chung lần rebuild; UI Qt hiện tại không tự có playback |
+| VBA/macro/XLSM, Power Query | kiểm filter preserve project/connection; macro mặc định tắt | B2; chưa chứng minh, không bật macro hoặc quảng cáo M đầy đủ. Chỉ gom filter patch đã tái hiện và có fixture. |
+
+Tham chiếu upstream: https://api.libreoffice.org/docs/idl/ref/interfacecom_1_1sun_1_1star_1_1text_1_1XTextTableCursor.html ; https://api.libreoffice.org/docs/idl/ref/interfacecom_1_1sun_1_1star_1_1sheet_1_1XDataPilotTables.html ; https://api.libreoffice.org/docs/idl/ref/interfacecom_1_1sun_1_1star_1_1presentation_1_1XPresentation2.html . API tồn tại không chứng minh có thể gọi từ runtime LOK hiện tại.
+
+## 4. Việc độc lập không cần rebuild LibreOffice
+
+- Qt PDF selection/search rectangle trực tiếp, zoom/DPI, copy, mật khẩu; Qt API QPdfDocument/QPdfSelection/QPdfSearchModel. https://doc.qt.io/qt-6/qpdfselection.html ; https://doc.qt.io/qt-6/qpdfsearchmodel.html . Kiểm version Qt pin trước triển khai.
+- PDFium/PoDoFo: form/annotation/page object, sửa text gốc giới hạn, redaction/chữ ký riêng. Đánh giá license, ABI, checksum, bảo toàn font/vector/link/form/chữ ký, lưu bản sao; không gọi overlay là sửa gốc.
+- Tesseract Windows + vie/eng: runtime độc lập, đóng gói tùy chọn offline, checksum/notice, OCR thật và searchable PDF; Linux đã PASS. Không rebuild LO.
+- Power Query recipe/CSV/đối soát/MISA fixture; kho mẫu, kho luật, note/calendar, contact, UI ribbon/tab; cài đặt, license, font data. Không đụng engine nếu không có lỗi filter cụ thể.
+
+## 5. Gate duy nhất trước khi bấm build
+
+1. Xác minh asset v1/v2 (tag, checksum, cấu hình, ABI, license) và test lại v2 đã có, không đổi pin CI main. Sửa probe import và chứng minh model live trên đúng tài liệu/Undo/save; nếu chạy được, không cần rebuild bridge. Chạy font runtime và IME native trước.
+2. Chạy ma trận Word/Excel/PPT nêu trên, ghi PASS/FAIL/NOT RUN, log, engine SHA và fixture; test font inventory/real vs fallback/embedded/print, slideshow playback, callback. Không kết luận từ việc gửi UNO không có output. Kiểm #158 cụ thể flag và khác phiên bản Linux.
+3. Chỉ gom những blocker đã tái hiện thành patch thống nhất: native bridge/ABI, dialog/clipboard/render/IME, fontconfig discovery/fallback, slideshow surface, filter fidelity (nếu cần). Đọc upstream đúng tag trước sửa; giữ headless, Python, localization, Skia và module đang dùng, không đổi nền Collabora/LibreOffice đồng thời nếu không có căn cứ. Không thêm dependency chưa xác minh.
+4. Gate build: mỗi patch có test thất bại trên baseline, acceptance, rollback. Nếu còn NOT RUN ảnh hưởng cấu hình, chưa chốt build. Một ứng viên tag riêng, tối đa 3 lượt checkpoint theo quy định cũ, SHA256, log, không tự public release. Không ghi đè v1. Không kích hoạt build từ PR audit.
+5. Gate chuyển pin: Windows/Linux CI đầy đủ + fixture roundtrip + 158 mẫu hiện có + font/IME/Undo/playback/GUI Windows sạch; xác minh MS Office, không mất dữ liệu. Chỉ đổi pin sau kết quả. Nếu thất bại, giữ v1 và ghi blocker, không đánh dấu accepted.
+
+## 6. Kết luận audit
+
+Có blocker thực ở giao tiếp model/dialog và font fallback; chưa có đủ bằng chứng bắt buộc rebuild ngay. Engine v2 đã có nhưng probe lỗi setup. Danh sách này là scope gom một đợt nếu cần, không phải tuyên bố đã sửa hoặc hoàn tất kiểm thử. Các mục engine-independent phát triển song song. Không tăng trọng số/stage, không public release.
+
+---
+
+## Lịch sử kế hoạch cũ (giữ nguyên để đối chiếu)
+
 # Danh sách kiểm trước khi build lại engine (một lần)
 
 Quyết định của tác giả (25/11/2026): build lại engine **một lần**, và lần này phải gỡ được các vấn đề
