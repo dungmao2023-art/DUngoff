@@ -3,6 +3,7 @@
 from __future__ import annotations
 import datetime as _dt
 import os
+import re
 import tempfile
 import shutil
 from dataclasses import dataclass, field
@@ -16,6 +17,35 @@ class SaveResult:
     written: str
     backup: Optional[str] = None
     warnings: List[str] = field(default_factory=list)
+
+def parse_pages(spec: str, total: int) -> List[int]:
+    """Chuyển chuỗi kiểu '1-3,5,8-' thành danh sách chỉ số 0-based, có kiểm tra."""
+    result: List[int] = []
+    if total < 1 or not spec.strip():
+        raise PdfError("Chưa chọn trang nào.")
+    for part in spec.split(","):
+        part = part.strip()
+        match = re.fullmatch(r"([0-9]+)\s*-\s*([0-9]*)|-\s*([0-9]+)|([0-9]+)", part)
+        if not match:
+            raise PdfError(f"Khoảng trang không hợp lệ: {part}")
+        first, last, leading_end, single = match.groups()
+        try:
+            if single is not None:
+                start = end = int(single)
+            elif leading_end is not None:
+                start, end = 1, int(leading_end)
+            else:
+                start, end = int(first), int(last) if last else total
+        except ValueError as exc:
+            raise PdfError(f"Khoảng trang không hợp lệ: {part}") from exc
+        if start < 1 or end > total or start > end:
+            raise PdfError(f"Khoảng trang không hợp lệ: {part} (tài liệu có {total} trang)")
+        if len(result) + end - start + 1 > 1_000_000:
+            raise PdfError("Vùng chọn vượt 1 triệu trang; hãy chia nhỏ thao tác.")
+        result.extend(range(start - 1, end))
+    return result
+
+
 
 def _backup_path(path: str) -> str:
     stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -82,13 +112,17 @@ def atomic_save(pdf, dest: str, allow_replace: bool = False) -> SaveResult:
             raise PdfError("Tệp đích đã tồn tại. Chọn tên khác hoặc xác nhận thay thế.")
         if os.path.islink(dest) or not os.path.isfile(dest):
             raise PdfError("Không thay thế liên kết hoặc đích không phải tệp thường.")
-        original_stat = os.stat(dest, follow_symlinks=False)
-        backup = _backup_path(dest)
+        try:
+            original_stat = os.stat(dest, follow_symlinks=False)
+            backup = _backup_path(dest)
+        except OSError as exc:
+            raise PdfError(f"Không xác minh được tệp đích: {exc}") from exc
 
-    fd, tmp = tempfile.mkstemp(prefix="~dung-", suffix=".pdf", dir=folder)
-    os.close(fd)
+    tmp = None
     backup_tmp = None
     try:
+        fd, tmp = tempfile.mkstemp(prefix="~dung-", suffix=".pdf", dir=folder)
+        os.close(fd)
         pdf.save(tmp, linearize=True)
         if not _looks_like_pdf(tmp):
             raise PdfError("Tệp tạm ghi ra không hợp lệ, đã hủy. Tệp gốc không thay đổi.")
