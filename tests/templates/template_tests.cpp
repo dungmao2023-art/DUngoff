@@ -10,6 +10,10 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <cstdio>
+#ifndef Q_OS_WIN
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 static int g_fail = 0;
 #define CHECK(c, what) do { const bool ok_ = (c); std::printf("[%s]  %s\n", ok_ ? "ĐẠT" : "LỖI", what); if (!ok_) ++g_fail; } while (0)
@@ -113,6 +117,30 @@ int main(int argc, char** argv) {
     CHECK(!tpl::installFromDir(invalid).ok,"đường dẫn danh mục thoát thư mục bị từ chối");
     CHECK(tpl::installed().version=="2025.1"&&QFile::exists(dst),"gói đang cài và tài liệu làm việc giữ nguyên");
     CHECK(!tpl::installFromDir(tpl::installed().root).ok,"không tự cài đè từ gói đang cài");
+    auto invalidInfo=tpl::installed();invalidInfo.valid=false;
+    CHECK(tpl::entries(invalidInfo).isEmpty(),"invalid library cannot enumerate templates");
+    CHECK(!tpl::makeWorkingCopy(tmp.path(),tmp.filePath("directory-copy.docx"),nullptr),"reject directory as working copy source");
+#ifndef Q_OS_WIN
+    {
+        const auto special=makePack(tmp.path(),"special","2027.1",{sub+QStringLiteral("Mẫu.docx")});
+        const auto manifest=special+QStringLiteral("/manifest.json");
+        QFile::remove(manifest);
+        const bool fifo=::mkfifo(QFile::encodeName(manifest).constData(),0600)==0;
+        CHECK(fifo&&!tpl::readInfo(special).valid&&!tpl::installFromDir(special).ok,"reject manifest FIFO without opening it");
+        QFile::remove(manifest);
+        write(manifest,"{\"id\":\"thu-vien-bieu-mau\",\"version\":\"2027.1\"}");
+        const auto catalogue=special+QStringLiteral("/00_HUONG_DAN_VA_DANH_MUC/DANH_MUC_TAP_TIN.csv");
+        QFile::remove(catalogue);
+        const bool csvFifo=::mkfifo(QFile::encodeName(catalogue).constData(),0600)==0;
+        CHECK(csvFifo&&!tpl::readInfo(special).valid,"reject catalogue FIFO");
+        QFile::remove(catalogue);
+        const auto link=tmp.filePath("root-link");
+        const bool linked=::symlink(QFile::encodeName(v2).constData(),QFile::encodeName(link).constData())==0;
+        CHECK(linked&&!tpl::readInfo(link).valid&&!tpl::installFromDir(link).ok,"reject symlink package root");
+        QFile::remove(link);
+        CHECK(tpl::installed().version=="2025.1"&&QFile::exists(dst),"installed package and working file preserved");
+    }
+#endif
     {
         const QByteArray cat="00_HUONG_DAN_VA_DANH_MUC/DANH_MUC_TAP_TIN.csv";
         const QByteArray name=QStringLiteral("01_Doanh_nghiep/Mẫu ZIP.docx").toUtf8();
