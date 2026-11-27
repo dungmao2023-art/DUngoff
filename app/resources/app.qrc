@@ -1,5 +1,8 @@
 <RCC>
   <qresource prefix="/">
     <file>dungoffice.png</file>
+    <file>projects/ornn.webp</file>
+    <file>projects/trend.webp</file>
+    <file>projects/sv.webp</file>
   </qresource>
 </RCC>
