@@ -237,7 +237,7 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
 
     // Probe actual range replacement with the existing synchronous LOK paste API.
     // Never expose it in the UI until saved cells and Undo both pass.
-    step("Thăm dò dán TSV trực tiếp và Undo");
+    step("Thăm dò dán bảng HTML trực tiếp và Undo");
     auto probe = engine->createNew(DocKind::Spreadsheet, &err);
     check(bool(probe), "Tạo workbook thăm dò " + err);
     if (probe) {
@@ -272,7 +272,8 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
             if (anchor.find("12")==std::string::npos || anchor.find('\t')!=std::string::npos) {
                 check(false,"Không xác minh được ô neo A1");
             } else {
-            const bool pasted=probe->paste("text/plain;charset=utf-8","Mười hai\tNăm\nBảy\tChín");
+            // Plain TSV returned success without changing cells on both engines.
+            const bool pasted=probe->paste("text/html","<html><body><table><tr><td>Mười hai</td><td>Năm</td></tr><tr><td>Bảy</td><td>Chín</td></tr></table></body></html>");
             check(pasted,"LOK paste trả về thành công (chưa chứng minh dữ liệu)");
             probe->waitInputIdle(); settle();
             snapshot("direct-paste-after.xlsx");
