@@ -237,7 +237,7 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
 
     // Probe actual range replacement with the existing synchronous LOK paste API.
     // Never expose it in the UI until saved cells and Undo both pass.
-    step("Thăm dò dán text/plain không tham số MIME và Undo");
+    step("Thăm dò dán HTML có định dạng và Undo");
     auto probe = engine->createNew(DocKind::Spreadsheet, &err);
     check(bool(probe), "Tạo workbook thăm dò " + err);
     if (probe) {
@@ -275,9 +275,9 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
             if (anchor.find("12")==std::string::npos || anchor.find('\t')!=std::string::npos) {
                 check(false,"Không xác minh được ô neo A1");
             } else {
-            // HTML imported all four values and Undo restored the originals, but lost bold.
-            // Probe the bare MIME flavor; charset-qualified text previously did nothing.
-            const bool pasted=probe->paste("text/plain","Mười hai\tNăm\nBảy\tChín");
+            // Both plain text flavors were no-ops. Native HTML selection exports bold as <b>.
+            // Fixture-specific markup only; not a generic formatting-preserving implementation.
+            const bool pasted=probe->paste("text/html","<html><body><table><tr><td><b>Mười hai</b></td><td>Năm</td></tr><tr><td>Bảy</td><td>Chín</td></tr></table></body></html>");
             check(pasted,"LOK paste trả về thành công (chưa chứng minh dữ liệu)");
             probe->waitInputIdle(); settle();
             snapshot("direct-paste-after.xlsx");
