@@ -649,15 +649,25 @@ void DocumentTab::dropRecovery() {
 
 void DocumentTab::autosaveTick() {
     auto& rs = recovery::Session::instance();
-    if (!rs.active() || !m_doc || m_doc->readOnly()) return;
-    if (!m_doc->modified()) return;
+    if (!rs.active() || !m_doc || m_doc->readOnly() || !m_doc->modified()) {
+        m_autosaveDeferrals=0;
+        return;
+    }
     // Even without an invalidate callback, a dirty document with no recovery
     // snapshot yet must be saved at the next tick.
-    if (!m_dirtySinceAutosave && !m_recId.isEmpty()) return;
+    if (!m_dirtySinceAutosave && !m_recId.isEmpty()) { m_autosaveDeferrals=0; return; }
     if (!rs.hasRoom()) return;  // thư mục phục hồi đã đầy: bỏ qua, không làm gì khác
     const std::string ext = m_doc->recoveryExt();
     if (ext.empty()) return;
-    m_doc->waitInputIdle();
+    // Recovery is still mandatory. Prefer a quiet interval, but do not
+    // postpone indefinitely if the user is editing continuously.
+    if(!m_doc->inputIdleFor(350)&&m_autosaveDeferrals<15) {
+        ++m_autosaveDeferrals;
+        QTimer::singleShot(2000,this,&DocumentTab::autosaveTick);
+        return;
+    }
+    m_autosaveDeferrals=0;
+    if(!m_doc->inputIdleFor(200))m_doc->waitInputIdle();
     if (!m_doc->modified()) return;
     // Keep retry pending until both data and metadata have been committed.
     m_dirtySinceAutosave=true;
