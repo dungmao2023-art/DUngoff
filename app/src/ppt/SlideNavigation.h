@@ -18,6 +18,13 @@ inline int firstVisible(const QVector<bool>& visible,int start) {
     for(int i=start-1;i>=0;--i) if(visible[i]) return i;
     return -1;
 }
+// Find the adjacent visible slide. No wrap, no hidden slides, invalid inputs rejected.
+inline int adjacentVisible(const QVector<bool>& visible,int current,int direction) {
+    if(current<0||current>=visible.size()||(direction!=-1&&direction!=1))return -1;
+    for(int i=current+direction;i>=0&&i<visible.size();i+=direction)
+        if(visible[i])return i;
+    return -1;
+}
 inline int jumpTo(const QVector<bool>& visible,const QString& digits) {
     bool ok=false;
     const int n=digits.toInt(&ok);
