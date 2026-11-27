@@ -30,6 +30,7 @@ public:
     int cachedTileCount() const { return int(m_tiles.size()); }
     unsigned visibleAreaDispatches() const { return m_visibleAreaDispatches; }
     unsigned coalescedDragDispatches() const { return m_dragDispatches; }
+    unsigned mouseUpDispatches() const { return m_mouseUpDispatches; }
     bool hasCellCursor() const { return m_hasCell; }
     QRect caretViewRect() const;        // con trỏ chữ trong toạ độ viewport (rỗng nếu chưa có)
     QString selectedCellRange(bool verifyGesture = false); // chỉ trả về địa chỉ khi khớp hình học vùng engine và header
@@ -129,6 +130,7 @@ private:
     QTimer m_synthLate;    // vẽ lại lần hai: lệnh UNO được engine xử lý trễ sau khi gửi
     void refreshAllTiles();
     int m_pressButtons = 0;
+    unsigned m_mouseUpDispatches=0;
     int m_clickCount = 1;
     QPoint m_pickStart, m_pickEnd;
     bool m_pickValid = false;

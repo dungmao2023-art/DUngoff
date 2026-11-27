@@ -622,12 +622,25 @@ void TileView::handleEvent(int type, const QString& payload) {
 void TileView::sendMouse(int type, QMouseEvent* e, int count) {
     const UiTiming timing("mouse");
     const QPoint h = headerSize();
-    const QPoint pos = e->position().toPoint();
-    if (m_isCalc && (pos.x() < h.x() || pos.y() < h.y())) return; // nhấp vào vùng tiêu đề (chưa hỗ trợ chọn cả hàng/cột)
+    QPoint pos = e->position().toPoint();
+    if(m_isCalc) {
+        const bool inHeader=pos.x()<h.x()||pos.y()<h.y();
+        if(type==LOK_MOUSEEVENT_MOUSEBUTTONDOWN&&inHeader){m_pressButtons=0;return;}
+        if(!m_pressButtons)return;
+        // A drag started in the sheet must end even over a header.
+        // Header selection itself is not supported; clamp the release
+        // to the nearest content edge instead of losing mouse-up.
+        if(inHeader){
+            if(type!=LOK_MOUSEEVENT_MOUSEBUTTONUP)return;
+            pos.setX(qMax(pos.x(),h.x()));
+            pos.setY(qMax(pos.y(),h.y()));
+        }
+    }
     const QPoint t = toTwips(pos);
     int buttons = toLokButtons(e->buttons() | e->button());
     if (type == LOK_MOUSEEVENT_MOUSEBUTTONUP) buttons = m_pressButtons;
     m_doc->postMouse(type, t.x(), t.y(), count, buttons, toLokModifiers(e->modifiers()));
+    if(type==LOK_MOUSEEVENT_MOUSEBUTTONUP)++m_mouseUpDispatches;
 }
 
 void TileView::mousePressEvent(QMouseEvent* e) {
@@ -653,9 +666,14 @@ void TileView::mousePressEvent(QMouseEvent* e) {
 void TileView::mouseReleaseEvent(QMouseEvent* e) {
     flushDragMove(); // final queued position must reach engine before release
     sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, e, m_clickCount);
+    m_pressButtons=0;
     m_clickCount = 1;
     if (m_isCalc && e->button() == Qt::LeftButton && m_pickValid) {
-        m_pickEnd = toTwips(e->position().toPoint());
+        QPoint endpoint=e->position().toPoint();
+        const QPoint h=headerSize();
+        endpoint.setX(qMax(endpoint.x(),h.x()));
+        endpoint.setY(qMax(endpoint.y(),h.y()));
+        m_pickEnd = toTwips(endpoint);
         m_pickComplete = true;
         emit cellSelectionFinished();
     }
@@ -703,9 +721,10 @@ void TileView::flushDragMove() {
 
 void TileView::mouseMoveEvent(QMouseEvent* e) {
     if(e->buttons()==Qt::NoButton){flushDragMove();return;}
-    // Preserve paths for drawing objects, slides, multi-button and modified drags.
-    // Ordinary text/cell selection depends on the latest pointer endpoint.
-    const bool simple=(m_isCalc||m_doc->kind()==dung::DocKind::Text)&&
+    // Writer can drag selected text or anchored objects. Preserve its
+    // complete move path rather than assuming every drag is selection.
+    if(m_isCalc&&!m_pressButtons)return;
+    const bool simple=m_isCalc&&m_pickValid&&
         e->buttons()==Qt::LeftButton&&e->modifiers()==Qt::NoModifier;
     const QPoint pos=e->position().toPoint(),h=headerSize();
     if(!simple||(m_isCalc&&(pos.x()<h.x()||pos.y()<h.y()))) {
