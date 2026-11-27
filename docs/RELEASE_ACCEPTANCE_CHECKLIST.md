@@ -108,3 +108,13 @@ Mốc hiện tại sau #39–41: chỉ số triển khai 29.9%, chưa có nhóm 
 - #64 (28b2a0099e6a4a4663218cec189281608b566524) merged b3e9847; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45908111680) Windows/Linux PASS; exit XML/timeline, chưa kiểm trình chiếu.
 - #59 PASS nhưng mergeable=false; #62 CI chung PASS nhưng chưa chạy riêng Python pdfcore, giữ lại. #52/#57 FAIL như trên.
 - Chỉ số triển khai 32.94%, không đổi stage/weight/giờ, 0 nhóm accepted. Main tích hợp mới cần CI và GUI máy thật; không phát hành.
+
+## Đối chiếu bổ sung — main b59450067749673cfdd48e8b6f630ae3b1de781d
+- #59 (18fd914a9ae7031dbdad4b9c309bfb3df75dee2c) merged 4b277e6; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45905297697) Windows/Linux PASS; Word xác nhận thay thế hàng loạt, đếm từ/âm tiết; chưa nghiệm thu GUI.
+- #66 (b3e46346c4b26526524f086957c5a0cc1c25ba81) merged 2c7d153; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45911839194) Windows/Linux PASS, Left/Inner Join CSV.
+- #67 (d3021fc286e3e884bcb3e2af39252e488f73723b) merged d17cc0e; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45912350596) Windows/Linux PASS, chọn/đổi tên cột, recipe v2.
+- #68 (30d8c4af15bb78e9283a7fc8611e78c641845970) merged b409078; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45912848048) Windows/Linux PASS, Group By đếm/cộng thập phân.
+- #70 (e8bce80876541e2073368a9d63a0142e6c44c46e) merged b594500; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45914696099) Windows/Linux PASS, chuỗi thao tác cố định, recipe v3. Chưa nối Join/Group By vào recipe.
+- #69 CI PASS ở SHA f31c1d327576706f41563ddf80c68a612ac6570b, đã hòa giải xung đột trên SHA 48fe3de060093fc5953848dbb5c72e10ee5150c4; chờ CI đúng SHA mới, chưa merge.
+- #62 head 0b29ba10c910529d41253863c3691d2e06418b42: đã thêm 10 kiểm tra an toàn lưu file vào CI; chưa có kết quả ở SHA này, chưa kiểm PDF thật với pikepdf.
+- X10 giữ partial, chỉ số 32.94% không đổi stage/weight/giờ; 0 nhóm accepted. Cần kiểm thử main tích hợp, GUI Windows thật và dữ liệu XLSX thực. Không phát hành.
