@@ -482,6 +482,25 @@ int runSweepTests(const fs::path& program, const fs::path& out,const fs::path& p
             fs::remove(dest,ec);
             const auto saved=pivot->saveAs(dest);
             result("Calc","pivot-save",saved.ok,saved.message);
+            if(saved.ok){
+                pivot.reset();
+                auto reopened=engine->open(dest,&err);
+                result("Calc","pivot-reopen",bool(reopened),err);
+                if(reopened){
+                    reopened->setClientView(512,512,7680,7680,0,0,7680,7680);
+                    reopened->setPart(0);
+                    enter(*reopened,"D2",u"325000");
+                    gotoCell(*reopened,"D2");
+                    result("Calc","pivot-second-source-edit",trim(text(*reopened))=="325000",trim(text(*reopened)));
+                    gotoCell(*reopened,"G4");
+                    run(*reopened,".uno:RecalcPivotTable");
+                    settle(1000);
+                    const fs::path roundtrip=out/"native-pivot-roundtrip.xlsx";
+                    fs::remove(roundtrip,ec);
+                    const auto again=reopened->saveAs(roundtrip);
+                    result("Calc","pivot-roundtrip-save",again.ok,again.message);
+                }
+            }
         }
     }
     step("chèn biểu đồ native vào sheet hiện tại");

@@ -172,6 +172,19 @@ void DocumentTab::excelAction(const QString& id) {
         }
         cmd(descending?".uno:SortDescending":".uno:SortAscending");
         m_doc->waitInputIdle();m_view->setFocus();return;
+    } else if(a==QLatin1String("refreshPivot")){
+        const auto range=m_view->selectedCellRange();
+        if(dataassist::bridgeCellAddress(ss(range)).empty()){
+            QMessageBox::information(this,tr("Cập nhật PivotTable"),tr("Chọn một ô bên trong PivotTable hiện có, không chọn vùng nguồn hoặc nhiều ô."));return;
+        }
+        const auto before=m_doc->selectionAs("text/plain;charset=utf-8");
+        if(QMessageBox::question(this,tr("Cập nhật PivotTable"),
+            tr("Sheet %1 · ô %2. Cập nhật PivotTable hiện có từ nguồn dữ liệu của bảng; kết quả tổng hợp có thể thay đổi. Tiếp tục?").arg(qs(originalSheet),range),
+            QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        if(!sameSheet()||!m_view||m_view->selectedCellRange()!=range||m_doc->selectionAs("text/plain;charset=utf-8")!=before){
+            QMessageBox::warning(this,tr("Cập nhật PivotTable"),tr("Vùng chọn hoặc dữ liệu thay đổi. Chưa gửi lệnh cập nhật."));return;
+        }
+        cmd(".uno:RecalcPivotTable");m_doc->waitInputIdle();m_view->setFocus();return;
     } else if (a == QLatin1String("insertChart")) {
         m_doc->waitInputIdle();
         const QString range=m_view->selectedCellRange();
