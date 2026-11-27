@@ -47,6 +47,8 @@ private:
     QTimer* m_saveTimer;
     bool m_loading = false;
     bool m_dirty = false;
+    bool m_readable = false;
+    QJsonObject m_workspaceBase;
 
     // Ghi chú
     QJsonArray m_notes;
