@@ -167,7 +167,7 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         fh->setContentsMargins(8, 4, 8, 4);
         m_nameBox = new QLineEdit(fb);
         m_nameBox->setFixedWidth(90);
-        m_nameBox->setToolTip(tr("Ô hiện tại — nhập địa chỉ (vd. B12) rồi Enter để đến ô đó"));
+        m_nameBox->setToolTip(tr("Nhập ô hoặc vùng trong sheet hiện tại (B12, A1:C5), rồi Enter"));
         auto* fx = new QPushButton(tr("ƒx · Tôi muốn"), fb);
         fx->setToolTip(tr("Mở hoặc thu gọn trợ lý công thức"));
         fx->setEnabled(!m_doc->readOnly());
@@ -184,8 +184,16 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         fh->addWidget(m_formula, 1);
         v->addWidget(fb);
         connect(m_nameBox, &QLineEdit::returnPressed, this, [this] {
-            const QString addr = m_nameBox->text().trimmed().toUpper();
-            if (!addr.isEmpty()) m_doc->command(".uno:GoToCell", dung::Document::stringArg("ToPoint", ss(addr)));
+            if (!m_doc || !m_view) return;
+            const auto addr=dataassist::bridgeRangeAddress(ss(m_nameBox->text()));
+            if (addr.empty()) {
+                m_nameBox->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS)));
+                QMessageBox::warning(this,tr("Địa chỉ ô"),tr("Nhập địa chỉ hợp lệ trong sheet hiện tại, ví dụ B12 hoặc A1:C5."));
+                m_nameBox->setFocus();
+                m_nameBox->selectAll();
+                return;
+            }
+            m_doc->command(".uno:GoToCell", dung::Document::stringArg("ToPoint",addr));
             m_view->setFocus();
         });
         // Bind an edit to its initial cell and sheet, not the selection that
@@ -202,7 +210,8 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
             edit->active = true;
             edit->part = m_doc->currentPart();
             edit->sheet = m_doc->partName(edit->part);
-            edit->cell = dataassist::bridgeCellAddress(ss(m_view->selectedCellRange()));
+            edit->cell = dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
+                m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
         });
         connect(m_formula, &QLineEdit::editingFinished, this, [this, edit] {
             edit->active = false;
@@ -212,7 +221,8 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         connect(m_formula, &QLineEdit::returnPressed, this, [this, edit] {
             if (!m_doc || !m_view || m_doc->readOnly() || !edit->active) return;
             m_doc->waitInputIdle();
-            const auto cell = dataassist::bridgeCellAddress(ss(m_view->selectedCellRange()));
+            const auto cell = dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
+                m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
             if (edit->cell.empty() || cell != edit->cell ||
                 m_doc->currentPart() != edit->part || m_doc->partName(edit->part) != edit->sheet) {
                 edit->active = false;
