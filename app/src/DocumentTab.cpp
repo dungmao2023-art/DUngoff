@@ -370,7 +370,35 @@ QTabWidget#ExcelTools QTabBar::tab:selected { background:white; color:#2864BA; b
             scroll->setWidget(tool);
             m_excelTools->addTab(scroll, title);
         };
-        m_formulaAssistant = createFormulaAssistantWidget();
+        dataassist::Hooks scoped;
+        scoped.selectedCellAddress = [this]() -> QString {
+            if (!m_doc || !m_view) return {};
+            m_doc->waitInputIdle();
+            return qs(dataassist::bridgeCellAddress(ss(m_view->selectedCellRange())));
+        };
+        scoped.insertFormulaAt = [this](const QString& target, const QString& formula, QString* result, QString* message) {
+            if (!m_doc || !m_view || readOnly() || !isVisible()) {
+                if (message) *message = tr("Tab Excel không còn hoạt động hoặc chỉ đọc.");
+                return false;
+            }
+            auto* const original = m_doc.get();
+            const auto addr = dataassist::bridgeCellAddress(ss(target));
+            const int originalPart = original->currentPart();
+            const auto originalSheet = original->partName(originalPart);
+            const auto outcome = dataassist::bridgeInsertFormulaAt(*original, addr, ss(formula), LOK_CALLBACK_CELL_ADDRESS,
+                [this, original, originalPart, originalSheet, addr](const std::string& old) {
+                    const auto yes = QMessageBox::question(this, tr("Xác nhận ô kết quả"),
+                        tr("Ghi công thức vào %1 — %2?\nGiá trị hiển thị trước khi ghi: %3\nCó thể thay thế công thức đang có.")
+                            .arg(qs(originalSheet), qs(addr), qs(old).left(200)),
+                        QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+                    return yes && m_doc.get() == original && m_view && !readOnly() && isVisible() &&
+                        original->currentPart() == originalPart && original->partName(originalPart) == originalSheet;
+                });
+            if (message) *message = qs(outcome.message);
+            if (result) *result = qs(outcome.resultText);
+            return outcome.ok;
+        };
+        m_formulaAssistant = createDocumentFormulaAssistantWidget(this, std::move(scoped));
         notifyFormulaSheet(m_formulaAssistant,m_doc->currentPart(),qs(m_doc->partName(m_doc->currentPart())));
         addTool(m_formulaAssistant, tr("ƒx · Tôi muốn"));
         connect(m_view, &TileView::cellSelectionFinished, this, [this] {
