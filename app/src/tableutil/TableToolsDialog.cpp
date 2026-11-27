@@ -165,6 +165,9 @@ struct TableToolsDialog::Impl {
     QComboBox* filterMode = nullptr; QLineEdit* filterValue = nullptr;
     QCheckBox* ignoreCase = nullptr; QCheckBox* descending = nullptr;
     QList<int> outputColumns; QStringList outputNames;
+    int cleanCol=-1,dedupCol=-1;
+    ColumnKind cleanKind=ColumnKind::Keep; MoneyLocale queryLocale=MoneyLocale::VN;
+    bool dedupFold=false;
     QPlainTextEdit* report = nullptr;
     Table tableA;
     bool haveA = false;
@@ -229,6 +232,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     form4->addRow(tr("Sắp xếp theo cột (chữ):"), d->sortCol);
     form4->addRow(d->ignoreCase); form4->addRow(d->descending);
     l4->addLayout(form4);
+    auto* extraSteps=new QPushButton(tr("Làm sạch và bỏ trùng trong quy trình…"));l4->addWidget(extraSteps);
     auto* chooseColumns = new QPushButton(tr("Chọn và đổi tên cột đầu ra…")); l4->addWidget(chooseColumns);
     auto* run4 = new QPushButton(tr("Xem trước kết quả lọc và sắp xếp…"));
     l4->addWidget(run4);
@@ -257,6 +261,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->dupCols->clear(); d->keyCol->clear();
         d->filterCol->clear(); d->sortCol->clear();
         d->outputColumns.clear(); d->outputNames.clear();
+        d->cleanCol=-1;d->dedupCol=-1;d->cleanKind=ColumnKind::Keep;d->queryLocale=MoneyLocale::VN;d->dedupFold=false;
         d->filterCol->addItem(tr("Không lọc"), -1);
         d->sortCol->addItem(tr("Giữ thứ tự gốc"), -1);
         auto* form = qobject_cast<QFormLayout*>(d->kindHost->layout());
@@ -375,8 +380,38 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         spec.ignoreCase = d->ignoreCase->isChecked();
         spec.descending = d->descending->isChecked();
         spec.outputColumns=d->outputColumns; spec.outputNames=d->outputNames;
+        spec.cleanCol=d->cleanCol;spec.cleanKind=d->cleanKind;spec.moneyLocale=d->queryLocale;
+        spec.dedupCol=d->dedupCol;spec.dedupFold=d->dedupFold;
         return spec;
     };
+    connect(extraSteps,&QPushButton::clicked,this,[this,needA] {
+        if(!needA())return;
+        QDialog dlg(this);dlg.setWindowTitle(tr("Quy trình dữ liệu"));
+        auto* form=new QFormLayout(&dlg);
+        auto* clean=new QComboBox(&dlg);auto* kind=new QComboBox(&dlg);
+        auto* locale=new QComboBox(&dlg);auto* dedup=new QComboBox(&dlg);
+        auto* fold=new QCheckBox(tr("Bỏ khoảng trắng đầu/cuối và không phân biệt hoa/thường khi bỏ trùng"),&dlg);
+        clean->addItem(tr("Không làm sạch"),-1);dedup->addItem(tr("Không bỏ trùng"),-1);
+        for(int i=0;i<d->tableA.header.size();++i){
+            const auto label=tr("%1 · %2").arg(i+1).arg(d->tableA.header[i]);
+            clean->addItem(label,i);dedup->addItem(label,i);
+        }
+        kind->addItem(tr("Ngày → dd/mm/yyyy"),int(ColumnKind::Date));
+        kind->addItem(tr("Số tiền → số thuần"),int(ColumnKind::Money));
+        locale->addItem(tr("Việt Nam: 1.234,56"),int(MoneyLocale::VN));
+        locale->addItem(tr("Anh: 1,234.56"),int(MoneyLocale::EN));
+        clean->setCurrentIndex(clean->findData(d->cleanCol));dedup->setCurrentIndex(dedup->findData(d->dedupCol));
+        kind->setCurrentIndex(d->cleanKind==ColumnKind::Money?1:0);locale->setCurrentIndex(locale->findData(int(d->queryLocale)));
+        fold->setChecked(d->dedupFold);
+        form->addRow(tr("1. Cột làm sạch:"),clean);form->addRow(tr("Kiểu:"),kind);form->addRow(tr("Định dạng số:"),locale);
+        auto* note=new QLabel(tr("2. Lọc theo thiết lập ở tab chính. 3. Bỏ trùng theo khóa dưới đây, giữ dòng đầu tiên sau lọc. Khóa rỗng luôn giữ. 4. Sắp xếp. 5. Chọn cột đầu ra."),&dlg);note->setWordWrap(true);form->addRow(note);
+        form->addRow(tr("3. Cột bỏ trùng:"),dedup);form->addRow(fold);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);form->addRow(buttons);
+        connect(buttons,&QDialogButtonBox::accepted,&dlg,&QDialog::accept);connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        if(dlg.exec()!=QDialog::Accepted)return;
+        d->cleanCol=clean->currentData().toInt();d->cleanKind=d->cleanCol<0?ColumnKind::Keep:ColumnKind(kind->currentData().toInt());
+        d->queryLocale=MoneyLocale(locale->currentData().toInt());d->dedupCol=dedup->currentData().toInt();d->dedupFold=fold->isChecked();
+    });
     connect(chooseColumns,&QPushButton::clicked,this,[this,needA] {
         if(!needA()) return;
         QDialog dlg(this); dlg.setWindowTitle(tr("Cột đầu ra")); dlg.resize(540,430);
@@ -443,6 +478,8 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->ignoreCase->setChecked(spec.ignoreCase);
         d->descending->setChecked(spec.descending);
         d->outputColumns=spec.outputColumns; d->outputNames=spec.outputNames;
+        d->cleanCol=spec.cleanCol;d->cleanKind=spec.cleanKind;d->queryLocale=spec.moneyLocale;
+        d->dedupCol=spec.dedupCol;d->dedupFold=spec.dedupFold;
         d->report->setPlainText(tr("Đã nạp cấu hình. Bấm Xem trước để chạy với dữ liệu hiện tại."));
     });
     connect(run4, &QPushButton::clicked, this, [this, askSave, save, needA, recipeSpec] {
@@ -451,6 +488,8 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         if (!r.ok) { QMessageBox::warning(this, tr("Lọc và sắp xếp"), r.error); return; }
         QString rep = tr("Kết quả: %1 / %2 dòng. Sắp xếp dạng chữ, không ép kiểu; nguồn không bị sửa.")
             .arg(r.table.rows.size()).arg(d->tableA.rows.size());
+        rep += tr("\nLàm sạch %1 ô; %2 cảnh báo (giữ nguyên ô không chắc chắn); lọc bỏ %3 dòng; bỏ trùng %4 dòng.")
+            .arg(r.cleanedCells).arg(r.cleanWarnings).arg(r.filteredRows).arg(r.removedDuplicates);
         rep += QStringLiteral("\n") + r.table.header.join(QStringLiteral(" | "));
         for (int i = 0; i < r.table.rows.size() && i < 20; ++i)
             rep += QStringLiteral("\n") + r.table.rows[i].join(QStringLiteral(" | "));
