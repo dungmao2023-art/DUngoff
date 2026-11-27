@@ -70,7 +70,11 @@ class DungPdfTests(unittest.TestCase):
                 d.parse_pages(spec, 3)
 
     def test_parse_pages_open_ended(self):
-        self.assertEqual(d.parse_pages("2-", 4), [1, 2, 3])
+        self.assertEqual(d.parse_pages("2-", 4), [1, 2, 3])  # zero-based indexes: pages 2–4
+
+    def test_parse_pages_first_page_and_order(self):
+        self.assertEqual(d.parse_pages("1,3,1", 3), [0, 2, 0])
+        self.assertEqual(d.parse_pages("-2", 3), [0, 1])
 
     def test_split_each_writes_one_file_per_page(self):
         out_dir = self.p("split")
