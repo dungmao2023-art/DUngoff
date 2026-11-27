@@ -2,6 +2,8 @@
 #include "dung/Engine.h"
 #include <QImage>
 #include <QWidget>
+#include <QVector>
+#include <QString>
 
 // Trình chiếu toàn màn hình trong cửa sổ Qt: vẽ từng trang bằng paintPartTile,
 // không đổi trang hiện tại của tài liệu và không mở cửa sổ LibreOffice.
@@ -24,6 +26,8 @@ private:
     dung::Document* m_doc;
     int m_part;
     int m_count;
+    QVector<bool> m_visible;
+    QString m_digits;
     int m_blank = 0; // 0: slide, 1: black, 2: white
     long m_w = 0, m_h = 0; // twip
     QImage m_img;
