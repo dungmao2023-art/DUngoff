@@ -122,6 +122,15 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
           QString("peak=%1 drain=%2 ms").arg(view.peakTilesPerPaint()).arg(renderTiming.elapsed()));
     view.setZoom(originalZoom);
     pump(400);
+    view.hide();
+    check(view.cachedTileCount()<=16&&!view.renderPending(),
+          label+": tab ẩn giải phóng cache và dừng render chờ");
+    view.show();
+    view.activateWindow();
+    view.setFocus();
+    pump(500);
+    check(waitFor([&]{return !view.renderPending();},8000)&&view.cachedTileCount()>0,
+          label+": mở lại tab tiếp tục render");
 
     if (wantCell) {
         click(vp, QPoint(120, 60));
