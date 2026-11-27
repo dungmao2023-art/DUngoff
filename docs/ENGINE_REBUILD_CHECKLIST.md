@@ -59,7 +59,24 @@ Tham chiếu upstream: https://api.libreoffice.org/docs/idl/ref/interfacecom_1_1
 4. Gate build: mỗi patch có test thất bại trên baseline, acceptance, rollback. Nếu còn NOT RUN ảnh hưởng cấu hình, chưa chốt build. Một ứng viên tag riêng, tối đa 3 lượt checkpoint theo quy định cũ, SHA256, log, không tự public release. Không ghi đè v1. Không kích hoạt build từ PR audit.
 5. Gate chuyển pin: Windows/Linux CI đầy đủ + fixture roundtrip + 158 mẫu hiện có + font/IME/Undo/playback/GUI Windows sạch; xác minh MS Office, không mất dữ liệu. Chỉ đổi pin sau kết quả. Nếu thất bại, giữ v1 và ghi blocker, không đánh dấu accepted.
 
-## 6. Kết luận audit
+## 6. Kế hoạch bảo toàn và build một đợt — quyết định 28/11
+
+**Bảo toàn bản hoạt động trước bất kỳ build/chuyển pin:** giữ nguyên release v1, checksum ghim và bản cài đang chạy. Script `scripts/backup-engine.ps1` tải đúng archive v1, đối chiếu SHA256 ghim, kiểm 7z, ghi manifest và lưu sang thư mục riêng theo tag, từ chối ghi đè. Ví dụ lưu ổ khác: `./scripts/backup-engine.ps1 -BackupRoot "D:\\DungOffice-Engine-Backup"` (thay đường dẫn bằng ổ thật có đủ dung lượng; GitHub CLI đã xác thực repo riêng). Workflow `engine-preflight.yml` lưu bản sao archive/manifest thành artifact độc lập 30 ngày; đây không phải backup vĩnh viễn. Chỉ coi backup đã có khi job kiểm checksum + upload PASS; tải artifact về ổ riêng hoặc lưu archive qua script để bảo quản lâu dài. Không xóa release v1/v2. Không truy cập hay sao lưu dữ liệu cá nhân của người dùng.
+
+**Preflight, không biên dịch:** kiểm digest v2 từ metadata asset phát hành; thiếu digest hoặc sai hash thì dừng, không tự tin cậy hash mới tính. Giải nén v2 riêng, không vào build/lo của v1. Probe `test_dung_api.py` nạp đúng module shipped trong share/Scripts/python, dùng pipe ngẫu nhiên + profile/temp riêng, kiểm cả 4 lề trong DOCX của gọi UNO trực tiếp và provider, không đóng process soffice khác. PASS standalone UNO chỉ chứng minh API ngoài LOK; chưa chứng minh thao tác model sống. PR audit không thay engine-windows.yml/autogen.input/CI engine pin. Bằng chứng backup và probe hiện đang chờ workflow; chưa chạy build.
+
+| Gate | Điều kiện đóng | Nếu không đạt |
+|---|---|---|
+| G0 Bảo toàn | Backup archive v1 khớp SHA256, 7z test, manifest và nơi lưu độc lập; xác nhận có thể giải nén/mở thử từ backup | Dừng trước build mới; không ghi đè bản hoạt động |
+| G1 V2 sẵn có | Xác minh SHA, runtime và standalone provider; thử lại live LOK trên v1/v2 | Phân biệt lỗi cài đặt/bridge/ABI với lỗi engine; không build vì lỗi setup |
+| G2 Đóng scope | Tất cả ma trận mục 2–4 có PASS/FAIL/NOT RUN + SHA/fixture; blocker mỗi mục có nguyên nhân, test tái hiện và phương án app/runtime/engine | NOT RUN ảnh hưởng cấu hình thì chưa chốt; vấn đề độc lập chuyển về app |
+| G3 Patch freeze | Gom patch bridge, dialog, font, render, IME, playback, filter nếu chứng minh cần; kiểm upstream đúng tag, compile nhỏ, license/manifest/checksum; không thay nền/cắt module tùy tiện | Sửa patch trước build tốn kém |
+| G4 Build | Một candidate tag mới không trùng v1/v2; thủ công khi G0–G3 đạt; tối đa 3 lượt có checkpoint, không tự phát hành; test bắt buộc fail thì không promote | Giữ v1; giữ log và ứng viên lỗi để phân tích, không vòng lặp build vô hạn |
+| G5 Chuyển engine | CI đúng SHA, DOCX/XLSX/PPTX fixtures, 158 mẫu, font fallback/IME, UNO/Undo, animation, không mất dữ liệu, thử Windows sạch; bản cài rollback còn sẵn | Không đổi pin, không gọi là hoàn thành; khôi phục v1 từ archive độc lập |
+
+**Yêu cầu trước build mới:** sửa workflow engine để chỉ chạy thủ công khi freeze, tách package candidate khỏi phát hành và chặn promote nếu test fail (hiện workflow cũ continue-on-error với UNO probe; chưa thay trong PR audit để tránh kích hoạt push build). Không tự động nâng version ứng dụng hoặc xóa archive cũ. Các chức năng chưa có UI vẫn cần lập trình sau khi bridge đạt, và PDF/OCR không chờ LibreOffice.
+
+## 7. Kết luận audit
 
 Có blocker thực ở giao tiếp model/dialog và font fallback; chưa có đủ bằng chứng bắt buộc rebuild ngay. Engine v2 đã có nhưng probe lỗi setup. Danh sách này là scope gom một đợt nếu cần, không phải tuyên bố đã sửa hoặc hoàn tất kiểm thử. Các mục engine-independent phát triển song song. Không tăng trọng số/stage, không public release.
 
