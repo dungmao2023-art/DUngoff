@@ -482,28 +482,43 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         });
         dlg.exec();
     });
-    connect(chooseColumns,&QPushButton::clicked,this,[this,needA] {
+    connect(chooseColumns,&QPushButton::clicked,this,[this,needA,recipeSpec] {
         if(!needA()) return;
         QDialog dlg(this); dlg.setWindowTitle(tr("Cột đầu ra")); dlg.resize(540,430);
         auto* layout=new QVBoxLayout(&dlg);
-        auto* note=new QLabel(tr("Tích cột cần giữ; nhấp đúp để đổi tên. Thứ tự theo nguồn; lọc/sắp xếp vẫn dùng cột gốc."),&dlg);
+        auto* note=new QLabel(tr("Tích cột cần giữ; nhấp đúp để đổi tên; dùng Lên/Xuống để đổi thứ tự. Lọc, sắp xếp và nhóm vẫn tham chiếu cột nguồn."),&dlg);
         note->setWordWrap(true); layout->addWidget(note);
         auto* list=new QListWidget(&dlg); layout->addWidget(list,1);
-        for(int i=0;i<d->tableA.header.size();++i) {
+        QList<int> order=d->outputColumns;
+        for(int i=0;i<d->tableA.header.size();++i)if(!order.contains(i))order.append(i);
+        for(int i:order) {
             const auto pos=d->outputColumns.indexOf(i);
             auto* item=new QListWidgetItem(pos>=0?d->outputNames[pos]:d->tableA.header[i],list);
+            item->setData(Qt::UserRole,i);
             item->setFlags(item->flags()|Qt::ItemIsUserCheckable|Qt::ItemIsEditable);
             item->setToolTip(tr("Cột nguồn %1: %2").arg(i+1).arg(d->tableA.header[i]));
             item->setCheckState(d->outputColumns.isEmpty()||pos>=0?Qt::Checked:Qt::Unchecked);
         }
+        auto* ordering=new QHBoxLayout;
+        auto* up=new QPushButton(tr("↑ Lên"),&dlg);auto* down=new QPushButton(tr("↓ Xuống"),&dlg);
+        ordering->addWidget(up);ordering->addWidget(down);ordering->addStretch();layout->addLayout(ordering);
+        auto move=[list](int delta){
+            const int row=list->currentRow(),target=row+delta;
+            if(row<0||target<0||target>=list->count())return;
+            list->insertItem(target,list->takeItem(row));list->setCurrentRow(target);
+        };
+        connect(up,&QPushButton::clicked,&dlg,[move]{move(-1);});
+        connect(down,&QPushButton::clicked,&dlg,[move]{move(1);});
+        auto updateButtons=[list,up,down](int row){up->setEnabled(row>0);down->setEnabled(row>=0&&row+1<list->count());};
+        connect(list,&QListWidget::currentRowChanged,&dlg,updateButtons);updateButtons(-1);
         auto* reset=new QPushButton(tr("Giữ tất cả cột và tên gốc"),&dlg); layout->addWidget(reset);
         auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg); layout->addWidget(buttons);
         connect(reset,&QPushButton::clicked,&dlg,[&] { d->outputColumns.clear(); d->outputNames.clear(); dlg.accept(); });
         connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
         connect(buttons,&QDialogButtonBox::accepted,&dlg,[&] {
-            FilterSortSpec spec;
+            auto spec=recipeSpec();spec.outputColumns.clear();spec.outputNames.clear();
             for(int i=0;i<list->count();++i) if(list->item(i)->checkState()==Qt::Checked) {
-                spec.outputColumns.append(i); spec.outputNames.append(list->item(i)->text().trimmed());
+                spec.outputColumns.append(list->item(i)->data(Qt::UserRole).toInt()); spec.outputNames.append(list->item(i)->text().trimmed());
             }
             if(spec.outputColumns.isEmpty()) { QMessageBox::warning(&dlg,tr("Cột đầu ra"),tr("Chọn ít nhất một cột.")); return; }
             const auto checked=filterSort(Table{d->tableA.header,{}},spec);
