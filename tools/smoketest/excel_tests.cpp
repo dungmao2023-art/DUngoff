@@ -112,6 +112,27 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
     doc->command(".uno:Insert", ex::sheetInsert("Mới", 3));
     settle();
     check(doc->partCount() == 3 && doc->partName(2) == "Mới", "Thêm sheet 'Mới' vào cuối: " + names(*doc));
+    // Rightward swap is implemented by moving the next sheet backward.
+    // The forward insertion index differs across Windows/Linux engines.
+    doc->setPart(1);
+    doc->command(".uno:Move",ex::sheetMove(toUtf8(doc->workingCopy().stem()),1,false));
+    settle();
+    check(doc->partCount()==3&&doc->partName(0)=="Phụ"&&doc->partName(1)=="Dữ liệu"&&doc->partName(2)=="Mới",
+          "Dời sheet sang phải một vị trí: "+names(*doc));
+    doc->setPart(2);
+    doc->command(".uno:Move",ex::sheetMove(toUtf8(doc->workingCopy().stem()),2,false));
+    settle();
+    check(doc->partCount()==3&&doc->partName(0)=="Phụ"&&doc->partName(1)=="Mới"&&doc->partName(2)=="Dữ liệu",
+          "Dời sheet cuối về bên phải: "+names(*doc));
+    doc->setPart(2);
+    doc->command(".uno:Move",ex::sheetMove(toUtf8(doc->workingCopy().stem()),2,false));
+    settle();
+    check(doc->partCount()==3&&doc->partName(1)=="Dữ liệu","Dời sheet cuối sang trái: "+names(*doc));
+    doc->setPart(1);
+    doc->command(".uno:Move",ex::sheetMove(toUtf8(doc->workingCopy().stem()),1,false));
+    settle();
+    check(doc->partCount()==3&&doc->partName(0)=="Dữ liệu"&&doc->partName(1)=="Phụ"&&doc->partName(2)=="Mới",
+          "Khôi phục thứ tự ba sheet: "+names(*doc));
     doc->setPart(2);
     doc->command(".uno:RenameTable", ex::sheetRename("Đổi tên"));
     settle();
