@@ -111,7 +111,7 @@ jobs:
       - name: Kiểm thử an toàn dữ liệu ghi chú và lịch
         run: |
           set -o pipefail
-          ./build/app/dung-workspacetest 2>&1 | tee report/linux-workspacetest.log
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-workspacetest 2>&1 | tee report/linux-workspacetest.log
       - name: Kiểm thử tiện ích văn bản tiếng Việt (số tiền, ngày, bảng mã cũ)
         run: |
           set -o pipefail
@@ -506,6 +506,7 @@ jobs:
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử an toàn dữ liệu ghi chú và lịch trên Windows
         run: |
+          $env:QT_QPA_PLATFORM = "offscreen"
           $test = Get-ChildItem build/out -Recurse -Filter dung-workspacetest.exe | Select-Object -First 1
           if (-not $test) { throw "Không thấy dung-workspacetest.exe" }
           & $test.FullName *>&1 | Tee-Object report/windows-workspacetest.log
