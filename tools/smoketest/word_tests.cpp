@@ -570,6 +570,11 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                     const bool found=has(selText(*reopened),"TABLE_CELL_MARKER");
                     check(found,"Tìm đúng ô trước khi xóa");
                     if(found){
+                        // Collapse at the start of the marker, then move one
+                        // character into it. Collapsing at its trailing edge can
+                        // place the cursor in the neighbouring cell.
+                        reopened->postKey(LOK_KEYEVENT_KEYINPUT,0,1026);
+                        reopened->postKey(LOK_KEYEVENT_KEYUP,0,1026);
                         reopened->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
                         reopened->postKey(LOK_KEYEVENT_KEYUP,0,1027);
                         reopened->waitInputIdle();
