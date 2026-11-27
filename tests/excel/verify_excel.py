@@ -68,6 +68,14 @@ def basic(path):
           "Kết quả FillDown được tính đúng sau lưu XLSX")
     check([cached[f"{col}2"].value for col in ("G","H","I")] == [15,10,12],
           "Kết quả FillRight được tính đúng sau lưu XLSX")
+    check([fill[f"D{r}"].value for r in (2,3,4)] == ["=A2+$B$2","=A3+$B$2","=A4+$B$2"],
+          "FillUp giữ nguồn cuối và dịch đúng công thức")
+    check([fill[f"{col}3"].value for col in ("G","H","I")] == ["=A2+$B$2","=B2+$B$2","=C2+$B$2"],
+          "FillLeft giữ nguồn cuối và dịch đúng công thức")
+    check([cached[f"D{r}"].value for r in (2,3,4)] == [15,25,35],
+          "FillUp giữ giá trị tính đúng sau lưu")
+    check([cached[f"{col}3"].value for col in ("G","H","I")] == [15,10,12],
+          "FillLeft giữ giá trị tính đúng sau lưu")
     check([tuple(fill.cell(r,c).value for c in (11,12,13)) for r in range(10,14)] ==
           [("Khóa","Mã","Giá trị"), (1,"001",10), (2,"002",20), (3,"003",30)],
           "SortAscending giữ tiêu đề và liên kết toàn dòng, mã 0 đầu không đổi")
