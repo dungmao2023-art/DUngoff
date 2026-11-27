@@ -41,6 +41,8 @@ private:
     QWidget* m_content = nullptr;
     QStackedWidget* m_tabs = nullptr;
     QLabel* m_title = nullptr;
+    QLabel* m_saveStatus = nullptr;
+    QPushButton* m_retrySave = nullptr;
     QList<QPushButton*> m_buttons;
     int m_openPage = -1;
     int m_lastPage = 0;
