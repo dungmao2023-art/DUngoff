@@ -6,6 +6,11 @@
 #include "PageMargins.h"
 
 #include "dung/Engine.h"
+#ifndef LOK_USE_UNSTABLE_API
+#define LOK_USE_UNSTABLE_API
+#endif
+#include <LibreOfficeKit/LibreOfficeKitEnums.h>
+#include <QPointer>
 #include "../vntext/VnText.h"
 #include "../vntext/SyllableCheck.h"
 #include "../tools/mailmerge/MailMergeWidget.h"
@@ -94,6 +99,7 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (!id.startsWith(QLatin1String("word:"))) return false;
     if (!tab || tab->readOnly()) return true;
     auto* doc = tab->document();
+    if(!doc || doc->kind()!=DocKind::Text || !tab->view())return true;
     QString name = id.mid(5);
     if (name == QLatin1String("reviewSyllable")) name = QStringLiteral("vnSyllable");
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
@@ -112,14 +118,29 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         tab->view()->setFocus();
     } else if (name == QLatin1String("addComment")) {
         doc->waitInputIdle();
+        QPointer<DocumentTab> live(tab);
+        const auto selected=doc->selectionAs("text/plain;charset=utf-8");
+        const auto caret=doc->lastPayload(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR);
+        const auto selection=doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION);
+        if(selected.empty() && caret.empty()){
+            QMessageBox::information(parent,QObject::tr("Bình luận Word"),QObject::tr("Đặt con trỏ vào văn bản trước khi thêm bình luận."));return true;
+        }
         bool ok=false;
         const QString comment=QInputDialog::getMultiLineText(parent,QObject::tr("Bình luận Word"),
             QObject::tr("Nhập nội dung bình luận tại con trỏ hoặc vùng chữ đang chọn:"),QString(),&ok);
         if(!ok||comment.trimmed().isEmpty())return true;
         if(comment.size()>10000){QMessageBox::warning(parent,QObject::tr("Bình luận Word"),QObject::tr("Tối đa 10.000 ký tự."));return true;}
+        if(!live||live->readOnly()||live->document()!=doc||!live->view())return true;
+        doc->waitInputIdle();
+        if(doc->selectionAs("text/plain;charset=utf-8")!=selected ||
+           doc->lastPayload(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR)!=caret ||
+           doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION)!=selection){
+            QMessageBox::warning(live.data(),QObject::tr("Bình luận Word"),QObject::tr("Vị trí hoặc vùng chữ đã thay đổi. Chưa thêm bình luận; hãy chọn lại."));
+            return true;
+        }
         doc->command(".uno:InsertAnnotation",Document::stringArg("Text",ss(comment)));
         doc->waitInputIdle();
-        tab->view()->setFocus();
+        if(live&&live->view())live->view()->setFocus();
     } else if (name == QLatin1String("headerEnable") || name == QLatin1String("footerEnable")) {
         const bool header = name == QLatin1String("headerEnable");
         bool ok = false;
