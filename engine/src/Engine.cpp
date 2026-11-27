@@ -1203,9 +1203,34 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
         return r;
     }
     const bool exists = fs::exists(longPath(target), ec);
-    bool ownOutput = false; // tệp do chính phiên này ghi ra trước đó -> ghi lại không cần hỏi/sao lưu
-    for (const auto& o : m_sessionOutputs)
-        if (samePath(o, target)) ownOutput = true;
+    if (ec) { r.message = "Không kiểm tra được tệp đích: " + ec.message(); return r; }
+    uintmax_t initialSize = 0;
+    fs::file_time_type initialTime{};
+    auto snapshot = [&](const fs::path& p, uintmax_t& size, fs::file_time_type& time) {
+        std::error_code error;
+        const auto status = fs::symlink_status(longPath(p),error);
+        if (error || !fs::is_regular_file(status)) return false;
+        size = fs::file_size(longPath(p),error);
+        if (error) return false;
+        time = fs::last_write_time(longPath(p),error);
+        return !error;
+    };
+    if (exists && !snapshot(target,initialSize,initialTime)) {
+        r.message = "Tệp đích không phải tệp thường hoặc không đọc được. Chọn tên khác.";
+        return r;
+    }
+    auto targetUnchanged = [&] {
+        uintmax_t size = 0;
+        fs::file_time_type time{};
+        return snapshot(target,size,time) && size==initialSize && time==initialTime;
+    };
+    auto own = std::find_if(m_sessionOutputs.begin(),m_sessionOutputs.end(),
+        [&](const SessionOutput& o) { return samePath(o.path,target); });
+    const bool ownOutput = exists && own!=m_sessionOutputs.end();
+    if (ownOutput && (own->size!=initialSize || own->modified!=initialTime)) {
+        r.message = "Tệp đã lưu trước đó đã bị sửa bên ngoài. Dùng Lưu thành với tên khác để bảo vệ dữ liệu.";
+        return r;
+    }
     if (exists && !targetIsOriginal && !ownOutput && !opts.allowReplaceExisting) {
         r.message = "Tệp đích đã tồn tại. Cần xác nhận thay thế.";
         return r;
@@ -1240,6 +1265,11 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
         r.message = "Tệp ghi ra không hợp lệ (" + why + "). Tệp đích chưa bị thay đổi.";
         return r;
     }
+    if (exists && !targetUnchanged()) {
+        fs::remove(stage,ec);
+        r.message = "Tệp đích đã thay đổi trong lúc lưu. Chưa ghi đè.";
+        return r;
+    }
     if (exists && !ownOutput) {
         r.backup = backupPathFor(target);
         fs::copy_file(longPath(target), longPath(r.backup), fs::copy_options::none, ec);
@@ -1260,6 +1290,14 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
         r.message = "Không ghi được vào thư mục đích: " + em + "." + longNote + " Tệp đích chưa bị thay đổi.";
         return r;
     }
+    uintmax_t publishedSize = 0;
+    fs::file_time_type publishedTime{};
+    if (!snapshot(sibling,publishedSize,publishedTime) || (exists && !targetUnchanged())) {
+        fs::remove(longPath(sibling),ec);
+        fs::remove(stage,ec);
+        r.message = "Không xác minh được tệp tạm hoặc tệp đích đã thay đổi. Chưa ghi đè.";
+        return r;
+    }
     if (exists) {
         fs::rename(longPath(sibling), longPath(target), ec);
     } else {
@@ -1278,7 +1316,8 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
     r.written = target;
     r.message = "Đã lưu: " + toUtf8(target.filename());
     if (!isPdf) m_modified = false;
-    if (!ownOutput) m_sessionOutputs.push_back(target);
+    if (own==m_sessionOutputs.end()) m_sessionOutputs.push_back({target,publishedSize,publishedTime});
+    else *own = {target,publishedSize,publishedTime};
     return r;
 }
 
