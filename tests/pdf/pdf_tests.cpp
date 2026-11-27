@@ -17,6 +17,14 @@
 
 #include <cstdio>
 #include <iostream>
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 using namespace dungpdf;
 
@@ -155,10 +163,13 @@ int main(int argc, char** argv) {
     QString perr;
     CHECK(parsePages(QStringLiteral("1-3,5,8-"), 9, &perr) == (QList<int>{0, 1, 2, 4, 7, 8}), "parsePages '1-3,5,8-' (9 trang)");
     CHECK(parsePages(QStringLiteral("2-"), 4) == (QList<int>{1, 2, 3}), "parsePages mở đầu cuối '2-'");
-    for (const char* bad : {"0", "4", "3-1", "", "x", "1,,x"}) {
+    for (const char* bad : {"0", "4", "3-1", "", "x", "1,,x", "1,,2", "1,", ",1", "1 2", "-", "+1", "1-2-3"}) {
         QString e;
         CHECK(parsePages(QString::fromLatin1(bad), 3, &e).isEmpty() && !e.isEmpty(), QStringLiteral("parsePages từ chối '%1'").arg(QString::fromLatin1(bad)));
     }
+
+    CHECK(parsePages(QStringLiteral("1 - 3"),3,&perr)==(QList<int>{0,1,2}) && perr.isEmpty(),"page range spaces around dash");
+    CHECK(parsePages(QStringLiteral("1-1000001"),1000001,&perr).isEmpty(),"reject excessive page expansion");
 
     // --- info
     const Info ia = info(a);
@@ -187,6 +198,26 @@ int main(int argc, char** argv) {
     CHECK(!r.ok && readFile(a) == aBytes, "gộp: không được ghi đè lên chính tệp nguồn");
     r = merge({{a, {}}}, P(QStringLiteral("mot.pdf")));
     CHECK(!r.ok, "gộp: cần ít nhất hai tệp");
+
+    const QString alias=P(QStringLiteral("source-hardlink.pdf"));
+#ifdef Q_OS_WIN
+    const bool linked=CreateHardLinkW(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(alias).utf16()),
+        reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(a).utf16()),nullptr)!=0;
+#else
+    const bool linked=::link(QFile::encodeName(a).constData(),QFile::encodeName(alias).constData())==0;
+#endif
+    if(linked){
+        CHECK(!extract({a,{}},QStringLiteral("1"),alias,true).ok && readFile(alias)==aBytes && readFile(a)==aBytes,
+              "reject hardlink destination even with replacement consent");
+    }else std::cout<<"SKIP hardlink unavailable on test filesystem\n";
+#ifndef Q_OS_WIN
+    const QString dangling=P(QStringLiteral("dangling.pdf")), absent=P(QStringLiteral("absent.pdf"));
+    if(::symlink(QFile::encodeName(absent).constData(),QFile::encodeName(dangling).constData())==0){
+        CHECK(!extract({a,{}},QStringLiteral("1"),dangling,true).ok && QFileInfo(dangling).isSymLink() && !QFileInfo::exists(absent),
+              "reject dangling symlink without replacing or creating target");
+    }
+#endif
+    CHECK(!extract({a,{}},QStringLiteral("1"),d,true).ok,"reject directory destination");
 
     // --- tên tiếng Việt có dấu và dấu cách
     const QString vn = P(QStringLiteral("Báo cáo tháng 1 Dũng.pdf"));
