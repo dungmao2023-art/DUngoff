@@ -7,6 +7,7 @@
 #include <QAbstractScrollArea>
 #include <QHash>
 #include <QImage>
+#include <QRegion>
 #include <QTimer>
 #include <QVector>
 
@@ -81,6 +82,7 @@ private:
     bool m_hasCaret = false, m_hasCell = false;
     bool m_blinkFrozen = false;
     void updateCaretRegion();
+    QRegion selectionPaintRegion() const;
     void restartBlink();           // hiện ngay rồi mới nhấp nháy lại (gõ/di chuyển/lấy focus)
     void drawCaret(QPainter& p);
     QRect cellOutlineTwips() const;
