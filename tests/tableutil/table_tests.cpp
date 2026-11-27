@@ -18,6 +18,27 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
 
+    // v5: join first, then group by a right-hand column; exact schema required.
+    {
+        const Table left=T({"ID","Amount"},{{"001","0.1"},{"001","0.2"},{"1","3"},{"002","4"}});
+        const Table right=T({"ID","Region"},{{"001","A"},{"1","B"}});
+        QueryJoinSpec join;join.enabled=true;join.leftKey=0;join.rightKey=0;join.rightHeader=right.header;
+        const auto input=queryJoinInput(left,right,join);
+        CHECK(input.ok&&input.matched==3&&input.unmatched==1&&input.table.header.value(2)=="B.Region","v5 left join preserves exact codes");
+        FilterSortSpec steps;steps.groupKey=2;steps.groupValue=1;
+        const auto result=filterSort(input.table,steps);
+        CHECK(result.ok&&result.table.rows.size()==3&&result.table.rows.value(0).value(3)=="0.3","group by joined region");
+        const auto json=encodeQueryRecipe(left.header,join,steps);
+        QueryJoinSpec loaded;FilterSortSpec decoded;QString error;
+        CHECK(decodeQueryRecipe(json,left.header,right.header,loaded,decoded,error)&&loaded.enabled&&decoded.groupKey==2&&filterSort(queryJoinInput(left,right,loaded).table,decoded).table==result.table,"v5 recipe replay");
+        CHECK(!decodeQueryRecipe(json,left.header,{"ID","Other"},loaded,decoded,error)&&loaded.enabled&&decoded.groupKey==2,"schema mismatch preserves current options");
+        CHECK(!queryJoinInput(left,T({"ID","Other"},{{"001","A"}}),join).ok,"reject changed lookup schema");
+        CHECK(!queryJoinInput(left,T(right.header,{{"001","A"},{"001","B"}}),join).ok,"reject duplicate right keys");
+        join.kind=JoinKind::Inner;
+        CHECK(queryJoinInput(left,right,join).table.rows.size()==3,"inner join excludes missing keys");
+        CHECK(decodeQueryRecipe(encodeFilterSortRecipe(left.header,FilterSortSpec{}),left.header,{},loaded,decoded,error)&&!loaded.enabled,"legacy recipe remains compatible");
+    }
+
     // Composite keys must be injective even with literal separators in input.
     {
         const QString sep(QChar(0x1F));

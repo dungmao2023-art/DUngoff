@@ -137,4 +137,15 @@ struct JoinResult {
 };
 // Exact text-key join. Reject duplicate nonempty lookup keys, preserve left order.
 JoinResult joinLookup(const Table& left, const Table& right, int leftKey, int rightKey, JoinKind kind);
+
+struct QueryJoinSpec {
+    bool enabled=false;
+    int leftKey=-1,rightKey=-1;
+    JoinKind kind=JoinKind::Left;
+    QStringList rightHeader;
+};
+JoinResult queryJoinInput(const Table& left,const Table& right,const QueryJoinSpec& join);
+QByteArray encodeQueryRecipe(const QStringList& leftHeader,const QueryJoinSpec& join,const FilterSortSpec& steps);
+bool decodeQueryRecipe(const QByteArray& json,const QStringList& leftHeader,const QStringList& rightHeader,
+                       QueryJoinSpec& join,FilterSortSpec& steps,QString& error);
 } // namespace tbl
