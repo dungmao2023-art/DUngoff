@@ -49,6 +49,33 @@ static std::string ss(const QString& s) { return s.toUtf8().toStdString(); }
 
 static void send(DocumentTab* t, const Call& c) { t->document()->command(c.first, c.second); }
 
+// Dialogs can run nested event loops. Capture both the selection contents
+// and its position; identical text at a different location is not the same target.
+struct WordInsertTarget {
+    QPointer<DocumentTab> tab;
+    Document* doc;
+    std::string selected, caret, selection;
+    int part;
+    explicit WordInsertTarget(DocumentTab* t) : tab(t), doc(t->document()) {
+        doc->waitInputIdle();
+        part = doc->currentPart();
+        selected = doc->selectionAs("text/plain;charset=utf-8");
+        caret = doc->lastPayload(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR);
+        selection = doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION);
+    }
+    bool verify() const {
+        if (!tab || tab->document() != doc || tab->readOnly() || !tab->view()) return false;
+        doc->waitInputIdle();
+        if ((!caret.empty() || !selection.empty()) && doc->currentPart() == part &&
+            doc->selectionAs("text/plain;charset=utf-8") == selected &&
+            doc->lastPayload(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR) == caret &&
+            doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION) == selection) return true;
+        QMessageBox::warning(tab.data(), QObject::tr("Vị trí chèn"),
+            QObject::tr("Không xác minh được vị trí con trỏ hoặc vùng chữ đã thay đổi. Chưa sửa tài liệu. Hãy chọn lại."));
+        return false;
+    }
+};
+
 // Đặt lề bằng cách vá XML trên BẢN SAO rồi mở bản sao trong thẻ mới (không dùng lệnh UNO/runMacro).
 // An toàn: thẻ hiện tại, lịch sử hoàn tác và tệp gốc không bị đổi; bản sao được lấy từ trạng thái THẬT của tài liệu
 // (bản phục hồi, gồm cả phần vừa sửa chưa lưu) nên không phụ thuộc cờ "đã sửa" của engine.
@@ -175,6 +202,7 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         for (double s : commonFontSizes()) items << QString::number(s);
         bool ok = false;
         const QString pick = QInputDialog::getItem(parent, QObject::tr("Cỡ chữ"), QObject::tr("Cỡ chữ (pt):"), items, 3, true, &ok);
+        if (!ok) return true;
         double v = pick.toDouble(&ok);
         if (ok && v >= 1 && v <= 400) send(tab, fontSize(v));
     } else if (name == QLatin1String("color") || name == QLatin1String("back")) {
@@ -395,6 +423,7 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         doc->command(".uno:PageULMargin", join({argLong("PageULMargin.Upper", t), argLong("PageULMargin.Lower", b)}));
 #endif
     } else if (name == QLatin1String("adminHead") || name == QLatin1String("adminTail") || name == QLatin1String("adminFull")) {
+        const WordInsertTarget target(tab);
         const bool head = name != QLatin1String("adminTail"), tail = name != QLatin1String("adminHead");
         QDialog dlg(parent);
         dlg.setWindowTitle(QObject::tr("Chèn khối văn bản hành chính"));
@@ -452,11 +481,11 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         QObject::connect(box, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
         QObject::connect(box, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
         lay->addWidget(box);
-        if (dlg.exec() != QDialog::Accepted) return true;
-        doc->waitInputIdle();
-        if (!doc->selectionAs("text/plain;charset=utf-8").empty() &&
+        if (dlg.exec() != QDialog::Accepted || !target.verify()) return true;
+        if (!target.selected.empty() &&
             QMessageBox::question(parent, QObject::tr("Thay vùng chọn?"), QObject::tr("Đang có văn bản được chọn. Chèn sẽ thay vùng này. Tiếp tục?"), QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
             return true;
+        if (!target.verify()) return true;
         if (!doc->paste("text/html", render())) {
             QMessageBox::warning(parent, QObject::tr("Chèn khối"), QObject::tr("Engine không xác nhận chèn. Hãy kiểm tra văn bản trước khi thử lại."));
             return true;
@@ -468,8 +497,8 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         tab->view()->setFocus();
     } else if (name == QLatin1String("vnMoney")) {
         bool ok = false;
-        doc->waitInputIdle();
-        const QString originalSelection = QString::fromStdString(doc->selectionAs("text/plain;charset=utf-8"));
+        const WordInsertTarget target(tab);
+        const QString originalSelection = QString::fromStdString(target.selected);
         const QString selected = originalSelection.trimmed();
         const QString in = QInputDialog::getText(parent, QObject::tr("Số → chữ"),
             QObject::tr("Số đang chọn (hoặc nhập số):"), QLineEdit::Normal, selected, &ok);
@@ -489,20 +518,24 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         QString msg = QObject::tr("Xem trước:\n\n%1\n\n%2").arg(r.text, selected.isEmpty() ? QObject::tr("Chèn vào vị trí con trỏ?") : QObject::tr("Thay văn bản đang chọn bằng kết quả?"));
         if (!r.warnings.isEmpty()) msg += QObject::tr("\n\nLưu ý: ") + r.warnings.join(QStringLiteral("; "));
         if (QMessageBox::question(parent, QObject::tr("Số tiền → chữ"), msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes) {
-            doc->waitInputIdle();
-            if (QString::fromStdString(doc->selectionAs("text/plain;charset=utf-8")) != originalSelection) {
-                QMessageBox::warning(parent, QObject::tr("Số → chữ"), QObject::tr("Vùng chọn đã thay đổi; chưa chèn kết quả.")); return true;
-            }
+            if (!target.verify()) return true;
             if (!doc->paste("text/plain;charset=utf-8", ss(r.text)))
                 QMessageBox::warning(parent, QObject::tr("Số → chữ"), QObject::tr("Engine chưa xác nhận chèn."));
         }
     } else if (name == QLatin1String("vnDate")) {
+        const WordInsertTarget target(tab);
         const QString t = vntext::formatDateVn(QDate::currentDate(), vntext::DateStyle::Admin);
+        const QString prompt = target.selected.empty() ? QObject::tr("Chèn vào vị trí con trỏ?") :
+            QObject::tr("Thay vùng chữ đang chọn bằng ngày tháng?");
         if (QMessageBox::question(parent, QObject::tr("Chèn ngày Việt"),
-                QObject::tr("Xem trước:\n\n%1\n\nChèn vào vị trí con trỏ?").arg(t)) == QMessageBox::Yes)
-            doc->paste("text/plain;charset=utf-8", ss(t));
+                QObject::tr("Xem trước:\n\n%1\n\n%2").arg(t, prompt),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes && target.verify()) {
+            if (!doc->paste("text/plain;charset=utf-8", ss(t)))
+                QMessageBox::warning(parent, QObject::tr("Chèn ngày Việt"), QObject::tr("Engine chưa xác nhận chèn."));
+        }
     } else if (name == QLatin1String("vnTcvn3")) {
-        const QString sel = QString::fromUtf8(doc->selectionAs("text/plain;charset=utf-8").c_str());
+        const WordInsertTarget target(tab);
+        const QString sel = QString::fromStdString(target.selected);
         if (sel.isEmpty()) {
             QMessageBox::information(parent, QObject::tr("TCVN3 → Unicode"), QObject::tr("Hãy chọn đoạn văn bản cần đổi trước."));
             return true;
@@ -523,8 +556,11 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         QString msg = QObject::tr("Độ tin cậy %1%. Xem trước:\n\n%2\n\nÁp dụng thay phần đã chọn? (Hoàn tác được bằng Ctrl+Z)")
                           .arg(int(r.confidence * 100)).arg(r.text.left(400));
         if (!r.warnings.isEmpty()) msg += QObject::tr("\n\nLưu ý: ") + r.warnings.join(QStringLiteral("; "));
-        if (QMessageBox::question(parent, QObject::tr("TCVN3 → Unicode"), msg) == QMessageBox::Yes)
-            doc->paste("text/plain;charset=utf-8", ss(r.text));
+        if (QMessageBox::question(parent, QObject::tr("TCVN3 → Unicode"), msg,
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes && target.verify()) {
+            if (!doc->paste("text/plain;charset=utf-8", ss(r.text)))
+                QMessageBox::warning(parent, QObject::tr("TCVN3 → Unicode"), QObject::tr("Engine chưa xác nhận chèn."));
+        }
     } else if (name == QLatin1String("vnSyllable")) {
         // Chỉ liệt kê âm tiết nghi sai, KHÔNG tự sửa. Kiểm vùng chọn; nếu không chọn gì thì kiểm toàn văn bản.
         doc->waitInputIdle();
