@@ -265,6 +265,7 @@ void TileView::paintEvent(QPaintEvent* ev) {
             else p.fillRect(target,Qt::white);
         }
     }
+    m_peakTilesPerPaint=qMax(m_peakTilesPerPaint,rendered);
     if(!deferred.isEmpty()) {
         m_deferredPaint |= deferred;
         if(!m_tilePaintTimer.isActive())m_tilePaintTimer.start();
