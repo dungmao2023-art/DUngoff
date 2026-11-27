@@ -49,6 +49,23 @@ int main(int argc, char** argv) {
     check(!patchMasterBackground(masterXml,QStringLiteral("bad"),&out).ok,"reject invalid RGB");
     QByteArray twoShapes = animXml;
     twoShapes.replace("</p:spTree>", "<p:pic><p:nvPicPr><p:cNvPr id=\"43\" name=\"Picture\"/></p:nvPicPr></p:pic></p:spTree>");
+    // Graphic frames (tables/charts) are animated as a whole, not individual cells or series.
+    QByteArray frameXml=animXml;
+    frameXml.replace("</p:spTree>","<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"45\" name=\"Table\"/></p:nvGraphicFramePr></p:graphicFrame></p:spTree>");
+    AnimationOptions frame; frame.shapeId=45; frame.fade=true;
+    QByteArray frameAnimated;
+    check(patchAnimationXml(frameXml,frame,&frameAnimated).ok &&
+          frameAnimated.contains("spid=\"45\"") &&
+          frameAnimated.contains("<p:graphicFrame>"),"animate a top-level graphic frame as a single target");
+    QByteArray frameCleared;
+    check(clearAnimationXml(frameAnimated,&frameCleared).ok&&frameCleared==frameXml,
+          "clearing graphic frame timing preserves the original frame exactly");
+    QByteArray groupFrame=animXml;
+    groupFrame.replace("</p:spTree>","<p:grpSp><p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"45\" name=\"Nested\"/></p:nvGraphicFramePr></p:graphicFrame></p:grpSp></p:spTree>");
+    check(!patchAnimationXml(groupFrame,frame,&out).ok,"reject nested graphic frame until grouped targets are supported");
+    QByteArray duplicateFrame=frameXml;
+    duplicateFrame.replace("id=\"45\"","id=\"42\"");
+    check(!patchAnimationXml(duplicateFrame,frame,&out).ok,"reject duplicate frame identifier");
     AnimationOptions first; first.shapeId=42; first.fade=true; first.durationMs=750;
     AnimationOptions second; second.shapeId=43; second.delayMs=200;
     QByteArray sequence;
