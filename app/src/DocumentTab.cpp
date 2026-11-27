@@ -632,10 +632,14 @@ void DocumentTab::refreshPdfComparison() {
     const int part=m_doc->currentPart();
     if(part<0)return;
     const bool sameRequest=part==m_pdfRequestedPart&&m_recOrigin==m_pdfRequestedPath;
-    if(part==m_pdfComparedPart&&m_recOrigin==m_pdfComparedPath&&sameRequest)return;
+    if(!m_pdfComparisonBusy&&part==m_pdfComparedPart&&m_recOrigin==m_pdfComparedPath&&sameRequest)return;
     m_pdfRequestedPart=part;
     m_pdfRequestedPath=m_recOrigin;
     if(!sameRequest||!m_pdfComparisonBusy) {
+        // The displayed pixmap is about to be replaced. In A→B→A navigation
+        // do not mistake the now-cleared old image for a ready preview of A.
+        m_pdfComparedPart=-1;
+        m_pdfComparedPath.clear();
         m_pdfOriginalImage->setPixmap(QPixmap());
         m_pdfOriginalImage->setText(tr("Đang đọc trang gốc %1…").arg(part+1));
         m_pdfOriginalImage->setToolTip(QString());
@@ -656,6 +660,9 @@ void DocumentTab::startPdfComparison() {
     auto* worker=QThread::create([result,path,part]{
         result->image=printrender::renderPage(path,part+1,QSize(340,1200),&result->error);
     });
+    // App owns the worker, not the tab; closing a document disconnects the
+    // result callback while the independent PDF operation can finish safely.
+    worker->setParent(qApp);
     connect(worker,&QThread::finished,this,[this,result,path,part]{
         m_pdfComparisonBusy=false;
         if(!m_pdfComparison||m_pdfComparison->isHidden()||!m_pdfOriginalImage)return;
