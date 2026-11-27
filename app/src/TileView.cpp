@@ -13,6 +13,8 @@
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
 #include <QJsonArray>
+#include <QElapsedTimer>
+#include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPainter>
@@ -20,6 +22,26 @@
 #include <QScrollBar>
 #include <QWheelEvent>
 #include <cmath>
+
+namespace {
+// Opt-in measurement only: never log keystrokes, cell addresses or text.
+class UiTiming {
+public:
+    explicit UiTiming(const char* name):name_(name) {
+        static const bool enabled=qEnvironmentVariableIntValue("DUNG_TRACE_INPUT_PERF")!=0;
+        if(enabled) timer_.start();
+    }
+    ~UiTiming() {
+        if(timer_.isValid()) {
+            const auto ns=timer_.nsecsElapsed();
+            if(ns>=16000000) qInfo("DUNG_INPUT_PERF %s %.2f ms",name_,double(ns)/1000000.0);
+        }
+    }
+private:
+    const char* name_;
+    QElapsedTimer timer_;
+};
+}
 
 TileView::TileView(dung::Document* doc, QWidget* parent)
     : QAbstractScrollArea(parent), m_doc(doc), m_isCalc(doc->kind() == dung::DocKind::Spreadsheet) {
@@ -148,6 +170,7 @@ void TileView::sendVisibleArea() {
 }
 
 void TileView::requestHeaders() {
+    const UiTiming timing("headers");
     if (!m_isCalc) return;
     const QPoint h = headerSize();
     const double tpp = twipsPerPx();
@@ -174,6 +197,7 @@ void TileView::requestHeaders() {
 }
 
 void TileView::paintEvent(QPaintEvent* ev) {
+    const UiTiming timing("paint");
     QPainter p(viewport());
     const QPoint h = origin();
     const QRect content = viewport()->rect().adjusted(headerSize().x(), headerSize().y(), 0, 0);
@@ -468,6 +492,7 @@ void TileView::handleEvent(int type, const QString& payload) {
 }
 
 void TileView::sendMouse(int type, QMouseEvent* e, int count) {
+    const UiTiming timing("mouse");
     const QPoint h = headerSize();
     const QPoint pos = e->position().toPoint();
     if (m_isCalc && (pos.x() < h.x() || pos.y() < h.y())) return; // nhấp vào vùng tiêu đề (chưa hỗ trợ chọn cả hàng/cột)
@@ -551,6 +576,7 @@ void TileView::wheelEvent(QWheelEvent* e) {
 }
 
 void TileView::keyPressEvent(QKeyEvent* e) {
+    const UiTiming timing("key");
     if (m_composing && e->key() == Qt::Key_Escape) { cancelComposition(); e->accept(); return; }
     const LokKey k = toLokKey(e);
     if (!k.valid) { QAbstractScrollArea::keyPressEvent(e); return; }
@@ -567,6 +593,7 @@ void TileView::keyReleaseEvent(QKeyEvent* e) {
 }
 
 void TileView::inputMethodEvent(QInputMethodEvent* e) {
+    const UiTiming timing("ime");
     if (m_doc->readOnly()) { e->ignore(); return; }
     restartBlink();
     // Chuẩn IME: preedit hiển thị ngay trong tài liệu (engine tự gạch chân), commit thay chữ đang soạn rồi chốt.
