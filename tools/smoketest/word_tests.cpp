@@ -315,12 +315,24 @@ int runWordTests(const fs::path& program, const fs::path& out) {
 
     // ---------------- chèn chữ Việt qua paste (cơ chế dùng cho nhóm "Tiện ích Việt") ----------------
     step("dán chữ Việt");
+    selectAll(d);
+    const std::string beforePaste=selText(d);
     run(d, ".uno:GoToEndOfDoc");
     const std::string vn = "Một triệu đồng chẵn ngày 05 tháng 02 năm 2026";
     const bool pasted = d.paste("text/plain;charset=utf-8", vn);
     settle();
     selectAll(d);
     check(pasted && has(selText(d), vn), "Dán chuỗi tiếng Việt có dấu vào vị trí con trỏ", snippet(selText(d), 80));
+    const std::string afterPaste=selText(d);
+    step("Undo/Redo lặp lại khi dán Unicode");
+    for (int cycle=1;cycle<=2;++cycle) {
+        run(d,".uno:Undo");
+        selectAll(d);
+        check(selText(d)==beforePaste,"Undo paste giữ nguyên phần văn bản trước đó, vòng "+std::to_string(cycle));
+        run(d,".uno:Redo");
+        selectAll(d);
+        check(selText(d)==afterPaste,"Redo paste khôi phục đúng Unicode, vòng "+std::to_string(cycle));
+    }
 
     // ---------------- chèn: bảng, ảnh, ngắt trang, liên kết ----------------
     step("chèn bảng");
