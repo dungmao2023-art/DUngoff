@@ -54,6 +54,19 @@ def _ensure_distinct_destination(sources: Iterable[str], dest: str) -> None:
             raise PdfError("Tệp đích trùng tệp nguồn. Hãy chọn tên mới.")
 
 
+def _publish_new(tmp: str, dest: str) -> None:
+    """Publish a complete file without overwriting an existing name."""
+    try:
+        if os.name == "nt":
+            os.rename(tmp, dest)
+        else:
+            os.link(tmp, dest)
+    except FileExistsError as exc:
+        raise PdfError("Tệp đích vừa được tạo. Hãy chọn tên khác.") from exc
+    except OSError as exc:
+        raise PdfError(f"Không công bố được bản sao an toàn: {exc}") from exc
+
+
 def atomic_save(pdf, dest: str, allow_replace: bool = False) -> SaveResult:
     """Ghi `pdf` ra `dest` theo đúng quy tắc an toàn ở trên."""
     dest = os.path.abspath(dest)
@@ -74,6 +87,7 @@ def atomic_save(pdf, dest: str, allow_replace: bool = False) -> SaveResult:
 
     fd, tmp = tempfile.mkstemp(prefix="~dung-", suffix=".pdf", dir=folder)
     os.close(fd)
+    backup_tmp = None
     try:
         pdf.save(tmp, linearize=True)
         if not _looks_like_pdf(tmp):
@@ -89,7 +103,8 @@ def atomic_save(pdf, dest: str, allow_replace: bool = False) -> SaveResult:
             with open(dest, "rb") as original:
                 if not unchanged(os.fstat(original.fileno())):
                     raise PdfError("Tệp đích đã thay đổi; không thay thế.")
-                with open(backup, "xb") as saved:
+                backup_fd, backup_tmp = tempfile.mkstemp(prefix="~dung-backup-", suffix=".tmp", dir=folder)
+                with os.fdopen(backup_fd, "wb") as saved:
                     shutil.copyfileobj(original, saved)
                     saved.flush()
                     os.fsync(saved.fileno())
@@ -97,22 +112,17 @@ def atomic_save(pdf, dest: str, allow_replace: bool = False) -> SaveResult:
                     raise PdfError("Tệp đích thay đổi trong lúc sao lưu; không thay thế.")
             if not unchanged(os.stat(dest, follow_symlinks=False)):
                 raise PdfError("Tệp đích đã thay đổi; không thay thế.")
+            # Publish only a complete backup, and never overwrite a competing backup.
+            _publish_new(backup_tmp, backup)
+            if not unchanged(os.stat(dest, follow_symlinks=False)):
+                raise PdfError("Tệp đích đã thay đổi; không thay thế.")
             os.replace(tmp, dest)
         else:
-            # Windows rename refuses an existing destination; POSIX rename does not.
-            # Hardlink publication on POSIX fails closed on unsupported filesystems.
-            try:
-                if os.name == "nt":
-                    os.rename(tmp, dest)
-                else:
-                    os.link(tmp, dest)
-            except FileExistsError as exc:
-                raise PdfError("Tệp đích vừa được tạo. Hãy chọn tên khác.") from exc
-            except OSError as exc:
-                raise PdfError(f"Không công bố được bản sao an toàn: {exc}") from exc
+            _publish_new(tmp, dest)
     except OSError as exc:
         raise PdfError(f"Không lưu được PDF: {exc}") from exc
     finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
+        for pending in (tmp, backup_tmp):
+            if pending and os.path.exists(pending):
+                os.remove(pending)
     return SaveResult(written=dest, backup=backup)
