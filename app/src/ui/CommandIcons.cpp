@@ -64,6 +64,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:RecalcPivotTable", "transfer"}, {"xl:refreshPivot", "transfer"}, {"xl:insertChart", "col-width"}, {"xl:formulaAssistant", "sum"}, {"xl:rangeTools", "col-width"}, {"xl:vnMoney", "currency"},
         {"xl:find", "search"}, {"xl:replace", "replace"}, {"xl:fontName", "font-name"}, {"xl:fontSize", "font-size"},
         {"xl:sheetAdd", "add"}, {"xl:sheetDelete", "delete"}, {"xl:sheetDup", "slide-duplicate"}, {"xl:sheetRename", "rename"},
+        {"xl:sheetMoveLeft", "transfer"}, {"xl:sheetMoveRight", "transfer"},
         {"tableTools:clean", "clear-format"}, {"tableTools:compare", "compare"}, {"tableTools:dedup", "duplicate-files"},
         // PowerPoint
         {".uno:AssignLayout", "template"}, {".uno:FontHeight", "font-size"}, {".uno:Color", "font-color"}, {".uno:InsertTable", "table"},
