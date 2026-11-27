@@ -161,6 +161,8 @@ public:
     // Đợi cho tới khi đã yên lặng quietMs tính từ lần gửi phím/lệnh cuối VÀ từ sự kiện thật cuối cùng của engine
     // (không tính sự kiện giả "SYNTH"); tối đa maxMs. Không đợi nếu không có gì mới được gửi gần đây.
     void waitInputIdle(int quietMs = 200, int maxMs = 3000);
+    // Nonblocking observation for UI-only deferred work; not a write barrier.
+    bool inputIdleFor(int quietMs = 100) const;
 
     // --- Sự kiện ---
     void setEventSink(EventSink sink);

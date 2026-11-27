@@ -11,6 +11,8 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QImage>
+#include <QPdfWriter>
+#include <QPainter>
 #include <QMouseEvent>
 #include <QPointer>
 #include <QTimer>
@@ -110,6 +112,16 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
     pump(1500);
     note(label + QString(": focus=%1").arg(view.hasFocus()));
     QWidget* vp = view.viewport();
+    QElapsedTimer renderTiming;renderTiming.start();
+    const int originalZoom=view.zoom();
+    view.setZoom(originalZoom==100?110:100);
+    pump(100);
+    const bool drained=waitFor([&] { return !view.renderPending(); },8000);
+    check(drained && view.peakTilesPerPaint()>0 && view.peakTilesPerPaint()<=4,
+          label+": render phân lô tối đa 4 tile/lượt, hoàn tất khung nhìn",
+          QString("peak=%1 drain=%2 ms").arg(view.peakTilesPerPaint()).arg(renderTiming.elapsed()));
+    view.setZoom(originalZoom);
+    pump(400);
 
     if (wantCell) {
         click(vp, QPoint(120, 60));
@@ -135,11 +147,15 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
         }
         // vùng nhiều ô: kéo chuột
         QMouseEvent pr(QEvent::MouseButtonPress, QPoint(120, 60), vp->mapToGlobal(QPoint(120, 60)), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QElapsedTimer dragTiming;dragTiming.start();
         QApplication::sendEvent(vp, &pr);
+        check(!doc->inputIdleFor(10000),label+": thao tác chuột được ghi nhận là input gần đây");
+        check(view.selectedCellRange(true).isEmpty(),label+": không lấy vùng làm tham chiếu khi chưa thả chuột");
         QMouseEvent mv(QEvent::MouseMove, QPoint(330, 130), vp->mapToGlobal(QPoint(330, 130)), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(vp, &mv);
         QMouseEvent rl(QEvent::MouseButtonRelease, QPoint(330, 130), vp->mapToGlobal(QPoint(330, 130)), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
         QApplication::sendEvent(vp, &rl);
+        note(label+QString(": PERF drag dispatch %1 ms (press/move/release)").arg(dragTiming.elapsed()));
         pump(1500);
         const QImage multi = vp->grab().toImage().scaled(vp->size()).convertToFormat(QImage::Format_RGB32);
         multi.save(outDir + "/" + label + "-multi.png");
@@ -251,6 +267,16 @@ int main(int argc, char** argv) {
             if (!docx.isEmpty()) runDoc(*eng, "docx", docx, false, true, out);
             if (!xlsx.isEmpty()) runDoc(*eng, "xlsx", xlsx, true, false, out);
             if (!pptx.isEmpty()) runDoc(*eng, "pptx", pptx, false, true, out);
+            // Generate an independent local PDF fixture to exercise the same viewer.
+            const QString pdf=out+"/perf-viewer.pdf";
+            {
+                QPdfWriter writer(pdf);
+                writer.setResolution(96);
+                QPainter painter(&writer);
+                painter.drawText(80,100,QStringLiteral("PDF render performance fixture"));
+                painter.end();
+            }
+            runDoc(*eng,"pdf",pdf,false,false,out);
         }
     }
 #endif

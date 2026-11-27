@@ -13,6 +13,8 @@
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 
 #include <QJsonArray>
+#include <QElapsedTimer>
+#include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QPainter>
@@ -20,6 +22,26 @@
 #include <QScrollBar>
 #include <QWheelEvent>
 #include <cmath>
+
+namespace {
+// Opt-in measurement only: never log keystrokes, cell addresses or text.
+class UiTiming {
+public:
+    explicit UiTiming(const char* name):name_(name) {
+        static const bool enabled=qEnvironmentVariableIntValue("DUNG_TRACE_INPUT_PERF")!=0;
+        if(enabled) timer_.start();
+    }
+    ~UiTiming() {
+        if(timer_.isValid()) {
+            const auto ns=timer_.nsecsElapsed();
+            if(ns>=16000000) qInfo("DUNG_INPUT_PERF %s %.2f ms",name_,double(ns)/1000000.0);
+        }
+    }
+private:
+    const char* name_;
+    QElapsedTimer timer_;
+};
+}
 
 TileView::TileView(dung::Document* doc, QWidget* parent)
     : QAbstractScrollArea(parent), m_doc(doc), m_isCalc(doc->kind() == dung::DocKind::Spreadsheet) {
@@ -31,17 +53,31 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
     horizontalScrollBar()->setSingleStep(40);
     verticalScrollBar()->setSingleStep(40);
 
+    m_tilePaintTimer.setSingleShot(true);
+    m_tilePaintTimer.setInterval(8);
+    connect(&m_tilePaintTimer,&QTimer::timeout,this,[this] {
+        const auto region=m_deferredPaint;
+        m_deferredPaint=QRegion();
+        if(isVisible()&&!region.isEmpty())viewport()->update(region);
+    });
     m_headerTimer.setSingleShot(true);
     m_headerTimer.setInterval(40);
-    connect(&m_headerTimer, &QTimer::timeout, this, &TileView::requestHeaders);
+    connect(&m_headerTimer, &QTimer::timeout, this, [this] {
+        // Header queries run synchronously on the engine queue. Defer automatic
+        // refresh while typing or dragging; explicit target verification still
+        // calls requestHeaders() immediately.
+        if(!isVisible())return;
+        if(!m_doc->inputIdleFor(80)){m_headerTimer.start();return;}
+        requestHeaders();
+    });
     m_synthTimer.setSingleShot(true);
     m_synthTimer.setInterval(60);
-    connect(&m_synthTimer, &QTimer::timeout, this, [this] { refreshAllTiles(); m_synthLate.start(); });
+    connect(&m_synthTimer, &QTimer::timeout, this, &TileView::refreshAllTiles);
     m_blink.setInterval(530);
     connect(&m_blink, &QTimer::timeout, this, [this] {
         if (m_blinkFrozen) return;
         m_blinkOn = !m_blinkOn;
-        if (m_hasCaret) viewport()->update();
+        updateCaretRegion();
     });
     m_blink.start();
     m_synthLate.setSingleShot(true);
@@ -100,7 +136,7 @@ void TileView::setZoom(int percent) {
     // Giữ điểm giữa màn hình khi đổi zoom
     const QPoint center = toTwips(viewport()->rect().center());
     m_zoom = percent;
-    m_tiles.clear();
+    m_tiles.clear(); m_dirtyTiles.clear(); m_deferredPaint=QRegion(); m_tilePaintTimer.stop();
     updateScrollBars();
     const QPoint h = headerSize();
     horizontalScrollBar()->setValue((int)(center.x() / twipsPerPx()) - (viewport()->width() - h.x()) / 2);
@@ -111,8 +147,8 @@ void TileView::setZoom(int percent) {
 }
 
 void TileView::resetForPartChange() {
-    m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear(); m_pickValid = false;
-    m_tiles.clear();
+    m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear(); m_pickValid = false; m_pickComplete = false;
+    m_tiles.clear(); m_dirtyTiles.clear(); m_deferredPaint=QRegion(); m_tilePaintTimer.stop();
     m_selection.clear();
     m_cellArea = QRect();
     m_hasCaret = false;
@@ -148,6 +184,7 @@ void TileView::sendVisibleArea() {
 }
 
 void TileView::requestHeaders() {
+    const UiTiming timing("headers");
     if (!m_isCalc) return;
     const QPoint h = headerSize();
     const double tpp = twipsPerPx();
@@ -174,6 +211,7 @@ void TileView::requestHeaders() {
 }
 
 void TileView::paintEvent(QPaintEvent* ev) {
+    const UiTiming timing("paint");
     QPainter p(viewport());
     const QPoint h = origin();
     const QRect content = viewport()->rect().adjusted(headerSize().x(), headerSize().y(), 0, 0);
@@ -185,6 +223,12 @@ void TileView::paintEvent(QPaintEvent* ev) {
         p.fillRect(page.translated(2, 2), QColor(0, 0, 0, 28));
     }
 
+    // Render a small batch per paint event. A single engine tile may still
+    // exceed the budget, but never synchronously render a whole cold viewport.
+    QElapsedTimer frameBudget;
+    frameBudget.start();
+    int rendered=0;
+    QRegion deferred;
     // ---- Tile ----
     p.save();
     p.setClipRect(content);
@@ -199,15 +243,32 @@ void TileView::paintEvent(QPaintEvent* ev) {
             if (!m_isCalc && (tx > maxTx || ty > maxTy)) continue; // ngoài trang
             const quint64 key = (quint64(tx) << 32) | quint64(ty);
             auto it = m_tiles.find(key);
-            if (it == m_tiles.end()) {
-                QImage img(kTilePx, kTilePx, QImage::Format_ARGB32_Premultiplied);
-                img.fill(Qt::white);
-                m_doc->paintTile(img.bits(), kTilePx, kTilePx, tx * tileTwips(), ty * tileTwips(), tileTwips(), tileTwips());
-                if (m_tiles.size() > 600) m_tiles.clear(); // giới hạn bộ nhớ
-                it = m_tiles.insert(key, img);
+            if(it==m_tiles.end() || m_dirtyTiles.contains(key)) {
+                if(rendered>0&&(rendered>=4||frameBudget.elapsed()>=12)) {
+                    deferred |= QRegion(target.intersected(content));
+                } else {
+                    QImage img(kTilePx,kTilePx,QImage::Format_ARGB32_Premultiplied);
+                    img.fill(Qt::white);
+                    m_doc->paintTile(img.bits(),kTilePx,kTilePx,tx*tileTwips(),ty*tileTwips(),tileTwips(),tileTwips());
+                    ++rendered;
+                    if(it==m_tiles.end()&&m_tiles.size()>=600) {
+                        // Evict one tile, not the entire viewport/cache.
+                        auto victim=m_tiles.begin();
+                        m_dirtyTiles.remove(victim.key());
+                        m_tiles.erase(victim);
+                    }
+                    it=m_tiles.insert(key,img);
+                    m_dirtyTiles.remove(key);
+                }
             }
-            p.drawImage(target.topLeft(), it.value());
+            if(it!=m_tiles.end())p.drawImage(target.topLeft(),it.value());
+            else p.fillRect(target,Qt::white);
         }
+    }
+    m_peakTilesPerPaint=qMax(m_peakTilesPerPaint,rendered);
+    if(!deferred.isEmpty()) {
+        m_deferredPaint |= deferred;
+        if(!m_tilePaintTimer.isActive())m_tilePaintTimer.start();
     }
     // ---- Lớp phủ: vùng chọn, con trỏ ô, con trỏ văn bản ----
     const QRect area = cellOutlineTwips();
@@ -314,10 +375,24 @@ void TileView::drawCaret(QPainter& p) {
     p.fillRect(c, QColor(0x1B, 0x2A, 0x41));
 }
 
+QRegion TileView::selectionPaintRegion() const {
+    QRegion region;
+    const QRect clip=viewport()->rect();
+    const QRect outline=cellSelectionViewRect();
+    if(!outline.isEmpty())region|=outline.adjusted(-5,-5,5,5).intersected(clip);
+    for(const auto& rect:m_selection)
+        region|=toView(rect).adjusted(-2,-2,2,2).intersected(clip);
+    return region;
+}
+
+void TileView::updateCaretRegion() {
+    if (m_hasCaret) viewport()->update(toView(m_caret).adjusted(-3,-3,3,3));
+}
+
 void TileView::restartBlink() {
     m_blinkOn = true;
     m_blink.start();   // khởi động lại chu kỳ: hiện liền ~530ms rồi mới tắt
-    if (m_hasCaret) viewport()->update();
+    updateCaretRegion();
 }
 
 void TileView::focusInEvent(QFocusEvent* e) {
@@ -360,7 +435,7 @@ QVector<QRect> TileView::parseRects(const QString& s) {
 }
 
 void TileView::refreshAllTiles() {
-    m_tiles.clear();
+    for(auto it=m_tiles.cbegin();it!=m_tiles.cend();++it)m_dirtyTiles.insert(it.key());
     viewport()->update();
     if (m_isCalc) m_headerTimer.start();
 }
@@ -370,10 +445,10 @@ void TileView::invalidateTwips(const QRect& r) {
     for (auto it = m_tiles.begin(); it != m_tiles.end();) {
         const int tx = int(it.key() >> 32), ty = int(it.key() & 0xffffffff);
         const QRect tr(tx * tt, ty * tt, tt, tt);
-        if (tr.intersects(r)) it = m_tiles.erase(it);
-        else ++it;
+        if(tr.intersects(r))m_dirtyTiles.insert(it.key());
+        ++it;
     }
-    viewport()->update();
+    viewport()->update(toView(r).intersected(viewport()->rect()));
 }
 
 void TileView::handleEvent(int type, const QString& payload) {
@@ -391,8 +466,14 @@ void TileView::handleEvent(int type, const QString& payload) {
     switch (type) {
     case LOK_CALLBACK_INVALIDATE_TILES: {
         // Engine Windows không tự báo làm mới sau khi gõ/ra lệnh: tầng engine phát "SYNTH".
-        if (payload == QLatin1String("SYNTH")) { if (!m_synthTimer.isActive()) m_synthTimer.start(); break; }
-        if (payload.startsWith(QLatin1String("EMPTY"))) { m_tiles.clear(); viewport()->update(); break; }
+        if (payload == QLatin1String("SYNTH")) {
+            if (!m_synthTimer.isActive()) m_synthTimer.start();
+            // Keep the leading refresh, but render the final fallback only after
+            // the input burst ends, not every 250 ms while the user types.
+            m_synthLate.start();
+            break;
+        }
+        if (payload.startsWith(QLatin1String("EMPTY"))) { refreshAllTiles(); break; }
         bool ok = false;
         QRect r = parseRect(payload, &ok);
         if (ok) {
@@ -404,11 +485,15 @@ void TileView::handleEvent(int type, const QString& payload) {
         if (m_isCalc) m_headerTimer.start();
         break;
     }
-    case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED:
-        m_doc->documentSize(m_docW, m_docH);
-        updateScrollBars();
-        if (!m_isCalc) { m_tiles.clear(); viewport()->update(); }
+    case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED: {
+        const auto oldW=m_docW,oldH=m_docH;
+        m_doc->documentSize(m_docW,m_docH);
+        if(oldW!=m_docW||oldH!=m_docH) {
+            updateScrollBars();
+            if(!m_isCalc)refreshAllTiles();
+        }
         break;
+    }
     case LOK_CALLBACK_CELL_CURSOR:
         {
             const caretgeom::Parsed pc = caretgeom::parseCursorPayload(payload);
@@ -426,31 +511,37 @@ void TileView::handleEvent(int type, const QString& payload) {
         }
         viewport()->update();
         break;
-    case LOK_CALLBACK_TEXT_SELECTION:
-        m_selection = parseRects(payload);
-        viewport()->update();
+    case LOK_CALLBACK_TEXT_SELECTION: {
+        const auto next=parseRects(payload);
+        if(next==m_selection)break;
+        const auto old=selectionPaintRegion();
+        m_selection=next;
+        viewport()->update(old|selectionPaintRegion());
         break;
+    }
     case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR: {
+        updateCaretRegion(); // erase old caret even if the new one is elsewhere
         const caretgeom::Parsed pc = caretgeom::parseCursorPayload(payload);
         m_hasCaret = pc.valid;
         m_caret = pc.valid ? pc.rect : QRect();
         // Engine headless có thể không gửi CURSOR_VISIBLE: khi chưa từng thấy thì coi con trỏ là hiện.
         if (!m_caretVisSeen) m_caretVisible = m_hasCaret;
         restartBlink();   // đang gõ/di chuyển: hiện liên tục rồi nhấp nháy lại
-        viewport()->update();
         break;
     }
     case LOK_CALLBACK_CURSOR_VISIBLE:
         m_caretVisSeen = true;
         m_caretVisible = payload.contains(QLatin1String("true"));
         restartBlink();
-        viewport()->update();
         break;
     case LOK_CALLBACK_CELL_SELECTION_AREA: {
         // Vùng nhiều ô của Calc (nếu engine không báo qua TEXT_SELECTION): tô mờ giống vùng chọn chữ.
         const caretgeom::Parsed pa = caretgeom::parseCursorPayload(payload);
-        m_cellArea = (pa.valid && pa.rect.width() > 0 && pa.rect.height() > 0) ? pa.rect : QRect();
-        viewport()->update();
+        const QRect next=(pa.valid && pa.rect.width()>0 && pa.rect.height()>0)?pa.rect:QRect();
+        if(next==m_cellArea)break;
+        const auto old=selectionPaintRegion();
+        m_cellArea=next;
+        viewport()->update(old|selectionPaintRegion());
         break;
     }
     default:
@@ -459,6 +550,7 @@ void TileView::handleEvent(int type, const QString& payload) {
 }
 
 void TileView::sendMouse(int type, QMouseEvent* e, int count) {
+    const UiTiming timing("mouse");
     const QPoint h = headerSize();
     const QPoint pos = e->position().toPoint();
     if (m_isCalc && (pos.x() < h.x() || pos.y() < h.y())) return; // nhấp vào vùng tiêu đề (chưa hỗ trợ chọn cả hàng/cột)
@@ -470,11 +562,13 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 
 void TileView::mousePressEvent(QMouseEvent* e) {
     if (m_isCalc) {
+        const auto old=selectionPaintRegion();
         m_cellArea = QRect();
         m_selection.clear(); // do not paint the previous range while a new gesture starts
-        viewport()->update();
+        viewport()->update(old|selectionPaintRegion());
         const QPoint pos = e->position().toPoint();
         const QPoint h = headerSize();
+        m_pickComplete = false;
         m_pickValid = e->button() == Qt::LeftButton && pos.x() >= h.x() && pos.y() >= h.y();
         m_pickStart = toTwips(pos);
     }
@@ -490,6 +584,7 @@ void TileView::mouseReleaseEvent(QMouseEvent* e) {
     m_clickCount = 1;
     if (m_isCalc && e->button() == Qt::LeftButton && m_pickValid) {
         m_pickEnd = toTwips(e->position().toPoint());
+        m_pickComplete = true;
         emit cellSelectionFinished();
     }
 }
@@ -497,7 +592,7 @@ QString TileView::selectedCellRange(bool verifyGesture) {
     if (!m_isCalc || !m_hasCell) return {};
     const QRect area = !m_cellArea.isEmpty() ? m_cellArea : m_cellCursor;
     if (area.isEmpty()) return {};
-    if (verifyGesture && (!m_pickValid || !area.contains(m_pickStart) || !area.contains(m_pickEnd))) return {};
+    if (verifyGesture && (!m_pickComplete || !m_pickValid || !area.contains(m_pickStart) || !area.contains(m_pickEnd))) return {};
     requestHeaders(); // engine trả tên hàng/cột theo viewport hiện tại
     const double scale = twipsPerPx();
     auto edges = [](const QVector<Header>& headers, int start, double lo, double hi) -> QPair<QString, QString> {
@@ -540,6 +635,7 @@ void TileView::wheelEvent(QWheelEvent* e) {
 }
 
 void TileView::keyPressEvent(QKeyEvent* e) {
+    const UiTiming timing("key");
     if (m_composing && e->key() == Qt::Key_Escape) { cancelComposition(); e->accept(); return; }
     const LokKey k = toLokKey(e);
     if (!k.valid) { QAbstractScrollArea::keyPressEvent(e); return; }
@@ -556,6 +652,7 @@ void TileView::keyReleaseEvent(QKeyEvent* e) {
 }
 
 void TileView::inputMethodEvent(QInputMethodEvent* e) {
+    const UiTiming timing("ime");
     if (m_doc->readOnly()) { e->ignore(); return; }
     restartBlink();
     // Chuẩn IME: preedit hiển thị ngay trong tài liệu (engine tự gạch chân), commit thay chữ đang soạn rồi chốt.

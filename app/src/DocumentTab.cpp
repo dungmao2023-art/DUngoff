@@ -377,9 +377,18 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
             m_slideRefresh->setSingleShot(true);
             m_slideRefresh->setInterval(250);
             connect(m_slideRefresh,&QTimer::timeout,this,[this]{
-                const int part=m_slideRefreshPart;
-                if(!m_pptNotes && part>=0 && part<m_slides->count() && part<m_doc->partCount())
+                if(m_pptNotes||m_pendingThumbnails.isEmpty())return;
+                // Defer thumbnail work while typing or dragging; one slide per tick.
+                if(!isVisible()||!m_doc->inputIdleFor(150)) {
+                    m_slideRefresh->start(250);
+                    return;
+                }
+                const int current=m_slides->currentRow();
+                const int part=m_pendingThumbnails.contains(current)?current:*m_pendingThumbnails.cbegin();
+                m_pendingThumbnails.remove(part);
+                if(part>=0&&part<m_slides->count()&&part<m_doc->partCount())
                     pptSetThumbnail(m_slides->item(part),m_doc.get(),part);
+                if(!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
             });
         }
         m_slides->setStyleSheet(QStringLiteral("QListWidget{background:#EEF2F7;border:none;border-right:1px solid #D9E1EC;}"
@@ -388,12 +397,8 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         middle->addWidget(m_slides);
         connect(m_slides, &QListWidget::currentRowChanged, this, [this](int row) {
             if (m_rebuildingParts || row < 0 || row == m_doc->currentPart()) return;
-            if(m_slideRefresh && m_slideRefresh->isActive()) {
-                m_slideRefresh->stop();
-                const int old=m_slideRefreshPart;
-                if(!m_pptNotes && old>=0 && old<m_slides->count() && old<m_doc->partCount())
-                    pptSetThumbnail(m_slides->item(old),m_doc.get(),old);
-            }
+            // Do not render the old thumbnail synchronously on a slide click.
+            if(m_slideRefresh&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(250);
             m_doc->setPart(row);
             m_view->resetForPartChange();
             refreshPdfComparison();
@@ -420,20 +425,12 @@ QTabWidget#ExcelTools QTabBar::tab:selected { background:white; color:#2864BA; b
         notifyFormulaSheet(m_formulaAssistant,m_doc->currentPart(),qs(m_doc->partName(m_doc->currentPart())));
         addTool(m_formulaAssistant, tr("ƒx · Tôi muốn"));
         connect(m_view, &TileView::cellSelectionFinished, this, [this] {
+            const unsigned generation = ++m_pickGeneration;
+            if(!m_formulaAssistant || !m_formulaAssistant->isVisible())return;
             const int part = m_doc->currentPart();
             const auto sheet = m_doc->partName(part);
-            const unsigned generation = ++m_pickGeneration;
             QTimer::singleShot(180, this, [this, part, sheet, generation] {
-                auto current = [&] {
-                    return generation == m_pickGeneration && isVisible() && m_doc && m_view &&
-                        m_formulaAssistant && m_formulaAssistant->isVisible() &&
-                        m_doc->currentPart() == part && m_doc->partName(part) == sheet;
-                };
-                if (!current()) return;
-                m_doc->waitInputIdle(100, 700);
-                if (!current()) return;
-                const auto range = m_view->selectedCellRange(true);
-                if (current() && !range.isEmpty()) notifyFormulaSelection(m_formulaAssistant, range);
+                tryFormulaPick(part,sheet,generation,18);
             });
         });
         m_rangeTools = createDocumentRangeToolsWidget(this, [this] { return qs(m_doc->selectionAs("text/plain;charset=utf-8")); });
@@ -652,15 +649,25 @@ void DocumentTab::dropRecovery() {
 
 void DocumentTab::autosaveTick() {
     auto& rs = recovery::Session::instance();
-    if (!rs.active() || !m_doc || m_doc->readOnly()) return;
-    if (!m_doc->modified()) return;
+    if (!rs.active() || !m_doc || m_doc->readOnly() || !m_doc->modified()) {
+        m_autosaveDeferrals=0;
+        return;
+    }
     // Even without an invalidate callback, a dirty document with no recovery
     // snapshot yet must be saved at the next tick.
-    if (!m_dirtySinceAutosave && !m_recId.isEmpty()) return;
+    if (!m_dirtySinceAutosave && !m_recId.isEmpty()) { m_autosaveDeferrals=0; return; }
     if (!rs.hasRoom()) return;  // thư mục phục hồi đã đầy: bỏ qua, không làm gì khác
     const std::string ext = m_doc->recoveryExt();
     if (ext.empty()) return;
-    m_doc->waitInputIdle();
+    // Recovery is still mandatory. Prefer a quiet interval, but do not
+    // postpone indefinitely if the user is editing continuously.
+    if(!m_doc->inputIdleFor(350)&&m_autosaveDeferrals<15) {
+        ++m_autosaveDeferrals;
+        QTimer::singleShot(2000,this,&DocumentTab::autosaveTick);
+        return;
+    }
+    m_autosaveDeferrals=0;
+    if(!m_doc->inputIdleFor(200))m_doc->waitInputIdle();
     if (!m_doc->modified()) return;
     // Keep retry pending until both data and metadata have been committed.
     m_dirtySinceAutosave=true;
@@ -692,7 +699,9 @@ QString DocumentTab::title() const {
 
 QString DocumentTab::statusText() const {
     QString s = QString::fromUtf8(dung::kindName(m_doc->kind()));
-    const int n = m_doc->partCount(), cur = m_doc->currentPart() + 1;
+    // Word has no sheet/slide/page index in this status label.
+    const bool hasParts=m_doc->kind()!=DocKind::Text;
+    const int n=hasParts?m_doc->partCount():0,cur=hasParts?m_doc->currentPart()+1:0;
     switch (m_doc->kind()) {
     case DocKind::Spreadsheet: s += tr("  •  Sheet %1/%2").arg(cur).arg(n); break;
     case DocKind::Presentation: s += (m_pptNotes ? tr("  •  Ghi chú %1/%2") : tr("  •  Trang chiếu %1/%2")).arg(cur).arg(n); break;
@@ -717,16 +726,38 @@ void DocumentTab::rebuildParts() {
         m_sheets->setCurrentIndex(cur);
     }
     if (m_slides) {
-        if(m_slideRefresh) m_slideRefresh->stop();
+        if(m_slideRefresh)m_slideRefresh->stop();
+        m_pendingThumbnails.clear();
         m_slides->clear();
         for (int i = 0; i < n; ++i) {
             m_slides->addItem(m_doc->kind() == DocKind::Presentation ? tr("Trang chiếu %1").arg(i + 1)
                                                                     : tr("Trang %1").arg(i + 1));
-            if (m_doc->kind() == DocKind::Presentation && !m_pptNotes) pptSetThumbnail(m_slides->item(i), m_doc.get(), i);
+            if(m_slideRefresh&&!m_pptNotes)m_pendingThumbnails.insert(i);
         }
         m_slides->setCurrentRow(cur);
+        if(m_slideRefresh&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
     }
     m_rebuildingParts = false;
+}
+
+void DocumentTab::tryFormulaPick(int part,const std::string& sheet,unsigned generation,int retries) {
+    auto current=[&] {
+        return generation==m_pickGeneration && isVisible() && m_doc && m_view &&
+            m_formulaAssistant && m_formulaAssistant->isVisible() &&
+            m_doc->currentPart()==part && m_doc->partName(part)==sheet;
+    };
+    if(generation!=m_pickGeneration || !isVisible() || !m_doc || !m_view ||
+       !m_formulaAssistant || !m_formulaAssistant->isVisible())return;
+    // Never sleep on the GUI thread waiting for selection callbacks.
+    if(!m_doc->inputIdleFor(100)) {
+        if(retries>0) QTimer::singleShot(40,this,[this,part,sheet,generation,retries]{
+            tryFormulaPick(part,sheet,generation,retries-1);
+        });
+        return;
+    }
+    if(!current())return;
+    const auto range=m_view->selectedCellRange(true);
+    if(current()&&!range.isEmpty())notifyFormulaSelection(m_formulaAssistant,range);
 }
 
 void DocumentTab::onEngineEvent(int type, const QString& payload) {
@@ -735,8 +766,8 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
         type == LOK_CALLBACK_CELL_FORMULA || type == LOK_CALLBACK_SET_PART))
         notifyDocumentRangeTools(m_rangeTools);
     if(type==LOK_CALLBACK_INVALIDATE_TILES && m_slideRefresh && !m_pptNotes) {
-        m_slideRefreshPart=m_doc->currentPart();
-        m_slideRefresh->start();
+        m_pendingThumbnails.insert(m_slides->currentRow());
+        m_slideRefresh->start(250);
     }
     const bool modified = m_doc->modified();
     // The first invalidation can arrive before ModifiedStatus=true.
@@ -749,13 +780,15 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
         emit statusChanged();
     }
     switch (type) {
-    case LOK_CALLBACK_CELL_ADDRESS:
+    case LOK_CALLBACK_CELL_ADDRESS: {
+        const bool changed=m_cellAddress!=payload;
         m_cellAddress = payload;
-        if (m_nameBox && !m_nameBox->hasFocus()) m_nameBox->setText(payload);
-        emit statusChanged();
+        if (m_nameBox && !m_nameBox->hasFocus() && m_nameBox->text()!=payload) m_nameBox->setText(payload);
+        if(changed)emit statusChanged();
         break;
+    }
     case LOK_CALLBACK_CELL_FORMULA:
-        if (m_formula && !m_formula->hasFocus()) m_formula->setText(payload);
+        if (m_formula && !m_formula->hasFocus() && m_formula->text()!=payload) m_formula->setText(payload);
         break;
     case LOK_CALLBACK_STATE_CHANGED: {
         QString cmd, value;

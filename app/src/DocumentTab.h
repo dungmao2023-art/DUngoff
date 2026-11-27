@@ -4,6 +4,7 @@
 #include "recovery/RecoveryStore.h"
 
 #include <QHash>
+#include <QSet>
 #include <QWidget>
 #include <memory>
 #include <functional>
@@ -63,6 +64,7 @@ signals:
 
 private:
     void onEngineEvent(int type, const QString& payload);
+    void tryFormulaPick(int part,const std::string& sheet,unsigned generation,int retries);
     void rebuildParts();
     void refreshPdfComparison();
     void excelSheetMenu(const QPoint& pos);  // excel/ExcelUi.cpp
@@ -82,7 +84,7 @@ private:
     unsigned m_pickGeneration = 0;
     QListWidget* m_slides = nullptr;
     QTimer* m_slideRefresh = nullptr;
-    int m_slideRefreshPart = -1;
+    QSet<int> m_pendingThumbnails;
     QWidget* m_pdfComparison = nullptr;
     QLabel* m_pdfOriginalImage = nullptr;
     QPushButton* m_pdfCompareButton = nullptr;
@@ -95,6 +97,7 @@ private:
     bool m_pptNotes = false;
     bool m_rebuildingParts = false;
     QTimer* m_autosave = nullptr;
+    int m_autosaveDeferrals=0;
     QString m_recId;                  // mã bản phục hồi của tài liệu này trong phiên
     bool m_dirtySinceAutosave = false;
     bool m_featureLossConfirmed = false;  // đã xác nhận mất tính năng của tệp gốc trong phiên này
