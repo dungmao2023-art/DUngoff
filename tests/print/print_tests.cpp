@@ -141,7 +141,10 @@ int main(int argc, char** argv) {
     check(!a.isNull() && a.width() <= 400 && a.height() <= 400, "vẽ trang 1 vừa khung", err);
     check(!a.isNull() && darkPixels(a) > 200, "trang 1 có nội dung (điểm tối)", QStringLiteral("điểm tối: %1").arg(a.isNull() ? 0 : darkPixels(a)));
     check(!a.isNull() && !b.isNull() && a != b, "trang 1 và trang 3 khác nhau");
+    check(printrender::renderPage(src,1,QSize(0,400),&err).isNull()&&!err.isEmpty(),"reject empty preview bounds");
+    check(printrender::renderPage(src,1,QSize(-1,400),&err).isNull()&&!err.isEmpty(),"reject negative preview bounds");
     const QImage land = printrender::renderPage(src, 2, QSize(400, 400), &err);
+    check(err.isEmpty(),"successful render clears previous error");
     check(!land.isNull() && land.width() > land.height(), "trang ngang giữ tỉ lệ ngang");
     check(printrender::renderPage(src, 4, QSize(400, 400), &err).isNull() && !err.isEmpty(), "trang 4 không tồn tại → ảnh rỗng + lỗi");
 
