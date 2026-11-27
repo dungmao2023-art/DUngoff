@@ -4,6 +4,7 @@
 #include "FileOps.h"
 #include "LinkScan.h"
 #include "ZipLite.h"
+#include "../../app/src/SavePathPolicy.h"
 #include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
@@ -101,6 +102,27 @@ int main(int argc, char** argv)
     QTemporaryDir td;
     const QString R = td.path();
     const QString J = R + "/nhat-ky";
+
+    // Save As/Export must check the resolved filename, not the pre-suffix path.
+    {
+        const QString stem=R+QStringLiteral("/Báo cáo");
+        const QString existing=stem+QStringLiteral(".xlsx");
+        CHECK(put(existing,"KEEP"),"create existing save target");
+        CHECK(savepath::resolve(stem,QStringLiteral("xlsx"))==existing &&
+              !savepath::needsConfirmation(stem) && savepath::needsConfirmation(existing),
+              "extension completion must require confirmation of existing workbook");
+        CHECK(savepath::resolve(existing,QStringLiteral("docx"))==existing,
+              "explicit extension preserved");
+        const QString pdf=stem+QStringLiteral(".pdf");
+        CHECK(put(pdf,"PDF"),"create existing export target");
+        CHECK(savepath::resolve(stem,QStringLiteral("pdf"),true)==pdf &&
+              savepath::needsConfirmation(pdf),"PDF extension completion checks existing export");
+        CHECK(savepath::resolve(stem+QStringLiteral(".PDF"),QStringLiteral("pdf"),true)==stem+QStringLiteral(".PDF"),
+              "case-insensitive PDF suffix");
+        CHECK(savepath::resolve(QString(),QStringLiteral("pdf"),true).isEmpty() &&
+              !savepath::needsConfirmation(QString()),"cancel remains empty");
+        CHECK(get(existing)=="KEEP" && get(pdf)=="PDF","path policy never modifies existing data");
+    }
 
     // ================= ĐỔI TÊN =================
     CHECK(removeVietnameseDiacritics(QStringLiteral("Đặng Thị Hương — Hợp đồng số 5.docx")) == QStringLiteral("Dang Thi Huong — Hop dong so 5.docx"), "bỏ dấu tiếng Việt (đ→d, Đ→D)");
