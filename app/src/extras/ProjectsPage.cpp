@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "ProjectsPage.h"
 #include "WorkspaceStore.h"
+#include "ProjectAvatars.h"
+#include <QByteArray>
 
 #include <QDesktopServices>
 #include <QFrame>
@@ -16,11 +18,11 @@
 #include <QVBoxLayout>
 
 namespace {
-struct Project { const char* name; const char* initials; const char* url; const char* color; };
+struct Project { const char* name; const char* initials; const char* url; const char* color; const char* avatar; };
 const Project projects[] = {
-    {"Sử Việt", "SV", "", "#387D72"},
-    {"TFT Labs", "TFT", "https://tft2.id.vn/", "#5855A4"},
-    {"Trending Việt Nam", "TV", "https://trend.id.vn/", "#C04B59"},
+    {"Sử Việt", "SV", "", "#387D72", projectAvatars::suviet},
+    {"TFT Labs", "TFT", "https://tft2.id.vn/", "#5855A4", projectAvatars::tft},
+    {"Trending Việt Nam", "TV", "https://trend.id.vn/", "#C04B59", projectAvatars::trend},
 };
 
 // Only retain an existing local avatar or Sử Việt address if it belongs to
@@ -77,7 +79,11 @@ ProjectsPage::ProjectsPage(QWidget* parent) : QWidget(parent) {
         avatar->setStyleSheet(QStringLiteral("background:%1;border-radius:12px;color:white;font-size:22px;font-weight:700;").arg(QString::fromLatin1(project.color)));
         QPixmap photo;
         const auto image=existing.value(QStringLiteral("image")).toString();
-        if(!image.isEmpty() && photo.load(image))
+        if(!image.isEmpty())
+            photo.load(image);
+        if(photo.isNull())
+            photo.loadFromData(QByteArray::fromBase64(QByteArray(project.avatar)), "WEBP");
+        if(!photo.isNull())
             avatar->setPixmap(photo.scaled(avatar->size(),Qt::KeepAspectRatio,Qt::SmoothTransformation));
         else
             avatar->setText(QString::fromLatin1(project.initials));
