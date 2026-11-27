@@ -371,6 +371,22 @@ int main(int argc, char** argv) {
         check(again.ok && again.backup.empty(), "Lưu lại (Ctrl+S) vào tệp của phiên: không hỏi, không tạo sao lưu thừa");
     }
     {
+        // An output path alone does not prove the file still belongs to this session.
+        const auto separate=viDir / "external-edit.xlsx";
+        SaveOptions replace;
+        replace.allowReplaceExisting=true;
+        auto first=doc->saveAs(separate,replace);
+        check(first.ok,"Lưu bản dùng kiểm tra sửa bên ngoài");
+        if (first.ok) {
+            { std::ofstream other(separate,std::ios::binary|std::ios::trunc); other << "EXTERNAL"; }
+            auto refused=doc->saveAs(separate,replace);
+            check(!refused.ok && refused.message.find("bên ngoài")!=std::string::npos,
+                  "Ctrl+S không ghi đè bản do ứng dụng khác sửa");
+            check(readAll(separate)==std::vector<char>({'E','X','T','E','R','N','A','L'}),"Nội dung bên ngoài giữ nguyên");
+            check(readAll(original)==originalBytes,"Tệp gốc vẫn nguyên vẹn");
+        }
+    }
+    {
         // Không để lại tệp tạm "~dung-*"
         bool leftover = false;
         for (auto& e : fs::directory_iterator(viDir))
