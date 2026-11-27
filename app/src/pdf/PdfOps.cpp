@@ -361,12 +361,22 @@ Info info(const QString& path, const QString& password) {
         return inf;
     }
     if (!tmp.warnings.isEmpty()) inf.warning = tmp.warnings.first();
-    inf.pages = r.out.trimmed().toInt();
-    QStringList enc = pw.args(false);
-    enc << QStringLiteral("--is-encrypted") << path;
-    inf.encrypted = runQpdf(enc).code == 0;
-    inf.ok = inf.pages > 0;
-    if (!inf.ok) inf.error = tr("Không đọc được số trang của PDF.");
+    bool countOk=false;
+    inf.pages=r.out.trimmed().toInt(&countOk);
+    if(!countOk||inf.pages<=0){inf.error=tr("Không đọc được số trang của PDF.");return inf;}
+    QStringList enc=pw.args(false);
+    enc<<QStringLiteral("--is-encrypted")<<path;
+    const Run encryption=runQpdf(enc);
+    // qpdf documents 0 = encrypted, 2 = not encrypted for this specific
+    // inspection command. A process failure or diagnostics must not silently
+    // bypass the user's encryption warning.
+    if(encryption.missing||(encryption.code!=0&&encryption.code!=2)||
+       !encryption.err.trimmed().isEmpty()||!encryption.out.trimmed().isEmpty()){
+        inf.error=tr("Không xác minh được trạng thái mã hóa của PDF; chưa cho phép xuất bản sao.");
+        return inf;
+    }
+    inf.encrypted=encryption.code==0;
+    inf.ok=true;
     return inf;
 }
 
@@ -433,6 +443,31 @@ Result reorder(const Input& in, const QString& pagesSpec, const QString& dest, b
         return res;
     }
     return extract(in, pagesSpec, dest, allowReplace);
+}
+
+RemovePlan planRemovePages(const QString& pagesSpec,int total){
+    RemovePlan plan;
+    if(total<1||total>1000000){plan.error=tr("Số trang không hỗ trợ (tối đa một triệu).");return plan;}
+    const auto selected=parsePages(pagesSpec,total,&plan.error);
+    if(selected.isEmpty())return plan;
+    const QSet<int> excluded(selected.begin(),selected.end());
+    if(excluded.size()==total){plan.error=tr("Phải giữ lại ít nhất một trang.");return plan;}
+    QList<int> keep;
+    keep.reserve(total-excluded.size());
+    for(int page=0;page<total;++page)if(!excluded.contains(page))keep.append(page);
+    plan.removed=int(excluded.size());plan.retained=int(keep.size());plan.keepSpec=rangeFromIndexes(keep);
+    plan.ok=true;return plan;
+}
+Result removePages(const Input& in,const QString& pagesSpec,int expectedPages,const QString& dest){
+    Result r;
+    const auto inf=info(in.path,in.password);
+    if(!inf.ok){r.error=inf.error;r.needPassword=inf.needPassword;return r;}
+    if(inf.pages!=expectedPages){r.error=tr("Số trang nguồn đã thay đổi. Hãy chọn lại danh sách.");return r;}
+    const auto plan=planRemovePages(pagesSpec,inf.pages);
+    if(!plan.ok){r.error=plan.error;return r;}
+    r=extract(in,plan.keepSpec,dest,false);
+    if(r.ok)r.warnings<<tr("Đã loại %1 trang, giữ %2 trang theo thứ tự gốc. Đây không phải công cụ xóa thông tin mật (redaction).").arg(plan.removed).arg(plan.retained);
+    return r;
 }
 
 Result splitEach(const Input& in, const QString& outDir) {

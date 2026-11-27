@@ -52,6 +52,11 @@ Result merge(const QList<Input>& inputs, const QString& dest, bool allowReplace 
 Result extract(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace = false);
 // Sắp xếp: mọi trang phải xuất hiện đúng một lần; không xóa hoặc nhân bản trang.
 Result reorder(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace = false);
+// Plan a deletion without modifying the source; duplicates count only once.
+struct RemovePlan { bool ok=false; QString error; int removed=0, retained=0; QString keepSpec; };
+RemovePlan planRemovePages(const QString& pagesSpec,int total);
+// expectedPages is the confirmed page count; refuse if it changed before export.
+Result removePages(const Input& in,const QString& pagesSpec,int expectedPages,const QString& dest);
 // Mỗi trang một tệp: <outDir>/<tên>-trangNNN.pdf. Từ chối trùng tên trước khi tách;
 // nếu lỗi xuất giữa chừng, giữ các trang đã công bố và trả chúng trong Result.files.
 Result splitEach(const Input& in, const QString& outDir);

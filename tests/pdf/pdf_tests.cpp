@@ -158,6 +158,18 @@ static int raceProxy(int argc,char** argv) {
 }
 
 int main(int argc, char** argv) {
+    if(qEnvironmentVariableIsSet("DUNG_PDF_TEST_ENCRYPTION_PROBE")){
+        QCoreApplication app(argc,argv);
+        const auto args=app.arguments().mid(1);
+        if(args.contains(QStringLiteral("--show-npages"))){std::fputs("3\n",stdout);return 0;}
+        if(args.contains(QStringLiteral("--is-encrypted"))){
+            const auto mode=qgetenv("DUNG_PDF_TEST_ENCRYPTION_PROBE");
+            if(mode=="diagnostic"){std::fputs("simulated qpdf inspection error\n",stderr);return 2;}
+            if(mode=="unexpected")return 1;
+            return 2;
+        }
+        return 90;
+    }
     if(qEnvironmentVariableIsSet("DUNG_PDF_TEST_REAL_QPDF")&&qEnvironmentVariableIsSet("DUNG_PDF_TEST_RACE_TARGET"))
         return raceProxy(argc,argv);
     if(qgetenv("QT_QPA_PLATFORM").isEmpty()) {
@@ -210,6 +222,18 @@ int main(int argc, char** argv) {
     CHECK(!reorder({a, {}}, QStringLiteral("1,3"), P(QStringLiteral("invalid-order.pdf"))).ok, "Từ chối thiếu trang");
     CHECK(!reorder({a, {}}, QStringLiteral("3,1,2"), a, true).ok && readFile(a) == aBytes, "Không ghi đè nguồn khi sắp xếp");
 
+    // --- remove specified pages, keep original order.
+    const auto plan=planRemovePages(QStringLiteral("2,2"),3);
+    CHECK(plan.ok&&plan.removed==1&&plan.retained==2&&plan.keepSpec=="1,3","delete duplicates count once");
+    CHECK(!planRemovePages(QStringLiteral("1-3"),3).ok,"reject deleting all pages");
+    CHECK(!planRemovePages(QStringLiteral("4"),3).ok,"reject out of range deletion");
+    const auto removed=P(QStringLiteral("removed.pdf"));
+    CHECK(removePages({a,{}},QStringLiteral("2"),3,removed).ok&&info(removed).pages==2,"delete page 2 from real PDF");
+    const auto after=P(QStringLiteral("removed-last.pdf"));
+    CHECK(extract({removed,{}},QStringLiteral("2"),after).ok&&qdfOf(after).contains("(A 3)"),"retained pages in original order");
+    CHECK(!removePages({a,{}},QStringLiteral("2"),4,P(QStringLiteral("changed.pdf"))).ok&&!QFile::exists(P(QStringLiteral("changed.pdf"))),"reject changed source page count");
+    CHECK(!removePages({a,{}},QStringLiteral("2"),3,removed).ok,"refuse existing output");
+    CHECK(!removePages({a,{}},QStringLiteral("2"),3,a).ok&&readFile(a)==aBytes,"source unchanged");
     // --- merge
     Result r = merge({{a, {}}, {b, {}}}, P(QStringLiteral("gop.pdf")));
     CHECK(r.ok && info(P(QStringLiteral("gop.pdf"))).pages == 5, "gộp 3+2 thành 5 trang");
@@ -320,6 +344,30 @@ int main(int argc, char** argv) {
           "gộp với tệp hỏng: từ chối, hoặc ghi kết quả kèm cảnh báo");
     CHECK(readFile(bad) == cut, "gộp với tệp hỏng: tệp nguồn giữ nguyên");
 
+    // Encryption inspection errors must never be treated as an unencrypted file.
+    {
+        const auto old=qgetenv("DUNG_QPDF");const bool had=qEnvironmentVariableIsSet("DUNG_QPDF");
+        qputenv("DUNG_QPDF",QCoreApplication::applicationFilePath().toUtf8());
+        qputenv("DUNG_PDF_TEST_ENCRYPTION_PROBE","unexpected");
+        CHECK(!info(a).ok,"unexpected encryption probe status refused");
+        qputenv("DUNG_PDF_TEST_ENCRYPTION_PROBE","diagnostic");
+        CHECK(!info(a).ok,"status 2 with error diagnostics refused");
+        qputenv("DUNG_PDF_TEST_ENCRYPTION_PROBE","plain");
+        const auto plain=info(a);
+        CHECK(plain.ok&&!plain.encrypted&&plain.pages==3,"silent status 2 is unencrypted");
+        qunsetenv("DUNG_PDF_TEST_ENCRYPTION_PROBE");
+        if(had)qputenv("DUNG_QPDF",old);else qunsetenv("DUNG_QPDF");
+    }
+    const auto ownerOnly=P(QStringLiteral("owner-only.pdf"));
+    {
+        QProcess p;
+        p.start(qpdf,{QStringLiteral("--encrypt"),QStringLiteral(""),QStringLiteral("owner-only-test"),QStringLiteral("256"),
+            QStringLiteral("--"),a,ownerOnly});
+        const bool finished=p.waitForFinished(60000);
+        CHECK(finished&&p.exitStatus()==QProcess::NormalExit&&p.exitCode()==0&&QFileInfo::exists(ownerOnly),"create owner-password-only fixture");
+        const auto ownerInfo=info(ownerOnly);
+        CHECK(ownerInfo.ok&&ownerInfo.encrypted&&ownerInfo.pages==3,"encrypted PDF with empty user password still requires encryption warning");
+    }
     // --- mật khẩu
     const QString enc = P(QStringLiteral("mat-khau.pdf"));
     {
