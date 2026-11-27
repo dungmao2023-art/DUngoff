@@ -32,19 +32,23 @@ QString dataDir() {
     return d;
 }
 
-QJsonObject load(const QString& name) {
+QJsonObject load(const QString& name, bool* ok) {
+    if(ok) *ok=false;
     const QString path=pathFor(name);
     QFile f(path);
-    if (!f.exists() || !f.open(QIODevice::ReadOnly)) return {};
+    if (!f.exists()) { if(ok) *ok=true; return {}; }
+    if (!f.open(QIODevice::ReadOnly)) return {};
     const QByteArray raw = f.readAll();
     if(f.error()!=QFileDevice::NoError) return {};
     f.close();
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(raw, &err);
     if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-        preserveCorrupt(path);
+        if(ok) *ok=preserveCorrupt(path);
+        else preserveCorrupt(path);
         return {};
     }
+    if(ok) *ok=true;
     return doc.object();
 }
 
