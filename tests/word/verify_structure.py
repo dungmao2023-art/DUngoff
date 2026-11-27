@@ -82,3 +82,14 @@ for filename in ("word-table-custom.docx", "word-table-custom-roundtrip.docx"):
         check(len(rows) == 5 and all(len(row.findall(W+"tc")) == 4 for row in rows),
               filename + ": exactly five rows and four cells per row")
         check("TABLE_BODY_MARKER" in text(root), filename + ": preceding text retained")
+        check("TABLE_CELL_MARKER" in text(tables[0]), filename + ": cell content retained")
+
+with zipfile.ZipFile(Path(sys.argv[1]).parent / "word-table-edited.docx") as z:
+    root = ET.fromstring(z.read("word/document.xml"))
+    tables = list(root.iter(W+"tbl"))
+    check(len(tables) == 1, "edited DOCX: exactly one table")
+    rows = tables[0].findall(W+"tr")
+    check(len(rows) == 6 and all(len(row.findall(W+"tc")) == 5 for row in rows),
+          "edited DOCX: added one row and one column")
+    check("TABLE_CELL_MARKER" in text(tables[0]), "edited DOCX: original cell retained")
+    check("TABLE_BODY_MARKER" in text(root), "edited DOCX: body retained")
