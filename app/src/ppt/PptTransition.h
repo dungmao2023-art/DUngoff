@@ -12,6 +12,8 @@ struct Result { bool ok = false; QString error; };
 QStringList slideEntries(const QString& source, QString* error);
 Result patchXml(const QByteArray& xml, const Options& options, QByteArray* output);
 Result createCopy(const QString& source, const QString& destination, int slide1, const Options& options);
+// Inclusive 1-based slide range, resolved using presentation relationships.
+Result createRangeCopy(const QString& source,const QString& destination,int first,int last,const Options& options);
 struct Shape { unsigned id = 0; QString name; };
 enum class AnimationTrigger { Click, WithPrevious, AfterPrevious };
 struct AnimationOptions { unsigned shapeId = 0; bool fade = false; int durationMs = 500; int delayMs = 0; AnimationTrigger trigger=AnimationTrigger::Click; bool exit = false; };
