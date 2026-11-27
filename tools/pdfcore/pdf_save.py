@@ -97,6 +97,11 @@ def _publish_new(tmp: str, dest: str) -> None:
         raise PdfError(f"Không công bố được bản sao an toàn: {exc}") from exc
 
 
+def _replace_existing(tmp: str, dest: str) -> None:
+    """Final replacement only, after the complete backup is published."""
+    os.replace(tmp, dest)
+
+
 def atomic_save(pdf, dest: str, allow_replace: bool = False) -> SaveResult:
     """Ghi `pdf` ra `dest` theo đúng quy tắc an toàn ở trên."""
     dest = os.path.abspath(dest)
@@ -150,7 +155,7 @@ def atomic_save(pdf, dest: str, allow_replace: bool = False) -> SaveResult:
             _publish_new(backup_tmp, backup)
             if not unchanged(os.stat(dest, follow_symlinks=False)):
                 raise PdfError("Tệp đích đã thay đổi; không thay thế.")
-            os.replace(tmp, dest)
+            _replace_existing(tmp, dest)
         else:
             _publish_new(tmp, dest)
     except OSError as exc:
