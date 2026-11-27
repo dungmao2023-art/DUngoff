@@ -5,6 +5,7 @@
 #include "pdf/PdfOcr.h"
 
 #include <QGuiApplication>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QColor>
@@ -134,7 +135,31 @@ static int tempLeftovers(const QString& dir) {
     return QDir(dir).entryList({QStringLiteral("~dung-*")}, QDir::AllEntries | QDir::NoDotAndDotDot).size();
 }
 
+// Child mode: proxy the real qpdf, then create a competing destination after
+// transformation, before PdfOps publishes. This exercises the actual write path.
+static int raceProxy(int argc,char** argv) {
+    QCoreApplication app(argc,argv);
+    const QString real=qEnvironmentVariable("DUNG_PDF_TEST_REAL_QPDF");
+    const QString target=qEnvironmentVariable("DUNG_PDF_TEST_RACE_TARGET");
+    if(real.isEmpty()||target.isEmpty())return 91;
+    QProcess child;child.setProcessChannelMode(QProcess::ForwardedChannels);
+    const auto args=app.arguments().mid(1);
+    child.start(real,args);
+    if(!child.waitForStarted(15000)||!child.waitForFinished(120000))return 92;
+    if(child.exitStatus()!=QProcess::NormalExit)return 93;
+    const int code=child.exitCode();
+    if((code==0||code==3)&&!args.isEmpty()&&args.last().endsWith(QLatin1String("/result.pdf"))
+        &&!args.contains(QStringLiteral("--check"))){
+        QFile competing(target);
+        const QByteArray bytes("competing writer");
+        if(!competing.open(QIODevice::WriteOnly|QIODevice::NewOnly)||competing.write(bytes)!=bytes.size()||!competing.flush())return 94;
+    }
+    return code;
+}
+
 int main(int argc, char** argv) {
+    if(qEnvironmentVariableIsSet("DUNG_PDF_TEST_REAL_QPDF")&&qEnvironmentVariableIsSet("DUNG_PDF_TEST_RACE_TARGET"))
+        return raceProxy(argc,argv);
     if(qgetenv("QT_QPA_PLATFORM").isEmpty()) {
 #ifdef Q_OS_WIN
         // Windows native font database is necessary; no visible windows are created.
@@ -218,6 +243,23 @@ int main(int argc, char** argv) {
     }
 #endif
     CHECK(!extract({a,{}},QStringLiteral("1"),d,true).ok,"reject directory destination");
+
+    // The destination did not exist at operation start, but is created by
+    // another writer after qpdf finishes. The native output must not clobber it.
+    const QString raceTarget=P(QStringLiteral("race.pdf"));
+    {
+        const QByteArray oldQpdf=qgetenv("DUNG_QPDF");
+        const bool hadQpdf=qEnvironmentVariableIsSet("DUNG_QPDF");
+        qputenv("DUNG_PDF_TEST_REAL_QPDF",qpdf.toUtf8());
+        qputenv("DUNG_PDF_TEST_RACE_TARGET",raceTarget.toUtf8());
+        qputenv("DUNG_QPDF",QCoreApplication::applicationFilePath().toUtf8());
+        const auto racing=extract({a,{}},QStringLiteral("1"),raceTarget,false);
+        if(hadQpdf)qputenv("DUNG_QPDF",oldQpdf);else qunsetenv("DUNG_QPDF");
+        qunsetenv("DUNG_PDF_TEST_REAL_QPDF");qunsetenv("DUNG_PDF_TEST_RACE_TARGET");
+        CHECK(!racing.ok && readFile(raceTarget)=="competing writer" && readFile(a)==aBytes,
+              "competing destination created during qpdf is not overwritten");
+        CHECK(tempLeftovers(d)==0,"no temporary output after competing writer");
+    }
 
     // --- tên tiếng Việt có dấu và dấu cách
     const QString vn = P(QStringLiteral("Báo cáo tháng 1 Dũng.pdf"));
