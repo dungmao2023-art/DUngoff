@@ -322,6 +322,27 @@ int main(int argc, char** argv) {
         check(!r4.ok, "Từ chối thay tệp đích đã tồn tại khi chưa xác nhận");
     }
 
+    step("lưu thất bại sau khi engine ghi tệp tạm");
+    {
+        const auto blocked = viDir / "blocked-target.xlsx";
+        fs::create_directories(blocked);
+        const auto sentinel = blocked / "keep.txt";
+        { std::ofstream keep(sentinel, std::ios::binary); keep << "KEEP"; }
+        SaveOptions replace;
+        replace.allowReplaceExisting = true;
+        auto failed = doc->saveAs(blocked, replace);
+        check(!failed.ok, "Đích là thư mục: không báo đã lưu");
+        check(doc->modified(), "Lỗi sau staging vẫn giữ trạng thái chưa lưu");
+        check(readAll(sentinel) == std::vector<char>({'K','E','E','P'}), "Không đổi dữ liệu tại đích bị chặn");
+        check(readAll(original) == originalBytes, "Lỗi lưu không đổi tệp gốc");
+    }
+    {
+        SaveOptions exportOnly;
+        exportOnly.allowLossyExport = true;
+        const auto printed = doc->saveAs(viDir / "unsaved-print.pdf", exportOnly);
+        check(printed.ok && doc->modified(), "Xuất PDF không coi XLSX đang sửa là đã lưu");
+    }
+
     // ---------------- Lưu thành (mặc định) ----------------
     step("Lưu thành XLSX");
     fs::path suggested = doc->suggestSaveAsPath();
