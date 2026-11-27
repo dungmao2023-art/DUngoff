@@ -483,6 +483,23 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
         result.error = QObject::tr("Nhập nội dung cần chứa, hoặc chọn lọc ô trống.");
         return result;
     }
+    const bool project = !spec.outputColumns.isEmpty();
+    if (spec.outputColumns.size() != spec.outputNames.size()) {
+        result.error = QObject::tr("Cấu hình cột đầu ra không hợp lệ."); return result;
+    }
+    QSet<int> selected;
+    QSet<QString> names;
+    for (qsizetype i=0;i<spec.outputColumns.size();++i) {
+        const int col=spec.outputColumns[i];
+        const auto name=spec.outputNames[i].trimmed();
+        if (col<0 || col>=source.header.size() || selected.contains(col) || name.isEmpty() || names.contains(name.toCaseFolded())) {
+            result.error=QObject::tr("Cột đầu ra không hợp lệ, tên rỗng hoặc tên bị trùng."); return result;
+        }
+        selected.insert(col); names.insert(name.toCaseFolded());
+    }
+    if (project) for (const auto& row:source.rows) if (row.size()!=source.header.size()) {
+        result.error=QObject::tr("Nguồn có dòng sai số cột; chưa chọn/đổi tên cột."); return result;
+    }
     const auto cs = spec.ignoreCase ? Qt::CaseInsensitive : Qt::CaseSensitive;
     result.table.header = source.header;
     for (const auto& row : source.rows) {
@@ -505,6 +522,15 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
                 const int cmp = a.value(spec.sortCol).compare(b.value(spec.sortCol), cs);
                 return spec.descending ? cmp > 0 : cmp < 0;
             });
+    // Filtering and sorting use source indices, then the output columns are projected.
+    if (project) {
+        result.table.header=spec.outputNames;
+        for (auto& row:result.table.rows) {
+            QStringList projected;
+            for (int col:spec.outputColumns) projected << row[col];
+            row=projected;
+        }
+    }
     result.ok = true;
     return result;
 }
@@ -517,6 +543,13 @@ QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpe
         {"mode", int(spec.mode)}, {"value", spec.value},
         {"ignoreCase", spec.ignoreCase}, {"descending", spec.descending}
     };
+    if (!spec.outputColumns.isEmpty() || !spec.outputNames.isEmpty()) {
+        obj.insert("version",2);
+        QJsonArray columns;
+        for(int col:spec.outputColumns) columns.append(col);
+        obj.insert("outputColumns",columns);
+        obj.insert("outputNames",QJsonArray::fromStringList(spec.outputNames));
+    }
     return QJsonDocument(obj).toJson(QJsonDocument::Indented);
 }
 
@@ -529,7 +562,8 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     const auto doc = QJsonDocument::fromJson(json, &parseError);
     if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return fail();
     const auto obj = doc.object();
-    if (obj.value("version").toInt(-1) != 1 || !obj.value("header").isArray()
+    const int version=obj.value("version").toInt(-1);
+    if ((version != 1 && version != 2) || !obj.value("header").isArray()
         || obj.value("header").toArray() != QJsonArray::fromStringList(header)) return fail();
     const int filter = obj.value("filterCol").toInt(-2);
     const int sort = obj.value("sortCol").toInt(-2);
@@ -543,6 +577,16 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     candidate.value = obj.value("value").toString();
     candidate.ignoreCase = obj.value("ignoreCase").toBool();
     candidate.descending = obj.value("descending").toBool();
+    if(version==2) {
+        if(!obj.value("outputColumns").isArray() || !obj.value("outputNames").isArray()) return fail();
+        const auto columns=obj.value("outputColumns").toArray(), names=obj.value("outputNames").toArray();
+        if(columns.isEmpty() || columns.size()!=names.size() || columns.size()>header.size()) return fail();
+        for(qsizetype i=0;i<columns.size();++i) {
+            if(!columns[i].isDouble() || !names[i].isString()) return fail();
+            candidate.outputColumns.append(columns[i].toInt(-1));
+            candidate.outputNames.append(names[i].toString());
+        }
+    } else if(obj.contains("outputColumns") || obj.contains("outputNames")) return fail();
     const auto checked = filterSort(Table{header, {}}, candidate);
     if (!checked.ok) { error = checked.error; return false; }
     spec = candidate;

@@ -164,6 +164,7 @@ struct TableToolsDialog::Impl {
     QComboBox* filterCol = nullptr; QComboBox* sortCol = nullptr;
     QComboBox* filterMode = nullptr; QLineEdit* filterValue = nullptr;
     QCheckBox* ignoreCase = nullptr; QCheckBox* descending = nullptr;
+    QList<int> outputColumns; QStringList outputNames;
     QPlainTextEdit* report = nullptr;
     Table tableA;
     bool haveA = false;
@@ -228,6 +229,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     form4->addRow(tr("Sắp xếp theo cột (chữ):"), d->sortCol);
     form4->addRow(d->ignoreCase); form4->addRow(d->descending);
     l4->addLayout(form4);
+    auto* chooseColumns = new QPushButton(tr("Chọn và đổi tên cột đầu ra…")); l4->addWidget(chooseColumns);
     auto* run4 = new QPushButton(tr("Xem trước kết quả lọc và sắp xếp…"));
     l4->addWidget(run4);
     auto* recipes = new QHBoxLayout;
@@ -249,6 +251,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->haveA = d->a->load(t, err);
         d->dupCols->clear(); d->keyCol->clear();
         d->filterCol->clear(); d->sortCol->clear();
+        d->outputColumns.clear(); d->outputNames.clear();
         d->filterCol->addItem(tr("Không lọc"), -1);
         d->sortCol->addItem(tr("Giữ thứ tự gốc"), -1);
         auto* form = qobject_cast<QFormLayout*>(d->kindHost->layout());
@@ -335,8 +338,39 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         spec.value = d->filterValue->text();
         spec.ignoreCase = d->ignoreCase->isChecked();
         spec.descending = d->descending->isChecked();
+        spec.outputColumns=d->outputColumns; spec.outputNames=d->outputNames;
         return spec;
     };
+    connect(chooseColumns,&QPushButton::clicked,this,[this,needA] {
+        if(!needA()) return;
+        QDialog dlg(this); dlg.setWindowTitle(tr("Cột đầu ra")); dlg.resize(540,430);
+        auto* layout=new QVBoxLayout(&dlg);
+        auto* note=new QLabel(tr("Tích cột cần giữ; nhấp đúp để đổi tên. Thứ tự theo nguồn; lọc/sắp xếp vẫn dùng cột gốc."),&dlg);
+        note->setWordWrap(true); layout->addWidget(note);
+        auto* list=new QListWidget(&dlg); layout->addWidget(list,1);
+        for(int i=0;i<d->tableA.header.size();++i) {
+            const auto pos=d->outputColumns.indexOf(i);
+            auto* item=new QListWidgetItem(pos>=0?d->outputNames[pos]:d->tableA.header[i],list);
+            item->setFlags(item->flags()|Qt::ItemIsUserCheckable|Qt::ItemIsEditable);
+            item->setToolTip(tr("Cột nguồn %1: %2").arg(i+1).arg(d->tableA.header[i]));
+            item->setCheckState(d->outputColumns.isEmpty()||pos>=0?Qt::Checked:Qt::Unchecked);
+        }
+        auto* reset=new QPushButton(tr("Giữ tất cả cột và tên gốc"),&dlg); layout->addWidget(reset);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg); layout->addWidget(buttons);
+        connect(reset,&QPushButton::clicked,&dlg,[&] { d->outputColumns.clear(); d->outputNames.clear(); dlg.accept(); });
+        connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        connect(buttons,&QDialogButtonBox::accepted,&dlg,[&] {
+            FilterSortSpec spec;
+            for(int i=0;i<list->count();++i) if(list->item(i)->checkState()==Qt::Checked) {
+                spec.outputColumns.append(i); spec.outputNames.append(list->item(i)->text().trimmed());
+            }
+            if(spec.outputColumns.isEmpty()) { QMessageBox::warning(&dlg,tr("Cột đầu ra"),tr("Chọn ít nhất một cột.")); return; }
+            const auto checked=filterSort(Table{d->tableA.header,{}},spec);
+            if(!checked.ok) { QMessageBox::warning(&dlg,tr("Cột đầu ra"),checked.error); return; }
+            d->outputColumns=spec.outputColumns; d->outputNames=spec.outputNames; dlg.accept();
+        });
+        dlg.exec();
+    });
     connect(saveRecipe, &QPushButton::clicked, this, [this, needA, recipeSpec] {
         if (!needA()) return;
         const auto spec = recipeSpec();
@@ -372,6 +406,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->filterValue->setText(spec.value);
         d->ignoreCase->setChecked(spec.ignoreCase);
         d->descending->setChecked(spec.descending);
+        d->outputColumns=spec.outputColumns; d->outputNames=spec.outputNames;
         d->report->setPlainText(tr("Đã nạp cấu hình. Bấm Xem trước để chạy với dữ liệu hiện tại."));
     });
     connect(run4, &QPushButton::clicked, this, [this, askSave, save, needA, recipeSpec] {
