@@ -166,7 +166,11 @@ Result PdfToolsDialog::runWithPasswords(const QStringList& paths, const std::fun
 
 void PdfToolsDialog::showResult(const Result& r, const QString& okTitle) {
     if (!r.ok) {
-        QMessageBox::warning(this, tr("Không thực hiện được"), r.error.isEmpty() ? tr("Có lỗi không rõ.") : r.error);
+        QString message=r.error.isEmpty()?tr("Có lỗi không rõ."):r.error;
+        if(!r.files.isEmpty())message+=tr("\n\nĐã xuất %1 tệp trước khi gặp lỗi:\n%2").arg(r.files.size())
+            .arg(r.files.mid(0,8).join(QLatin1Char('\n')));
+        if(!r.backup.isEmpty())message+=tr("\n\nBản sao lưu hoàn chỉnh:\n%1").arg(r.backup);
+        QMessageBox::warning(this,tr("Không thực hiện được"),message);
         return;
     }
     QString msg = tr("Đã lưu:\n%1").arg(r.files.size() > 8 ? tr("%1 tệp trong thư mục đã chọn").arg(r.files.size())
@@ -192,10 +196,18 @@ void PdfToolsDialog::refreshPageCount(const QString& path, QLabel* label) {
     label->setText(i.ok ? tr("%1 trang, %2").arg(i.pages).arg(human(i.bytes)) : i.error);
 }
 
-// Chọn đích: hộp thoại lưu của hệ thống tự hỏi khi trùng tên; chỉ khi người dùng xác nhận mới thay (có sao lưu).
+// Export tools always create new files. Do not infer overwrite permission from
+// existence after the native save dialog: another process may have created the name.
 static QString pickDest(QWidget* p, const QString& src, const QString& label) {
-    return QFileDialog::getSaveFileName(p, QObject::tr("Lưu kết quả thành"), suggestOutputPath(src, label),
-                                        QObject::tr("Tệp PDF (*.pdf)"));
+    const auto path=QFileDialog::getSaveFileName(p,QObject::tr("Lưu bản PDF mới (không ghi đè)"),suggestOutputPath(src,label),
+        QObject::tr("Tệp PDF (*.pdf)"),nullptr,QFileDialog::DontConfirmOverwrite);
+    if(path.isEmpty())return {};
+    const QFileInfo target(path);
+    if(target.exists()||target.isSymLink()){
+        QMessageBox::warning(p,QObject::tr("Lưu bản PDF mới"),QObject::tr("Tên này đã tồn tại. Hãy chọn tên khác để giữ nguyên mọi tệp cũ."));
+        return {};
+    }
+    return path;
 }
 
 QWidget* PdfToolsDialog::buildMerge() {
@@ -233,8 +245,7 @@ QWidget* PdfToolsDialog::buildMerge() {
         if (paths.size() < 2) { QMessageBox::information(this, tr("Gộp"), tr("Cần ít nhất hai tệp.")); return; }
         const QString dest = pickDest(this, paths.first(), tr("gộp"));
         if (dest.isEmpty()) return;
-        // Đích trùng một tệp nguồn sẽ bị PdfOps từ chối; ở đây chỉ báo trước cho rõ.
-        const bool replace = QFileInfo::exists(dest);
+        const bool replace = false;
         const Result r = runWithPasswords(paths, [this, paths, dest, replace] {
             QList<Input> ins;
             for (const QString& p : paths) ins << inputFor(p);
@@ -275,7 +286,7 @@ QWidget* PdfToolsDialog::buildSplit() {
             if (spec.isEmpty()) { QMessageBox::information(this, tr("Tách"), tr("Hãy nhập các trang cần lấy.")); return; }
             const QString dest = pickDest(this, src, tr("trích"));
             if (dest.isEmpty()) return;
-            const bool replace = QFileInfo::exists(dest);
+            const bool replace = false;
             showResult(runWithPasswords({src}, [this, src, spec, dest, replace] {
                            return extract(inputFor(src), spec, dest, replace);
                        }),
@@ -307,7 +318,7 @@ QWidget* PdfToolsDialog::buildReorder() {
         if (src.isEmpty() || spec.isEmpty()) { QMessageBox::information(this, tr("Sắp xếp"), tr("Hãy chọn PDF và nhập thứ tự trang.")); return; }
         const QString dest = pickDest(this, src, tr("sắp xếp"));
         if (dest.isEmpty()) return;
-        const bool replace = QFileInfo::exists(dest);
+        const bool replace = false;
         showResult(runWithPasswords({src}, [this, src, spec, dest, replace] {
             return reorder(inputFor(src), spec, dest, replace);
         }), tr("Sắp xếp xong"));
@@ -336,7 +347,7 @@ QWidget* PdfToolsDialog::buildRotate() {
         if (src.isEmpty()) { QMessageBox::information(this, tr("Xoay"), tr("Hãy chọn tệp PDF.")); return; }
         const QString dest = pickDest(this, src, tr("xoay"));
         if (dest.isEmpty()) return;
-        const bool replace = QFileInfo::exists(dest);
+        const bool replace = false;
         const QString spec = m_rotPages->text().trimmed();
         const int deg = m_rotAngle->currentData().toInt();
         showResult(runWithPasswords({src}, [this, src, spec, deg, dest, replace] {
@@ -362,7 +373,7 @@ QWidget* PdfToolsDialog::buildCompress() {
         if (src.isEmpty()) { QMessageBox::information(this, tr("Nén"), tr("Hãy chọn tệp PDF.")); return; }
         const QString dest = pickDest(this, src, tr("nén"));
         if (dest.isEmpty()) return;
-        const bool replace = QFileInfo::exists(dest);
+        const bool replace = false;
         Result r = runWithPasswords({src}, [this, src, dest, replace] { return compress(inputFor(src), dest, replace); });
         if (r.ok && !r.files.isEmpty()) {
             const qint64 a = QFileInfo(src).size(), b = QFileInfo(r.files.first()).size();
@@ -575,7 +586,7 @@ QWidget* PdfToolsDialog::buildNumber() {
         o.pages = m_numPages->text().trimmed().isEmpty() ? QStringLiteral("1-") : m_numPages->text().trimmed();
         const QString dest = pickDest(this, src, tr("đánh số"));
         if (dest.isEmpty()) return;
-        const bool replace = QFileInfo::exists(dest);
+        const bool replace = false;
         showResult(runWithPasswords({src}, [this, src, o, dest, replace] { return addPageNumbers(inputFor(src), o, dest, replace); }),
                    tr("Đánh số xong"));
     });
@@ -679,7 +690,7 @@ QWidget* PdfToolsDialog::buildStamp() {
         o.pages = m_stampPages->text().trimmed().isEmpty() ? QStringLiteral("1-") : m_stampPages->text().trimmed();
         const QString dest = pickDest(this, src, tr("đóng dấu"));
         if (dest.isEmpty()) return;
-        const bool replace = QFileInfo::exists(dest);
+        const bool replace = false;
         showResult(runWithPasswords({src}, [this, src, o, dest, replace] { return stamp(inputFor(src), o, dest, replace); }),
                    tr("Đóng dấu xong"));
     });
@@ -721,16 +732,12 @@ QWidget* PdfToolsDialog::buildImages() {
         QStringList imgs;
         for (int i = 0; i < m_imgList->count(); ++i) imgs << m_imgList->item(i)->text();
         if (imgs.isEmpty()) { QMessageBox::information(this, tr("Ảnh → PDF"), tr("Hãy thêm ít nhất một ảnh.")); return; }
-        // Gợi ý tên dựa trên ảnh đầu tiên, đuôi .pdf; không bao giờ ghi đè khi chưa xác nhận.
-        const QString dest = QFileDialog::getSaveFileName(this, tr("Lưu PDF thành"),
-                                                          suggestOutputPath(QFileInfo(imgs.first()).absolutePath() + QStringLiteral("/") +
-                                                                                QFileInfo(imgs.first()).completeBaseName() + QStringLiteral(".pdf"),
-                                                                            tr("từ ảnh")),
-                                                          tr("Tệp PDF (*.pdf)"));
+        const QString dest=pickDest(this,QFileInfo(imgs.first()).absolutePath()+QStringLiteral("/")+
+            QFileInfo(imgs.first()).completeBaseName()+QStringLiteral(".pdf"),tr("từ ảnh"));
         if (dest.isEmpty()) return;
         ImageOptions o;
         o.fitA4 = m_imgA4->isChecked();
-        const bool replace = QFileInfo::exists(dest);
+        const bool replace = false;
         showResult(runWithPasswords({}, [imgs, o, dest, replace] { return imagesToPdf(imgs, o, dest, replace); }),
                    tr("Tạo PDF xong"));
     });
@@ -772,7 +779,7 @@ QWidget* PdfToolsDialog::buildBlank() {
         if (src.isEmpty()) { QMessageBox::information(this, tr("Trang trắng"), tr("Hãy chọn tệp PDF.")); return; }
         const QString dest = pickDest(this, src, tr("bỏ trang trắng"));
         if (dest.isEmpty()) return;
-        const bool replace = QFileInfo::exists(dest);
+        const bool replace = false;
         showResult(runWithPasswords({src}, [this, src, dest, replace] { return removeBlankPages(inputFor(src), dest, replace); }),
                    tr("Đã bỏ trang trắng"));
     });
