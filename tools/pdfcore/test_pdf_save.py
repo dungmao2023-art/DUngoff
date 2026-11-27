@@ -29,6 +29,27 @@ class SaveSafetyTests(unittest.TestCase):
     def assertNoTemporary(self):
         self.assertEqual(list(self.root.glob("~dung-*")), [])
 
+    def test_page_ranges_zero_based_and_ordered(self):
+        self.assertEqual(s.parse_pages("1, 3-4, 1", 4), [0, 2, 3, 0])
+        self.assertEqual(s.parse_pages("-2, 3-", 4), [0, 1, 2, 3])
+        self.assertEqual(s.parse_pages("2-", 4), [1, 2, 3])
+
+    def test_page_range_rejects_invalid_and_oversized(self):
+        for spec in ("0", "5", "2-1", "1,,2", "1 2", "-", "+1", "1,"):
+            with self.subTest(spec=spec), self.assertRaises(s.PdfError):
+                s.parse_pages(spec, 4)
+        with self.assertRaises(s.PdfError):
+            s.parse_pages("1-", 1_000_001)
+        with self.assertRaises(s.PdfError):
+            s.parse_pages("1-600000,1-600000", 600000)
+
+    def test_temp_creation_failure_is_pdf_error(self):
+        with patch.object(s.tempfile, "mkstemp", side_effect=OSError("disk full")):
+            with self.assertRaises(s.PdfError):
+                s.atomic_save(Writer(), str(self.dest))
+        self.assertFalse(self.dest.exists())
+        self.assertNoTemporary()
+
     def test_new_file(self):
         result = s.atomic_save(Writer(), str(self.dest))
         self.assertEqual(self.dest.read_bytes(), VALID)
