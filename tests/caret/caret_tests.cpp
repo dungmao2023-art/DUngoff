@@ -135,11 +135,15 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
         }
         // vùng nhiều ô: kéo chuột
         QMouseEvent pr(QEvent::MouseButtonPress, QPoint(120, 60), vp->mapToGlobal(QPoint(120, 60)), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QElapsedTimer dragTiming;dragTiming.start();
         QApplication::sendEvent(vp, &pr);
+        check(!doc->inputIdleFor(10000),label+": thao tác chuột được ghi nhận là input gần đây");
+        check(view.selectedCellRange(true).isEmpty(),label+": không lấy vùng làm tham chiếu khi chưa thả chuột");
         QMouseEvent mv(QEvent::MouseMove, QPoint(330, 130), vp->mapToGlobal(QPoint(330, 130)), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(vp, &mv);
         QMouseEvent rl(QEvent::MouseButtonRelease, QPoint(330, 130), vp->mapToGlobal(QPoint(330, 130)), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
         QApplication::sendEvent(vp, &rl);
+        note(label+QString(": PERF drag dispatch %1 ms (press/move/release)").arg(dragTiming.elapsed()));
         pump(1500);
         const QImage multi = vp->grab().toImage().scaled(vp->size()).convertToFormat(QImage::Format_RGB32);
         multi.save(outDir + "/" + label + "-multi.png");
