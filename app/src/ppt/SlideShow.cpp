@@ -1,5 +1,8 @@
 #include "SlideShow.h"
 #include <QKeyEvent>
+#include <QInputDialog>
+#include <QMessageBox>
+#include <QScreen>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QRegularExpression>
@@ -8,14 +11,15 @@
 #include <cmath>
 #include <limits>
 
-SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool fullscreen)
+SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool fullscreen, QScreen* targetScreen)
     : QWidget(parent, Qt::Window), m_doc(doc), m_part(startPart), m_count(doc->partCount()) {
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowTitle(tr("Trình chiếu"));
     setFocusPolicy(Qt::StrongFocus);
     if (fullscreen) setCursor(Qt::BlankCursor);
     m_doc->documentSize(m_w, m_h);
-    if (m_part < 0 || m_part >= m_count) m_part = 0;
+    if (m_count <= 0) m_part = -1;
+    else if (m_part < 0 || m_part >= m_count) m_part = 0;
     // Starting a show must not expose a hidden slide, including Show from here.
     if (m_count > 0 && hidden(m_part)) {
         int next = m_part;
@@ -26,8 +30,15 @@ SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool f
         }
         m_part = next >= 0 && next < m_count ? next : -1;
     }
-    if (fullscreen) showFullScreen();
-    else { setWindowTitle(tr("Xem trước slide — mũi tên chuyển trang · B/W màn trống · Esc đóng")); resize(960, 600); show(); }
+    if (fullscreen) {
+        if (targetScreen) {
+            // QWidget::setScreen establishes the native window's screen before
+            // fullscreen. Move as well for virtual desktops sharing a geometry.
+            setScreen(targetScreen);
+            move(targetScreen->geometry().topLeft());
+        }
+        showFullScreen();
+    } else { setWindowTitle(tr("Xem trước slide — mũi tên chuyển trang · G tới slide · B/W màn trống · Esc đóng")); resize(960, 600); show(); }
     render();
 }
 
@@ -47,6 +58,28 @@ void SlideShow::go(int delta) {
         if (!hidden(p)) break;                 // bỏ qua trang đã ẩn
     }
     m_part = p;
+    render();
+    update();
+}
+
+void SlideShow::jumpToSlide() {
+    if (m_count <= 0) return;
+    bool ok = false;
+    // Use real slide numbers, including the original positions of hidden slides.
+    const int page = QInputDialog::getInt(this, tr("Đến slide"), tr("Số slide (1–%1):").arg(m_count),
+        std::max(1, m_part + 1), 1, m_count, 1, &ok);
+    if (!ok) return;
+    const int target = page - 1;
+    if (m_doc->partCount() != m_count) {
+        QMessageBox::information(this, tr("Trình chiếu"), tr("Số slide đã thay đổi. Hãy mở lại trình chiếu."));
+        close(); return;
+    }
+    if (hidden(target)) {
+        QMessageBox::information(this, tr("Đến slide"), tr("Slide %1 đang ẩn. Chọn một slide khác.").arg(page));
+        return;
+    }
+    m_blank = 0;
+    m_part = target;
     render();
     update();
 }
@@ -88,6 +121,7 @@ void SlideShow::resizeEvent(QResizeEvent*) { render(); }
 void SlideShow::keyPressEvent(QKeyEvent* e) {
     switch (e->key()) {
     case Qt::Key_Escape: close(); break;
+    case Qt::Key_G: if (!e->isAutoRepeat()) jumpToSlide(); break;
     case Qt::Key_Right: case Qt::Key_Down: case Qt::Key_PageDown: case Qt::Key_Space: case Qt::Key_Return: go(+1); break;
     case Qt::Key_Left: case Qt::Key_Up: case Qt::Key_PageUp: case Qt::Key_Backspace: go(-1); break;
     case Qt::Key_B: case Qt::Key_Period:
