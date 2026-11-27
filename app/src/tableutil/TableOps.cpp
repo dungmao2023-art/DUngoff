@@ -353,8 +353,18 @@ DedupResult removeDuplicates(const Table &t, const QList<int> &cols, bool trimAn
 {
     DedupResult res; res.cleaned.header = t.header;
     if (cols.isEmpty()) { res.ok = false; res.warnings << QObject::tr("Chưa chọn cột làm khoá."); res.cleaned = t; return res; }
-    for (int c : cols) if (c < 0 || c >= t.header.size()) {
-        res.ok = false; res.warnings << QObject::tr("Cột khoá không tồn tại: %1").arg(c); res.cleaned = t; return res; }
+    QSet<int> selected;
+    for (int c : cols) {
+        if (c < 0 || c >= t.header.size() || selected.contains(c)) {
+            res.ok=false;res.warnings<<QObject::tr("Cột khoá không hợp lệ hoặc bị lặp: %1").arg(c);
+            res.cleaned=t;return res;
+        }
+        selected.insert(c);
+    }
+    for(const auto& row:t.rows)if(row.size()!=t.header.size()){
+        res.ok=false;res.warnings<<QObject::tr("Nguồn có dòng sai số cột; không loại bỏ dữ liệu.");
+        res.cleaned=t;return res;
+    }
 
     QHash<QString, int> first; // khoá -> chỉ số dòng gốc
     int emptyKeys = 0;
@@ -367,7 +377,14 @@ DedupResult removeDuplicates(const Table &t, const QList<int> &cols, bool trimAn
             parts << v;
         }
         if (allEmpty) { res.cleaned.rows << t.rows[i]; ++emptyKeys; continue; }
-        const QString key = parts.join(QChar(0x1F));
+        // Length-prefix each component; embedded delimiters, NUL and digits
+        // cannot turn two distinct tuples into the same composite key.
+        QString key;
+        for(const auto& value:parts) {
+            key+=QString::number(value.size());
+            key+=QLatin1Char(':');
+            key+=value;
+        }
         auto it = first.constFind(key);
         if (it == first.constEnd()) { first.insert(key, i); res.cleaned.rows << t.rows[i]; }
         else res.removed.push_back({i, t.rows[i], it.value()});
