@@ -42,6 +42,28 @@ int main(int argc, char **argv)
         CHECK(folded.ok && folded.removed.size()==1,"trim and case-fold still work");
     }
 
+    // Import resource bounds must refuse without returning a partial table.
+    {
+        const Table before=T({"ID"},{{"keep"}});
+        Table result=before;QString error;
+        QByteArray longCell("ID\n");longCell+=QByteArray(kMaxCsvCellChars+1,'x');
+        CHECK(!readCsvBytes(longCell,Encoding::Utf8,result,error)&&result==before&&!error.isEmpty(),"reject oversized CSV cell without changing result");
+        const QByteArray quoted="ID\n\""+QByteArray(kMaxCsvCellChars+1,'x')+"\"";
+        CHECK(!readCsvBytes(quoted,Encoding::Utf8,result,error)&&result==before,"quoted field obeys same limit");
+        QByteArray columns(kMaxCsvColumns,',');columns+="x\n";
+        CHECK(!readCsvBytes(columns,Encoding::Utf8,result,error)&&result==before,"reject excessive CSV columns");
+        const QByteArray rows=QByteArray("x\n").repeated(kMaxCsvRecords+1);
+        CHECK(!readCsvBytes(rows,Encoding::Utf8,result,error)&&result==before,"reject excessive records without truncation");
+        QTemporaryDir dir;QFile huge(dir.filePath("large.csv"));
+        const bool created=huge.open(QIODevice::WriteOnly)&&huge.resize(kMaxCsvBytes+1);
+        huge.close();
+        QByteArray raw("previous");
+        CHECK(created&&!readCsvFileBytes(huge.fileName(),raw,error)&&raw=="previous","reject oversized file before reading, preserve prior bytes");
+        CHECK(!readCsvFileBytes(dir.path(),raw,error)&&raw=="previous","reject directory as CSV source");
+        CHECK(readCsvBytes(QByteArray("ID\n")+QByteArray(kMaxCsvCellChars,'x'),Encoding::Utf8,result,error)&&
+            result.rows.size()==1&&result.rows.first().first().size()==kMaxCsvCellChars,"exact field boundary accepted");
+    }
+
     // ---- Dòng trùng ----
     Table t = T({"Ma", "Ten", "SDT"}, {
         {"A01", "Nguyễn Văn An", "0912345678"},
