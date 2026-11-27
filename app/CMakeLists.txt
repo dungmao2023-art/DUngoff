@@ -23,6 +23,12 @@ endif()
 
 include(src/ppt/ppt.cmake)
 include(src/extras/extras.cmake)
+# Isolated workspace persistence test; no engine or production user data.
+add_executable(dung-workspacetest
+  ${PROJECT_SOURCE_DIR}/tests/ui/workspace_store_tests.cpp
+  src/extras/WorkspaceStore.cpp)
+target_link_libraries(dung-workspacetest PRIVATE Qt6::Core)
+set_target_properties(dung-workspacetest PROPERTIES AUTOMOC OFF)
 include(src/templates/templates.cmake)
 include(src/tableutil/tableutil.cmake)
 include(src/tools/mailmerge.cmake)
