@@ -396,8 +396,22 @@ int main(int argc, char** argv) {
         check(d && d->kind() == DocKind::Text && !d->readOnly(), "Mở DOCX -> Word, chỉnh sửa được " + err);
         if (d) {
             renderCheck(*d, "docx");
-            auto r = d->saveAs(out / fs::u8path("Văn bản - Dũng Office.docx"));
+            const auto target=out / fs::u8path("Văn bản - Dũng Office.docx");
+            const auto originalBytes=readAll(docx);
+            SaveOptions options;
+            bool customXmlOnly=true,hasBlocking=false;
+            for(const auto& item:d->featureLoss())if(item.blocking){
+                hasBlocking=true;customXmlOnly=customXmlOnly&&item.id=="xml-tuy-bien"&&!item.certain;
+            }
+            if(hasBlocking&&customXmlOnly){
+                const auto refused=d->saveAs(target);
+                check(!refused.ok&&!fs::exists(target)&&readAll(docx)==originalBytes,
+                      "XML tùy biến: mặc định chặn lưu, nguồn giữ nguyên");
+                options.allowFeatureLoss=true;
+            }
+            auto r = d->saveAs(target,options);
             check(r.ok, "Lưu thành DOCX: " + r.message);
+            check(readAll(docx)==originalBytes,"DOCX nguồn giữ nguyên sau khi lưu bản sao");
         }
     }
     if (!pptx.empty()) {
