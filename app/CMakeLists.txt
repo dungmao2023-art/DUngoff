@@ -26,9 +26,10 @@ include(src/extras/extras.cmake)
 # Isolated workspace persistence test; no engine or production user data.
 add_executable(dung-workspacetest
   ${PROJECT_SOURCE_DIR}/tests/ui/workspace_store_tests.cpp
-  src/extras/WorkspaceStore.cpp)
-target_link_libraries(dung-workspacetest PRIVATE Qt6::Core)
-set_target_properties(dung-workspacetest PROPERTIES AUTOMOC OFF)
+  src/extras/WorkspaceStore.cpp
+  src/extras/SidePanel.h src/extras/SidePanel.cpp)
+target_link_libraries(dung-workspacetest PRIVATE Qt6::Widgets)
+set_target_properties(dung-workspacetest PROPERTIES AUTOMOC ON)
 include(src/templates/templates.cmake)
 include(src/tableutil/tableutil.cmake)
 include(src/tools/mailmerge.cmake)
