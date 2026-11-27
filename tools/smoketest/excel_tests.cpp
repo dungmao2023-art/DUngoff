@@ -279,6 +279,28 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
     step("lưu kết quả");
     auto r = doc->saveAs(out / "excel-ket-qua.xlsx");
     check(r.ok, "Lưu thành excel-ket-qua.xlsx: " + r.message);
+    // Exercise the same native commands as the guarded ribbon, on the
+    // auxiliary sheet only. Keep the main verified output unchanged.
+    if(r.ok&&fillPart>=0){
+        step("xóa hàng/cột Excel và kiểm tra Undo");
+        doc->setPart(fillPart);doc->waitInputIdle();
+        auto snapshot=[&](const char* file){
+            const auto dest=out/file;
+            fs::remove(dest,ec);
+            const auto saved=doc->saveAs(dest);
+            check(saved.ok,std::string("Lưu kiểm thử ")+file+": "+saved.message);
+        };
+        gotoCell(*doc,"K11");
+        doc->command(".uno:DeleteRows");doc->waitInputIdle();settle();
+        snapshot("excel-row-deleted.xlsx");
+        doc->command(".uno:Undo");doc->waitInputIdle();settle();
+        snapshot("excel-row-restored.xlsx");
+        gotoCell(*doc,"L11");
+        doc->command(".uno:DeleteColumns");doc->waitInputIdle();settle();
+        snapshot("excel-column-deleted.xlsx");
+        doc->command(".uno:Undo");doc->waitInputIdle();settle();
+        snapshot("excel-column-restored.xlsx");
+    }
     doc.reset();
 
     // ======================= Tệp stress 5000 dòng =======================
