@@ -42,6 +42,29 @@ int main(int argc, char** argv) {
                 if(family->currentIndex()!=0||size->currentText()!=QLatin1String("18")||!emitted.isEmpty()){
                     printf("[LỖI] trạng thái engine không đồng bộ hoặc phát lệnh khi cập nhật UI\n");++fail;
                 }
+                const QString reportedFont=family->itemText(0);
+                const int familyCount=family->count(),sizeCount=size->count();
+                for(int i=0;i<1000;++i) {
+                    r.setCommandState(QStringLiteral(".uno:CharFontName"),reportedFont);
+                    r.setCommandState(QStringLiteral(".uno:FontHeight"),QStringLiteral("18.0"));
+                }
+                if(!emitted.isEmpty()||family->count()!=familyCount||size->count()!=sizeCount||
+                   family->currentText()!=reportedFont||size->currentText()!=QLatin1String("18")){
+                    printf("[LỖI] repeated state changed ribbon or emitted commands\n");++fail;
+                }
+                // A user can change the local widget before the engine acknowledges.
+                // The identical engine payload must still restore the true state.
+                size->setCurrentIndex(-1);
+                r.setCommandState(QStringLiteral(".uno:FontHeight"),QStringLiteral("18.0"));
+                if(size->currentText()!=QLatin1String("18")||!emitted.isEmpty()){
+                    printf("[LỖI] repeated acknowledgement did not restore widget state\n");++fail;
+                }
+                r.setCommandState(QStringLiteral(".uno:CharFontName"),QStringLiteral("DungOfficeTestMissingFont"));
+                r.setCommandState(QStringLiteral(".uno:CharFontName"),QStringLiteral("DungOfficeTestMissingFont"));
+                if(family->currentText()!=QLatin1String("DungOfficeTestMissingFont")||family->count()!=familyCount+1){
+                    printf("[LỖI] missing font is not preserved exactly once\n");++fail;
+                }
+                r.setCommandState(QStringLiteral(".uno:CharFontName"),reportedFont);
                 QMetaObject::invokeMethod(family,"activated",Qt::DirectConnection,Q_ARG(int,0));
                 if(!emitted.startsWith(QLatin1String(".uno:CharFontName#"))){printf("[LỖI] chọn font không phát lệnh\n");++fail;}
                 emitted.clear();
