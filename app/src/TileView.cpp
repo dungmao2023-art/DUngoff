@@ -193,6 +193,7 @@ void TileView::sendVisibleArea() {
     // Only skip the redundant synchronous engine call, not header refresh.
     if(!m_visibleAreaSent||m_sentVisibleArea!=area||m_sentTileTwips!=tileSize) {
         m_doc->setClientView(kTilePx,kTilePx,tileSize,tileSize,area.x(),area.y(),area.width(),area.height());
+        ++m_visibleAreaDispatches;
         m_visibleAreaSent=true;
         m_sentVisibleArea=area;
         m_sentTileTwips=tileSize;
