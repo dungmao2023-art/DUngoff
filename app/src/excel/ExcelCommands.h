@@ -33,6 +33,14 @@ inline std::string boolArg(const std::string& k, bool v) {
     return "\"" + k + "\":{\"type\":\"boolean\",\"value\":" + (v ? "true" : "false") + "}";
 }
 
+// Linear integer series, UNO arguments are strings parsed by Calc's number formatter.
+// Upstream sc/sdi/scalc.sdi and cellsh1.cxx; real-engine CI must verify these.
+inline std::string fillLinear(bool vertical, long long start, long long step, long long end) {
+    return "{" + strArg("FillDir",vertical?"B":"R") + "," + strArg("FillCmd","L") + "," +
+        strArg("FillDateCmd","D") + "," + strArg("FillStart",std::to_string(start)) + "," +
+        strArg("FillStep",std::to_string(step)) + "," + strArg("FillMax",std::to_string(end)) + "}";
+}
+
 // ---- Sheet ----
 // Tên sheet hợp lệ của Excel: 1–31 ký tự, không có []:*?/\\, không bắt đầu/kết thúc bằng dấu '.
 inline bool validSheetName(const std::string& n) {

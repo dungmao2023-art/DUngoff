@@ -46,7 +46,7 @@ QString iconNameForCommand(const QString& id) {
         // Excel
         {".uno:FillDown", "move-down"}, {".uno:FillRight", "transfer"},
         {"xl:fillDown", "move-down"}, {"xl:fillRight", "transfer"},
-        {"xl:fillUp", "move-up"}, {"xl:fillLeft", "transfer"},
+        {"xl:fillUp", "move-up"}, {"xl:fillLeft", "transfer"}, {"xl:fillSeries", "sum"},
         {".uno:AlignLeft", "align-left"}, {".uno:AlignHorizontalCenter", "align-center"}, {".uno:AlignRight", "align-right"},
         {".uno:AlignTop", "align-top"}, {".uno:AlignVCenter", "align-middle"}, {".uno:AlignBottom", "align-bottom"},
         {".uno:AutoSum", "sum"}, {".uno:DataFilterAutoFilter", "filter"},

@@ -76,6 +76,13 @@ def basic(path):
           "FillUp giữ giá trị tính đúng sau lưu")
     check([cached[f"{col}3"].value for col in ("G","H","I")] == [15,10,12],
           "FillLeft giữ giá trị tính đúng sau lưu")
+    check([fill[f"E{r}"].value for r in range(6,10)] == [10,13,16,19],
+          "FillSeries vertical increasing native numbers")
+    check([fill[f"{col}6"].value for col in "GHIJ"] == [7,4,1,-2],
+          "FillSeries horizontal decreasing across zero")
+    check(all(fill[f"E{r}"].data_type=="n" for r in range(6,10)) and
+          all(fill[f"{col}6"].data_type=="n" for col in "GHIJ"),
+          "FillSeries exports numeric cells, not text")
     check([tuple(fill.cell(r,c).value for c in (11,12,13)) for r in range(10,14)] ==
           [("Khóa","Mã","Giá trị"), (1,"001",10), (2,"002",20), (3,"003",30)],
           "SortAscending giữ tiêu đề và liên kết toàn dòng, mã 0 đầu không đổi")
