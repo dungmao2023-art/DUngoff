@@ -298,6 +298,7 @@ private:
             v << edits_[i]->text();
         }
         optional_->setVisible(hasOptional && required);
+        if(pendingPick_ && edits_.contains(pendingPick_) && !pendingPick_->isVisibleTo(this))cancelPick();
         const BuildResult b = buildFormula(*cur_, v);
         if (b.ok) { result_->setText(b.formula); status_->setText(QStringLiteral("Đủ tham số. Chọn ô kết quả.")); }
         else { result_->clear(); status_->setText(b.error); }

@@ -437,7 +437,6 @@ void Ribbon::setKind(DocKind kind, bool readOnly) {
         style()->unpolish(this);
         style()->polish(this);
     }
-    const int current = m_tabs->currentIndex();
     while (m_tabs->count()) m_tabs->removeTab(0);
     while (m_pages->count()) {
         QWidget* w = m_pages->widget(0);
@@ -450,7 +449,7 @@ void Ribbon::setKind(DocKind kind, bool readOnly) {
         m_pages->addWidget(buildPage(t));
     }
     // Lần đầu mở tab "Trang đầu" (chỉ số 1, sau tab "Tệp")
-    m_tabs->setCurrentIndex(std::clamp(current < 0 ? 1 : current, 0, m_tabs->count() - 1));
+    m_tabs->setCurrentIndex(qMin(1, m_tabs->count()-1));
 }
 
 void Ribbon::setCommandState(const QString& cmd, const QString& value) {
