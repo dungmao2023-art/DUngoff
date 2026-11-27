@@ -28,6 +28,7 @@ public:
     bool renderPending() const { return !m_deferredPaint.isEmpty() || m_tilePaintTimer.isActive(); }
     int peakTilesPerPaint() const { return m_peakTilesPerPaint; }
     int cachedTileCount() const { return int(m_tiles.size()); }
+    unsigned visibleAreaDispatches() const { return m_visibleAreaDispatches; }
     unsigned coalescedDragDispatches() const { return m_dragDispatches; }
     bool hasCellCursor() const { return m_hasCell; }
     QRect caretViewRect() const;        // con trỏ chữ trong toạ độ viewport (rỗng nếu chưa có)
@@ -119,6 +120,10 @@ private:
     int m_rowStartPx = 0, m_colStartPx = 0;
     QTimer m_headerTimer;
     QTimer m_areaTimer;
+    QRect m_sentVisibleArea;
+    int m_sentTileTwips=0;
+    bool m_visibleAreaSent=false;
+    unsigned m_visibleAreaDispatches=0;
     QTimer m_fitTimer;
     QTimer m_synthTimer;   // gộp các yêu cầu vẽ lại do tầng engine phát (SYNTH)
     QTimer m_synthLate;    // vẽ lại lần hai: lệnh UNO được engine xử lý trễ sau khi gửi
