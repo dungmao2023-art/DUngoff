@@ -12,11 +12,13 @@ Quy tắc an toàn (theo docs/DATA_SAFETY.md):
 from __future__ import annotations
 
 import os
-import re
 from typing import List, Optional, Sequence
 
 import pikepdf
-from pdf_save import PdfError, SaveResult, atomic_save, _ensure_distinct_destination
+if __package__:
+    from .pdf_save import PdfError, SaveResult, atomic_save, _ensure_distinct_destination, parse_pages
+else:
+    from pdf_save import PdfError, SaveResult, atomic_save, _ensure_distinct_destination, parse_pages
 
 # ------------------------------------------------------------- thao tác PDF
 
@@ -27,32 +29,6 @@ def open_readonly(path: str, password: Optional[str] = None) -> pikepdf.Pdf:
         raise PdfError("Tệp được bảo vệ bằng mật khẩu. Nhập mật khẩu để mở.")
     except pikepdf.PdfError as e:
         raise PdfError(f"Không mở được PDF (có thể hỏng): {e}")
-
-
-def parse_pages(spec: str, total: int) -> List[int]:
-    """Chuyển chuỗi kiểu '1-3,5,8-' thành danh sách chỉ số 0-based, có kiểm tra."""
-    result: List[int] = []
-    if total < 1 or not spec.strip():
-        raise PdfError("Chưa chọn trang nào.")
-    for part in spec.split(","):
-        part = part.strip()
-        match = re.fullmatch(r"([0-9]+)\s*-\s*([0-9]*)|-\s*([0-9]+)|([0-9]+)", part)
-        if not match:
-            raise PdfError(f"Khoảng trang không hợp lệ: {part}")
-        first, last, leading_end, single = match.groups()
-        try:
-            if single is not None:
-                start = end = int(single)
-            elif leading_end is not None:
-                start, end = 1, int(leading_end)
-            else:
-                start, end = int(first), int(last) if last else total
-        except ValueError as exc:
-            raise PdfError(f"Khoảng trang không hợp lệ: {part}") from exc
-        if start < 1 or end > total or start > end:
-            raise PdfError(f"Khoảng trang không hợp lệ: {part} (tài liệu có {total} trang)")
-        result.extend(range(start - 1, end))
-    return result
 
 
 def merge(paths: Sequence[str], dest: str, allow_replace: bool = False) -> SaveResult:
