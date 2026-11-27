@@ -381,7 +381,8 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
             connect(m_slideRefresh,&QTimer::timeout,this,[this]{
                 if(m_pptNotes||m_pendingThumbnails.isEmpty())return;
                 // Defer thumbnail work while typing or dragging; one slide per tick.
-                if(!isVisible()||!m_doc->inputIdleFor(150)) {
+                if(!isVisible())return; // resumed by showEvent, not periodic polling
+                if(!m_doc->inputIdleFor(150)) {
                     m_slideRefresh->start(250);
                     return;
                 }
@@ -400,7 +401,7 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         connect(m_slides, &QListWidget::currentRowChanged, this, [this](int row) {
             if (m_rebuildingParts || row < 0 || row == m_doc->currentPart()) return;
             // Do not render the old thumbnail synchronously on a slide click.
-            if(m_slideRefresh&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(250);
+            if(m_slideRefresh&&isVisible()&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(250);
             m_doc->setPart(row);
             m_view->resetForPartChange();
             refreshPdfComparison();
@@ -767,6 +768,16 @@ QString DocumentTab::statusText() const {
     return s;
 }
 
+void DocumentTab::hideEvent(QHideEvent* event) {
+    if(m_slideRefresh)m_slideRefresh->stop();
+    QWidget::hideEvent(event);
+}
+
+void DocumentTab::showEvent(QShowEvent* event) {
+    QWidget::showEvent(event);
+    if(m_slideRefresh&&!m_pptNotes&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
+}
+
 void DocumentTab::rebuildParts() {
     m_rebuildingParts = true;
     const int n = m_doc->partCount(), cur = m_doc->currentPart();
@@ -789,7 +800,7 @@ void DocumentTab::rebuildParts() {
             if(m_slideRefresh&&!m_pptNotes)m_pendingThumbnails.insert(i);
         }
         m_slides->setCurrentRow(cur);
-        if(m_slideRefresh&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
+        if(m_slideRefresh&&isVisible()&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
     }
     m_rebuildingParts = false;
 }
@@ -821,7 +832,7 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
         notifyDocumentRangeTools(m_rangeTools);
     if(type==LOK_CALLBACK_INVALIDATE_TILES && m_slideRefresh && !m_pptNotes) {
         m_pendingThumbnails.insert(m_slides->currentRow());
-        m_slideRefresh->start(250);
+        if(isVisible())m_slideRefresh->start(250);
     }
     const bool modified = m_doc->modified();
     // The first invalidation can arrive before ModifiedStatus=true.
