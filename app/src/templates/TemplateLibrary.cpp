@@ -87,9 +87,10 @@ QList<QStringList> readCsv(const QString& path) {
     if(f.size()>4LL*1024*1024)return rows;
     const auto raw=f.read(4LL*1024*1024+1);
     if(f.error()!=QFileDevice::NoError||!f.atEnd()||raw.size()>4LL*1024*1024)return rows;
-    QString text=QString::fromUtf8(raw);
-    if(text.toUtf8()!=raw)return rows;
-    if (text.startsWith(QChar(0xFEFF))) text.remove(0, 1);
+    // Qt may remove the initial UTF-8 BOM during decoding. Compare the payload only.
+    const auto payload=raw.startsWith("\xEF\xBB\xBF")?raw.mid(3):raw;
+    QString text=QString::fromUtf8(payload);
+    if(text.toUtf8()!=payload)return rows;
     QStringList row;
     QString cur;
     bool q = false;
@@ -109,6 +110,7 @@ QList<QStringList> readCsv(const QString& path) {
             row.clear();
         } else cur += c;
     }
+    if(q)return {}; // unterminated quoted field is never a valid catalogue
     if (!cur.isEmpty() || !row.isEmpty()) { row << cur; rows << row; }
     return rows;
 }
@@ -317,6 +319,7 @@ QList<Entry> entries(const LibInfo& lib) {
 
 QList<Source> sources(const LibInfo& lib) {
     QList<Source> out;
+    if(!lib.valid||!safeFile(lib.root,QLatin1String(kSrc)))return out;
     const QList<QStringList> rows = readCsv(lib.root + QLatin1Char('/') + QLatin1String(kSrc));
     for (int i = 1; i < rows.size(); ++i) {
         Source s;
