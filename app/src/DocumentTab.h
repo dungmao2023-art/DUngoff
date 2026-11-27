@@ -4,6 +4,7 @@
 #include "recovery/RecoveryStore.h"
 
 #include <QHash>
+#include <QSet>
 #include <QWidget>
 #include <memory>
 #include <functional>
@@ -83,7 +84,7 @@ private:
     unsigned m_pickGeneration = 0;
     QListWidget* m_slides = nullptr;
     QTimer* m_slideRefresh = nullptr;
-    int m_slideRefreshPart = -1;
+    QSet<int> m_pendingThumbnails;
     QWidget* m_pdfComparison = nullptr;
     QLabel* m_pdfOriginalImage = nullptr;
     QPushButton* m_pdfCompareButton = nullptr;
