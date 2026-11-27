@@ -102,6 +102,25 @@ def _replace_existing(tmp: str, dest: str) -> None:
     os.replace(tmp, dest)
 
 
+def _same_snapshot(before, after, *, cross_api=False, windows=None) -> bool:
+    """Compare identity/content metadata; use like-for-like ctime on Windows.
+
+    CPython issue #157671: Windows stat(path) and fstat(fd) may expose
+    different meanings of ctime. Never compare these two ctimes directly.
+    Retain ctime checks within each API and compare birthtime across APIs.
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+            after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns):
+        return False
+    if windows and cross_api:
+        birth_before = getattr(before, "st_birthtime_ns", None)
+        birth_after = getattr(after, "st_birthtime_ns", None)
+        return birth_before == birth_after
+    return before.st_ctime_ns == after.st_ctime_ns
+
+
 def atomic_save(pdf, dest: str, allow_replace: bool = False) -> SaveResult:
     """Ghi `pdf` ra `dest` theo đúng quy tắc an toàn ở trên."""
     dest = os.path.abspath(dest)
@@ -134,20 +153,19 @@ def atomic_save(pdf, dest: str, allow_replace: bool = False) -> SaveResult:
         if replace_existing:
             # Exclusive backup creation: never overwrite an existing backup.
             def unchanged(current):
-                return (current.st_dev, current.st_ino, current.st_size, current.st_mtime_ns, current.st_ctime_ns) == (
-                    original_stat.st_dev, original_stat.st_ino, original_stat.st_size,
-                    original_stat.st_mtime_ns, original_stat.st_ctime_ns)
+                return _same_snapshot(original_stat, current)
             if not unchanged(os.stat(dest, follow_symlinks=False)):
                 raise PdfError("Tệp đích đã thay đổi kể từ lúc xác nhận; không thay thế.")
             with open(dest, "rb") as original:
-                if not unchanged(os.fstat(original.fileno())):
+                handle_stat = os.fstat(original.fileno())
+                if not _same_snapshot(original_stat, handle_stat, cross_api=True):
                     raise PdfError("Tệp đích đã thay đổi; không thay thế.")
                 backup_fd, backup_tmp = tempfile.mkstemp(prefix="~dung-backup-", suffix=".tmp", dir=folder)
                 with os.fdopen(backup_fd, "wb") as saved:
                     shutil.copyfileobj(original, saved)
                     saved.flush()
                     os.fsync(saved.fileno())
-                if not unchanged(os.fstat(original.fileno())):
+                if not _same_snapshot(handle_stat, os.fstat(original.fileno())):
                     raise PdfError("Tệp đích thay đổi trong lúc sao lưu; không thay thế.")
             if not unchanged(os.stat(dest, follow_symlinks=False)):
                 raise PdfError("Tệp đích đã thay đổi; không thay thế.")
