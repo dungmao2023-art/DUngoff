@@ -53,6 +53,10 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
     horizontalScrollBar()->setSingleStep(40);
     verticalScrollBar()->setSingleStep(40);
 
+    m_dragTimer.setSingleShot(true);
+    m_dragTimer.setInterval(8);
+    m_dragTimer.setTimerType(Qt::PreciseTimer);
+    connect(&m_dragTimer,&QTimer::timeout,this,&TileView::flushDragMove);
     m_tilePaintTimer.setSingleShot(true);
     m_tilePaintTimer.setInterval(8);
     connect(&m_tilePaintTimer,&QTimer::timeout,this,[this] {
@@ -131,6 +135,7 @@ QRect TileView::toView(const QRect& t) const {
 }
 
 void TileView::setZoom(int percent) {
+    flushDragMove();
     percent = std::clamp(percent, 25, 400);
     if (percent == m_zoom) return;
     // Giữ điểm giữa màn hình khi đổi zoom
@@ -147,6 +152,7 @@ void TileView::setZoom(int percent) {
 }
 
 void TileView::resetForPartChange() {
+    clearDragMove();
     m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear(); m_pickValid = false; m_pickComplete = false;
     m_tiles.clear(); m_dirtyTiles.clear(); m_deferredPaint=QRegion(); m_tilePaintTimer.stop();
     m_selection.clear();
@@ -561,6 +567,7 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 }
 
 void TileView::mousePressEvent(QMouseEvent* e) {
+    flushDragMove();
     if (m_isCalc) {
         const auto old=selectionPaintRegion();
         m_cellArea = QRect();
@@ -580,6 +587,7 @@ void TileView::mousePressEvent(QMouseEvent* e) {
     sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN, e, m_clickCount);
 }
 void TileView::mouseReleaseEvent(QMouseEvent* e) {
+    flushDragMove(); // final queued position must reach engine before release
     sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, e, m_clickCount);
     m_clickCount = 1;
     if (m_isCalc && e->button() == Qt::LeftButton && m_pickValid) {
@@ -614,10 +622,40 @@ QString TileView::selectedCellRange(bool verifyGesture) {
     const auto range = dataassist::bridgeRangeAddress((a + QLatin1Char(':') + b).toStdString());
     return QString::fromStdString(range);
 }
+void TileView::clearDragMove() {
+    m_dragTimer.stop();
+    m_dragPending=false;
+}
+
+void TileView::flushDragMove() {
+    if(!m_dragPending)return;
+    const QPoint pos=m_dragTwips;
+    const int buttons=m_dragButtons,modifiers=m_dragModifiers;
+    clearDragMove();
+    const UiTiming timing("drag");
+    m_doc->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,pos.x(),pos.y(),1,buttons,modifiers);
+}
+
 void TileView::mouseMoveEvent(QMouseEvent* e) {
-    if (e->buttons() != Qt::NoButton) sendMouse(LOK_MOUSEEVENT_MOUSEMOVE, e, 1);
+    if(e->buttons()==Qt::NoButton){flushDragMove();return;}
+    // Preserve paths for drawing objects, slides, multi-button and modified drags.
+    // Ordinary text/cell selection depends on the latest pointer endpoint.
+    const bool simple=(m_isCalc||m_doc->kind()==dung::DocKind::Text)&&
+        e->buttons()==Qt::LeftButton&&e->modifiers()==Qt::NoModifier;
+    const QPoint pos=e->position().toPoint(),h=headerSize();
+    if(!simple||(m_isCalc&&(pos.x()<h.x()||pos.y()<h.y()))) {
+        flushDragMove();
+        sendMouse(LOK_MOUSEEVENT_MOUSEMOVE,e,1);
+        return;
+    }
+    m_dragTwips=toTwips(pos);
+    m_dragButtons=toLokButtons(e->buttons());
+    m_dragModifiers=toLokModifiers(e->modifiers());
+    m_dragPending=true;
+    if(!m_dragTimer.isActive())m_dragTimer.start();
 }
 void TileView::mouseDoubleClickEvent(QMouseEvent* e) {
+    flushDragMove();
     setFocus();
     restartBlink();
     m_clickCount = 2;
@@ -626,6 +664,7 @@ void TileView::mouseDoubleClickEvent(QMouseEvent* e) {
 }
 
 void TileView::wheelEvent(QWheelEvent* e) {
+    flushDragMove();
     if (e->modifiers() & Qt::ControlModifier) {
         setZoom(m_zoom + (e->angleDelta().y() > 0 ? 10 : -10));
         e->accept();
@@ -635,6 +674,7 @@ void TileView::wheelEvent(QWheelEvent* e) {
 }
 
 void TileView::keyPressEvent(QKeyEvent* e) {
+    flushDragMove();
     const UiTiming timing("key");
     if (m_composing && e->key() == Qt::Key_Escape) { cancelComposition(); e->accept(); return; }
     const LokKey k = toLokKey(e);
@@ -652,6 +692,7 @@ void TileView::keyReleaseEvent(QKeyEvent* e) {
 }
 
 void TileView::inputMethodEvent(QInputMethodEvent* e) {
+    flushDragMove();
     const UiTiming timing("ime");
     if (m_doc->readOnly()) { e->ignore(); return; }
     restartBlink();
@@ -685,6 +726,7 @@ void TileView::cancelComposition() {
 }
 
 void TileView::focusOutEvent(QFocusEvent* e) {
+    flushDragMove();
     carettrace::log("focus: RA");
     cancelComposition();
     QAbstractScrollArea::focusOutEvent(e);
