@@ -80,6 +80,7 @@ private:
     QRect m_cellArea;              // vùng nhiều ô (CELL_SELECTION_AREA)
     bool m_hasCaret = false, m_hasCell = false;
     bool m_blinkFrozen = false;
+    void updateCaretRegion();
     void restartBlink();           // hiện ngay rồi mới nhấp nháy lại (gõ/di chuyển/lấy focus)
     void drawCaret(QPainter& p);
     QRect cellOutlineTwips() const;
@@ -104,5 +105,6 @@ private:
     int m_clickCount = 1;
     QPoint m_pickStart, m_pickEnd;
     bool m_pickValid = false;
+    bool m_pickComplete = false;
     bool m_fitted = false;
 };
