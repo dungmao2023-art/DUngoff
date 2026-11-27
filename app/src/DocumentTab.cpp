@@ -862,7 +862,15 @@ static bool samePathUi(const QString& a, const QString& b) {
     return savepath::samePathForProtection(a,b);
 }
 
+bool DocumentTab::checkSaveConflict(const QString& path) {
+    if (!m_saveConflictCheck || !m_saveConflictCheck(path)) return true;
+    QMessageBox::warning(this,tr("Tệp đang mở"),
+        tr("Tệp đích đang được mở ở tab khác. Hãy lưu sang tên khác hoặc đóng tab đó trước. Chưa ghi đè dữ liệu."));
+    return false;
+}
+
 bool DocumentTab::doSave(const QString& path, bool confirmedReplace) {
+    if (!checkSaveConflict(path)) return false;
     dung::SaveOptions opts;
     const bool isPdf = path.endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive);
     const QString original = m_doc->isNew() ? QString() : fromPath(m_doc->originalPath());
@@ -923,6 +931,7 @@ bool DocumentTab::doSave(const QString& path, bool confirmedReplace) {
         opts.allowReplaceExisting = confirmedReplace;
     }
 
+    if (!checkSaveConflict(path)) return false;
     QApplication::setOverrideCursor(Qt::WaitCursor);
     const dung::SaveResult r = m_doc->saveAs(toPath(path), opts);
     QApplication::restoreOverrideCursor();
@@ -975,6 +984,7 @@ bool DocumentTab::saveAs() {
             tr("Chọn một định dạng tài liệu chỉnh sửa được: %1. Muốn tạo PDF, dùng Xuất PDF.").arg(nativeExtensions.join(QStringLiteral(", "))));
         return false;
     }
+    if (!checkSaveConflict(path)) return false;
     const bool exists = savepath::needsConfirmation(path);
     if (exists && QMessageBox::question(this, tr("Xác nhận thay thế"),
         tr("Tệp đích đã tồn tại:\n%1\nBạn có muốn thay thế tệp này không?").arg(QDir::toNativeSeparators(path)),
@@ -991,6 +1001,7 @@ bool DocumentTab::exportPdf() {
         tr("PDF (*.pdf)"), nullptr, QFileDialog::DontConfirmOverwrite);
     if (picked.isEmpty()) return false;
     const QString path = savepath::resolve(picked, QStringLiteral("pdf"), true);
+    if (!checkSaveConflict(path)) return false;
     const bool exists = savepath::needsConfirmation(path);
     if (exists && QMessageBox::question(this, tr("Xác nhận thay thế PDF"),
         tr("Tệp đích đã tồn tại:\n%1\nBạn có muốn thay thế tệp này không?").arg(QDir::toNativeSeparators(path)),
