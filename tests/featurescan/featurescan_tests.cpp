@@ -192,7 +192,15 @@ int main(int argc, char** argv) {
         CHECK(pv.scanned && pv.items.empty());
         auto pp = scanFeatureLoss(fx / "features.pptx");
         // features.pptx: 1 master + 11 bố cục -> báo "có thể" (đúng với số đo trong docs/PPTX_LIMITS.md)
-        CHECK(pp.scanned && pp.items.size() == 1 && pp.items[0].id == "master-tach" && pp.items[0].count == 11);
+        const auto* master=find(pp.items,"master-tach");
+        CHECK(pp.scanned && master && master->count==11 && !master->blocking);
+        // New part-name warnings may coexist with the existing master warning.
+        // Do not suppress an unexpected old warning or a claim of proven loss.
+        for(const auto& item:pp.items)if(item.id!="master-tach"){
+            std::printf("fixture PPTX: %s (%d)\n",item.id.c_str(),item.count);
+            CHECK(!item.certain && item.blocking && (item.id=="doi-tuong-nhung" ||
+                item.id=="xml-tuy-bien" || item.id=="ribbon-tuy-bien" || item.id=="chu-ky-vba"));
+        }
     }
 
     std::printf("%d/%d kiểm tra đạt\n", g_n - g_fail, g_n);
