@@ -173,15 +173,23 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         if(target.tab&&target.tab->view())target.tab->view()->setFocus();
     } else if (name == QLatin1String("acceptAllReview") || name == QLatin1String("rejectAllReview")) {
         const bool accept = name == QLatin1String("acceptAllReview");
+        QPointer<DocumentTab> live(tab);
+        const QString documentName=qs(doc->displayName());
         if (QMessageBox::question(parent,QObject::tr("Xử lý toàn bộ thay đổi"),
-            accept ? QObject::tr("Chấp nhận tất cả thay đổi được theo dõi trong tài liệu đang mở? Nội dung xóa được chấp nhận sẽ bị loại bỏ.") :
-                     QObject::tr("Từ chối tất cả thay đổi được theo dõi trong tài liệu đang mở? Nội dung chèn được theo dõi sẽ bị loại bỏ."),
+            QObject::tr("Tài liệu: %1\n\n").arg(documentName)+(accept ?
+                QObject::tr("Chấp nhận tất cả thay đổi được theo dõi? Nội dung xóa được chấp nhận sẽ bị loại bỏ.") :
+                QObject::tr("Từ chối tất cả thay đổi được theo dõi? Nội dung chèn được theo dõi sẽ bị loại bỏ."))+
+                QObject::tr("\n\nCó thể dùng Ctrl+Z để hoàn tác."),
             QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return true;
-        if(tab->readOnly() || tab->document()!=doc) return true;
+        if(!live || live->readOnly() || live->document()!=doc || !live->view()) return true;
         doc->waitInputIdle();
+        if(qs(doc->displayName())!=documentName){
+            QMessageBox::warning(live.data(),QObject::tr("Xử lý toàn bộ thay đổi"),QObject::tr("Tên tài liệu đã thay đổi. Chưa xử lý; hãy xác nhận lại."));
+            return true;
+        }
         doc->command(accept ? ".uno:AcceptAllTrackedChanges" : ".uno:RejectAllTrackedChanges","",true);
         doc->waitInputIdle();
-        tab->view()->setFocus();
+        if(live&&live->document()==doc&&live->view())live->view()->setFocus();
     } else if (name == QLatin1String("addComment")) {
         doc->waitInputIdle();
         QPointer<DocumentTab> live(tab);
