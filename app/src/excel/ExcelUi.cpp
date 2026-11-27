@@ -359,11 +359,21 @@ void DocumentTab::excelAction(const QString& id) {
     } else if(a==QLatin1String("sheetMoveLeft")||a==QLatin1String("sheetMoveRight")) {
         const bool left=a==QLatin1String("sheetMoveLeft");
         if((left&&cur==0)||(!left&&cur+1>=n)||!sameSheet())return;
-        // Native Move takes a 1-based insertion position before removal.
-        // A rightward move inserts after the next sheet.
-        const int index1=left?cur:cur+3;
+        // Forward insertion indices differ between engine builds.
+        // Swap adjacent sheets using only the verified backward move:
+        // for a rightward move, move the next sheet before this one.
         const QString stem=fromPath(m_doc->workingCopy().stem());
-        cmd(".uno:Move",ex::sheetMove(ss(stem),index1,false));
+        if(!left){
+            const auto neighbour=m_doc->partName(cur+1);
+            m_doc->setPart(cur+1);
+            m_doc->waitInputIdle();
+            if(m_doc->partCount()!=n||m_doc->currentPart()!=cur+1||
+               m_doc->partName(cur+1)!=neighbour||m_doc->partName(cur)!=originalSheet){
+                QMessageBox::warning(this,tr("Di chuyển sheet"),tr("Không xác minh được sheet bên cạnh. Chưa di chuyển."));
+                return;
+            }
+        }
+        cmd(".uno:Move",ex::sheetMove(ss(stem),left?cur:cur+1,false));
         m_doc->waitInputIdle();
         const int expected=cur+(left?-1:1);
         if(m_doc->partCount()!=n||m_doc->partName(expected)!=originalSheet){
