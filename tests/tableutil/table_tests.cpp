@@ -52,6 +52,13 @@ int main(int argc, char **argv)
               "older recipe version cannot silently ignore extrema");
         CHECK(!queryJoinInput(left,T({"ID","Other"},{{"001","A"}}),join).ok,"reject changed lookup schema");
         CHECK(!queryJoinInput(left,T(right.header,{{"001","A"},{"001","B"}}),join).ok,"reject duplicate right keys");
+        steps.groupAverage=true;
+        const auto avgJson=encodeQueryRecipe(left.header,join,steps);
+        CHECK(decodeQueryRecipe(avgJson,left.header,right.header,loaded,decoded,error)&&decoded.groupAverage&&decoded.groupExtrema&&
+            filterSort(input.table,decoded).table.rows.value(0).value(6)=="0.15","v7 average and extrema replay in joined query");
+        CHECK(decodeQueryRecipe(newJson,left.header,right.header,loaded,decoded,error)&&!decoded.groupAverage&&decoded.groupExtrema,"v6 recipe does not add average");
+        steps.groupValue=-1;
+        CHECK(!filterSort(input.table,steps).ok,"average needs a numeric column");
         join.kind=JoinKind::Inner;
         CHECK(queryJoinInput(left,right,join).table.rows.size()==3,"inner join excludes missing keys");
         CHECK(decodeQueryRecipe(encodeFilterSortRecipe(left.header,FilterSortSpec{}),left.header,{},loaded,decoded,error)&&!loaded.enabled,"legacy recipe remains compatible");
@@ -378,6 +385,13 @@ int main(int argc, char **argv)
         CHECK(extrema.table.rows.value(2).value(4).isEmpty()&&extrema.table.rows.value(2).value(5).isEmpty(),"empty numeric group has no extrema");
         CHECK(extrema.table.rows.value(3).value(4)=="-1.2345"&&extrema.table.rows.value(3).value(5)=="1.2345","mixed signs compare numerically");
         CHECK(groupCsv(src,0,1).table==r.table&&groupCsv(src,0,-1,true).table.header.size()==2,"legacy schema and count-only unchanged");
+        const auto avg=groupCsv(T({"ID","Amount"},{{"P","0.0001"},{"P","0"},{"P",""},{"N","-0.0001"},{"N","0"},{"Z",""},{"R","1"},{"R","2"},{"R","2"}}),0,1,false,true);
+        CHECK(avg.ok&&avg.table.header.size()==5&&avg.table.rows.value(0).value(4)=="0.0001","positive tie rounds away from zero, excludes blank");
+        CHECK(avg.table.rows.value(1).value(4)=="-0.0001","negative tie rounds away from zero");
+        CHECK(avg.table.rows.value(2).value(4).isEmpty(),"no numeric values means blank average");
+        CHECK(avg.table.rows.value(3).value(4)=="1.6667","recurring average rounds to four places");
+        const auto both=groupCsv(src,0,1,true,true);
+        CHECK(both.ok&&both.table.header.size()==7&&both.table.rows.value(0).value(6)=="0.15","min max and average coexist");
         auto count=groupCsv(src,0);
         CHECK(count.ok && count.table.rows.value(0).value(1)=="2" && count.table.header.size()==2,"count only");
         for(const QString& bad:QStringList{"001","1,2","1.00001","1e2"," 1","999999999999999","=1+2","1\n"}) {

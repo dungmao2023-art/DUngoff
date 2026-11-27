@@ -52,7 +52,7 @@ bool readCsvBytes(const QByteArray& raw, Encoding enc, Table& out, QString& erro
 // valueCol=-1 counts rows only; otherwise sum canonical decimals, exactly to 4 places.
 struct CsvGroupResult { bool ok=false; Table table; QString error; };
 // includeExtrema appends exact minimum/maximum to the existing sum schema; default unchanged.
-CsvGroupResult groupCsv(const Table& source, int keyCol, int valueCol=-1, bool includeExtrema=false);
+CsvGroupResult groupCsv(const Table& source, int keyCol, int valueCol=-1, bool includeExtrema=false, bool includeAverage=false);
 
 // ---- 1. Dòng trùng ----
 struct RemovedRow { int originalIndex; QStringList cells; int keptIndex; };
@@ -116,7 +116,7 @@ struct FilterSortSpec {
     bool dedupFold=false;
     // Group after projection. These are source indices and must survive projection.
     int groupKey=-1, groupValue=-1;
-    bool groupExtrema=false;
+    bool groupExtrema=false,groupAverage=false;
 };
 struct FilterSortResult {
     bool ok = false; Table table; QString error;
