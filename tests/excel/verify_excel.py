@@ -52,6 +52,18 @@ def basic(path):
           "Có hàng cao ~1,5 cm")
     check(ws.freeze_panes == "A2", f"Cố định hàng đầu: {ws.freeze_panes}")
     check(bool(ws.auto_filter.ref), f"Bộ lọc tự động: {ws.auto_filter.ref}")
+    fill = wb["Phụ"]
+    check([fill[f"E{r}"].value for r in (2,3,4)] == ["=A2+$B$2","=A3+$B$2","=A4+$B$2"],
+          "FillDown dịch tham chiếu tương đối, giữ tuyệt đối và kiểu công thức")
+    check([fill[f"{col}2"].value for col in ("G","H","I")] == ["=A2+$B$2","=B2+$B$2","=C2+$B$2"],
+          "FillRight dịch tham chiếu tương đối, giữ tuyệt đối và kiểu công thức")
+    check([fill[c].value for c in ("A2","A3","A4","B2","C2")] == [10,20,30,5,7],
+          "Fill không sửa các ô nguồn tham chiếu")
+    cached = openpyxl.load_workbook(path, data_only=True)["Phụ"]
+    check([cached[f"E{r}"].value for r in (2,3,4)] == [15,25,35],
+          "Kết quả FillDown được tính đúng sau lưu XLSX")
+    check([cached[f"{col}2"].value for col in ("G","H","I")] == [15,10,12],
+          "Kết quả FillRight được tính đúng sau lưu XLSX")
     # AutoSum chỉ để thông tin
     for r in range(ws.max_row - 3, ws.max_row + 1):
         v = ws.cell(r, 2).value
