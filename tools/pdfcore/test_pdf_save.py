@@ -81,10 +81,35 @@ class SaveSafetyTests(unittest.TestCase):
 
     def test_failed_backup_preserves_destination(self):
         self.dest.write_bytes(b"old")
-        with patch.object(s.shutil, "copyfileobj", side_effect=OSError("disk full")):
+        def partial_write(source, target):
+            target.write(b"partial")
+            raise OSError("disk full")
+        with patch.object(s.shutil, "copyfileobj", side_effect=partial_write):
             with self.assertRaises(s.PdfError):
                 s.atomic_save(Writer(), str(self.dest), True)
         self.assertEqual(self.dest.read_bytes(), b"old")
+        self.assertEqual(list(self.root.glob("*.dung-backup-*")), [])
+        self.assertNoTemporary()
+
+    def test_backup_collision_preserves_both_files(self):
+        self.dest.write_bytes(b"old")
+        backup = self.root / "out.dung-backup-fixed.pdf"
+        with patch.object(s, "_backup_path", return_value=str(backup)):
+            with self.assertRaises(s.PdfError):
+                s.atomic_save(Writer(lambda: backup.write_bytes(b"other backup")), str(self.dest), True)
+        self.assertEqual(self.dest.read_bytes(), b"old")
+        self.assertEqual(backup.read_bytes(), b"other backup")
+        self.assertNoTemporary()
+
+    def test_replace_failure_preserves_complete_backup(self):
+        self.dest.write_bytes(b"old")
+        with patch.object(s.os, "replace", side_effect=OSError("file locked")):
+            with self.assertRaises(s.PdfError):
+                s.atomic_save(Writer(), str(self.dest), True)
+        self.assertEqual(self.dest.read_bytes(), b"old")
+        backups = list(self.root.glob("*.dung-backup-*"))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_bytes(), b"old")
         self.assertNoTemporary()
 
 if __name__ == "__main__":
