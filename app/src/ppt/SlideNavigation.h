@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 #pragma once
 #include <QString>
+#include <QSize>
+#include <algorithm>
+#include <limits>
 #include <QVector>
 namespace slideshow {
+inline QSize thumbnailSize(long w,long h) {
+    if(w<=0 || h<=0 || w>std::numeric_limits<int>::max() || h>std::numeric_limits<int>::max()) return {};
+    const double scale=std::min(128.0/w,96.0/h);
+    return QSize(std::max(1,int(w*scale)),std::max(1,int(h*scale)));
+}
 inline int firstVisible(const QVector<bool>& visible,int start) {
     if (visible.isEmpty()) return -1;
     if (start<0 || start>=visible.size()) start=0;
