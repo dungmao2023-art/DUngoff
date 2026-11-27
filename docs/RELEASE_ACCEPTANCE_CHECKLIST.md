@@ -151,3 +151,9 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - #102 head 261734f1cfb6004942143f6f7f384c6124c485f5 merged 705c45b; [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45947947713). X05/A04 kiểm sheet/vùng chọn khi mở hộp thoại định dạng; GUI và trường hợp range rỗng cần nghiệm thu.
 - #100 head 4b66cd51263488efde213651ce797d41a50eda1a và #97 head 0a2dc044fa7b039ef784b1c4be7816c602dc91c9 đã đồng bộ chính xác hai file PDF của #98; CI mới chưa hoàn tất. Không tính là merged.
 - Giữ nguyên stage, trọng số, giờ dự toán: 33.83% triển khai có trọng số, 0 nhóm accepted. Các CI branch riêng không thay thế nghiệm thu main tích hợp và GUI thực tế.
+
+## Đối chiếu bổ sung — main ff4bd1733167051e00aaf990b18ec301d1931e04
+- #111 head 9b035d767e3fbe0711cfe988922b8a08b1dce95d merged ff4bd17; [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45953089425). D06 kiểm metadata nguồn OCR để loại kết quả khi nguồn đổi; chưa kiểm Windows OCR/GUI, không coi snapshot metadata là hash nội dung.
+- #110 head b0db48c80d2dc040baef3b9bed09249c4cbbd0f6 [CI FAIL](https://github.com/dungmao2023-art/DUngoff/actions/runs/45960055366); chưa bật thay vùng trực tiếp. #52/#57 vẫn FAIL; #49/#107 xung đột.
+- #112: feature commit 3e7a166aa49144f54e17a340304ad2295a76f02f, fixture commit 68b0f76bab1bb8b122b45f02b7663d8e9e4c1481. Chuyển riêng consent export PDF từ #107, không ghi đè pdf_save mới; thêm tests rotate/compress/split sau consent, kiểm encryption/pages/source SHA. [CI trước commit tài liệu](https://github.com/dungmao2023-art/DUngoff/actions/runs/45964410856) queued khi đọc. Cần CI đúng head mới và test pikepdf thật với dependency đã xác minh; không có pikepdf trong môi trường kiểm thử hiện tại. Chưa nối GUI, chưa merge.
+- Không đổi stage/trọng số/giờ, 0 nhóm accepted. Cần nghiệm thu Windows thật, PDF OCR, xác nhận mật khẩu GUI, Pivot creation và playback PowerPoint. Không phát hành.
