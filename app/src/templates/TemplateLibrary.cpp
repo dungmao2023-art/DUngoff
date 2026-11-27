@@ -14,9 +14,8 @@
 #include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QVersionNumber>
-#ifdef Q_OS_WIN
-#include <private/qzipreader_p.h> // đọc zip UTF-8 đúng tên tiếng Việt (tar của Windows không đọc được mọi tệp zip)
-#endif
+#include <QLockFile>
+#include "../tools/filetools/ZipLite.h"
 
 namespace tpl {
 namespace {
@@ -24,16 +23,58 @@ namespace {
 const char* kCsv = "00_HUONG_DAN_VA_DANH_MUC/DANH_MUC_TAP_TIN.csv";
 const char* kSrc = "00_HUONG_DAN_VA_DANH_MUC/NGUON_THAM_KHAO_CHINH_THUC.csv";
 
-bool copyTree(const QString& from, const QString& to) {
-    if (!QDir().mkpath(to)) return false;
-    QDir src(from);
-    for (const QFileInfo& fi : src.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden)) {
-        const QString dst = to + QLatin1Char('/') + fi.fileName();
-        if (fi.isDir()) {
-            if (!copyTree(fi.absoluteFilePath(), dst)) return false;
-        } else if (!QFile::copy(fi.absoluteFilePath(), dst)) {
-            return false;
-        }
+constexpr qint64 kPackBytes=100LL*1024*1024;
+constexpr qint64 kEntryBytes=32LL*1024*1024;
+constexpr int kPackEntries=3000;
+
+bool safeId(const QString& id){
+    static const QRegularExpression re(QStringLiteral("\\A[a-z0-9][a-z0-9-]{0,63}\\z"));
+    static const QRegularExpression device(QStringLiteral("\\A(?:con|prn|aux|nul|com[1-9]|lpt[1-9])\\z"),QRegularExpression::CaseInsensitiveOption);
+    return re.match(id).hasMatch()&&!device.match(id).hasMatch();
+}
+bool safeRel(const QString& name){
+    if(name.isEmpty()||name.size()>1024||name.contains(QChar::ReplacementCharacter))return false;
+    static const QRegularExpression invalid(QStringLiteral("[\\x00-\\x1f\\x7f<>:\"\\\\|?*]"));
+    static const QRegularExpression device(QStringLiteral("\\A(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\\.|\\z)"),QRegularExpression::CaseInsensitiveOption);
+    if(name.contains(invalid))return false;
+    for(const auto& part:name.split(QLatin1Char('/'))){
+        if(part.isEmpty()||part==QLatin1String(".")||part==QLatin1String("..")||
+           part.endsWith(QLatin1Char('.'))||part.endsWith(QLatin1Char(' '))||device.match(part).hasMatch())return false;
+    }
+    return true;
+}
+bool inside(const QString& child,const QString& root){
+#ifdef Q_OS_WIN
+    return child.startsWith(root+QLatin1Char('/'),Qt::CaseInsensitive);
+#else
+    return child.startsWith(root+QLatin1Char('/'));
+#endif
+}
+bool safeFile(const QString& root,const QString& rel){
+    if(!safeRel(rel))return false;
+    const auto base=QFileInfo(root).canonicalFilePath();
+    const QFileInfo fi(QDir(root).filePath(rel));
+    return !base.isEmpty()&&fi.isFile()&&!fi.isSymLink()&&inside(fi.canonicalFilePath(),base);
+}
+
+bool copyTree(const QString& from,const QString& to){
+    if(!QDir().mkpath(to))return false;
+    QDir base(from);const auto canonical=QFileInfo(from).canonicalFilePath();
+    QDirIterator it(from,QDir::AllEntries|QDir::Hidden|QDir::System|QDir::NoDotAndDotDot,QDirIterator::Subdirectories);
+    QSet<QString> names;qint64 total=0;
+    while(it.hasNext()){
+        const QString path=it.next();const QFileInfo fi(path);
+        const QString rel=base.relativeFilePath(path),key=rel.toCaseFolded();
+        if(!safeRel(rel)||names.contains(key)||names.size()>=kPackEntries||fi.isSymLink()||
+           !inside(fi.canonicalFilePath(),canonical)||(!fi.isDir()&&!fi.isFile()))return false;
+        names.insert(key);
+        const QString dest=QDir(to).filePath(rel);
+        if(fi.isDir()){if(!QDir().mkpath(dest))return false;continue;}
+        if(fi.size()<0||fi.size()>kEntryBytes||fi.size()>kPackBytes-total)return false;
+        if(!QDir().mkpath(QFileInfo(dest).absolutePath())||!QFile::copy(path,dest))return false;
+        const auto size=QFileInfo(dest).size();
+        if(size!=fi.size()||size>kPackBytes-total)return false;
+        total+=size;
     }
     return true;
 }
@@ -43,7 +84,11 @@ QList<QStringList> readCsv(const QString& path) {
     QList<QStringList> rows;
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) return rows;
-    QString text = QString::fromUtf8(f.readAll());
+    if(f.size()>4LL*1024*1024)return rows;
+    const auto raw=f.read(4LL*1024*1024+1);
+    if(f.error()!=QFileDevice::NoError||!f.atEnd()||raw.size()>4LL*1024*1024)return rows;
+    QString text=QString::fromUtf8(raw);
+    if(text.toUtf8()!=raw)return rows;
     if (text.startsWith(QChar(0xFEFF))) text.remove(0, 1);
     QStringList row;
     QString cur;
@@ -97,8 +142,15 @@ LibInfo readInfo(const QString& root) {
     LibInfo li;
     li.root = root;
     QFile mf(root + QStringLiteral("/manifest.json"));
-    if (mf.open(QIODevice::ReadOnly)) {
-        const QJsonObject o = QJsonDocument::fromJson(mf.readAll()).object();
+    if(QFileInfo(mf).isSymLink())return li;
+    if(mf.exists()){
+        if(!mf.open(QIODevice::ReadOnly)||mf.size()>65536)return li;
+        const auto bytes=mf.read(65537);
+        QJsonParseError parse;
+        const auto doc=QJsonDocument::fromJson(bytes,&parse);
+        if(mf.error()!=QFileDevice::NoError||!mf.atEnd()||bytes.size()>65536||parse.error!=QJsonParseError::NoError||!doc.isObject())return li;
+        const QJsonObject o=doc.object();
+        if(!o.value("id").isString()||!safeId(o.value("id").toString()))return li;
         li.id = o.value(QStringLiteral("id")).toString();
         li.name = o.value(QStringLiteral("name")).toString();
         li.version = o.value(QStringLiteral("version")).toString();
@@ -110,14 +162,25 @@ LibInfo readInfo(const QString& root) {
         const QRegularExpressionMatch m = QRegularExpression(QStringLiteral("(\\d{4}(?:[._]\\d+)?)$")).match(folder);
         li.version = m.hasMatch() ? QString(m.captured(1)).replace(QLatin1Char('_'), QLatin1Char('.')) : QStringLiteral("0");
     }
-    li.valid = QFile::exists(root + QLatin1Char('/') + QLatin1String(kCsv)) || QFile::exists(root + QStringLiteral("/manifest.json"));
-    li.count = qMax(0, readCsv(root + QLatin1Char('/') + QLatin1String(kCsv)).size() - 1);
+    if(!safeId(li.id)||!safeFile(root,QLatin1String(kCsv)))return li;
+    const auto rows=readCsv(root+QLatin1Char('/')+QLatin1String(kCsv));
+    if(rows.size()<2||rows.size()>kPackEntries)return li;
+    QSet<QString> seen;
+    for(int i=1;i<rows.size();++i){
+        const auto rel=rows[i].value(0);const auto key=rel.toCaseFolded();
+        const auto ext=QFileInfo(rel).suffix().toUpper();
+        if(!safeFile(root,rel)||seen.contains(key)||
+           (ext!="DOCX"&&ext!="XLSX"&&ext!="PPTX")||rows[i].value(4).trimmed().toUpper()!=ext)return li;
+        seen.insert(key);
+    }
+    li.valid=true;li.count=seen.size();
     return li;
 }
 
 LibInfo installed(const QString& id) {
+    if(!safeId(id))return {};
     const QString dir = installedRoot() + QLatin1Char('/') + libFolderName(id);
-    if (!QDir(dir).exists()) return {};
+    if (!QDir(dir).exists()||QFileInfo(dir).isSymLink()) return {};
     return readInfo(dir);
 }
 
@@ -132,38 +195,46 @@ InstallResult installFromDir(const QString& dir, bool allowOlder) {
         r.message = QObject::tr("Thư mục này không phải gói mẫu của Dũng Office (thiếu 00_HUONG_DAN_VA_DANH_MUC/DANH_MUC_TAP_TIN.csv).");
         return r;
     }
-    const LibInfo incoming = readInfo(root);
-    const QString top = installedRoot();
-    const QString target = top + QLatin1Char('/') + libFolderName(incoming.id);
-    const QString tmpNew = top + QStringLiteral("/.moi-") + incoming.id;
-    const QString tmpOld = top + QStringLiteral("/.cu-") + incoming.id;
-    const LibInfo cur = installed(incoming.id);
-    if (cur.valid && !allowOlder && compareVersion(incoming.version, cur.version) < 0) {
-        r.needConfirm = true;
-        r.info = incoming;
-        r.message = QObject::tr("Gói bạn chọn (phiên bản %1) CŨ HƠN gói đang cài (%2). Giữ gói mới hơn?").arg(incoming.version, cur.version);
+    const LibInfo incoming=readInfo(root);
+    if(!incoming.valid){r.message=QObject::tr("Gói mẫu không hợp lệ: mã gói, danh mục, đường dẫn hoặc tệp mẫu sai.");return r;}
+    const QString top=installedRoot();
+    const auto sourceRoot=QFileInfo(root).canonicalFilePath(),installTop=QFileInfo(top).canonicalFilePath();
+    if(sourceRoot.isEmpty()||installTop.isEmpty()||sourceRoot==installTop||inside(sourceRoot,installTop)||inside(installTop,sourceRoot)){
+        r.message=QObject::tr("Không cài gói trực tiếp từ hoặc chứa thư mục mẫu đang cài.");return r;
+    }
+    QLockFile lock(QDir(top).filePath(QStringLiteral(".install.lock")));
+    lock.setStaleLockTime(0);
+    if(!lock.tryLock()){r.message=QObject::tr("Đang có thao tác cài mẫu khác hoặc khóa cài đặt chưa được giải phóng.");return r;}
+    const QString target=QDir(top).filePath(incoming.id);
+    const QFileInfo targetInfo(target);
+    if(targetInfo.isSymLink()||(targetInfo.exists()&&!targetInfo.isDir())){
+        r.message=QObject::tr("Đích cài mẫu không phải thư mục an toàn.");return r;
+    }
+    const LibInfo cur=installed(incoming.id);
+    if(cur.valid&&!allowOlder&&compareVersion(incoming.version,cur.version)<0){
+        r.needConfirm=true;r.info=incoming;
+        r.message=QObject::tr("Gói bạn chọn (phiên bản %1) CŨ HƠN gói đang cài (%2). Giữ gói mới hơn?").arg(incoming.version,cur.version);
         return r;
     }
-    QDir(tmpNew).removeRecursively();
-    QDir(tmpOld).removeRecursively();
-    if (!copyTree(root, tmpNew)) {
-        QDir(tmpNew).removeRecursively();
-        r.message = QObject::tr("Không chép được gói mẫu (hết chỗ trống hoặc không có quyền ghi?). Gói cũ vẫn giữ nguyên.");
+    QTemporaryDir stage(QDir(top).filePath(QStringLiteral(".install-XXXXXX")));
+    if(!stage.isValid()){r.message=QObject::tr("Không tạo được thư mục cài tạm.");return r;}
+    const auto tmpNew=stage.filePath("new"),tmpOld=stage.filePath("old");
+    if(!copyTree(sourceRoot,tmpNew)){
+        r.message=QObject::tr("Không chép được gói mẫu an toàn; gói cũ giữ nguyên.");return r;
+    }
+    const auto verified=readInfo(tmpNew);
+    if(!verified.valid||verified.id!=incoming.id||verified.version!=incoming.version||verified.count!=incoming.count){
+        r.message=QObject::tr("Bản chép không khớp danh mục; gói cũ giữ nguyên.");return r;
+    }
+    const bool hadOld=targetInfo.exists();
+    if(hadOld&&!QDir().rename(target,tmpOld)){r.message=QObject::tr("Không chuyển được gói cũ; gói cũ giữ nguyên.");return r;}
+    if(!QDir().rename(tmpNew,target)){
+        if(hadOld&&!QDir().rename(tmpOld,target)){
+            stage.setAutoRemove(false);
+            r.message=QObject::tr("Không đặt được gói mới và chưa phục hồi tự động; gói cũ còn tại: %1").arg(tmpOld);
+        }else r.message=QObject::tr("Không đặt được gói mới; gói cũ giữ nguyên.");
         return r;
     }
-    bool hadOld = QDir(target).exists();
-    if (hadOld && !QDir().rename(target, tmpOld)) {
-        QDir(tmpNew).removeRecursively();
-        r.message = QObject::tr("Không thay được gói cũ (có thể một mẫu đang mở). Hãy đóng các tệp mẫu rồi thử lại. Gói cũ vẫn giữ nguyên.");
-        return r;
-    }
-    if (!QDir().rename(tmpNew, target)) {
-        if (hadOld) QDir().rename(tmpOld, target); // hoàn lại
-        QDir(tmpNew).removeRecursively();
-        r.message = QObject::tr("Không đặt được gói mới vào chỗ. Đã hoàn lại gói cũ.");
-        return r;
-    }
-    if (hadOld) QDir(tmpOld).removeRecursively();
     r.ok = true;
     r.replaced = hadOld;
     r.info = readInfo(target);
@@ -176,43 +247,36 @@ InstallResult installFromZip(const QString& zipPath, bool allowOlder) {
     InstallResult r;
     QTemporaryDir tmp;
     if (!tmp.isValid()) { r.message = QObject::tr("Không tạo được thư mục tạm."); return r; }
-#ifdef Q_OS_WIN
-    {
-        QZipReader zr(zipPath);
-        if (!zr.isReadable() || zr.count() == 0) {
-            r.message = QObject::tr("Không giải nén được tệp zip (tệp hỏng hoặc không phải zip).");
-            return r;
+    QString error;ft::ZipReader zip;
+    if(!QFileInfo(zipPath).isFile()||QFileInfo(zipPath).size()>kPackBytes||!zip.open(zipPath,&error)||
+       zip.entries().isEmpty()||zip.entries().size()>kPackEntries){
+        r.message=QObject::tr("Gói ZIP không hợp lệ hoặc quá lớn: ")+error;return r;
+    }
+    QSet<QString> names,parents;qint64 total=0;
+    for(const auto& e:zip.entries()){
+        QString name=e.name;if(name.endsWith(QLatin1Char('/')))name.chop(1);
+        if(!safeRel(name)||names.contains(name.toCaseFolded())||e.encrypted||e.zip64||
+           e.usize>quint64(kEntryBytes)||e.csize>quint64(kEntryBytes)||e.usize>quint64(kPackBytes-total)){
+            r.message=QObject::tr("Mục ZIP không an toàn hoặc quá lớn: ")+name.left(120);return r;
         }
-        // Giải nén từng mục, báo rõ mục lỗi (đường dẫn dài/tên lạ), không báo chung chung.
-        const QString root = QDir(tmp.path()).absolutePath();
-        const auto entries = zr.fileInfoList();
-        QSet<QString> dirNames; // thư mục có thể bị ghi không kèm dấu "/"
-        for (const auto &e : entries) {
-            const int k = e.filePath.lastIndexOf(QLatin1Char('/'));
-            for (int i = e.filePath.indexOf(QLatin1Char('/')); i >= 0; i = e.filePath.indexOf(QLatin1Char('/'), i + 1)) dirNames.insert(e.filePath.left(i));
-            Q_UNUSED(k)
+        names.insert(name.toCaseFolded());total+=qint64(e.usize);
+        for(int i=name.indexOf(QLatin1Char('/'));i>=0;i=name.indexOf(QLatin1Char('/'),i+1))parents.insert(name.left(i));
+    }
+    for(const auto& e:zip.entries()){
+        QString name=e.name;const bool slash=name.endsWith(QLatin1Char('/'));if(slash)name.chop(1);
+        const QString dest=QDir(tmp.path()).filePath(name);
+        QByteArray bytes;
+        if(!zip.read(e,&bytes,&error,kEntryBytes)){r.message=QObject::tr("Mục ZIP hỏng: ")+error;return r;}
+        if(slash||parents.contains(name)){
+            if(!bytes.isEmpty()||!QDir().mkpath(dest)){r.message=QObject::tr("Thư mục ZIP không hợp lệ: ")+name;return r;}
+            continue;
         }
-        for (const auto &fi : entries) {
-            if (fi.filePath.contains(QStringLiteral(".."))) continue; // chặn zip-slip
-            const QString dest = root + QLatin1Char('/') + fi.filePath;
-            const QString lp = dest;
-            if (fi.isDir || !fi.isFile || dirNames.contains(fi.filePath)) { QDir().mkpath(lp); continue; }
-            QDir().mkpath(QFileInfo(dest).absolutePath());
-            QFile f(lp);
-            if (!f.open(QIODevice::WriteOnly) || f.write(zr.fileData(fi.filePath)) < 0) {
-                r.message = QObject::tr("Không giải nén được: ") + fi.filePath.left(120) + QStringLiteral(" (") + f.errorString() + QLatin1Char(')');
-                return r;
-            }
+        if(!QDir().mkpath(QFileInfo(dest).absolutePath())){r.message=QObject::tr("Không tạo được thư mục tạm.");return r;}
+        QFile file(dest);
+        if(!file.open(QIODevice::WriteOnly|QIODevice::NewOnly)||file.write(bytes)!=bytes.size()||!file.flush()){
+            r.message=QObject::tr("Không giải nén đầy đủ mục: ")+name;return r;
         }
     }
-#else
-    QProcess p;
-    p.start(QStringLiteral("unzip"), {QStringLiteral("-q"), QStringLiteral("-o"), zipPath, QStringLiteral("-d"), tmp.path()});
-    if (!p.waitForFinished(10 * 60 * 1000) || p.exitCode() != 0) {
-        r.message = QObject::tr("Không giải nén được tệp zip: ") + QString::fromUtf8(p.readAllStandardError()).left(200);
-        return r;
-    }
-#endif
     return installFromDir(tmp.path(), allowOlder);
 }
 
@@ -224,6 +288,7 @@ bool seedFromBundled(const QString& appDir) {
         QString root;
         if (!findLibraryRoot(fi.absoluteFilePath(), &root)) continue;
         const LibInfo in = readInfo(root);
+        if(!in.valid)continue;
         const LibInfo cur = installed(in.id);
         if (!cur.valid || compareVersion(in.version, cur.version) > 0) {
             if (installFromDir(root).ok) changed = true;
@@ -238,7 +303,7 @@ QList<Entry> entries(const LibInfo& lib) {
     for (int i = 1; i < rows.size(); ++i) {
         const QStringList& r = rows[i];
         if (r.size() < 1 || r[0].isEmpty()) continue;
-        if (!QFile::exists(lib.root + QLatin1Char('/') + r[0])) continue; // chỉ liệt kê mẫu còn tồn tại
+        if (!safeFile(lib.root,r[0])) continue;
         Entry e;
         e.relPath = r[0];
         e.status = r.value(1);
@@ -265,7 +330,7 @@ QList<Source> sources(const LibInfo& lib) {
 }
 
 bool makeWorkingCopy(const QString& templatePath, const QString& destFile, QString* error) {
-    if (QFile::exists(destFile)) {
+    if (QFile::exists(destFile)||QFileInfo(destFile).isSymLink()) {
         if (error) *error = QObject::tr("Tệp đã tồn tại, Dũng Office không ghi đè: ") + QDir::toNativeSeparators(destFile);
         return false;
     }
