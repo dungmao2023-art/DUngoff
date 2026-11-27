@@ -313,6 +313,29 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     const std::string afterReplace = selText(d);
     check(has(afterReplace, "baz bar baz") && !has(afterReplace, "foo"), "Thay tất cả 'foo' bằng 'baz'", snippet(afterReplace, 80));
 
+    step("tìm ngược, thay một lần và hoàn tác");
+    {
+        auto searchDoc = engine->createNew(DocKind::Text, &err);
+        check(bool(searchDoc), "Tạo tài liệu độc lập thử thay từng lần");
+        if (searchDoc) {
+            searchDoc->setClientView(512,512,7680,7680,0,0,7680,7680);
+            searchDoc->typeText(u"REPL_MARK left REPL_MARK right");
+            settle();
+            run(*searchDoc, ".uno:GoToEndOfDoc");
+            run(*searchDoc, w::findNext("REPL_MARK", true));
+            check(selText(*searchDoc) == "REPL_MARK", "Tìm ngược chọn đúng từ");
+            run(*searchDoc, w::replaceOne("REPL_MARK", "NEW_MARK"));
+            selectAll(*searchDoc);
+            const auto changed=selText(*searchDoc);
+            check(has(changed,"REPL_MARK left NEW_MARK right"),
+                  "Chỉ thay lần xuất hiện thứ hai",snippet(changed));
+            run(*searchDoc, ".uno:Undo");
+            selectAll(*searchDoc);
+            check(has(selText(*searchDoc),"REPL_MARK left REPL_MARK right"),
+                  "Undo khôi phục cả hai từ gốc");
+        }
+    }
+
     // ---------------- chèn chữ Việt qua paste (cơ chế dùng cho nhóm "Tiện ích Việt") ----------------
     step("dán chữ Việt");
     run(d, ".uno:GoToEndOfDoc");
