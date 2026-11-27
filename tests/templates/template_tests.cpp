@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Kiểm thử thư viện mẫu: cài gói mới phải THAY HẲN gói cũ cùng mã, không để lại mẫu cũ, không đụng tệp ngoài.
 #include "templates/TemplateLibrary.h"
+#include "tools/filetools/ZipLite.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -34,6 +35,29 @@ static QString makePack(const QString& base, const QString& folder, const QStrin
     write(root + QStringLiteral("/00_HUONG_DAN_VA_DANH_MUC/NGUON_THAM_KHAO_CHINH_THUC.csv"),
           "Nhom,Van_ban_nguon,URL,Huong_dan\r\nVan thu,\"ND 30/2020\",https://example.org/,Tra cuu\r\n");
     return root;
+}
+
+// Tiny stored ZIP fixture writer: no external archiver or Python dependency.
+static QByteArray storedZip(const QList<QPair<QByteArray,QByteArray>>& entries,bool corrupt=false){
+    auto u16=[](QByteArray& b,quint16 n){b.append(char(n&255));b.append(char(n>>8));};
+    auto u32=[&](QByteArray& b,quint32 n){u16(b,quint16(n));u16(b,quint16(n>>16));};
+    QByteArray data,central;
+    for(const auto& entry:entries){
+        const auto& name=entry.first;const auto& bytes=entry.second;
+        const quint32 offset=quint32(data.size()),size=quint32(bytes.size());
+        const quint32 crc=ft::zipCrc32(bytes)^(corrupt?1u:0u);
+        u32(data,0x04034b50);u16(data,20);u16(data,0x0800);u16(data,0);u16(data,0);u16(data,0);
+        u32(data,crc);u32(data,size);u32(data,size);u16(data,quint16(name.size()));u16(data,0);
+        data+=name;data+=bytes;
+        u32(central,0x02014b50);u16(central,20);u16(central,20);u16(central,0x0800);u16(central,0);
+        u16(central,0);u16(central,0);u32(central,crc);u32(central,size);u32(central,size);
+        u16(central,quint16(name.size()));u16(central,0);u16(central,0);u16(central,0);u16(central,0);
+        u32(central,0);u32(central,offset);central+=name;
+    }
+    const quint32 offset=quint32(data.size());data+=central;
+    u32(data,0x06054b50);u16(data,0);u16(data,0);u16(data,quint16(entries.size()));u16(data,quint16(entries.size()));
+    u32(data,quint32(central.size()));u32(data,offset);u16(data,0);
+    return data;
 }
 
 int main(int argc, char** argv) {
@@ -89,7 +113,28 @@ int main(int argc, char** argv) {
     CHECK(!tpl::installFromDir(invalid).ok,"đường dẫn danh mục thoát thư mục bị từ chối");
     CHECK(tpl::installed().version=="2025.1"&&QFile::exists(dst),"gói đang cài và tài liệu làm việc giữ nguyên");
     CHECK(!tpl::installFromDir(tpl::installed().root).ok,"không tự cài đè từ gói đang cài");
-    // Gói thật (tệp .zip do CI tạo từ thư mục templates/): giải nén bằng công cụ của hệ điều hành rồi cài.
+    {
+        const QByteArray cat="00_HUONG_DAN_VA_DANH_MUC/DANH_MUC_TAP_TIN.csv";
+        const QByteArray name=QStringLiteral("01_Doanh_nghiep/Mẫu ZIP.docx").toUtf8();
+        const QList<QPair<QByteArray,QByteArray>> goodZip={
+            {"manifest.json","{\"id\":\"thu-vien-bieu-mau\",\"name\":\"ZIP test\",\"version\":\"2027.1\"}"},
+            {cat,QByteArray("\xEF\xBB\xBF" "Duong_dan,Tinh_trang,Nguon_goc,URL,Dinh_dang\n")+name+",,,,DOCX\n"},
+            {name,"test template bytes"}};
+        const auto zipPath=tmp.filePath("synthetic.zip");
+        auto bad=goodZip;bad.append({"../outside.txt","x"});write(zipPath,storedZip(bad));
+        CHECK(!tpl::installFromZip(zipPath).ok&&tpl::installed().version=="2025.1","ZIP traversal rejected before installing");
+        bad=goodZip;bad.append({"MANIFEST.JSON","x"});write(zipPath,storedZip(bad));
+        CHECK(!tpl::installFromZip(zipPath).ok&&tpl::installed().version=="2025.1","case-fold duplicate ZIP entries rejected");
+        bad=goodZip;bad.append({"C:/outside.txt","x"});write(zipPath,storedZip(bad));
+        CHECK(!tpl::installFromZip(zipPath).ok&&tpl::installed().version=="2025.1","ZIP absolute drive path rejected");
+        write(zipPath,storedZip(goodZip,true));
+        CHECK(!tpl::installFromZip(zipPath).ok&&tpl::installed().version=="2025.1","ZIP CRC mismatch rejected");
+        write(zipPath,storedZip(goodZip));
+        CHECK(tpl::installFromZip(zipPath).ok&&tpl::installed().version=="2027.1"&&tpl::entries(tpl::installed()).size()==1,
+              "valid ZIP with UTF-8 BOM and Vietnamese template path installs");
+        CHECK(QFile::exists(dst),"ZIP updates do not affect user's working copy");
+    }
+    // Gói thật (tệp .zip do CI tạo từ thư mục templates/): kiểm tra bộ đọc ZIP tích hợp.
     const QString zip = qEnvironmentVariable("DUNG_TEST_ZIP");
     if (!zip.isEmpty()) {
         auto rz = tpl::installFromZip(zip, true);
