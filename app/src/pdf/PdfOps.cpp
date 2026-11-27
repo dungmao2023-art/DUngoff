@@ -43,7 +43,8 @@
 #endif
 #include <windows.h>
 #else
-#include <cstdio>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 namespace dungpdf {
@@ -124,7 +125,26 @@ bool looksLikePdf(const QString& path) {
 
 bool sameFile(const QString& a, const QString& b) {
     const QFileInfo fa(a), fb(b);
-    if (fa.exists() && fb.exists()) return fa.canonicalFilePath() == fb.canonicalFilePath();
+    if (fa.exists() && fb.exists()) {
+        if (fa.canonicalFilePath() == fb.canonicalFilePath()) return true;
+#ifdef Q_OS_WIN
+        const auto identity=[](const QString& path,BY_HANDLE_FILE_INFORMATION& info) {
+            HANDLE h=CreateFileW(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath()).utf16()),
+                0,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
+            if(h==INVALID_HANDLE_VALUE)return false;
+            const bool ok=GetFileInformationByHandle(h,&info)!=0;CloseHandle(h);return ok;
+        };
+        BY_HANDLE_FILE_INFORMATION ia{},ib{};
+        // Fail closed when an existing destination's identity cannot be established.
+        if(!identity(a,ia)||!identity(b,ib))return true;
+        return ia.dwVolumeSerialNumber==ib.dwVolumeSerialNumber &&
+            ia.nFileIndexHigh==ib.nFileIndexHigh && ia.nFileIndexLow==ib.nFileIndexLow;
+#else
+        struct stat ia{},ib{};
+        if(::stat(QFile::encodeName(a).constData(),&ia)!=0 || ::stat(QFile::encodeName(b).constData(),&ib)!=0)return true;
+        return ia.st_dev==ib.st_dev && ia.st_ino==ib.st_ino;
+#endif
+    }
 #ifdef Q_OS_WIN
     const Qt::CaseSensitivity cs = Qt::CaseInsensitive;
 #else
@@ -152,6 +172,17 @@ bool replaceFile(const QString& from, const QString& to) {
                        MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
 #else
     return std::rename(QFile::encodeName(from).constData(), QFile::encodeName(to).constData()) == 0;
+#endif
+}
+
+// Publish only a complete file, without overwriting a competing destination.
+// POSIX filesystems without hardlinks fail closed; Windows rename does not need a hardlink.
+bool publishNew(const QString& from,const QString& to) {
+#ifdef Q_OS_WIN
+    return MoveFileExW(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(from).utf16()),
+        reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(to).utf16()),MOVEFILE_WRITE_THROUGH)!=0;
+#else
+    return ::link(QFile::encodeName(from).constData(),QFile::encodeName(to).constData())==0;
 #endif
 }
 
@@ -209,16 +240,19 @@ Result writeSafely(const QStringList& sources, const QString& destIn, bool allow
         }
     }
     const bool exists = di.exists();
+    if (di.isSymLink() || (exists && !di.isFile())) {
+        res.error=tr("Không ghi vào liên kết hoặc đích không phải tệp thường."); return res;
+    }
     if (exists && !allowReplace) {
         res.error = tr("Tệp đích đã tồn tại. Chọn tên khác hoặc xác nhận thay thế.");
         return res;
     }
 
-    const QString tmp = di.absolutePath() + QStringLiteral("/~dung-") + randomHex() + QLatin1Char('-') + di.fileName();
-    struct Cleanup {
-        QString path;
-        ~Cleanup() { if (!path.isEmpty() && QFileInfo::exists(path)) QFile::remove(path); }
-    } cleanup{tmp};
+    const qint64 oldSize=exists?di.size():-1;
+    const QDateTime oldModified=exists?di.lastModified():QDateTime();
+    QTemporaryDir work(QDir(di.absolutePath()).filePath(QStringLiteral("~dung-pdf-XXXXXX")));
+    if(!work.isValid()){res.error=tr("Không tạo được thư mục tạm.");return res;}
+    const QString tmp=work.filePath(QStringLiteral("result.pdf"));
 
     if (!judge(runQpdf(makeArgs(tmp)), res)) return res;
     if (!looksLikePdf(tmp)) {
@@ -231,14 +265,23 @@ Result writeSafely(const QStringList& sources, const QString& destIn, bool allow
         return res;
     }
     if (exists) {
-        const QString backup = backupPathFor(dest);
-        if (!QFile::copy(dest, backup)) {
-            res.error = tr("Không sao lưu được tệp cũ nên chưa thay thế. Tệp cũ giữ nguyên.");
+        auto unchanged=[&] {
+            const QFileInfo current(dest);
+            if(!current.isFile()||current.isSymLink()||current.size()!=oldSize||current.lastModified()!=oldModified)return false;
+            for(const auto& source:sources)if(sameFile(source,dest))return false;
+            return true;
+        };
+        if(!unchanged()){res.error=tr("Tệp đích thay đổi trong lúc xử lý; không thay thế.");return res;}
+        const QString backup=backupPathFor(dest);
+        const QString stagedBackup=work.filePath(QStringLiteral("backup.tmp"));
+        if (!QFile::copy(dest, stagedBackup) || !unchanged() || !publishNew(stagedBackup,backup)) {
+            res.error = tr("Không sao lưu được tệp cũ an toàn nên chưa thay thế. Tệp cũ giữ nguyên.");
             return res;
         }
         res.backup = backup;
+        if(!unchanged()){res.error=tr("Tệp đích thay đổi sau sao lưu; không thay thế.");return res;}
     }
-    if (!replaceFile(tmp, dest)) {
+    if (!(exists ? replaceFile(tmp, dest) : publishNew(tmp,dest))) {
         res.error = tr("Không ghi được tệp đích (đang mở ở chương trình khác hoặc không đủ quyền).");
         return res;
     }
@@ -270,10 +313,14 @@ QList<int> parsePages(const QString& spec, int total, QString* error) {
         return QList<int>();
     };
     QList<int> out;
-    QString s = spec;
-    s.remove(QLatin1Char(' '));
-    const QStringList parts = s.split(QLatin1Char(','), Qt::SkipEmptyParts);
-    for (const QString& part : parts) {
+    if(error)error->clear();
+    if(total<1 || spec.trimmed().isEmpty())return fail(tr("Chưa chọn trang nào."));
+    const QStringList parts=spec.split(QLatin1Char(','));
+    static const QRegularExpression syntax(QStringLiteral("\\A(?:[0-9]+\\s*-\\s*[0-9]*|-\\s*[0-9]+|[0-9]+)\\z"));
+    for (const QString& raw : parts) {
+        QString part=raw.trimmed();
+        if(!syntax.match(part).hasMatch())return fail(tr("Khoảng trang không hợp lệ: ")+part);
+        part.remove(QRegularExpression(QStringLiteral("\\s+")));
         int start = 0, end = 0;
         bool ok1 = true, ok2 = true;
         const int dash = part.indexOf(QLatin1Char('-'));
@@ -287,7 +334,9 @@ QList<int> parsePages(const QString& spec, int total, QString* error) {
         if (!ok1 || !ok2) return fail(tr("Khoảng trang không hợp lệ: ") + part);
         if (start < 1 || end > total || start > end)
             return fail(tr("Khoảng trang không hợp lệ: ") + part + tr(" (tài liệu có %1 trang)").arg(total));
-        for (int i = start; i <= end; ++i) out << (i - 1);
+        if(qint64(out.size())+qint64(end)-start+1>1000000)
+            return fail(tr("Chọn tối đa một triệu trang (kể cả trang lặp)."));
+        for (qint64 i=start;i<=end;++i)out<<int(i-1);
     }
     if (out.isEmpty()) return fail(tr("Chưa chọn trang nào."));
     return out;
@@ -405,7 +454,7 @@ Result splitEach(const Input& in, const QString& outDir) {
     for (int i = 1; i <= inf.pages; ++i) {
         const QString name = QStringLiteral("%1-trang%2.pdf").arg(stem, QString::number(i).rightJustified(width, QLatin1Char('0')));
         const QString full = dir.filePath(name);
-        if (QFileInfo::exists(full)) {
+        if (QFileInfo::exists(full) || QFileInfo(full).isSymLink()) {
             res.error = tr("Đã có tệp trùng tên, không ghi đè: ") + name + tr(". Chọn thư mục khác.");
             return res;
         }
@@ -447,9 +496,11 @@ Result splitEach(const Input& in, const QString& outDir) {
     }
     QStringList moved;
     for (int i = 0; i < produced.size(); ++i) {
-        if (!QFile::rename(produced[i].second, finals[i])) {
-            for (const QString& m : moved) QFile::remove(m);  // chỉ xóa tệp do chính lần này tạo
-            res.error = tr("Không ghi được tệp: ") + QFileInfo(finals[i]).fileName();
+        if (!publishNew(produced[i].second, finals[i])) {
+            // Do not remove already published names: another process may now own them.
+            res.files=moved;
+            res.error=tr("Không ghi được tệp: ")+QFileInfo(finals[i]).fileName()
+                +tr(". Đã xuất %1 trang trước lỗi; không xóa các tệp đã xuất.").arg(moved.size());
             return res;
         }
         moved << finals[i];
