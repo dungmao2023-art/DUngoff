@@ -594,6 +594,20 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                         saveTable("word-table-column-restored.docx");
                     }
                 }
+                step("Word — gộp các ô trong hàng và giữ nội dung");
+                if(selectMarkedCell()){
+                    // Tab navigates to the adjacent cell, not an inserted tab character.
+                    reopened->postKey(LOK_KEYEVENT_KEYINPUT,9,1282);
+                    reopened->postKey(LOK_KEYEVENT_KEYUP,9,1282);
+                    reopened->waitInputIdle();
+                    reopened->typeText(u"TABLE_SECOND_CELL");
+                    reopened->waitInputIdle();
+                    if(selectMarkedCell()){
+                        run(*reopened,".uno:EntireRow");
+                        run(*reopened,".uno:MergeCells");
+                        saveTable("word-table-merged.docx");
+                    }
+                }
             }
         }
     }
