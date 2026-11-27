@@ -283,3 +283,18 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - Batch 4: PR #124 CI 45993822603 Windows/Linux PASS, merged efc77614a9e35664aa7c32ab95ad0278f095a6eb. UI bỏ quicklinks trùng, tìm kiếm có nút đóng/mở, chuyển cùng kho workspace.json sang trang Ghi chú/Lịch/Liên hệ; chụp thêm 3 trang. Mẫu có cảnh báo thay đổi và link https://csdl.dichvucong.gov.vn/ . Google Drive: tùy chọn thư mục đồng bộ cục bộ do người dùng chọn, chỉ sao chép bản đã lưu theo xác nhận, không ghi đè, không lưu mật khẩu/token, không tự upload hoặc xác nhận đồng bộ; Google Drive for desktop xử lý. Cần nghiệm thu GUI và Drive thật, chưa CI batch 4.
 
 - Batch 4: thêm kiểm tra widget thực SUM, VLOOKUP, TODAY và ảnh kết quả, CI chặn lỗi Basic UI; sửa hủy chọn, phạm vi tự lấy tham chiếu và giữ vùng kết quả khi sửa; bộ cài chỉ upload sau E2E đạt. Chưa chạy CI.
+
+## Bằng chứng batch 4–9 — 27/11/2026
+- #125 merged dbe37535a25c1cb46ac889c9d9c8647d71931388; [CI 46003882951 PASS Windows/Linux](https://github.com/dungmao2023-art/DUngoff/actions/runs/46003882951). Mẫu, tìm lệnh, bộ chọn font, Tôi muốn, trang workspace và thư mục đồng bộ cục bộ.
+- #126 merged 6dbef0a5606bd3ea37ccd3482cdd86b446bb316d; [CI 46007410580 PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/46007410580). Ba thẻ dự án và avatar; cần xác minh URL từng dự án ngoài CI.
+- #127 merged c314410aa2ad1d1218a8a3696ccb1db4bbe80d46; [CI 46011259930 PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/46011259930). Workspace JSON ghi nguyên tử, giữ dữ liệu hỏng, thử lưu lại.
+- #128 merged e06104dc166eec75476a8e7421043be6f744ad01; [CI 46015131518 PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/46015131518). Lề Word, bản sao DOCX/PPTX an toàn.
+- #129 merged 9a8dec84177410908bf00a11226509e3e166ea3f; [CI 46016013017 PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/46016013017). A02/A10: DOCX/XLSX/PPTX/PDF render tối đa 4 tile/lượt, nháy caret chỉ cập nhật vùng nhỏ, chờ chọn vùng bằng timer, thumbnail dần, tự lưu ưu tiên lúc rảnh. Giới hạn tile không phải bảo đảm thời gian mỗi lần render.
+- #131 merged 63297d069b93628f86d7701d0b47730be019065e; [CI 46019564770 PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/46019564770). X04 xem trước dãy và kiểm giới hạn. Chưa nghiệm thu kéo fill handle.
+- #130 run 46020914741: Linux PASS, Windows chưa kết thúc; #132/#133 chưa xong CI. Không tính là đã tích hợp. Không đánh dấu accepted hoặc nâng tỷ lệ chỉ vì CI đạt.
+
+### A02/A10 — nghiệm thu hiệu năng thực tế còn thiếu
+- Trên cùng máy Windows, so bản cũ với bản ứng viên; ghi SHA, CPU/RAM, DPI, loại ổ đĩa, file mẫu, zoom. Đo mỗi thao tác nhiều lượt; ghi median, p95 và trường hợp giật rõ, không dùng số liệu CI thay độ trễ người dùng.
+- Word: gõ tiếng Việt và kéo chọn đoạn; Excel: gõ/sửa ô, kéo vùng và chuyển sheet trên bảng 5.000 dòng; PowerPoint: gõ, chuyển 30 slide và mở thumbnail; PDF: cuộn/zoom 100 trang và đối chiếu bản gốc. Thử nhiều tab mở, quay lại tab, thao tác ngay trước/sau tự lưu.
+- Bật DUNG_TRACE_INPUT_PERF=1 khi chẩn đoán; chỉ ghi loại tác vụ và thời gian chậm, không ghi nội dung tài liệu. Log này không chứa đầy đủ mọi mẫu nên không suy ra p95 tổng thể từ riêng log chậm. Tắt log sau kiểm thử. Xác minh nội dung lưu/mở lại không đổi ngoài chỉnh sửa chủ ý.
+- Kiểm tra focus, caret, IME, hình ảnh và endpoint kéo chọn đúng; kiểm RAM khi chuyển nhiều tab. Nếu lỗi, giữ trạng thái chưa nghiệm thu; không bỏ bài kiểm thử chỉ để CI xanh. Không phát hành bộ cài trước xác nhận.
