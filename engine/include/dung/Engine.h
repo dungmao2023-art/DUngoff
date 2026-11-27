@@ -213,7 +213,12 @@ private:
     std::string m_recoveredName;  // tên hiển thị thật của bản phục hồi
     std::vector<std::string> m_warnings;
     std::vector<FeatureLoss> m_featureLoss;
-    std::vector<fs::path> m_sessionOutputs; // tệp do chính phiên này ghi ra (Ctrl+S lặp lại không cần sao lưu)
+    struct SessionOutput {
+        fs::path path;
+        uintmax_t size;
+        fs::file_time_type modified;
+    };
+    std::vector<SessionOutput> m_sessionOutputs; // chỉ coi là bản của phiên nếu metadata vẫn khớp
 
     std::mutex m_mutex;
     std::condition_variable m_cv;
