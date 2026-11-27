@@ -63,6 +63,7 @@ signals:
 
 private:
     void onEngineEvent(int type, const QString& payload);
+    void tryFormulaPick(int part,const std::string& sheet,unsigned generation,int retries);
     void rebuildParts();
     void refreshPdfComparison();
     void excelSheetMenu(const QPoint& pos);  // excel/ExcelUi.cpp
