@@ -78,6 +78,8 @@ private:
     QWidget* m_formulaAssistant = nullptr;
     unsigned m_pickGeneration = 0;
     QListWidget* m_slides = nullptr;
+    QTimer* m_slideRefresh = nullptr;
+    int m_slideRefreshPart = -1;
     QWidget* m_pdfComparison = nullptr;
     QLabel* m_pdfOriginalImage = nullptr;
     QPushButton* m_pdfCompareButton = nullptr;
