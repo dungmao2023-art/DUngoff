@@ -216,6 +216,48 @@ void TileView::requestHeaders() {
     viewport()->update();
 }
 
+int TileView::tileCacheLimit() const {
+    // Allow a complete visible viewport plus a small scroll margin, including 4K.
+    const qint64 cols=(qint64(viewport()->width())+kTilePx-1)/kTilePx+2;
+    const qint64 rows=(qint64(viewport()->height())+kTilePx-1)/kTilePx+2;
+    return int(qBound<qint64>(64,cols*rows+24,600));
+}
+
+void TileView::trimTileCache(int limit) {
+    const qint64 cx=(qint64(horizontalScrollBar()->value())+viewport()->width()/2)/kTilePx;
+    const qint64 cy=(qint64(verticalScrollBar()->value())+viewport()->height()/2)/kTilePx;
+    while(m_tiles.size()>limit) {
+        auto victim=m_tiles.begin();
+        qint64 farthest=-1;
+        for(auto it=m_tiles.begin();it!=m_tiles.end();++it) {
+            const qint64 dx=qint64(it.key()>>32)-cx;
+            const qint64 dy=qint64(it.key()&0xffffffff)-cy;
+            const qint64 distance=qAbs(dx)+qAbs(dy);
+            if(distance>farthest){farthest=distance;victim=it;}
+        }
+        m_dirtyTiles.remove(victim.key());
+        m_tiles.erase(victim);
+    }
+}
+
+void TileView::hideEvent(QHideEvent* event) {
+    m_tilePaintTimer.stop();
+    m_deferredPaint=QRegion();
+    m_headerTimer.stop();
+    m_areaTimer.stop();
+    m_blink.stop();
+    // Retain nearby tiles for quick tab switching, not an entire scroll history.
+    trimTileCache(16);
+    QAbstractScrollArea::hideEvent(event);
+}
+
+void TileView::showEvent(QShowEvent* event) {
+    QAbstractScrollArea::showEvent(event);
+    m_areaTimer.start();
+    m_blink.start();
+    viewport()->update();
+}
+
 void TileView::paintEvent(QPaintEvent* ev) {
     const UiTiming timing("paint");
     QPainter p(viewport());
@@ -257,12 +299,7 @@ void TileView::paintEvent(QPaintEvent* ev) {
                     img.fill(Qt::white);
                     m_doc->paintTile(img.bits(),kTilePx,kTilePx,tx*tileTwips(),ty*tileTwips(),tileTwips(),tileTwips());
                     ++rendered;
-                    if(it==m_tiles.end()&&m_tiles.size()>=600) {
-                        // Evict one tile, not the entire viewport/cache.
-                        auto victim=m_tiles.begin();
-                        m_dirtyTiles.remove(victim.key());
-                        m_tiles.erase(victim);
-                    }
+                    if(it==m_tiles.end())trimTileCache(tileCacheLimit()-1);
                     it=m_tiles.insert(key,img);
                     m_dirtyTiles.remove(key);
                 }
