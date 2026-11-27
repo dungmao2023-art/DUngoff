@@ -4,6 +4,11 @@
 #include <QPlainTextEdit>
 #include <QTextCursor>
 #include <QTextDocument>
+#include <QTextEdit>
+#include <QTextCharFormat>
+#include <QColor>
+#include <optional>
+#include <memory>
 #include <QApplication>
 #include <QClipboard>
 #include <QSaveFile>
@@ -1047,8 +1052,10 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* list=new QListWidget(w);root->addWidget(list,1);
     auto* text=new QPlainTextEdit(w);text->setReadOnly(true);
     text->setPlaceholderText(tr("Chọn kết quả để đọc và sao chép chữ trên trang."));
+    text->setToolTip(tr("Chữ trích xuất được chuẩn hóa Unicode NFC; tô sáng tối đa 1.000 vị trí trên trang, không sửa PDF."));
     root->addWidget(text,2);
-    auto clear=[=]{list->clear();text->clear();};
+    auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
+    auto clear=[=]{snapshot->reset();list->clear();text->setExtraSelections({});text->clear();status->clear();};
     connect(m_searchFile,&QLineEdit::textChanged,w,[=]{
         clear();
         const auto info=printrender::pdfInfo(m_searchFile->text());
@@ -1064,6 +1071,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         clear();
         const QString path=m_searchFile->text(),needle=query->text();
         const int a=first->value(),b=last->value();const bool cs=match->isChecked();
+        const PdfSourceSnapshot source(path);
         printrender::TextSearch result;
         QProgressDialog progress(tr("Đang tìm chữ PDF…"),tr("Dừng"),0,0);
         progress.setWindowModality(Qt::ApplicationModal);progress.setMinimumDuration(0);
@@ -1074,6 +1082,10 @@ QWidget* PdfToolsDialog::buildSearch() {
         setEnabled(false);progress.show();worker->start();loop.exec();worker->wait();delete worker;
         const bool cancelled=progress.wasCanceled();progress.hide();setEnabled(true);
         if(cancelled||!result.ok){status->setText(cancelled?tr("Đã dừng tìm kiếm."):result.error);return;}
+        if(!source.unchanged()||m_searchFile->text()!=path||query->text()!=needle||first->value()!=a||last->value()!=b||match->isChecked()!=cs){
+            status->setText(tr("Nguồn hoặc điều kiện tìm đã thay đổi. Hãy tìm lại."));return;
+        }
+        *snapshot=source;
         for(const auto& hit:result.hits){
             auto* item=new QListWidgetItem(tr("Trang %1 · %2 lần · %3").arg(hit.page).arg(hit.occurrences).arg(hit.snippet),list);
             item->setData(Qt::UserRole,hit.page);
@@ -1083,13 +1095,33 @@ QWidget* PdfToolsDialog::buildSearch() {
     });
     connect(query,&QLineEdit::returnPressed,go,&QPushButton::click);
     connect(list,&QListWidget::currentItemChanged,w,[=](QListWidgetItem* item,QListWidgetItem*){
-        text->clear();if(!item)return;
+        text->setExtraSelections({});text->clear();if(!item)return;
+        if(!snapshot->has_value()||!snapshot->value().unchanged()){
+            status->setText(tr("PDF nguồn đã thay đổi. Hãy tìm lại."));return;
+        }
         QString error;
-        const QString extracted=printrender::pageText(m_searchFile->text(),item->data(Qt::UserRole).toInt(),&error);
-        text->setPlainText(extracted);
-        if(!error.isEmpty())status->setText(error);
-        text->moveCursor(QTextCursor::Start);
-        text->find(query->text(),match->isChecked()?QTextDocument::FindCaseSensitively:QTextDocument::FindFlags{});
+        const QString extracted=printrender::pageText(snapshot->value().path,item->data(Qt::UserRole).toInt(),&error);
+        if(!snapshot->value().unchanged()){
+            status->setText(tr("PDF nguồn đã thay đổi trong lúc đọc. Hãy tìm lại."));return;
+        }
+        if(!error.isEmpty()){status->setText(error);return;}
+        text->setPlainText(extracted.normalized(QString::NormalizationForm_C));
+        const auto needle=query->text().trimmed().normalized(QString::NormalizationForm_C);
+        const auto offsets=printrender::highlightOffsets(text->toPlainText(),needle,match->isChecked());
+        QList<QTextEdit::ExtraSelection> highlights;
+        for(auto pos:offsets){
+            if(pos+needle.size()>=text->document()->characterCount())continue;
+            QTextEdit::ExtraSelection hit;
+            hit.cursor=QTextCursor(text->document());
+            hit.cursor.setPosition(int(pos));
+            hit.cursor.setPosition(int(pos+needle.size()),QTextCursor::KeepAnchor);
+            hit.format.setBackground(QColor(255,224,130));
+            hit.format.setForeground(QColor(25,25,25));
+            highlights.append(hit);
+        }
+        text->setExtraSelections(highlights);
+        if(!highlights.isEmpty()){text->setTextCursor(highlights.first().cursor);text->ensureCursorVisible();}
+        else text->moveCursor(QTextCursor::Start);
     });
     return w;
 }
