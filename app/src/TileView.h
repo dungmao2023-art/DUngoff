@@ -119,6 +119,9 @@ private:
     int m_rowStartPx = 0, m_colStartPx = 0;
     QTimer m_headerTimer;
     QTimer m_areaTimer;
+    QRect m_sentVisibleArea;
+    int m_sentTileTwips=0;
+    bool m_visibleAreaSent=false;
     QTimer m_fitTimer;
     QTimer m_synthTimer;   // gộp các yêu cầu vẽ lại do tầng engine phát (SYNTH)
     QTimer m_synthLate;    // vẽ lại lần hai: lệnh UNO được engine xử lý trễ sau khi gửi
