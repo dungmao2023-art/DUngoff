@@ -73,7 +73,46 @@ void DocumentTab::excelAction(const QString& id) {
         return m_doc->currentPart() == cur && m_doc->partCount() == n && m_doc->partName(cur) == originalSheet;
     };
 
-    if(a==QLatin1String("fillDown")||a==QLatin1String("fillRight")||
+    if(a==QLatin1String("fillSeries")){
+        const QString title=tr("Điền dãy số");
+        const QString range=m_view->selectedCellRange();
+        const auto ends=range.split(QLatin1Char(':'));
+        if(ends.size()!=2||dataassist::bridgeRangeAddress(ss(range)).empty()){
+            QMessageBox::information(this,title,tr("Chọn một dải ô liên tục trong cùng một hàng hoặc cột."));return;
+        }
+        auto coords=[](const QString& cell){
+            int pos=0,col=0;
+            while(pos<cell.size()&&cell[pos].unicode()>='A'&&cell[pos].unicode()<='Z'){
+                col=col*26+cell[pos].unicode()-'A'+1;++pos;
+            }
+            return QPair<int,int>(cell.mid(pos).toInt(),col);
+        };
+        const auto first=coords(ends.first()),last=coords(ends.last());
+        const bool vertical=first.second==last.second;
+        const int count=vertical?last.first-first.first+1:last.second-first.second+1;
+        if(first.first<1||first.second<1||(!vertical&&first.first!=last.first)||count<2||count>10000){
+            QMessageBox::information(this,title,tr("Chọn 2–10.000 ô trong đúng một hàng hoặc một cột."));return;
+        }
+        const auto before=m_doc->selectionAs("text/plain;charset=utf-8");
+        bool ok=false;
+        const int start=QInputDialog::getInt(this,title,tr("Số nguyên bắt đầu:"),1,-1000000000,1000000000,1,&ok);
+        if(!ok)return;
+        const int step=QInputDialog::getInt(this,title,tr("Bước tăng/giảm (âm để giảm):"),1,-1000000,1000000,1,&ok);
+        if(!ok)return;
+        if(step==0){QMessageBox::warning(this,title,tr("Bước phải khác 0."));return;}
+        const qint64 end=qint64(start)+qint64(step)*(count-1);
+        if(end< -1000000000LL||end>1000000000LL){QMessageBox::warning(this,title,tr("Dãy vượt giới hạn ±1 tỷ."));return;}
+        if(QMessageBox::question(this,title,
+           tr("Sheet %1 · %2: ghi %3 số nguyên từ %4 đến %5, bước %6. Toàn bộ vùng chọn (kể cả ô đầu) có thể bị ghi đè. Tiếp tục?")
+              .arg(qs(originalSheet),range).arg(count).arg(start).arg(end).arg(step),
+           QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        if(!sameSheet()||!m_view||m_view->selectedCellRange()!=range||
+           m_doc->selectionAs("text/plain;charset=utf-8")!=before){
+            QMessageBox::warning(this,title,tr("Vùng hoặc nội dung thay đổi. Chưa điền dãy."));return;
+        }
+        cmd(".uno:FillSeries",ex::fillLinear(vertical,start,step,end));
+        m_doc->waitInputIdle();m_view->setFocus();return;
+    }else if(a==QLatin1String("fillDown")||a==QLatin1String("fillRight")||
        a==QLatin1String("fillUp")||a==QLatin1String("fillLeft")){
         const bool down=a==QLatin1String("fillDown"),up=a==QLatin1String("fillUp"),left=a==QLatin1String("fillLeft");
         const bool vertical=down||up;
