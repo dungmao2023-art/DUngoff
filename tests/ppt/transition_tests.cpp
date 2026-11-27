@@ -87,7 +87,28 @@ int main(int argc, char** argv) {
     QXmlStreamReader exitReader(exits);
     while(!exitReader.atEnd()) exitReader.readNext();
     check(!exitReader.hasError(),"exit timing XML is well formed");
-    check(!patchAnimationSequenceXml(twoShapes,{disappear,first},&out).ok,"same target entrance and exit still refused");
+    check(!patchAnimationSequenceXml(twoShapes,{disappear,first},&out).ok,"reject entrance after exit on same shape");
+    AnimationOptions later=disappear; later.delayMs=0;
+    QByteArray enterExit;
+    check(patchAnimationSequenceXml(twoShapes,{first,later},&enterExit).ok &&
+          enterExit.count("spid=\"42\"")==3 && enterExit.contains("presetClass=\"entr\"") &&
+          enterExit.contains("presetClass=\"exit\"") && enterExit.indexOf("val=\"visible\"")<enterExit.indexOf("val=\"hidden\""),
+          "one entrance and one exit on same shape in separate click groups");
+    later.trigger=AnimationTrigger::AfterPrevious;
+    check(planAnimation({first,later},&plan).ok && plan.size()==2 && plan[1].click==1 &&
+          plan[1].startMs==plan[0].endMs,"same shape exit after entrance within one click");
+    later.trigger=AnimationTrigger::WithPrevious;later.delayMs=100;
+    check(!planAnimation({first,later},&plan).ok,"reject overlapping entrance and exit");
+    later.delayMs=750;
+    check(planAnimation({first,later},&plan).ok && plan[1].startMs==750,"allow exit at exact entrance end");
+    later.trigger=AnimationTrigger::Click;
+    check(!planAnimation({first,later,later},&plan).ok,"reject duplicate exit");
+    QXmlStreamReader pairReader(enterExit);QSet<QString> pairIds;bool pairUnique=true;
+    while(!pairReader.atEnd()){pairReader.readNext();if(pairReader.isStartElement()&&pairReader.name()==QLatin1String("cTn")){
+        const auto id=pairReader.attributes().value(QStringLiteral("id")).toString();
+        if(id.isEmpty()||pairIds.contains(id))pairUnique=false;pairIds.insert(id);
+    }}
+    check(!pairReader.hasError() && pairUnique,"paired timing XML well formed with unique IDs");
     check(!patchAnimationXml(exitXml,disappear,&out).ok,"preserve existing exit timing");
     if (argc > 1) {
         const QString src = QString::fromLocal8Bit(argv[1]);
