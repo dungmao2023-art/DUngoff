@@ -32,6 +32,7 @@
 #include <QListWidget>
 #include <QAbstractItemModel>
 #include <QSet>
+#include <QPointer>
 #include <functional>
 
 // QListWidget may implement InternalMove by moving rows or by insert/remove.
@@ -44,6 +45,39 @@ protected:
     void startDrag(Qt::DropActions actions) override {
         { QSignalBlocker block(this); QListWidget::startDrag(actions); }
         if(orderChanged)orderChanged();
+    }
+};
+
+// A modal dialog may process queued engine callbacks. Revalidate the original
+// slide and selection before issuing a command that changes the document.
+struct PptEditTarget {
+    QPointer<DocumentTab> tab;
+    dung::Document* doc;
+    int part, count;
+    std::string name, graphic, text, cursor, selected;
+    explicit PptEditTarget(DocumentTab* t) : tab(t), doc(t->document()) {
+        doc->waitInputIdle();
+        part = doc->currentPart();
+        count = doc->partCount();
+        if (part >= 0 && part < count) name = doc->partName(part);
+        graphic = doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
+        text = doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION);
+        cursor = doc->lastPayload(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR);
+        selected = doc->selectionAs("text/plain;charset=utf-8");
+    }
+    bool verify(bool requireSelection) const {
+        if (!tab || tab->document() != doc || tab->readOnly() || !tab->view()) return false;
+        doc->waitInputIdle();
+        if (part >= 0 && part < count && doc->partCount() == count &&
+            doc->currentPart() == part && doc->partName(part) == name &&
+            (!requireSelection || ((!graphic.empty() || !text.empty() || !cursor.empty()) &&
+                doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION) == graphic &&
+                doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION) == text &&
+                doc->lastPayload(LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR) == cursor &&
+                doc->selectionAs("text/plain;charset=utf-8") == selected))) return true;
+        QMessageBox::warning(tab.data(), QObject::tr("Vị trí chỉnh sửa"),
+            QObject::tr("Không xác minh được slide hoặc vùng chọn ban đầu. Chưa thay đổi tài liệu."));
+        return false;
     }
 };
 
@@ -72,15 +106,20 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         tab->setPptNotesMode(id == QLatin1String("ppt.notes"));
     } else if (id == QLatin1String("ppt.fontSize")) {
         if (d->readOnly()) return true;
+        const PptEditTarget target(tab);
         bool ok = false;
         const double size = QInputDialog::getDouble(tab, QObject::tr("Cỡ chữ"), QObject::tr("Điểm (pt):"), 24, 1, 400, 1, &ok);
-        if (ok) { const auto cmd = dung::word::fontSize(size); d->command(cmd.first, cmd.second); }
-        tab->view()->setFocus();
+        if (ok && target.verify(true)) { const auto cmd = dung::word::fontSize(size); d->command(cmd.first, cmd.second); }
+        if (target.tab && target.tab->view()) target.tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.textColor")) {
         if (d->readOnly()) return true;
+        const PptEditTarget target(tab);
         const auto color = QColorDialog::getColor(Qt::black, tab, QObject::tr("Màu chữ"));
-        if (color.isValid()) { const auto cmd = dung::word::fontColor(color.rgb()); d->command(cmd.first, cmd.second); }
-        tab->view()->setFocus();
+        if (color.isValid() && target.verify(true)) {
+            const auto cmd = dung::word::fontColor(color.rgb() & 0x00FFFFFFu);
+            d->command(cmd.first, cmd.second);
+        }
+        if (target.tab && target.tab->view()) target.tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.goto")) {
         const int n = d->partCount();
         if (n < 1) return true;
@@ -92,10 +131,19 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
     } else if (id == QLatin1String("ppt.rect")) {
         armShape(tab, ".uno:BasicShapes.rectangle");
     } else if (id == QLatin1String("ppt.image")) {
+        if (d->readOnly()) return true;
+        tab->setPptNotesMode(false);
+        const PptEditTarget target(tab);
         const QString f = QFileDialog::getOpenFileName(tab, QObject::tr("Chèn ảnh"), QString(),
                                                        QObject::tr("Ảnh (*.png *.jpg *.jpeg *.bmp *.gif)"));
-        if (f.isEmpty()) return true;
+        if (f.isEmpty() || !target.verify(false)) return true;
+        const QFileInfo image(f);
+        if (!image.isFile() || !image.isReadable()) {
+            QMessageBox::warning(tab, QObject::tr("Chèn ảnh"), QObject::tr("Tệp ảnh không còn đọc được."));
+            return true;
+        }
         d->command(".uno:InsertGraphic", dung::Document::stringArg("FileName", ss(QUrl::fromLocalFile(f).toString())));
+        if (target.tab && target.tab->view()) target.tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.masterBackground")) {
         if (QMessageBox::question(tab,QObject::tr("Nền Slide Master"),
             QObject::tr("Đổi nền của master trong PPTX đã lưu, xuất bản sao mới. Slide/layout có nền riêng sẽ không đổi. "
