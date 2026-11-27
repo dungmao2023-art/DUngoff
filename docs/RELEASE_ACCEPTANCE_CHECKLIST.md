@@ -266,3 +266,5 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - Batch 3 (chưa CI): P02 thumbnail tỷ lệ đúng, refresh; P03 nhảy số slide và tránh slide ẩn; A03 không ghi đè tài liệu tab khác; A05 giới hạn raster, từ chối khung lỗi, giữ tỷ lệ bản in trên DPI cao, báo lỗi kết thúc tác vụ. Các bài test được mở rộng nhưng chưa nghiệm thu máy thật.
 
 - Batch 3 A04/X03: tự lưu giữ cờ retry tới khi dữ liệu và metadata commit thành công; sau Save As dùng tên/đường dẫn bản đang làm việc. Thanh công thức thử commit khi rời ô nhập nếu xác minh đúng ô/sheet, Esc huỷ; khi không xác minh được giữ nội dung nháp trong Chi tiết thông báo để sao chép. Test metadata mở rộng; cần kiểm tra GUI Windows trước nghiệm thu.
+
+- Batch 3 P03: chọn màn hình/máy chiếu khi có nhiều màn hình, kiểm tra màn hình chưa ngắt kết nối, hiện cảnh báo nếu slide không render. Chưa thử máy chiếu thật; không đánh dấu accepted.

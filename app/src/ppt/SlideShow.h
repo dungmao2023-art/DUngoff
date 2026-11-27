@@ -5,12 +5,14 @@
 #include <QVector>
 #include <QString>
 
+class QScreen;
+
 // Trình chiếu toàn màn hình trong cửa sổ Qt: vẽ từng trang bằng paintPartTile,
 // không đổi trang hiện tại của tài liệu và không mở cửa sổ LibreOffice.
 class SlideShow : public QWidget {
     Q_OBJECT
 public:
-    SlideShow(dung::Document* doc, int startPart, QWidget* parent = nullptr, bool fullscreen = true);
+    SlideShow(dung::Document* doc, int startPart, QWidget* parent = nullptr, bool fullscreen = true, QScreen* targetScreen = nullptr);
 
 protected:
     void paintEvent(QPaintEvent*) override;

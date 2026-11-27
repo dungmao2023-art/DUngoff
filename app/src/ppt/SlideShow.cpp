@@ -5,13 +5,15 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QScreen>
+#include <QWindow>
 #include <QRegularExpression>
 #include <QString>
 #include <algorithm>
 #include <cmath>
 #include <limits>
 
-SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool fullscreen)
+SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool fullscreen, QScreen* targetScreen)
     : QWidget(parent, Qt::Window), m_doc(doc), m_part(startPart), m_count(doc->partCount()) {
     setAttribute(Qt::WA_DeleteOnClose);
     // Freeze editor interactions while the show uses its document and slide count.
@@ -22,9 +24,19 @@ SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool f
     m_doc->documentSize(m_w, m_h);
     for(int i=0;i<m_count;++i) m_visible.append(!hidden(i));
     m_part=slideshow::firstVisible(m_visible,startPart);
-    if (fullscreen) showFullScreen();
+    if (fullscreen) {
+        if (targetScreen) {
+            // Create the native window before assigning its screen, then place it
+            // inside that screen's geometry before requesting fullscreen.
+            winId();
+            if (windowHandle()) windowHandle()->setScreen(targetScreen);
+            setGeometry(targetScreen->geometry());
+        }
+        showFullScreen();
+    }
     else { setWindowTitle(tr("Xem trước slide — mũi tên chuyển trang · số + Enter đến slide · B/W màn trống · Esc đóng")); resize(960, 600); show(); }
     render();
+    setFocus(Qt::OtherFocusReason);
 }
 
 bool SlideShow::hidden(int part) {
@@ -73,7 +85,11 @@ void SlideShow::paintEvent(QPaintEvent*) {
         p.drawText(rect(), Qt::AlignCenter, tr("Không có slide hiển thị. Esc để thoát."));
         return;
     }
-    if (m_img.isNull()) return;
+    if (m_img.isNull()) {
+        p.setPen(Qt::white);
+        p.drawText(rect(), Qt::AlignCenter, tr("Không hiển thị được slide này. Dùng phím mũi tên hoặc Esc."));
+        return;
+    }
     const QSizeF sz = QSizeF(m_img.size()).scaled(QSizeF(size()), Qt::KeepAspectRatio);
     p.setRenderHint(QPainter::SmoothPixmapTransform);
     p.drawImage(QRectF(QPointF((width() - sz.width()) / 2, (height() - sz.height()) / 2), sz), m_img);
