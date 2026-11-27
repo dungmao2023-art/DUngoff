@@ -37,7 +37,7 @@ QJsonObject load(const QString& name, bool* ok) {
     const QString path=pathFor(name);
     QFile f(path);
     if (!f.exists()) { if(ok) *ok=true; return {}; }
-    if (!f.open(QIODevice::ReadOnly)) return {};
+    if (!QFileInfo(path).isFile() || !f.open(QIODevice::ReadOnly)) return {};
     const QByteArray raw = f.readAll();
     if(f.error()!=QFileDevice::NoError) return {};
     f.close();
@@ -56,6 +56,7 @@ bool save(const QString& name, const QJsonObject& obj) {
     const QString path=pathFor(name);
     QFile existing(path);
     if(existing.exists()) {
+        if(!QFileInfo(path).isFile()) return false;
         if(!existing.open(QIODevice::ReadOnly)) return false;
         const auto bytes=existing.readAll();
         if(existing.error()!=QFileDevice::NoError) return false;
