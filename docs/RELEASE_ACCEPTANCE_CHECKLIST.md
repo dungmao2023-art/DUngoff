@@ -33,6 +33,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] W04.2 Kiểm chính tả tiếng Việt bằng từ điển có license xác minh; phân biệt kiểm âm tiết.
 - [ ] W05.1 Mẫu công văn, đơn, hợp đồng; số tiền thành chữ, ngày, chuyển mã; mail merge từ Excel/CSV có Unicode.
 - [ ] W06.1 Comment thêm/sửa/xóa; Track Changes bật/tắt, chấp nhận/từ chối; giữ review cũ và mở lại MS Word.
+  - 28/11: W06 xác nhận xử lý review toàn bộ ghi tên tài liệu, QPointer guard tránh dùng tab đã đóng/thay đổi, mặc định Không. Code/test 4079bf87c24247b8702465e08a45a5c3a6f95c3f; thêm ca native Undo sau chấp nhận/từ chối, kiểm DOCX khôi phục w:ins và giữ bình luận/anchor. Chờ Windows/Linux CI và thao tác GUI thật; chưa nâng stage.
 
 ### B1 — Excel: ca làm việc bảng tính
 - [ ] X01.1 Nhập số/chữ/công thức, F2/double click, thanh công thức, chọn ô/vùng và chuyển sheet; IME và Undo.
