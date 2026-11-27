@@ -761,12 +761,13 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
         emit statusChanged();
     }
     switch (type) {
-    case LOK_CALLBACK_CELL_ADDRESS:
-        if(m_cellAddress==payload)break;
+    case LOK_CALLBACK_CELL_ADDRESS: {
+        const bool changed=m_cellAddress!=payload;
         m_cellAddress = payload;
-        if (m_nameBox && !m_nameBox->hasFocus()) m_nameBox->setText(payload);
-        emit statusChanged();
+        if (m_nameBox && !m_nameBox->hasFocus() && m_nameBox->text()!=payload) m_nameBox->setText(payload);
+        if(changed)emit statusChanged();
         break;
+    }
     case LOK_CALLBACK_CELL_FORMULA:
         if (m_formula && !m_formula->hasFocus() && m_formula->text()!=payload) m_formula->setText(payload);
         break;
@@ -783,7 +784,6 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
             value = payload.mid(eq + 1);
         }
         if (cmd.isEmpty()) break;
-        if (m_states.contains(cmd) && m_states.value(cmd)==value) break;
         m_states.insert(cmd, value);
         if (cmd == QLatin1String(".uno:ModifiedStatus")) emit titleChanged();
         emit commandStateChanged(cmd, value);
