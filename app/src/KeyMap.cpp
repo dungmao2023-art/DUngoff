@@ -59,7 +59,7 @@ LokKey toLokKey(const QKeyEvent* e) {
     const bool altGrText = bothCtrlAlt && !typed.isEmpty() && typed.at(0).isPrint() && !typed.at(0).isSpace();
     const bool ctrlOrAlt = !altGrText && (e->modifiers() & (Qt::ControlModifier | Qt::AltModifier));
     if (code) {
-        k.keyCode = code | mods;
+        k.keyCode = code | mods | (e->key() == Qt::Key_Backtab ? KEY_SHIFT : 0);
         if (code == KEY_SPACE && !ctrlOrAlt) k.charCode = ' ';
         if (code == KEY_RETURN && !ctrlOrAlt) k.charCode = '\r';
         k.valid = true;
@@ -84,8 +84,11 @@ std::vector<ImeOp> imeToOps(const QString& commit, int replaceStart, int replace
     std::vector<ImeOp> ops;
     if (unsupported) *unsupported = false;
     if (replaceLen > 0) {
-        if (replaceStart <= 0) {
-            const int before = qMin(-replaceStart, replaceLen);
+        // Backspace/Delete can only replace a range touching the caret.
+        // A disjoint range before it must not delete the adjacent characters.
+        const long long end = static_cast<long long>(replaceStart) + replaceLen;
+        if (replaceStart <= 0 && end >= 0 && replaceLen <= 4096) {
+            const int before = -replaceStart;
             for (int i = 0; i < before; ++i) ops.push_back({ImeOp::Backspace, 0});
             for (int i = 0; i < replaceLen - before; ++i) ops.push_back({ImeOp::Delete, 0});
         } else if (unsupported) {
@@ -114,7 +117,7 @@ std::vector<ImeStep> imePlan(const QString& preedit, const QString& commit, int 
         } else {
             steps.push_back(preeditStep(preedit));                     // cập nhật chữ đang soạn
         }
-        if (composingAfter) *composingAfter = commit.isEmpty() ? !preedit.isEmpty() : !preedit.isEmpty();
+        if (composingAfter) *composingAfter = !preedit.isEmpty();
         return steps;
     }
     for (const ImeOp& op : imeToOps(commit, replaceStart, replaceLen, unsupported)) {
