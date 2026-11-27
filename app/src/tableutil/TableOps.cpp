@@ -475,7 +475,11 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
 {
     FilterSortResult result;
     const auto valid = [&](int col) { return col == -1 || (col >= 0 && col < source.header.size()); };
-    if (!valid(spec.filterCol) || !valid(spec.sortCol)) {
+    if (!valid(spec.filterCol) || !valid(spec.sortCol) || !valid(spec.cleanCol) || !valid(spec.dedupCol)
+        || (spec.mode!=FilterMode::Equal && spec.mode!=FilterMode::Contains && spec.mode!=FilterMode::Blank && spec.mode!=FilterMode::NotBlank)
+        || (spec.cleanKind!=ColumnKind::Keep && spec.cleanKind!=ColumnKind::Date && spec.cleanKind!=ColumnKind::Money)
+        || (spec.moneyLocale!=MoneyLocale::VN && spec.moneyLocale!=MoneyLocale::EN)
+        || ((spec.cleanCol<0)!=(spec.cleanKind==ColumnKind::Keep))) {
         result.error = QObject::tr("Cột lọc hoặc sắp xếp không hợp lệ.");
         return result;
     }
@@ -497,12 +501,19 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
         }
         selected.insert(col); names.insert(name.toCaseFolded());
     }
-    if (project) for (const auto& row:source.rows) if (row.size()!=source.header.size()) {
+    if (project || spec.cleanCol>=0 || spec.dedupCol>=0) for (const auto& row:source.rows) if (row.size()!=source.header.size()) {
         result.error=QObject::tr("Nguồn có dòng sai số cột; chưa chọn/đổi tên cột."); return result;
     }
     const auto cs = spec.ignoreCase ? Qt::CaseInsensitive : Qt::CaseSensitive;
     result.table.header = source.header;
-    for (const auto& row : source.rows) {
+    QSet<QString> seen;
+    for (auto row : source.rows) {
+        if(spec.cleanCol>=0) {
+            const auto value=row[spec.cleanCol];
+            const auto clean=spec.cleanKind==ColumnKind::Date?cleanDate(value):cleanMoney(value,spec.moneyLocale);
+            if(clean.converted) {row[spec.cleanCol]=clean.value;++result.cleanedCells;}
+            if(!clean.warning.isEmpty())++result.cleanWarnings;
+        }
         bool keep = true;
         if (spec.filterCol >= 0) {
             const auto cell = row.value(spec.filterCol);
@@ -514,7 +525,16 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
                 default: result.error = QObject::tr("Kiểu lọc không hợp lệ."); return result;
             }
         }
-        if (keep) result.table.rows.append(row);
+        if(!keep){++result.filteredRows;continue;}
+        if(spec.dedupCol>=0) {
+            auto key=row[spec.dedupCol];
+            if(spec.dedupFold)key=key.trimmed().toCaseFolded();
+            if(!key.isEmpty()){
+                if(seen.contains(key)){++result.removedDuplicates;continue;}
+                seen.insert(key);
+            }
+        }
+        result.table.rows.append(row);
     }
     if (spec.sortCol >= 0)
         std::stable_sort(result.table.rows.begin(), result.table.rows.end(),
@@ -550,6 +570,12 @@ QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpe
         obj.insert("outputColumns",columns);
         obj.insert("outputNames",QJsonArray::fromStringList(spec.outputNames));
     }
+    if(spec.cleanCol>=0 || spec.dedupCol>=0 || spec.cleanKind!=ColumnKind::Keep || spec.moneyLocale!=MoneyLocale::VN || spec.dedupFold) {
+        obj.insert("version",3);
+        obj.insert("cleanCol",spec.cleanCol);obj.insert("cleanKind",int(spec.cleanKind));
+        obj.insert("moneyLocale",int(spec.moneyLocale));obj.insert("dedupCol",spec.dedupCol);
+        obj.insert("dedupFold",spec.dedupFold);
+    }
     return QJsonDocument(obj).toJson(QJsonDocument::Indented);
 }
 
@@ -563,7 +589,7 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return fail();
     const auto obj = doc.object();
     const int version=obj.value("version").toInt(-1);
-    if ((version != 1 && version != 2) || !obj.value("header").isArray()
+    if ((version != 1 && version != 2 && version != 3) || !obj.value("header").isArray()
         || obj.value("header").toArray() != QJsonArray::fromStringList(header)) return fail();
     const int filter = obj.value("filterCol").toInt(-2);
     const int sort = obj.value("sortCol").toInt(-2);
@@ -577,7 +603,7 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     candidate.value = obj.value("value").toString();
     candidate.ignoreCase = obj.value("ignoreCase").toBool();
     candidate.descending = obj.value("descending").toBool();
-    if(version==2) {
+    if(version==2 || (version==3 && (obj.contains("outputColumns") || obj.contains("outputNames")))) {
         if(!obj.value("outputColumns").isArray() || !obj.value("outputNames").isArray()) return fail();
         const auto columns=obj.value("outputColumns").toArray(), names=obj.value("outputNames").toArray();
         if(columns.isEmpty() || columns.size()!=names.size() || columns.size()>header.size()) return fail();
@@ -587,6 +613,15 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
             candidate.outputNames.append(names[i].toString());
         }
     } else if(obj.contains("outputColumns") || obj.contains("outputNames")) return fail();
+    if(version==3) {
+        const int clean=obj.value("cleanCol").toInt(-2), kind=obj.value("cleanKind").toInt(-1);
+        const int locale=obj.value("moneyLocale").toInt(-1), dedup=obj.value("dedupCol").toInt(-2);
+        if(clean < -1 || clean>=header.size() || dedup < -1 || dedup>=header.size()
+            || kind<int(ColumnKind::Keep) || kind>int(ColumnKind::Money)
+            || locale<int(MoneyLocale::VN) || locale>int(MoneyLocale::EN) || !obj.value("dedupFold").isBool())return fail();
+        candidate.cleanCol=clean;candidate.cleanKind=ColumnKind(kind);candidate.moneyLocale=MoneyLocale(locale);
+        candidate.dedupCol=dedup;candidate.dedupFold=obj.value("dedupFold").toBool();
+    } else if(obj.contains("cleanCol")||obj.contains("cleanKind")||obj.contains("moneyLocale")||obj.contains("dedupCol")||obj.contains("dedupFold"))return fail();
     const auto checked = filterSort(Table{header, {}}, candidate);
     if (!checked.ok) { error = checked.error; return false; }
     spec = candidate;
