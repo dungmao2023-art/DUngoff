@@ -221,7 +221,7 @@ int TileView::tileCacheLimit() const {
     // Allow a complete visible viewport plus a small scroll margin, including 4K.
     const qint64 cols=(qint64(viewport()->width())+kTilePx-1)/kTilePx+2;
     const qint64 rows=(qint64(viewport()->height())+kTilePx-1)/kTilePx+2;
-    return int(qBound<qint64>(64,cols*rows+24,600));
+    return int(qBound(qint64(64),cols*rows+qint64(24),qint64(600)));
 }
 
 void TileView::trimTileCache(int limit) {
