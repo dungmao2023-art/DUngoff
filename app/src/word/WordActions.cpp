@@ -26,6 +26,7 @@
 #include <QCheckBox>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
@@ -86,14 +87,18 @@ struct WordInsertTarget {
     const QString base = QString::fromUtf8(doc->displayName().c_str());
     const bool notDocx = !doc->isNew() && !base.endsWith(QLatin1String(".docx"), Qt::CaseInsensitive);
     QString msg = QObject::tr("Đặt lề «%1»: trái %2 mm, phải %3 mm, trên %4 mm, dưới %5 mm — cho TẤT CẢ các phần của tài liệu.\n\n"
-                              "Engine trên Windows chưa nhận lề qua lệnh, nên Dũng Office sẽ tạo MỘT BẢN SAO của tài liệu hiện tại "
+                              "Để áp dụng lề nhất quán và kiểm tra từng phần, Dũng Office sẽ tạo MỘT BẢN SAO của tài liệu hiện tại "
                               "(gồm cả phần bạn vừa sửa) với lề mới và mở trong thẻ mới.\n"
                               "• Thẻ hiện tại và tệp gốc KHÔNG bị đổi; thẻ hiện tại vẫn giữ lịch sử hoàn tác.\n"
                               "• Thẻ mới bắt đầu ở đầu tài liệu, chưa có lịch sử hoàn tác, và được đánh dấu chưa lưu (Lưu sẽ hỏi tên mới, không ghi đè tệp gốc).")
                       .arg(label, mm(spec.left), mm(spec.right), mm(spec.top), mm(spec.bottom));
     if (notDocx) msg += QObject::tr("\n• Bản sao được lưu ở định dạng .docx (tệp gốc không phải .docx).");
     msg += QObject::tr("\n\nTiếp tục?");
-    if (QMessageBox::question(parent, QObject::tr("Lề trang"), msg) != QMessageBox::Yes) return true;
+    QPointer<DocumentTab> guard(tab);
+    if (QMessageBox::question(parent, QObject::tr("Lề trang"), msg,
+          QMessageBox::Yes|QMessageBox::No,QMessageBox::No) != QMessageBox::Yes) return true;
+    if (!guard || guard->readOnly() || guard->document()!=doc) return true;
+    doc->waitInputIdle();
 
     QTemporaryDir td(QDir::tempPath() + QStringLiteral("/DungOffice-le-XXXXXX"));
     auto fail = [&](const QString& why) {
@@ -471,6 +476,52 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         QString label = QObject::tr("hành chính");
         if (name == QLatin1String("marginNormal")) { l = r = t = b = 2540; label = QObject::tr("thường"); }
         else if (name == QLatin1String("marginNarrow")) { l = r = t = b = 1270; label = QObject::tr("hẹp"); }
+        else if (name == QLatin1String("marginCustom")) {
+            QPointer<DocumentTab> guard(tab);
+            QDialog dialog(parent);
+            dialog.setWindowTitle(QObject::tr("Lề trang tùy chỉnh"));
+            auto* layout=new QVBoxLayout(&dialog);
+            auto* hint=new QLabel(QObject::tr("Nhập lề theo mm. Giá trị ban đầu là mẫu hành chính, không phải lề hiện tại. Áp dụng cho toàn bộ tài liệu."),&dialog);
+            hint->setWordWrap(true);
+            layout->addWidget(hint);
+            auto* form=new QFormLayout;
+            auto make=[&](const QString& title,double value) {
+                auto* field=new QDoubleSpinBox(&dialog);
+                field->setRange(0,100);
+                field->setDecimals(1);
+                field->setSingleStep(1);
+                field->setSuffix(QObject::tr(" mm"));
+                field->setValue(value);
+                form->addRow(title,field);
+                return field;
+            };
+            auto* left=make(QObject::tr("Trái"),30);
+            auto* right=make(QObject::tr("Phải"),15);
+            auto* top=make(QObject::tr("Trên"),20);
+            auto* bottom=make(QObject::tr("Dưới"),20);
+            layout->addLayout(form);
+            auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);
+            QObject::connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+            QObject::connect(buttons,&QDialogButtonBox::accepted,&dialog,[&] {
+                // A4 portrait/landscape: leave at least 20 mm content in both orientations.
+                if(left->value()+right->value()>190 || top->value()+bottom->value()>190) {
+                    QMessageBox::warning(&dialog,QObject::tr("Lề trang"),QObject::tr("Tổng hai lề đối diện không được vượt 190 mm."));
+                    return;
+                }
+                dialog.accept();
+            });
+            layout->addWidget(buttons);
+            if(dialog.exec()!=QDialog::Accepted || !guard || guard->readOnly() || guard->document()!=doc) return true;
+            l=qRound(left->value()*100);r=qRound(right->value()*100);
+            t=qRound(top->value()*100);b=qRound(bottom->value()*100);
+            label=QObject::tr("tùy chỉnh");
+            // Use the validated all-section copy path on both platforms.
+            // Native Linux page style commands do not promise all sections.
+            MarginSpec custom;
+            custom.left=mmToTwips(l/100.0);custom.right=mmToTwips(r/100.0);
+            custom.top=mmToTwips(t/100.0);custom.bottom=mmToTwips(b/100.0);
+            return applyMarginsByPatch(tab,parent,custom,label);
+        }
 #ifdef Q_OS_WIN
         // Engine Windows 26.8.3: lệnh PageLRMargin/PageULMargin không đổi lề (CI đã thử 6 bộ lệnh). Dùng đường vá XML trên bản sao.
         MarginSpec spec;

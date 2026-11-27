@@ -28,7 +28,7 @@ QString iconNameForCommand(const QString& id) {
         {"word:font", "font-name"}, {"word:size", "font-size"}, {"word:color", "font-color"},
         {"word:find", "search"}, {"word:replace", "replace"}, {"word:table", "table"}, {"word:image", "image"}, {"word:link", "link"},
         {"word:a4", "paper-size"}, {"word:landscape", "orientation"},
-        {"word:marginNarrow", "margins"}, {"word:marginNormal", "margins"}, {"word:marginVN", "margins"},
+        {"word:marginNarrow", "margins"}, {"word:marginCustom", "margins"}, {"word:marginNormal", "margins"}, {"word:marginVN", "margins"},
         {"word:adminHead", "heading"}, {"word:adminTail", "text"}, {"word:adminFull", "template"}, {"word:adminMargin", "margins"},
         {"word:count", "word-count"}, {"word:back", "back"},
         {"word:reviewCount", "word-count"}, {"word:reviewSyllable", "spell"},

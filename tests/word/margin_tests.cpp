@@ -157,6 +157,19 @@ void testPatchXml() {
     // Chỉ khác ở các thuộc tính lề: xoá mọi số trong thuộc tính lề rồi so sánh phần còn lại không khả thi → so độ dài hợp lý
     check(out.size() > multiDoc().size(), "XML mới dài hơn (có pgMar tạo thêm)");
 
+    // Custom dialog uses tenths of a millimeter; verify asymmetric roundtrip.
+    MarginSpec custom;
+    custom.left=mmToTwips(31.5);custom.right=mmToTwips(17.2);
+    custom.top=mmToTwips(22.3);custom.bottom=mmToTwips(19.8);
+    QByteArray customXml;
+    const auto cp=patchDocumentXml(multiDoc(),custom,&customXml);
+    const auto cr=readDocumentXmlMargins(customXml);
+    bool customOk=cp.ok&&cr.ok&&cr.sections.size()==3;
+    for(const auto& section:cr.sections)
+        customOk=customOk&&section.left==*custom.left&&section.right==*custom.right&&
+            section.top==*custom.top&&section.bottom==*custom.bottom;
+    check(customOk&&customXml.contains("Phần 1"),"lề tùy chỉnh lẻ mm: tất cả section đúng, giữ nội dung");
+
     // Chỉ lề trên/dưới: giữ trái/phải
     MarginSpec ul; ul.top = 1000; ul.bottom = 1100;
     QByteArray out2;
@@ -220,6 +233,10 @@ void testPatchXml() {
     bad = vn(); bad.left = 9000; bad.right = 9000;
     p = patchDocumentXml(multiDoc(), bad, &o7);
     check(!p.ok && p.error.contains("quá lớn"), "lề trái+phải ≥ bề rộng giấy: từ chối kèm lý do", p.error);
+    QByteArray gutterDoc=multiDoc();
+    gutterDoc.replace("w:gutter=\"0\"","w:gutter=\"9500\"");
+    p=patchDocumentXml(gutterDoc,vn(),&o7);
+    check(!p.ok&&p.error.contains("lề gáy"),"lề gáy lớn: từ chối khi vùng chữ không còn đủ");
     bad = MarginSpec();
     p = patchDocumentXml(multiDoc(), bad, &o7);
     check(!p.ok, "không có cạnh nào để đặt: từ chối");
@@ -281,6 +298,25 @@ void testZip(const QString& tmp) {
     p = patchDocxMargins(dst, dst2, nm);
     const ReadResult r2 = readDocxMargins(dst2);
     check(p.ok && r2.ok && r2.sections[2].top == 1440 && r2.sections[0].right == 1440, "vá chuỗi: lề mới thay lề cũ", p.error);
+
+    // A preexisting destination and its conventional temporary path must survive.
+    const QString occupied=tmp+"/occupied.docx";
+    const QString oldTemp=occupied+".dung-tmp";
+    const QByteArray originalDestination("existing destination"), originalTemp("existing temporary file");
+    { QFile file(occupied); check(file.open(QIODevice::WriteOnly)&&file.write(originalDestination)==originalDestination.size(),"tạo đích đã có"); }
+    { QFile file(oldTemp); check(file.open(QIODevice::WriteOnly)&&file.write(originalTemp)==originalTemp.size(),"tạo tệp tạm cũ"); }
+    p=patchDocxMargins(src,occupied,vn());
+    check(!p.ok&&slurp(occupied)==originalDestination&&slurp(oldTemp)==originalTemp&&slurp(src)==srcBytes,
+          "đích có sẵn: không ghi đè đích, nguồn hoặc tệp tạm");
+    QString refused;
+    check(!replaceZipEntry(src,occupied,QStringLiteral("word/document.xml"),multiDoc(),&refused)&&
+          slurp(occupied)==originalDestination,"hàm ZIP dùng chung Word/PPT cũng từ chối đích đã có");
+    const QString fresh=tmp+"/fresh.docx";
+    const QString freshLegacy=fresh+".dung-tmp";
+    { QFile file(freshLegacy); check(file.open(QIODevice::WriteOnly)&&file.write(originalTemp)==originalTemp.size(),"tạo tệp tạm trùng tên cũ"); }
+    p=patchDocxMargins(src,fresh,vn());
+    check(p.ok&&slurp(freshLegacy)==originalTemp&&slurp(src)==srcBytes,
+          "đích mới: không xóa tệp tạm tồn tại trước");
 
     // Từ chối ghi đè nguồn
     p = patchDocxMargins(src, src, vn());
@@ -428,6 +464,10 @@ void testEngine(const QString& program, const QString& out, const QString& realD
         roundTrip(*eng, *d, "VN", vn(), out, text);
         roundTrip(*eng, *d, "binhthuong", normal, out, text);
         roundTrip(*eng, *d, "hep", narrow, out, text);
+        MarginSpec custom;
+        custom.left=mmToTwips(31.5);custom.right=mmToTwips(17.2);
+        custom.top=mmToTwips(22.3);custom.bottom=mmToTwips(19.8);
+        roundTrip(*eng,*d,"tuychinh",custom,out,text);
         MarginSpec ul; ul.top = mmToTwips(35); ul.bottom = mmToTwips(10);
         roundTrip(*eng, *d, "chitrenduoi", ul, out, text);
     }

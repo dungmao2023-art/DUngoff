@@ -82,6 +82,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral("word:marginVN"), tr("Lề chuẩn VN"), 0xE7C3, QStringLiteral("VN"), false},
                 {QStringLiteral("word:marginNormal"), tr("Lề thường"), 0xE7C3, QStringLiteral("▭"), false},
                 {QStringLiteral("word:marginNarrow"), tr("Lề hẹp"), 0xE7C3, QStringLiteral("▯"), false},
+                {QStringLiteral("word:marginCustom"), tr("Lề tùy chỉnh"), 0xE7C3, QStringLiteral("▭"), false},
             }},
         }},
         {tr("Tham chiếu"), {
