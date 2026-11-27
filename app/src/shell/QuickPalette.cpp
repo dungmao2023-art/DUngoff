@@ -6,6 +6,9 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QPushButton>
+#include <QScreen>
 
 namespace shell {
 
@@ -28,6 +31,13 @@ QuickPalette::QuickPalette(QWidget* parent) : QDialog(parent, Qt::Dialog | Qt::F
     auto* v = new QVBoxLayout(this);
     v->setContentsMargins(14, 14, 14, 10);
     v->setSpacing(8);
+    auto* header=new QHBoxLayout;
+    auto* title=new QLabel(tr("Tìm chức năng"),this);title->setStyleSheet(QStringLiteral("font-size:17px;font-weight:700;color:#17294D;"));
+    auto* close=new QPushButton(QStringLiteral("×"),this);close->setFixedSize(30,30);
+    close->setToolTip(tr("Đóng tìm kiếm (Esc)"));close->setAccessibleName(close->toolTip());
+    close->setStyleSheet(QStringLiteral("QPushButton{background:#FBE8E8;border:1px solid #F4CACA;border-radius:6px;color:#A83E43;font-weight:700;} QPushButton:hover{background:#F4CACA;}"));
+    header->addWidget(title,1);header->addWidget(close);v->addLayout(header);
+    connect(close,&QPushButton::clicked,this,&QDialog::reject);
     m_edit = new QLineEdit(this);
     m_edit->setObjectName(QStringLiteral("PaletteInput"));
     m_edit->setPlaceholderText(tr("Gõ lệnh hoặc tên chức năng… (không dấu cũng được)"));
@@ -38,7 +48,15 @@ QuickPalette::QuickPalette(QWidget* parent) : QDialog(parent, Qt::Dialog | Qt::F
     v->addWidget(m_list);
     auto* foot = new QLabel(tr("Enter: chạy · Esc: đóng · ↑↓: chọn"), this);
     foot->setObjectName(QStringLiteral("PaletteHint"));
-    v->addWidget(foot);
+    auto* actions=new QHBoxLayout;
+    actions->addWidget(foot,1);
+    auto* run=new QPushButton(tr("Mở chức năng"),this);
+    run->setStyleSheet(QStringLiteral("QPushButton{background:#2864BA;color:white;border-radius:6px;padding:7px 14px;font-weight:600;}"));
+    actions->addWidget(run);v->addLayout(actions);
+    connect(run,&QPushButton::clicked,this,[this]{
+        auto* it=m_list->currentItem();
+        if(it && (it->flags()&Qt::ItemIsEnabled))emit m_list->itemActivated(it);
+    });
     connect(m_edit, &QLineEdit::textChanged, this, [this] { refilter(); });
     connect(m_list, &QListWidget::itemActivated, this, [this](QListWidgetItem* it) {
         const QString id = it->data(Qt::UserRole).toString();
@@ -97,8 +115,13 @@ void QuickPalette::popup() {
         const QPoint c = p->mapToGlobal(QPoint(p->width() / 2, 0));
         move(c.x() - width() / 2, p->mapToGlobal(QPoint(0, 0)).y() + qMin(120, p->height() / 6));
     }
-    show();
-    m_edit->setFocus();
+    if(auto* screen=parentWidget()?parentWidget()->screen():this->screen()){
+        const auto area=screen->availableGeometry();
+        move(qBound(area.left(),x(),qMax(area.left(),area.right()-width()+1)),
+             qBound(area.top(),y(),qMax(area.top(),area.bottom()-height()+1)));
+    }
+    show();raise();activateWindow();
+    m_edit->setFocus(Qt::OtherFocusReason);
 }
 
 } // namespace shell

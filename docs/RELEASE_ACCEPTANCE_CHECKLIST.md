@@ -273,3 +273,13 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 
 ## Bằng chứng batch 2 — 27/11/2026
 - PR #123 HEAD d805275053a4a588bc5123e1a6c8898d3b00ae1a, merged main 389a39f56014ee787efabde50ca533774bb3be90. CI 45990409222 Windows/Linux PASS, kiểm thử cài/gỡ tự động Windows 0 lỗi; manifest và SHA256 ứng dụng sau cài khớp. Artifact bộ cài: https://github.com/dungmao2023-art/DUngoff/actions/runs/45990409222/artifacts/15194142868 . Checkout CI là merge candidate 93943a729aff203fa9cc42ee9dd9d4f073162605; không đồng nhất SHA với main sau merge. Chưa tick GUI/máy sạch ngoài CI/máy in thật. Batch 3 chưa CI.
+
+- Batch 4 W01/W02/W04: xác minh lại vùng chữ/con trỏ trước khi chọn font/cỡ/màu, chèn bảng/ảnh; kiểm ảnh vẫn đọc được; hộp tìm/thay thống nhất có tìm trước/sau, xác nhận thay toàn bộ. Thêm test tìm ngược trên engine thật; chưa CI và GUI.
+
+- Batch 4 X01/X05: thống nhất hộp tìm/thay Excel, tìm tiếp nhiều lần, khóa phạm vi sheet, xác nhận thay toàn bộ bằng lệnh native đã có test; kiểm tra ô khóa sắp xếp qua cả callback địa chỉ lẫn hình học. Cần CI/GUI, chưa nghiệm thu.
+
+- Batch 4 UI theo yêu cầu: tay nắm Mẫu có nhãn; Tôi muốn chọn hàm trước, mở đối số tuần tự, ẩn tùy chọn và phép tính nhanh, chỉ hiện đích khi có công thức; ribbon icon-only và tooltip, font/cỡ chữ trực tiếp đầu Trang đầu Word/Excel/PPT; nút cửa sổ và zoom có ô màu. Giữ title bar hệ thống; cần chụp màn hình Windows 800x600/1280x800 và kiểm tra trạng thái font/selection thật trước nghiệm thu.
+
+- Batch 4: PR #124 CI 45993822603 Windows/Linux PASS, merged efc77614a9e35664aa7c32ab95ad0278f095a6eb. UI bỏ quicklinks trùng, tìm kiếm có nút đóng/mở, chuyển cùng kho workspace.json sang trang Ghi chú/Lịch/Liên hệ; chụp thêm 3 trang. Mẫu có cảnh báo thay đổi và link https://csdl.dichvucong.gov.vn/ . Google Drive: tùy chọn thư mục đồng bộ cục bộ do người dùng chọn, chỉ sao chép bản đã lưu theo xác nhận, không ghi đè, không lưu mật khẩu/token, không tự upload hoặc xác nhận đồng bộ; Google Drive for desktop xử lý. Cần nghiệm thu GUI và Drive thật, chưa CI batch 4.
+
+- Batch 4: thêm kiểm tra widget thực SUM, VLOOKUP, TODAY và ảnh kết quả, CI chặn lỗi Basic UI; sửa hủy chọn, phạm vi tự lấy tham chiếu và giữ vùng kết quả khi sửa; bộ cài chỉ upload sau E2E đạt. Chưa chạy CI.

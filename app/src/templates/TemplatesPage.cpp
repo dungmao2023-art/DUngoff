@@ -38,9 +38,10 @@ TemplatesPage::TemplatesPage(QWidget* parent) : QWidget(parent) {
     title->setStyleSheet(QStringLiteral("font-size:22px;font-weight:700;color:#1C2940;"));
     v->addWidget(title);
     auto* warn = new QLabel(tr("<b>Lưu ý:</b> đây là mẫu soạn thảo tham khảo, không phải bản gốc do cơ quan nhà nước công bố. "
-                               "Với thủ tục hành chính, hồ sơ sinh viên, biểu mẫu kế toán hãy lấy bản đang được cơ quan/trường công bố "
-                               "(bấm \"Nguồn chính thức\")."), this);
-    warn->setWordWrap(true);
+                               "Biểu mẫu và quy định có thể thay đổi theo thời gian. Trước khi nộp hồ sơ, hãy kiểm tra mẫu hiện hành tại "
+                               "<a href='https://csdl.dichvucong.gov.vn/'>Cơ sở dữ liệu thủ tục hành chính</a> "
+                               "hoặc website chính thức của cơ quan tiếp nhận/trường. Xem thêm nút Nguồn chính thức."), this);
+    warn->setWordWrap(true);warn->setOpenExternalLinks(true);warn->setTextFormat(Qt::RichText);
     warn->setStyleSheet(QStringLiteral("background:#FFF7E6;color:#7A5B00;border:1px solid #F0DDAD;border-radius:8px;padding:8px 12px;"));
     v->addWidget(warn);
     m_info = new QLabel(this);

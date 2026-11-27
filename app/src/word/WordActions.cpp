@@ -189,6 +189,7 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         send(tab, insertFootnote(name == QLatin1String("endnote")));
         tab->view()->setFocus();
     } else if (name == QLatin1String("font")) {
+        const WordInsertTarget target(tab);
         const auto fonts = parseFontList(doc->commandValues(".uno:CharFontName"));
         QStringList items;
         for (const auto& f : fonts) items << QString::fromUtf8(f.c_str());
@@ -196,20 +197,29 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         const QString pick = items.isEmpty()
             ? QInputDialog::getText(parent, QObject::tr("Phông chữ"), QObject::tr("Tên phông:"), QLineEdit::Normal, QString(), &ok)
             : QInputDialog::getItem(parent, QObject::tr("Phông chữ"), QObject::tr("Chọn phông:"), items, 0, true, &ok);
-        if (ok && !pick.trimmed().isEmpty()) send(tab, fontName(ss(pick.trimmed())));
+        if (ok && !pick.trimmed().isEmpty() && target.verify()) {
+            send(target.tab.data(),fontName(ss(pick.trimmed())));
+            target.tab->view()->setFocus();
+        }
     } else if (name == QLatin1String("size")) {
+        const WordInsertTarget target(tab);
         QStringList items;
         for (double s : commonFontSizes()) items << QString::number(s);
         bool ok = false;
         const QString pick = QInputDialog::getItem(parent, QObject::tr("Cỡ chữ"), QObject::tr("Cỡ chữ (pt):"), items, 3, true, &ok);
         if (!ok) return true;
         double v = pick.toDouble(&ok);
-        if (ok && v >= 1 && v <= 400) send(tab, fontSize(v));
+        if (ok && v >= 1 && v <= 400 && target.verify()) {
+            send(target.tab.data(),fontSize(v));
+            target.tab->view()->setFocus();
+        }
     } else if (name == QLatin1String("color") || name == QLatin1String("back")) {
+        const WordInsertTarget target(tab);
         const QColor c = QColorDialog::getColor(Qt::black, parent, QObject::tr("Chọn màu"));
-        if (c.isValid()) {
+        if (c.isValid() && target.verify()) {
             const unsigned rgb = static_cast<unsigned>(c.red() << 16 | c.green() << 8 | c.blue());
-            send(tab, name == QLatin1String("color") ? fontColor(rgb) : backColor(rgb));
+            send(target.tab.data(), name == QLatin1String("color") ? fontColor(rgb) : backColor(rgb));
+            target.tab->view()->setFocus();
         }
     } else if (name.startsWith(QLatin1String("style"))) {
         const auto& st = paragraphStyles();
@@ -344,15 +354,28 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         lay->addWidget(box);
         dlg.exec();
     } else if (name == QLatin1String("table")) {
+        const WordInsertTarget target(tab);
         bool ok = false;
         const int cols = QInputDialog::getInt(parent, QObject::tr("Chèn bảng"), QObject::tr("Số cột:"), 3, 1, 63, 1, &ok);
         if (!ok) return true;
         const int rows = QInputDialog::getInt(parent, QObject::tr("Chèn bảng"), QObject::tr("Số hàng:"), 3, 1, 500, 1, &ok);
-        if (ok) send(tab, insertTable(cols, rows));
+        if (ok && target.verify()) {
+            send(target.tab.data(),insertTable(cols,rows));
+            target.tab->view()->setFocus();
+        }
     } else if (name == QLatin1String("image")) {
+        const WordInsertTarget target(tab);
         const QString f = QFileDialog::getOpenFileName(parent, QObject::tr("Chèn ảnh"), QString(),
                                                        QObject::tr("Ảnh (*.png *.jpg *.jpeg *.gif *.bmp *.svg)"));
-        if (!f.isEmpty()) send(tab, insertImage(ss(QUrl::fromLocalFile(f).toString())));
+        if(!f.isEmpty() && target.verify()) {
+            const QFileInfo info(f);
+            if(!info.isFile() || !info.isReadable()) {
+                QMessageBox::warning(target.tab.data(),QObject::tr("Chèn ảnh"),QObject::tr("Tệp ảnh không còn đọc được."));
+                return true;
+            }
+            send(target.tab.data(),insertImage(ss(QUrl::fromLocalFile(f).toString())));
+            target.tab->view()->setFocus();
+        }
     } else if (name == QLatin1String("link")) {
         doc->waitInputIdle();
         QPointer<DocumentTab> live(tab);
@@ -385,19 +408,56 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         doc->waitInputIdle();
         if(live&&live->view())live->view()->setFocus();
     } else if (name == QLatin1String("find") || name == QLatin1String("replace")) {
-        bool ok = false;
-        const QString what = QInputDialog::getText(parent, QObject::tr("Tìm"), QObject::tr("Tìm:"), QLineEdit::Normal, QString(), &ok);
-        if (!ok || what.isEmpty()) return true;
-        if (name == QLatin1String("find")) { send(tab, findNext(ss(what), false)); return true; }
-        const QString with = QInputDialog::getText(parent, QObject::tr("Thay thế"), QObject::tr("Thay bằng:"), QLineEdit::Normal, QString(), &ok);
-        if (!ok) return true;
-        if (QMessageBox::question(parent, QObject::tr("Thay thế tất cả"),
-            QObject::tr("Thay tất cả lần xuất hiện của nội dung tìm kiếm trong tài liệu? Thao tác có thể thay đổi nhiều đoạn văn bản."),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return true;
-        if (tab->readOnly() || tab->document() != doc) return true;
-        doc->waitInputIdle();
-        send(tab, replaceAll(ss(what), ss(with)));
-        doc->waitInputIdle();
+        const QPointer<DocumentTab> live(tab);
+        QDialog dlg(parent);
+        dlg.setWindowTitle(QObject::tr("Tìm và thay thế"));
+        auto* root=new QVBoxLayout(&dlg);
+        auto* form=new QFormLayout;
+        auto* what=new QLineEdit(&dlg);
+        auto* with=new QLineEdit(&dlg);
+        form->addRow(QObject::tr("Tìm:"),what);
+        form->addRow(QObject::tr("Thay bằng:"),with);
+        root->addLayout(form);
+        auto* note=new QLabel(QObject::tr("Tìm trước/sau trong tài liệu. Thay tất cả cần xác nhận; để trống ô Thay bằng nếu muốn xóa nội dung tìm thấy."),&dlg);
+        note->setWordWrap(true);root->addWidget(note);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Close,&dlg);
+        auto* prev=buttons->addButton(QObject::tr("Tìm trước"),QDialogButtonBox::ActionRole);
+        auto* next=buttons->addButton(QObject::tr("Tìm tiếp"),QDialogButtonBox::ActionRole);
+        auto* replace=buttons->addButton(QObject::tr("Thay tất cả"),QDialogButtonBox::ActionRole);
+        root->addWidget(buttons);
+        auto ready=[&]{return live && live->document()==doc && !what->text().isEmpty();};
+        auto refresh=[&]{prev->setEnabled(ready());next->setEnabled(ready());replace->setEnabled(ready()&&!live->readOnly());};
+        QObject::connect(what,&QLineEdit::textChanged,&dlg,[&]{refresh();});
+        auto find=[&](bool backward){
+            if(!ready())return;
+            doc->waitInputIdle();
+            send(live.data(),findNext(ss(what->text()),backward));
+            doc->waitInputIdle();
+            if(doc->selectionAs("text/plain;charset=utf-8").empty())
+                note->setText(QObject::tr("Engine không trả vùng chọn. Kiểm tra từ khóa."));
+            else note->setText(QObject::tr("Đã gửi lệnh tìm; đóng hộp thoại để xem vùng chọn trong tài liệu."));
+        };
+        QObject::connect(prev,&QPushButton::clicked,&dlg,[&]{find(true);});
+        QObject::connect(next,&QPushButton::clicked,&dlg,[&]{find(false);});
+        QObject::connect(what,&QLineEdit::returnPressed,&dlg,[&]{find(false);});
+        QObject::connect(replace,&QPushButton::clicked,&dlg,[&]{
+            if(!ready()||live->readOnly())return;
+            const QString needle=what->text(),replacement=with->text();
+            if(QMessageBox::question(&dlg,QObject::tr("Thay tất cả"),
+                QObject::tr("Thay mọi lần xuất hiện của «%1» bằng «%2» trong tài liệu?").arg(needle,replacement),
+                QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+            if(!live||live->document()!=doc||live->readOnly())return;
+            doc->waitInputIdle();
+            send(live.data(),replaceAll(ss(needle),ss(replacement)));
+            doc->waitInputIdle();
+            dlg.accept();
+        });
+        QObject::connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        refresh();
+        if(name==QLatin1String("replace")) with->setPlaceholderText(QObject::tr("Nội dung thay thế"));
+        what->setFocus();
+        dlg.exec();
+        if(live&&live->view())live->view()->setFocus();
     } else if (name == QLatin1String("a4") || name == QLatin1String("landscape")) {
         // Đơn vị 1/100 mm (đã kiểm chứng trong word_tests.cpp).
         const bool land = name == QLatin1String("landscape");

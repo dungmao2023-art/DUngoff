@@ -5,6 +5,13 @@
 #include "ui/Icons.h"
 
 #include <QFrame>
+#include <QComboBox>
+#include <QFontDatabase>
+#include <QGuiApplication>
+#include <QGridLayout>
+#include <QSignalBlocker>
+#include "word/WordCommands.h"
+#include "excel/ExcelCommands.h"
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPainter>
@@ -327,18 +334,67 @@ QWidget* Ribbon::buildPage(const Tab& t) {
     auto* h = new QHBoxLayout(page);
     h->setContentsMargins(0, 4, 0, 0);
     h->setSpacing(6);
-    for (int gi = 0; gi < t.groups.size(); ++gi) {
-        const Group& g = t.groups[gi];
+    auto groups=t.groups;
+    // Put font controls first on Home so they remain visible on smaller screens.
+    if(t.title==tr("Trang đầu")&&!m_lastReadOnly) {
+        for(int i=0;i<groups.size();++i)
+            if(groups[i].title==tr("Phông chữ")) { groups.move(i,0);break; }
+    }
+    for (int gi = 0; gi < groups.size(); ++gi) {
+        const Group& g = groups[gi];
         auto* gw = new QWidget(page);
         auto* gv = new QVBoxLayout(gw);
         gv->setContentsMargins(0, 0, 0, 0);
         gv->setSpacing(0);
-        auto* row = new QHBoxLayout;
-        row->setSpacing(2);
+        const bool fontGroup=g.title==tr("Phông chữ")&&!m_lastReadOnly &&
+            (m_lastKind==int(DocKind::Text)||m_lastKind==int(DocKind::Spreadsheet)||m_lastKind==int(DocKind::Presentation));
+        if(fontGroup) {
+            auto* controls=new QHBoxLayout;
+            controls->setSpacing(3);
+            auto* family=new QComboBox(gw);family->setObjectName(QStringLiteral("RibbonFontFamily"));
+            // Some platform backends (notably Windows offscreen) cannot
+            // enumerate fonts. Keep the application default selectable without
+            // inventing a list of installed fonts.
+            QStringList families=QFontDatabase::families();
+            if(families.isEmpty()) {
+                const QString defaultFamily=QGuiApplication::font().family().trimmed();
+                families.append(defaultFamily.isEmpty()?QStringLiteral("sans-serif"):defaultFamily);
+            }
+            family->addItems(families);
+            family->setPlaceholderText(tr("Chọn phông"));
+            family->setCurrentIndex(-1);family->setFixedWidth(158);
+            family->setToolTip(tr("Phông chữ"));family->setAccessibleName(tr("Phông chữ"));
+            auto* points=new QComboBox(gw);points->setObjectName(QStringLiteral("RibbonFontSize"));
+            points->setPlaceholderText(tr("Cỡ"));points->setFixedWidth(65);
+            for(double pt:dung::word::commonFontSizes())points->addItem(QString::number(pt));
+            points->setCurrentIndex(-1);points->setToolTip(tr("Cỡ chữ (pt)"));points->setAccessibleName(tr("Cỡ chữ"));
+            m_fontBox=family;m_sizeBox=points;
+            const bool excel=m_lastKind==int(DocKind::Spreadsheet);
+            connect(family,qOverload<int>(&QComboBox::activated),this,[this,family,excel](int index){
+                if(index<0||family->itemText(index).isEmpty())return;
+                const auto name=family->itemText(index).toUtf8().toStdString();
+                const auto json=excel?dung::excel::fontName(name):dung::word::fontName(name).second;
+                emit unoCommand(QStringLiteral(".uno:CharFontName#")+QString::fromStdString(json));
+            });
+            connect(points,qOverload<int>(&QComboBox::activated),this,[this,points,excel](int index){
+                bool ok=false;const double pt=points->itemText(index).toDouble(&ok);
+                if(!ok||pt<1||pt>400)return;
+                const auto json=excel?dung::excel::fontHeight(qRound(pt)):dung::word::fontSize(pt).second;
+                emit unoCommand(QStringLiteral(".uno:FontHeight#")+QString::fromStdString(json));
+            });
+            controls->addWidget(family);controls->addWidget(points);controls->addStretch(1);
+            gv->addLayout(controls);
+        }
+        auto* row = new QGridLayout;
+        row->setContentsMargins(0,0,0,0);row->setSpacing(2);
+        int buttonIndex=0;
+        const int rows=fontGroup?1:(g.buttons.size()>3?2:1);
         for (const Btn& b : g.buttons) {
+            if(fontGroup && b.id==QLatin1String("word:font"))continue;
+            if(m_lastKind==int(DocKind::Spreadsheet)&&b.id==QLatin1String("xl:fontName"))continue;
             auto* tb = new QToolButton(gw);
             tb->setObjectName(QStringLiteral("RibbonButton"));
-            tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+            tb->setToolButtonStyle(Qt::ToolButtonIconOnly);
             tb->setCheckable(b.checkable);
             tb->setAutoRaise(true);
             tb->setFocusPolicy(Qt::NoFocus); // không lấy focus khỏi tài liệu
@@ -346,12 +402,8 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             tb->setIconSize(QSize(22, 22));
             tb->setText(b.label);
             tb->setToolTip(b.label);
-            tb->setMinimumHeight(56);
-            {   // đo bằng đúng cỡ chữ 11px của QSS (font mặc định chưa áp QSS lúc này) để không cắt nhãn
-                QFont lf = tb->font();
-                lf.setPixelSize(11);
-                tb->setMinimumWidth(qMax(54, QFontMetrics(lf).horizontalAdvance(b.label) + 22));
-            }
+            tb->setAccessibleName(b.label);
+            tb->setFixedSize(32,29);
             const QString id = b.id;
             connect(tb, &QToolButton::clicked, this, [this, id, tb] {
                 if (id.startsWith(QLatin1String(".uno:"))) {
@@ -362,15 +414,16 @@ QWidget* Ribbon::buildPage(const Tab& t) {
                 }
             });
             m_buttons.insert(id, tb);
-            row->addWidget(tb);
+            row->addWidget(tb,buttonIndex%rows,buttonIndex/rows);
+            ++buttonIndex;
         }
-        gv->addLayout(row);
+        gv->addLayout(row);gv->addStretch(1);
         auto* lbl = new QLabel(g.title, gw);
         lbl->setObjectName(QStringLiteral("GroupLabel"));
         lbl->setAlignment(Qt::AlignHCenter);
         gv->addWidget(lbl);
         h->addWidget(gw);
-        if (gi + 1 < t.groups.size()) {
+        if (gi + 1 < groups.size()) {
             auto* sep = new QFrame(page);
             sep->setObjectName(QStringLiteral("GroupSep"));
             sep->setFrameShape(QFrame::VLine);
@@ -393,23 +446,49 @@ void Ribbon::setKind(DocKind kind, bool readOnly) {
         style()->unpolish(this);
         style()->polish(this);
     }
-    const int current = m_tabs->currentIndex();
     while (m_tabs->count()) m_tabs->removeTab(0);
     while (m_pages->count()) {
         QWidget* w = m_pages->widget(0);
         m_pages->removeWidget(w);
         w->deleteLater();
     }
-    m_buttons.clear();
+    m_buttons.clear();m_fontBox=nullptr;m_sizeBox=nullptr;
     for (const Tab& t : tabsFor(kind, readOnly)) {
         m_tabs->addTab(t.title);
         m_pages->addWidget(buildPage(t));
     }
     // Lần đầu mở tab "Trang đầu" (chỉ số 1, sau tab "Tệp")
-    m_tabs->setCurrentIndex(std::clamp(current < 0 ? 1 : current, 0, m_tabs->count() - 1));
+    m_tabs->setCurrentIndex(qMin(1, m_tabs->count()-1));
 }
 
 void Ribbon::setCommandState(const QString& cmd, const QString& value) {
+    QComboBox* selector=cmd==QLatin1String(".uno:CharFontName")?m_fontBox.data():
+        cmd==QLatin1String(".uno:FontHeight")?m_sizeBox.data():nullptr;
+    if(selector) {
+        QSignalBlocker blocker(selector);
+        if(value==QLatin1String("disabled")) selector->setEnabled(false);
+        else {
+            selector->setEnabled(true);
+            if(value!=QLatin1String("enabled")) {
+                const QString text=value.trimmed();
+                int index=selector->findText(text,Qt::MatchFixedString);
+                if(selector==m_sizeBox.data()) {
+                    bool ok=false;const double pt=text.toDouble(&ok);
+                    if(ok&&pt>=1&&pt<=400) {
+                        index=selector->findText(QString::number(pt));
+                        if(index<0){selector->addItem(QString::number(pt));index=selector->count()-1;}
+                    }
+                }
+                // A document may reference a font not enumerated locally.
+                // Show the actual engine state rather than clearing the field.
+                if(selector==m_fontBox.data()&&index<0&&!text.isEmpty()) {
+                    selector->addItem(text);
+                    index=selector->count()-1;
+                }
+                selector->setCurrentIndex(index);
+            }
+        }
+    }
     auto it = m_buttons.find(cmd);
     if (it == m_buttons.end() || !it.value()) return;
     QToolButton* b = it.value();
@@ -419,6 +498,7 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
 }
 
 void Ribbon::resetStates(const QHash<QString, QString>& states) {
+    for(auto* box:{m_fontBox.data(),m_sizeBox.data()})if(box){QSignalBlocker block(box);box->setCurrentIndex(-1);box->setEnabled(true);}
     for (auto it = m_buttons.begin(); it != m_buttons.end(); ++it)
         if (it.value() && it.value()->isCheckable()) it.value()->setChecked(false);
     for (auto it = states.begin(); it != states.end(); ++it) setCommandState(it.key(), it.value());

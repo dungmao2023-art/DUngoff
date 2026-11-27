@@ -5,6 +5,9 @@
 
 #include <QApplication>
 #include <QToolButton>
+#include <QComboBox>
+#include <QEvent>
+#include <QTabBar>
 #include <cstdio>
 
 int main(int argc, char** argv) {
@@ -26,9 +29,33 @@ int main(int argc, char** argv) {
     int built = 0, noIcon = 0;
     for (auto k : {dung::DocKind::Text, dung::DocKind::Spreadsheet, dung::DocKind::Presentation, dung::DocKind::Drawing}) {
         r.setKind(k, false);
+        QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+        if(k!=dung::DocKind::Drawing){
+            auto* family=r.findChild<QComboBox*>(QStringLiteral("RibbonFontFamily"));
+            auto* size=r.findChild<QComboBox*>(QStringLiteral("RibbonFontSize"));
+            if(!family||!size||family->count()==0||size->count()==0){printf("[LỖI] thiếu bộ chọn font/cỡ chữ\n");++fail;}
+            else{
+                QString emitted;
+                const auto connection=QObject::connect(&r,&Ribbon::unoCommand,&r,[&](const QString& cmd){emitted=cmd;});
+                r.setCommandState(QStringLiteral(".uno:CharFontName"),family->itemText(0));
+                r.setCommandState(QStringLiteral(".uno:FontHeight"),QStringLiteral("18"));
+                if(family->currentIndex()!=0||size->currentText()!=QLatin1String("18")||!emitted.isEmpty()){
+                    printf("[LỖI] trạng thái engine không đồng bộ hoặc phát lệnh khi cập nhật UI\n");++fail;
+                }
+                QMetaObject::invokeMethod(family,"activated",Qt::DirectConnection,Q_ARG(int,0));
+                if(!emitted.startsWith(QLatin1String(".uno:CharFontName#"))){printf("[LỖI] chọn font không phát lệnh\n");++fail;}
+                emitted.clear();
+                QMetaObject::invokeMethod(size,"activated",Qt::DirectConnection,Q_ARG(int,size->currentIndex()));
+                if(!emitted.startsWith(QLatin1String(".uno:FontHeight#"))){printf("[LỖI] chọn cỡ không phát lệnh\n");++fail;}
+                QObject::disconnect(connection);
+            }
+        }
         for (auto* b : r.findChildren<QToolButton*>(QStringLiteral("RibbonButton"))) {
             ++built;
             if (b->icon().isNull() || b->icon().pixmap(QSize(22, 22)).isNull()) ++noIcon;
+            if(b->toolButtonStyle()!=Qt::ToolButtonIconOnly||b->toolTip().isEmpty()||b->accessibleName().isEmpty()){
+                printf("[LỖI] nút ribbon thiếu tooltip hoặc không ở chế độ icon\n");++fail;
+            }
         }
     }
     printf("Nút đã dựng: %d, nút không có icon: %d\n", built, noIcon);

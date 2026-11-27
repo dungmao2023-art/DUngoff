@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QStyle>
 #include <QVBoxLayout>
+#include <QApplication>
 
 namespace shell {
 
@@ -27,8 +28,8 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent) {
     row1->setAttribute(Qt::WA_StyledBackground, true);
     row1->setFixedHeight(66);
     auto* h = new QHBoxLayout(row1);
-    h->setContentsMargins(24, 0, 20, 0);
-    h->setSpacing(4);
+    h->setContentsMargins(10, 0, 10, 0);
+    h->setSpacing(3);
     h->addStretch(1);
     const QString names[5] = {tr("Trang chủ"), QStringLiteral("Word"), QStringLiteral("Excel"),
                               QStringLiteral("PowerPoint"), QStringLiteral("PDF")};
@@ -59,40 +60,22 @@ TopBar::TopBar(QWidget* parent) : QWidget(parent) {
     m_save = new QLabel(tr("● Lưu trên máy bạn"), row1);
     m_save->setObjectName(QStringLiteral("TopSave"));
     h->addWidget(m_save);
-    h->addSpacing(8);
-    auto* avatar = new QLabel(QStringLiteral("D"), row1);
-    avatar->setObjectName(QStringLiteral("Avatar"));
-    avatar->setAlignment(Qt::AlignCenter);
-    avatar->setFixedSize(34, 34);
-    avatar->setToolTip(tr("Dũng Office — miễn phí, ngoại tuyến, không cần tài khoản"));
-    h->addWidget(avatar);
-    v->addWidget(row1);
-
-    // ---- Hàng 2: liên kết nhanh (đều là chức năng có thật) ----
-    m_links = new QWidget(this);
-    m_links->setObjectName(QStringLiteral("QuickLinks"));
-    m_links->setAttribute(Qt::WA_StyledBackground, true);
-    m_links->setFixedHeight(50);
-    auto* l = new QHBoxLayout(m_links);
-    l->setContentsMargins(28, 0, 24, 0);
-    l->setSpacing(6);
-    struct Q { const char* id; QString text; };
-    const Q links[] = {{"home", tr("Trang chủ")}, {"templates", tr("Kho mẫu")}, {"tools", tr("Công cụ")},
-                       {"projects", tr("Dự án")}, {"work", tr("Công việc")}, {"open", tr("Mở tệp")}};
-    for (const Q& q : links) {
-        auto* b = new QPushButton(q.text, m_links);
-        b->setObjectName(QStringLiteral("QuickLink"));
-        b->setCursor(Qt::PointingHandCursor);
-        b->setFocusPolicy(Qt::NoFocus);
-        const QString id = QString::fromLatin1(q.id);
-        connect(b, &QPushButton::clicked, this, [this, id] { emit quickLinkClicked(id); });
-        l->addWidget(b);
-    }
-    l->addStretch(1);
-    m_ready = new QLabel(tr("Sẵn sàng"), m_links);
+    m_ready = new QLabel(tr("Sẵn sàng"), row1);
     m_ready->setObjectName(QStringLiteral("TopReady"));
-    l->addWidget(m_ready);
-    v->addWidget(m_links);
+    m_ready->hide();
+    auto control=[&](QStyle::StandardPixmap iconId,const QString& tooltip,const QString& colors,auto action){
+        auto* b=new QPushButton(row1);b->setFixedSize(28,28);b->setIcon(style()->standardIcon(iconId));
+        b->setIconSize(QSize(14,14));b->setToolTip(tooltip);b->setAccessibleName(tooltip);
+        b->setFocusPolicy(Qt::NoFocus);b->setCursor(Qt::PointingHandCursor);
+        b->setStyleSheet(QStringLiteral("QPushButton{border:1px solid #CBD8EC;border-radius:5px;background:%1;} QPushButton:hover{background:%2;}").arg(colors.section('|',0,0),colors.section('|',1,1)));
+        connect(b,&QPushButton::clicked,this,action);h->addWidget(b);
+    };
+    control(QStyle::SP_TitleBarMinButton,tr("Thu nhỏ cửa sổ"),QStringLiteral("#E8F0FF|#CEDFFF"),[this]{window()->showMinimized();});
+    control(QStyle::SP_TitleBarMaxButton,tr("Phóng to / Khôi phục"),QStringLiteral("#E3F5EC|#C9E8D7"),[this]{
+        if(window()->isMaximized())window()->showNormal();else window()->showMaximized();
+    });
+    control(QStyle::SP_TitleBarCloseButton,tr("Đóng Dũng Office"),QStringLiteral("#FBE8E8|#F4CACA"),[this]{window()->close();});
+    v->addWidget(row1);
 }
 
 void TopBar::setActive(const QString& kind) {
@@ -109,7 +92,7 @@ void TopBar::setReadyText(const QString& text) { m_ready->setText(text); }
 
 void TopBar::setCompact(bool compact) {
     m_save->setVisible(!compact);
-    m_ready->setVisible(!compact);
+    m_ready->hide();
 }
 
 } // namespace shell

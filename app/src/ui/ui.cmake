@@ -19,7 +19,8 @@ add_executable(dung-ribbonicontest
   ${PROJECT_SOURCE_DIR}/tests/ui/ribbon_icon_tests.cpp
   ${DUNG_UI_SRC}
   ${DUNG_UI_DIR}/../Ribbon.h ${DUNG_UI_DIR}/../Ribbon.cpp ${DUNG_UI_DIR}/../word/WordRibbon.cpp
-  ${DUNG_UI_DIR}/../Theme.h ${DUNG_UI_DIR}/../Theme.cpp)
+  ${DUNG_UI_DIR}/../Theme.h ${DUNG_UI_DIR}/../Theme.cpp
+  ${DUNG_UI_DIR}/../word/WordCommands.h ${DUNG_UI_DIR}/../word/WordCommands.cpp)
 target_include_directories(dung-ribbonicontest PRIVATE ${DUNG_UI_DIR} ${DUNG_UI_DIR}/.. ${PROJECT_SOURCE_DIR}/engine/include)
 target_link_libraries(dung-ribbonicontest PRIVATE Qt6::Widgets)
 set_target_properties(dung-ribbonicontest PROPERTIES AUTOMOC ON)

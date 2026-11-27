@@ -28,7 +28,6 @@ private:
     QPushButton* m_tabs[5] = {};
     QLabel* m_save;
     QLabel* m_ready;
-    QWidget* m_links;
 };
 
 } // namespace shell
