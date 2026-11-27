@@ -334,6 +334,18 @@ QWidget* Ribbon::buildPage(const Tab& t) {
     h->setContentsMargins(0, 4, 0, 0);
     h->setSpacing(6);
     auto groups=t.groups;
+    if(m_lastKind==int(DocKind::Spreadsheet)&&t.title==tr("Trang đầu")&&!m_lastReadOnly){
+        int font=-1,colors=-1;
+        for(int i=0;i<groups.size();++i){
+            if(groups[i].title==tr("Phông chữ"))font=i;
+            else if(groups[i].title==tr("Phông & màu"))colors=i;
+        }
+        if(font>=0&&colors>=0){
+            for(const auto& button:groups[colors].buttons)
+                if(button.id!=QLatin1String("xl:fontName")&&button.id!=QLatin1String("xl:fontSize"))groups[font].buttons.append(button);
+            groups.removeAt(colors);
+        }
+    }
     // Put font controls first on Home so they remain visible on smaller screens.
     if(t.title==tr("Trang đầu")&&!m_lastReadOnly) {
         for(int i=0;i<groups.size();++i)
@@ -354,7 +366,8 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             family->addItems(QFontDatabase::families());
             family->setPlaceholderText(tr("Chọn phông"));
             family->setCurrentIndex(-1);family->setFixedWidth(158);
-            family->setToolTip(tr("Phông chữ"));family->setAccessibleName(tr("Phông chữ"));
+            family->setToolTip(tr("Phông chữ (tên do engine hoặc hệ điều hành cung cấp)"));family->setAccessibleName(tr("Phông chữ"));
+            family->setFocusPolicy(Qt::ClickFocus);
             auto* points=new QComboBox(gw);points->setObjectName(QStringLiteral("RibbonFontSize"));
             points->setPlaceholderText(tr("Cỡ"));points->setFixedWidth(65);
             for(double pt:dung::word::commonFontSizes())points->addItem(QString::number(pt));
@@ -452,6 +465,20 @@ void Ribbon::setKind(DocKind kind, bool readOnly) {
     m_tabs->setCurrentIndex(qMin(1, m_tabs->count()-1));
 }
 
+void Ribbon::setFontFamilies(const QStringList& engineFamilies) {
+    if(!m_fontBox)return;
+    QStringList names=engineFamilies;
+    names.removeDuplicates();
+    names.removeAll(QString());
+    if(names.isEmpty())names=QFontDatabase::families();
+    names.sort(Qt::CaseInsensitive);
+    const QString current=m_fontBox->currentText();
+    QSignalBlocker blocker(m_fontBox.data());
+    m_fontBox->clear();m_fontBox->addItems(names);
+    m_fontBox->setCurrentIndex(m_fontBox->findText(current,Qt::MatchFixedString));
+    m_fontBox->setToolTip(engineFamilies.isEmpty()?tr("Phông chữ trên máy; engine chưa trả danh sách"):tr("Phông chữ do engine tài liệu cung cấp"));
+}
+
 void Ribbon::setCommandState(const QString& cmd, const QString& value) {
     QComboBox* selector=cmd==QLatin1String(".uno:CharFontName")?m_fontBox.data():
         cmd==QLatin1String(".uno:FontHeight")?m_sizeBox.data():nullptr;
@@ -463,6 +490,11 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
             if(value!=QLatin1String("enabled")) {
                 const QString text=value.trimmed();
                 int index=selector->findText(text,Qt::MatchFixedString);
+                if(selector==m_fontBox.data()&&!text.isEmpty()&&index<0){
+                    // Show the actual document font even when absent from the installed list.
+                    selector->addItem(text);
+                    index=selector->count()-1;
+                }
                 if(selector==m_sizeBox.data()) {
                     bool ok=false;const double pt=text.toDouble(&ok);
                     if(ok&&pt>=1&&pt<=400) {

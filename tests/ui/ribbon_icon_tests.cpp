@@ -37,6 +37,10 @@ int main(int argc, char** argv) {
             else{
                 QString emitted;
                 const auto connection=QObject::connect(&r,&Ribbon::unoCommand,&r,[&](const QString& cmd){emitted=cmd;});
+                r.setFontFamilies({QStringLiteral("Carlito"),QStringLiteral("Liberation Serif")});
+                if(family->count()!=2||family->itemText(0)!=QLatin1String("Carlito")||!emitted.isEmpty()){
+                    printf("[LỖI] danh sách font engine chưa đồng bộ\n");++fail;
+                }
                 r.setCommandState(QStringLiteral(".uno:CharFontName"),family->itemText(0));
                 r.setCommandState(QStringLiteral(".uno:FontHeight"),QStringLiteral("18"));
                 if(family->currentIndex()!=0||size->currentText()!=QLatin1String("18")||!emitted.isEmpty()){

@@ -21,6 +21,7 @@ public:
     void setKind(dung::DocKind kind, bool readOnly);
     void setCommandState(const QString& cmd, const QString& value);
     void resetStates(const QHash<QString, QString>& states);
+    void setFontFamilies(const QStringList& engineFamilies);
     QStringList commandIds() const;  // mọi id nút trên mọi ribbon (dùng cho kiểm thử icon)
 
 signals:

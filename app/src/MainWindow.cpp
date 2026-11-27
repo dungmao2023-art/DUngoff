@@ -11,6 +11,7 @@
 #include "recovery/RecoveryDialog.h"
 #include "recovery/RecoveryStore.h"
 #include "word/WordActions.h"
+#include "word/WordCommands.h"
 #include "HomePage.h"
 #include "extras/ProjectsPage.h"
 #include "update/UpdateDialog.h"
@@ -317,6 +318,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(m_tabs, &QTabWidget::currentChanged, this, &MainWindow::onCurrentTabChanged);
     connect(m_ribbon, &Ribbon::unoCommand, this, [this](const QString& c) {
         if (auto* t = current()) {
+            if(m_stack->currentWidget()!=m_docArea)return;
             if(t->readOnly() && (c.startsWith(QLatin1String(".uno:CharFontName#"))||c.startsWith(QLatin1String(".uno:FontHeight#"))))return;
             t->runCommand(c);
         }
@@ -1129,6 +1131,12 @@ void MainWindow::onCurrentTabChanged() {
     refreshDocumentGroups();
     if (!t) { refreshStatus(); return; }
     m_ribbon->setKind(t->kind(), t->readOnly());
+    if(!t->readOnly()&&(t->kind()==DocKind::Text||t->kind()==DocKind::Spreadsheet||t->kind()==DocKind::Presentation)){
+        QStringList fonts;
+        for(const auto& family:dung::word::parseFontList(t->document()->commandValues(".uno:CharFontName")))
+            fonts.append(QString::fromUtf8(family.c_str()));
+        m_ribbon->setFontFamilies(fonts);
+    }
     m_ribbon->resetStates(t->states());
     QSignalBlocker b(m_zoom);
     m_zoom->setValue(t->zoom());
@@ -1474,6 +1482,16 @@ int MainWindow::captureShots(const QString& dir) {
                           : k == DocKind::Presentation ? QStringLiteral("ppt") : QStringLiteral("pdf");
         host.grab().save(dir + QStringLiteral("/ui-ribbon-") + nm + QStringLiteral(".png"));
     }
+    // Curated project page: actual packaged images, not placeholder initials.
+    showProjects();QApplication::processEvents();
+    const auto cards=m_projects->findChildren<QFrame*>(QStringLiteral("ProjectLinkCard"));
+    const auto avatars=m_projects->findChildren<QLabel*>(QStringLiteral("ProjectAvatar"));
+    const auto links=m_projects->findChildren<QPushButton*>(QStringLiteral("ProjectVisit"));
+    bool projectOk=cards.size()==3&&avatars.size()==3&&links.size()==3;
+    for(auto* avatar:avatars)projectOk=projectOk&&avatar->property("loadedOriginalAvatar").toBool();
+    log << (projectOk?"BASIC_UI_PASS ":"BASIC_UI_FAIL ") << "three project cards with original avatars\n";
+    if(!projectOk)++problems;
+
     // Exercise the progressive formula workflow without touching a real workbook.
     {
         QWidget host;
