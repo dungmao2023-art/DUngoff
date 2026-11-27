@@ -233,6 +233,10 @@ void testPatchXml() {
     bad = vn(); bad.left = 9000; bad.right = 9000;
     p = patchDocumentXml(multiDoc(), bad, &o7);
     check(!p.ok && p.error.contains("quá lớn"), "lề trái+phải ≥ bề rộng giấy: từ chối kèm lý do", p.error);
+    QByteArray gutterDoc=multiDoc();
+    gutterDoc.replace("w:gutter=\"0\"","w:gutter=\"9500\"");
+    p=patchDocumentXml(gutterDoc,vn(),&o7);
+    check(!p.ok&&p.error.contains("lề gáy"),"lề gáy lớn: từ chối khi vùng chữ không còn đủ");
     bad = MarginSpec();
     p = patchDocumentXml(multiDoc(), bad, &o7);
     check(!p.ok, "không có cạnh nào để đặt: từ chối");
@@ -460,6 +464,10 @@ void testEngine(const QString& program, const QString& out, const QString& realD
         roundTrip(*eng, *d, "VN", vn(), out, text);
         roundTrip(*eng, *d, "binhthuong", normal, out, text);
         roundTrip(*eng, *d, "hep", narrow, out, text);
+        MarginSpec custom;
+        custom.left=mmToTwips(31.5);custom.right=mmToTwips(17.2);
+        custom.top=mmToTwips(22.3);custom.bottom=mmToTwips(19.8);
+        roundTrip(*eng,*d,"tuychinh",custom,out,text);
         MarginSpec ul; ul.top = mmToTwips(35); ul.bottom = mmToTwips(10);
         roundTrip(*eng, *d, "chitrenduoi", ul, out, text);
     }
