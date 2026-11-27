@@ -323,6 +323,30 @@ int main(int argc, char **argv)
         CHECK(!groupCsv(huge,0,1).ok,"reject sum overflow");
     }
 
+    // v4 groups the projected result while preserving source-index identity.
+    {
+        const Table src=T({"ID","Money","City"},{{"001","0,10","X"},{"001","0,20","X"},{"1","12,3456","Y"},{"002","0","X"}});
+        FilterSortSpec p;p.cleanCol=1;p.cleanKind=ColumnKind::Money;p.filterCol=2;p.value="X";
+        p.outputColumns={1,0};p.outputNames={"Tien","Ma"};p.groupKey=0;p.groupValue=1;
+        const auto result=filterSort(src,p);
+        CHECK(result.ok&&result.grouped&&result.groupedInputRows==3&&result.table.rows.size()==2&&
+            result.table.rows.value(0).value(0)=="001"&&result.table.rows.value(0).value(3)=="0.3","group after cleaning filtering and reordered projection");
+        CHECK(result.table.rows.value(1).value(3)=="0"&&src.rows.value(0).value(1)=="0,10","group preserves zero and source");
+        FilterSortSpec loaded;QString error;
+        CHECK(decodeFilterSortRecipe(encodeFilterSortRecipe(src.header,p),src.header,loaded,error)&&
+            loaded.groupKey==0&&loaded.groupValue==1&&filterSort(src,loaded).table==result.table,"v4 replay exact output");
+        p.outputColumns={0};p.outputNames={"Ma"};
+        CHECK(!filterSort(src,p).ok,"group rejects dropped numeric column");
+        p.groupValue=-1;
+        CHECK(filterSort(src,p).ok&&filterSort(src,p).table.header.size()==2,"group count only after projection");
+        p.groupKey=-1;p.groupValue=1;
+        CHECK(!filterSort(src,p).ok,"reject sum without grouping key");
+        p.groupKey=0;p.groupValue=0;
+        CHECK(!filterSort(src,p).ok,"reject same group and value column");
+        p.groupValue=-1;p.filterCol=2;p.value="absent";
+        CHECK(filterSort(src,p).ok&&filterSort(src,p).table.rows.isEmpty(),"empty group output retains schema");
+    }
+
     // XLSX worksheet XML: read-only raw-value subset, no implicit evaluation.
     {
         const QByteArray book=R"(<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Second" r:id="r2"/><sheet name="First" r:id="r1"/></sheets></workbook>)";
