@@ -34,7 +34,7 @@ id,priority,group,weight,stage,remaining_low_hours,remaining_high_hours,evidence
 "P04","P0","PowerPoint","8","partial","10","30","#12/#17; master/theme/layout"
 "P05","P0","PowerPoint","8","integrated","6","18","#28/#33/#82 merged; PPTX roundtrip and batch transition; actual PowerPoint GUI pending"
 "P06","P0","PowerPoint","13","partial","24","80","#43/#64/#72/#114 merged; graphic frame XML CI 45971609706 both OS; actual playback, existing timing edit/emphasis/motion pending"
-"D01","P0","PDF","5","integrated","6","16","#39 merged PASS; tìm/đọc/copy theo trang; còn highlight canvas/password/native GUI"
+"D01","P0","PDF","5","integrated","6","16","#39 merged PASS; tìm/đọc/copy theo trang; còn highlight canvas/password/native GUI; extracted text highlights and source metadata guard pending CI"
 "D02","P0","PDF","5","integrated","3","10","#73/#62/#98 merged; qpdf and stdlib backup publication/final replacement/range tests PASS; real pikepdf and GUI pending"
 "D03","P0","PDF","8","integrated","6","18","#15/#26/#27; ODG copy, fidelity"
 "D04","P0","PDF","13","scoped","32","100","PoDoFo/PDFium feasibility + giới hạn hỗ trợ; sửa gốc mọi PDF chưa định lượng"
