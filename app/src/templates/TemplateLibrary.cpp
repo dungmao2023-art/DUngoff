@@ -51,10 +51,19 @@ bool inside(const QString& child,const QString& root){
 #endif
 }
 bool safeFile(const QString& root,const QString& rel){
-    if(!safeRel(rel))return false;
-    const auto base=QFileInfo(root).canonicalFilePath();
-    const QFileInfo fi(QDir(root).filePath(rel));
-    return !base.isEmpty()&&fi.isFile()&&!fi.isSymLink()&&inside(fi.canonicalFilePath(),base);
+    const QFileInfo rootInfo(root);
+    if(!safeRel(rel)||!rootInfo.isDir()||rootInfo.isSymLink())return false;
+    const auto base=rootInfo.canonicalFilePath();
+    if(base.isEmpty())return false;
+    const auto parts=rel.split(QLatin1Char('/'));
+    QString current=root;
+    for(qsizetype i=0;i<parts.size();++i){
+        current=QDir(current).filePath(parts[i]);
+        const QFileInfo fi(current);
+        if(fi.isSymLink()||!inside(fi.canonicalFilePath(),base)||
+           (i+1==parts.size()?!fi.isFile():!fi.isDir()))return false;
+    }
+    return true;
 }
 
 bool copyTree(const QString& from,const QString& to){
@@ -82,6 +91,8 @@ bool copyTree(const QString& from,const QString& to){
 // Đọc CSV UTF-8 (có thể có BOM), trường có thể đặt trong dấu nháy kép.
 QList<QStringList> readCsv(const QString& path) {
     QList<QStringList> rows;
+    const QFileInfo fi(path);
+    if(!fi.isFile()||fi.isSymLink())return rows;
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) return rows;
     if(f.size()>4LL*1024*1024)return rows;
@@ -126,15 +137,20 @@ QString installedRoot() {
 }
 
 bool findLibraryRoot(const QString& dir, QString* root) {
+    const QFileInfo requested(dir);
+    if(!root||!requested.isDir()||requested.isSymLink())return false;
     auto isRoot = [](const QString& d) {
-        return QFile::exists(d + QLatin1Char('/') + QLatin1String(kCsv)) || QFile::exists(d + QStringLiteral("/manifest.json"));
+        const QFileInfo fi(d);
+        return fi.isDir()&&!fi.isSymLink()&&
+            (QFile::exists(d+QLatin1Char('/')+QLatin1String(kCsv))||QFile::exists(d+QStringLiteral("/manifest.json")));
     };
     if (isRoot(dir)) { *root = dir; return true; }
     QDir d(dir);
-    for (const QFileInfo& fi : d.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+    for (const QFileInfo& fi : d.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks)) {
+        if (fi.isSymLink())continue;
         if (isRoot(fi.absoluteFilePath())) { *root = fi.absoluteFilePath(); return true; }
         QDir d2(fi.absoluteFilePath());
-        for (const QFileInfo& f2 : d2.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot))
+        for (const QFileInfo& f2 : d2.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks))
             if (isRoot(f2.absoluteFilePath())) { *root = f2.absoluteFilePath(); return true; }
     }
     return false;
@@ -143,10 +159,13 @@ bool findLibraryRoot(const QString& dir, QString* root) {
 LibInfo readInfo(const QString& root) {
     LibInfo li;
     li.root = root;
+    const QFileInfo rootInfo(root);
+    if(!rootInfo.isDir()||rootInfo.isSymLink())return li;
     QFile mf(root + QStringLiteral("/manifest.json"));
-    if(QFileInfo(mf).isSymLink())return li;
-    if(mf.exists()){
-        if(!mf.open(QIODevice::ReadOnly)||mf.size()>65536)return li;
+    const QFileInfo manifest(mf);
+    if(manifest.isSymLink())return li;
+    if(manifest.exists()){
+        if(!manifest.isFile()||!mf.open(QIODevice::ReadOnly)||mf.size()>65536)return li;
         const auto bytes=mf.read(65537);
         QJsonParseError parse;
         const auto doc=QJsonDocument::fromJson(bytes,&parse);
@@ -301,6 +320,7 @@ bool seedFromBundled(const QString& appDir) {
 
 QList<Entry> entries(const LibInfo& lib) {
     QList<Entry> out;
+    if(!lib.valid||!safeFile(lib.root,QLatin1String(kCsv)))return out;
     const QList<QStringList> rows = readCsv(lib.root + QLatin1Char('/') + QLatin1String(kCsv));
     for (int i = 1; i < rows.size(); ++i) {
         const QStringList& r = rows[i];
@@ -333,6 +353,10 @@ QList<Source> sources(const LibInfo& lib) {
 }
 
 bool makeWorkingCopy(const QString& templatePath, const QString& destFile, QString* error) {
+    const QFileInfo source(templatePath);
+    if(!source.isFile()||source.isSymLink()){
+        if(error)*error=QObject::tr("Nguồn mẫu không phải tệp thường an toàn.");return false;
+    }
     if (QFile::exists(destFile)||QFileInfo(destFile).isSymLink()) {
         if (error) *error = QObject::tr("Tệp đã tồn tại, Dũng Office không ghi đè: ") + QDir::toNativeSeparators(destFile);
         return false;
