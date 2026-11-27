@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "TableToolsDialog.h"
 #include "TableOps.h"
+#include "XlsxSource.h"
 
 #include <QCheckBox>
 #include <QFile>
@@ -56,6 +57,9 @@ public:
         row2->addWidget(m_sep);
         row2->addStretch(1);
         v->addLayout(row2);
+        m_sheet=new QComboBox;
+        m_sheet->setToolTip(tr("Chọn worksheet từ tệp XLSX đã lưu."));
+        m_sheet->hide();v->addWidget(m_sheet);
 
         m_reason = new QLabel;
         m_reason->setWordWrap(true);
@@ -70,9 +74,10 @@ public:
         v->addWidget(m_preview, 1);
 
         connect(pick, &QPushButton::clicked, this, [this] {
-            const QString p = QFileDialog::getOpenFileName(this, tr("Chọn tệp CSV"), QString(), tr("CSV (*.csv *.txt *.tsv);;Mọi tệp (*)"));
+            const QString p = QFileDialog::getOpenFileName(this, tr("Chọn nguồn dữ liệu"), QString(), tr("Bảng dữ liệu (*.csv *.txt *.tsv *.xlsx);;CSV (*.csv *.txt *.tsv);;Excel (*.xlsx)"));
             if (!p.isEmpty()) setPath(p);
         });
+        connect(m_sheet,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this]{loadSheet();});
         connect(m_enc, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this] { refreshPreview(); });
         connect(m_sep, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this] { if (onLoaded) onLoaded(); });
         connect(m_confirm, &QCheckBox::toggled, this, [this] { if (onLoaded) onLoaded(); });
@@ -84,6 +89,19 @@ public:
         m_path->setText(p);
         m_loadedBytes = false;
         m_raw.clear();
+        m_xlsxTable={};m_sheetList.clear();m_sheetError.clear();
+        m_isXlsx=p.endsWith(QLatin1String(".xlsx"),Qt::CaseInsensitive);
+        m_enc->setEnabled(!m_isXlsx);m_sep->setEnabled(!m_isXlsx);
+        m_sheet->setVisible(m_isXlsx);
+        {QSignalBlocker block(m_sheet);m_sheet->clear();}
+        if(m_isXlsx){
+            m_confirm->hide();
+            if(!xlsxSheets(p,m_sheetList,m_sheetError)){
+                m_reason->setText(m_sheetError);m_preview->clear();if(onLoaded)onLoaded();return;
+            }
+            {QSignalBlocker block(m_sheet);for(const auto& sheet:m_sheetList)m_sheet->addItem(sheet.name);m_sheet->setCurrentIndex(0);}
+            loadSheet();return;
+        }
         QFile f(p);
         if (!f.open(QIODevice::ReadOnly)) {
             m_reason->setText(tr("Không mở được tệp: %1").arg(f.errorString()));
@@ -107,12 +125,30 @@ public:
     // Đọc bảng. false + lý do nếu chưa chọn tệp, chưa xác nhận, hoặc giải mã lỗi.
     bool load(Table& out, QString& err) const {
         if (path().isEmpty()) { err = tr("Chưa chọn tệp CSV."); return false; }
+        if(m_isXlsx){
+            if(!m_loadedBytes){err=m_sheetError.isEmpty()?tr("Sheet chưa đọc được."):m_sheetError;return false;}
+            out=m_xlsxTable;err.clear();return true;
+        }
         if (!m_loadedBytes) { err = tr("Tệp chưa đọc được."); return false; }
         if (needsConfirmation() && !m_confirm->isChecked()) { err = tr("Bảng mã chưa chắc chắn: hãy xem trước và tích xác nhận."); return false; }
         return readCsvBytes(m_raw, encoding(), out, err, QChar(m_sep->currentData().toInt()));
     }
 
 private:
+    void loadSheet(){
+        if(!m_isXlsx)return;
+        m_loadedBytes=false;m_xlsxTable={};m_sheetError.clear();m_preview->clear();
+        const int index=m_sheet->currentIndex();
+        if(index>=0&&index<m_sheetList.size())
+            m_loadedBytes=readXlsxTable(path(),m_sheetList[index],m_xlsxTable,m_sheetError);
+        if(m_loadedBytes){
+            QString preview=m_xlsxTable.header.join(QStringLiteral(" | "));
+            for(int i=0;i<m_xlsxTable.rows.size()&&i<20;++i)preview+=QStringLiteral("\n")+m_xlsxTable.rows[i].join(QStringLiteral(" | "));
+            m_preview->setPlainText(preview);
+            m_reason->setText(tr("XLSX: đọc giá trị lưu trong ô, không phải định dạng hiển thị. Ngày/số định dạng có thể hiện dạng số gốc; công thức bị từ chối. Chỉ xuất bản sao CSV."));
+        }else m_reason->setText(m_sheetError);
+        if(onLoaded)onLoaded();
+    }
     Encoding encoding() const { return Encoding(m_enc->currentData().toInt()); }
 
     bool needsConfirmation() const {
@@ -121,6 +157,7 @@ private:
     }
 
     void refreshPreview() {
+        if(m_isXlsx)return;
         if (!m_loadedBytes) { if (onLoaded) onLoaded(); return; }
         {
             QSignalBlocker block(m_confirm);
@@ -145,6 +182,7 @@ private:
 
     QLineEdit* m_path; QComboBox* m_enc; QComboBox* m_sep; QLabel* m_reason; QCheckBox* m_confirm; QPlainTextEdit* m_preview;
     QByteArray m_raw; EncodingGuess m_guess; bool m_loadedBytes = false;
+    QComboBox* m_sheet=nullptr;bool m_isXlsx=false;QList<XlsxSheet> m_sheetList;Table m_xlsxTable;QString m_sheetError;
 };
 
 QString defaultOut(const QString& src, const QString& suffix) {
@@ -208,12 +246,12 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
 
     // --- So sánh ---
     auto* w3 = new QWidget; auto* l3 = new QVBoxLayout(w3);
-    d->b = new CsvPicker(tr("CSV thứ hai:")); l3->addWidget(d->b, 1);
+    d->b = new CsvPicker(tr("Bảng thứ hai:")); l3->addWidget(d->b, 1);
     auto* krow = new QHBoxLayout; krow->addWidget(new QLabel(tr("Cột mã để ghép dòng:")));
     d->keyCol = new QComboBox; krow->addWidget(d->keyCol, 1); l3->addLayout(krow);
     auto* run3 = new QPushButton(tr("So sánh và lưu bảng khác biệt…")); l3->addWidget(run3);
     auto* join = new QPushButton(tr("Ghép bảng theo khóa (Left / Inner)…")); l3->addWidget(join);
-    d->tabs->addTab(w3, tr("So sánh hai CSV"));
+    d->tabs->addTab(w3, tr("So sánh hai bảng"));
 
     auto* w4 = new QWidget; auto* l4 = new QVBoxLayout(w4);
     auto* form4 = new QFormLayout;
@@ -299,7 +337,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         return true;
     };
     auto needA = [this]() -> bool {
-        if (!d->haveA) { QMessageBox::information(this, tr("Tiện ích bảng"), tr("Hãy chọn tệp CSV và xác nhận bảng mã trước.")); return false; }
+        if (!d->haveA) { QMessageBox::information(this, tr("Tiện ích bảng"), tr("Hãy chọn bảng nguồn; xác nhận bảng mã CSV hoặc chọn worksheet XLSX.")); return false; }
         return true;
     };
 
@@ -512,7 +550,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         Table right; QString error;
         if (!d->b->load(right,error)) { QMessageBox::warning(this,tr("Ghép bảng"),error); return; }
         if(d->tableA.header.isEmpty() || right.header.isEmpty()) { QMessageBox::warning(this,tr("Ghép bảng"),tr("Hai bảng cần có tiêu đề.")); return; }
-        QDialog options(this); options.setWindowTitle(tr("Ghép bảng CSV"));
+        QDialog options(this); options.setWindowTitle(tr("Ghép hai bảng"));
         auto* form=new QFormLayout(&options);
         auto* leftKey=new QComboBox(&options);
         auto* rightKey=new QComboBox(&options);
