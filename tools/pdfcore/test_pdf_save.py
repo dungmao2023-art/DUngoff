@@ -122,11 +122,31 @@ class SaveSafetyTests(unittest.TestCase):
         self.assertEqual(backup.read_bytes(), b"other backup")
         self.assertNoTemporary()
 
+    def test_backup_publication_failure_never_replaces_destination(self):
+        self.dest.write_bytes(b"old")
+        with patch.object(s, "_publish_new", side_effect=s.PdfError("backup blocked")):
+            with patch.object(s, "_replace_existing") as replace:
+                with self.assertRaisesRegex(s.PdfError, "backup blocked"):
+                    s.atomic_save(Writer(), str(self.dest), True)
+                replace.assert_not_called()
+        self.assertEqual(self.dest.read_bytes(), b"old")
+        self.assertEqual(list(self.root.glob("*.dung-backup-*")), [])
+        self.assertNoTemporary()
+
     def test_replace_failure_preserves_complete_backup(self):
         self.dest.write_bytes(b"old")
-        with patch.object(s.os, "replace", side_effect=OSError("file locked")):
-            with self.assertRaises(s.PdfError):
-                s.atomic_save(Writer(), str(self.dest), True)
+        backup = self.root / "out.dung-backup-locked.pdf"
+        def locked(tmp, dest):
+            # Verify the final replacement boundary itself, not an earlier
+            # failure in publication or stat checks.
+            self.assertEqual(Path(dest), self.dest)
+            self.assertEqual(backup.read_bytes(), b"old")
+            raise OSError("file locked")
+        with patch.object(s, "_backup_path", return_value=str(backup)):
+            with patch.object(s, "_replace_existing", side_effect=locked) as replace:
+                with self.assertRaisesRegex(s.PdfError, "file locked"):
+                    s.atomic_save(Writer(), str(self.dest), True)
+                replace.assert_called_once()
         self.assertEqual(self.dest.read_bytes(), b"old")
         backups = list(self.root.glob("*.dung-backup-*"))
         self.assertEqual(len(backups), 1)
