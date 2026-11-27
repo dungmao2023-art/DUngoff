@@ -150,6 +150,11 @@ void TemplatesPage::useSelected() {
         QMessageBox::warning(this, tr("Thư viện mẫu"), tr("Tệp đã tồn tại. Dũng Office không ghi đè tệp có sẵn — hãy chọn tên khác."));
         return;
     }
+    const auto current=tpl::installed();
+    bool listed=false;for(const auto& entry:tpl::entries(current))if(entry.relPath==rel)listed=true;
+    if(!current.valid||current.root!=m_root||!listed){
+        QMessageBox::warning(this,tr("Thư viện mẫu"),tr("Gói mẫu đã thay đổi hoặc tệp không còn hợp lệ. Hãy chọn lại mẫu."));reload();return;
+    }
     if (!tpl::makeWorkingCopy(src, dst, &err)) { QMessageBox::warning(this, tr("Thư viện mẫu"), err); return; }
     emit openPath(dst);
 }
@@ -188,9 +193,15 @@ void TemplatesPage::installPackage() {
 void TemplatesPage::showSources() {
     const tpl::LibInfo lib = tpl::installed();
     QString html = tr("<h3>Nguồn chính thức</h3><p>Luôn đối chiếu với bản đang được cơ quan công bố.</p><ul>");
-    for (const tpl::Source& s : tpl::sources(lib))
-        html += QStringLiteral("<li><b>%1</b> — %2<br><a href=\"%3\">%3</a><br><i>%4</i></li>")
-                    .arg(s.group.toHtmlEscaped(), s.document.toHtmlEscaped(), s.url.toHtmlEscaped(), s.guide.toHtmlEscaped());
+    for (const tpl::Source& s : tpl::sources(lib)){
+        const QUrl url(s.url,QUrl::StrictMode);
+        const bool allowed=url.isValid()&&!url.host().isEmpty()&&url.userInfo().isEmpty()&&
+            (url.scheme()==QLatin1String("https")||url.scheme()==QLatin1String("http"));
+        const auto link=allowed?QStringLiteral("<a href=\"%1\">%2</a>").arg(url.toString(QUrl::FullyEncoded).toHtmlEscaped(),s.url.toHtmlEscaped()):
+            s.url.toHtmlEscaped();
+        html += QStringLiteral("<li><b>%1</b> — %2<br>%3<br><i>%4</i></li>")
+                    .arg(s.group.toHtmlEscaped(),s.document.toHtmlEscaped(),link,s.guide.toHtmlEscaped());
+    }
     html += QStringLiteral("</ul>");
     QDialog dlg(this);
     dlg.setWindowTitle(tr("Nguồn chính thức"));
