@@ -121,6 +121,15 @@ int main(int argc, char** argv) {
         if (!patched.ok) std::cerr << patched.error.toStdString() << '\n';
         check(patched.ok && slideEntries(dst, &error) == entries, "actual PPTX copy retains slide order");
         check(!createCopy(src, dst, 1, o).ok && !createCopy(src, src, 1, o).ok, "refuse overwrite");
+        const auto badRange=temp.filePath(QStringLiteral("invalid-range.pptx"));
+        check(!createRangeCopy(src,badRange,0,1,o).ok&&!QFile::exists(badRange),"invalid first slide creates no output");
+        check(!createRangeCopy(src,badRange,2,1,o).ok&&!QFile::exists(badRange),"reversed range creates no output");
+        check(!createRangeCopy(src,badRange,1,int(entries.size())+1,o).ok&&!QFile::exists(badRange),"out-of-range creates no output");
+        const auto rangeDest=temp.filePath(QStringLiteral("range.pptx"));
+        const auto batch=createRangeCopy(src,rangeDest,1,qMin(2,int(entries.size())),o);
+        if(!batch.ok)std::cerr<<batch.error.toStdString()<<'\n';
+        check(batch.ok&&slideEntries(rangeDest,&error)==entries,"actual PPTX batch transition retains slide order");
+        check(!createRangeCopy(src,rangeDest,1,1,o).ok,"refuse existing batch destination");
         const auto shapes = slideShapes(src, 1, &error);
         check(!shapes.isEmpty(),"enumerate shapes in actual PPTX");
         if (!shapes.isEmpty()) {
