@@ -6,6 +6,7 @@
 #include <QHash>
 #include <QWidget>
 #include <memory>
+#include <functional>
 
 class QLineEdit;
 class QLabel;
@@ -27,6 +28,7 @@ public:
     bool readOnly() const { return m_doc->readOnly(); }
     QString title() const;
     QString activeFilePath() const;
+    void setSaveConflictCheck(std::function<bool(const QString&)> check) { m_saveConflictCheck=std::move(check); }
     QString statusText() const;
     const QHash<QString, QString>& states() const { return m_states; }
     TileView* view() const { return m_view; }
@@ -65,6 +67,7 @@ private:
     void refreshPdfComparison();
     void excelSheetMenu(const QPoint& pos);  // excel/ExcelUi.cpp
     bool doSave(const QString& path, bool confirmedReplace);
+    bool checkSaveConflict(const QString& path);
     void autosaveTick();
     void dropRecovery();
 
@@ -84,6 +87,7 @@ private:
     QLabel* m_pdfOriginalImage = nullptr;
     QPushButton* m_pdfCompareButton = nullptr;
     int m_pdfComparedPart = -1;
+    std::function<bool(const QString&)> m_saveConflictCheck;
     QString m_savedPath;    // tệp mới mà người dùng đã "Lưu thành" trong phiên này
     QString m_cellAddress;
     bool m_lastMod = false;
