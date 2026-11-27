@@ -353,12 +353,35 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         m_slides = new QListWidget(this);
         m_slides->setFixedWidth(150);
         m_slides->setIconSize(QSize(128, 96));
+        if (m_doc->kind()==DocKind::Presentation) {
+            m_slides->setFixedWidth(174);
+            m_slides->setViewMode(QListView::IconMode);
+            m_slides->setFlow(QListView::TopToBottom);
+            m_slides->setWrapping(false);
+            m_slides->setMovement(QListView::Static);
+            m_slides->setGridSize(QSize(148,132));
+            m_slides->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            m_slideRefresh=new QTimer(this);
+            m_slideRefresh->setSingleShot(true);
+            m_slideRefresh->setInterval(250);
+            connect(m_slideRefresh,&QTimer::timeout,this,[this]{
+                const int part=m_slideRefreshPart;
+                if(!m_pptNotes && part>=0 && part<m_slides->count() && part<m_doc->partCount())
+                    pptSetThumbnail(m_slides->item(part),m_doc.get(),part);
+            });
+        }
         m_slides->setStyleSheet(QStringLiteral("QListWidget{background:#EEF2F7;border:none;border-right:1px solid #D9E1EC;}"
                                                "QListWidget::item{padding:10px;margin:4px;background:white;border-radius:6px;}"
                                                "QListWidget::item:selected{border:2px solid #1F5FBF;color:#1F5FBF;}"));
         middle->addWidget(m_slides);
         connect(m_slides, &QListWidget::currentRowChanged, this, [this](int row) {
             if (m_rebuildingParts || row < 0 || row == m_doc->currentPart()) return;
+            if(m_slideRefresh && m_slideRefresh->isActive()) {
+                m_slideRefresh->stop();
+                const int old=m_slideRefreshPart;
+                if(!m_pptNotes && old>=0 && old<m_slides->count() && old<m_doc->partCount())
+                    pptSetThumbnail(m_slides->item(old),m_doc.get(),old);
+            }
             m_doc->setPart(row);
             m_view->resetForPartChange();
             refreshPdfComparison();
@@ -677,6 +700,7 @@ void DocumentTab::rebuildParts() {
         m_sheets->setCurrentIndex(cur);
     }
     if (m_slides) {
+        if(m_slideRefresh) m_slideRefresh->stop();
         m_slides->clear();
         for (int i = 0; i < n; ++i) {
             m_slides->addItem(m_doc->kind() == DocKind::Presentation ? tr("Trang chiếu %1").arg(i + 1)
@@ -693,6 +717,10 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
     if (m_rangeTools && (type == LOK_CALLBACK_CELL_ADDRESS || type == LOK_CALLBACK_CELL_SELECTION_AREA ||
         type == LOK_CALLBACK_CELL_FORMULA || type == LOK_CALLBACK_SET_PART))
         notifyDocumentRangeTools(m_rangeTools);
+    if(type==LOK_CALLBACK_INVALIDATE_TILES && m_slideRefresh && !m_pptNotes) {
+        m_slideRefreshPart=m_doc->currentPart();
+        m_slideRefresh->start();
+    }
     const bool modified = m_doc->modified();
     // The first invalidation can arrive before ModifiedStatus=true.
     // A transition to dirty must independently schedule a recovery snapshot.
