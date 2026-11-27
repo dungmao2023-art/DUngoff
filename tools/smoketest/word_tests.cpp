@@ -669,6 +669,14 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
             fs::remove(target,ec);
             auto sr=action->saveAs(target);
             check(sr.ok,"Lưu kết quả review: "+sr.message);
+            if(sr.ok){
+                run(*action,".uno:Undo");
+                action->waitInputIdle();
+                const fs::path restored=out/(accept?"word-review-accept-undone.docx":"word-review-reject-undone.docx");
+                fs::remove(restored,ec);
+                const auto undoSaved=action->saveAs(restored);
+                check(undoSaved.ok,"Lưu kết quả Undo review: "+undoSaved.message);
+            }
         }
     }
     // Existing TOC is loaded from a standards-based DOCX fixture; update the
