@@ -423,7 +423,11 @@ Result extract(const Input& in, const QString& pagesSpec, const QString& dest, b
     }
     PasswordFile pw(in.password);
     res = writeSafely({in.path}, dest, allowReplace, [&](const QString& tmp) {
-        QStringList a = pw.args();
+        QStringList a = pw.args(false);
+        // An owner-password-only PDF opens with an empty user password but
+        // is still encrypted. After the UI confirms an unprotected export,
+        // request decryption explicitly instead of inferring it from input.
+        if (inf.encrypted) a << QStringLiteral("--decrypt");
         a << in.path << QStringLiteral("--pages") << QStringLiteral(".") << rangeFromIndexes(idx) << QStringLiteral("--") << tmp;
         return a;
     });
