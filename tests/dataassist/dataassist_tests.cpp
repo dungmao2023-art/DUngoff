@@ -77,6 +77,31 @@ int main(int argc, char **argv)
     CHECK(top(QStringLiteral("vlookup")) == QLatin1String("VLOOKUP"), "Tìm theo tên hàm");
     CHECK(search(QStringLiteral("zzzzqq")).isEmpty(), "Không khớp => rỗng, không đoán");
 
+    // Verify newly exposed catalog entries and both argument separators.
+    for (const char* name : {"SUMSQ","MEDIAN","LARGE","SMALL","SUBTOTAL","IFNA","ISNUMBER","ISBLANK",
+                             "ROW","COLUMN","FIND","SEARCH","EOMONTH","EDATE","WORKDAY","FV"}) {
+        const auto* entry = findFunction(QString::fromLatin1(name));
+        CHECK(entry != nullptr, QStringLiteral("Hàm mới: ") + QString::fromLatin1(name));
+        if (!entry) continue;
+        QStringList hints;
+        for (const auto& arg : entry->args) hints << arg.hint;
+        CHECK(buildFormula(*entry,hints).ok, entry->name + QStringLiteral(" dựng đối số mẫu"));
+        CHECK(buildFormula(*entry,hints,QLatin1Char(';')).ok, entry->name + QStringLiteral(" dựng dấu ;"));
+        CHECK(quickSyntaxCheck(entry->example).ok, entry->name + QStringLiteral(" cú pháp ví dụ"));
+    }
+    CHECK(!buildFormula(*findFunction(QStringLiteral("SUM")), {"A1"}, QLatin1Char('|')).ok,
+          "Từ chối dấu ngăn không hỗ trợ");
+    CHECK(!buildFormula(*findFunction(QStringLiteral("SUM")), {"A1)"}).ok,
+          "Dựng công thức từ chối ngoặc sai");
+    CHECK(quickSyntaxCheck(QStringLiteral("=SUM('Báo cáo (tháng 1)'!A1:A2)")).ok,
+          "Tên sheet chứa ngoặc");
+    CHECK(quickSyntaxCheck(QStringLiteral("=SUM('O''Brien'!A1)")).ok, "Tên sheet chứa nháy đơn");
+    CHECK(quickSyntaxCheck(QStringLiteral("=SUM({1,2;3,4})")).ok, "Hằng mảng");
+    CHECK(quickSyntaxCheck(QStringLiteral("=SUM(Table1[Doanh thu (VNĐ)])")).ok, "Tham chiếu bảng");
+    CHECK(!quickSyntaxCheck(QStringLiteral("=SUM({1,2)")).ok, "Ngoặc mảng không khớp");
+    CHECK(!quickSyntaxCheck(QStringLiteral("=SUM('Sheet!A1)")).ok, "Tên sheet thiếu nháy");
+    CHECK(!quickSyntaxCheck(QStringLiteral("=SUM(Table1[Revenue)")).ok, "Tham chiếu bảng thiếu ]");
+
     // ---------------- Dựng công thức ----------------
     const FuncInfo *vl = findFunction(QStringLiteral("vlookup"));
     auto b1 = buildFormula(*vl, {QStringLiteral("A2"), QStringLiteral("F2:H100"), QStringLiteral("2"), QStringLiteral("FALSE")});
