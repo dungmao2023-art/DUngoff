@@ -1471,6 +1471,47 @@ int MainWindow::captureShots(const QString& dir) {
                           : k == DocKind::Presentation ? QStringLiteral("ppt") : QStringLiteral("pdf");
         host.grab().save(dir + QStringLiteral("/ui-ribbon-") + nm + QStringLiteral(".png"));
     }
+    // Exercise the progressive formula workflow without touching a real workbook.
+    {
+        QWidget host;
+        auto* layout=new QVBoxLayout(&host);
+        auto* assistant=createFormulaAssistantWidget(&host);
+        layout->addWidget(assistant);
+        host.resize(380,760);host.show();QApplication::processEvents();
+        auto* selector=assistant->findChild<QComboBox*>(QStringLiteral("FormulaFunction"));
+        auto* output=assistant->findChild<QWidget*>(QStringLiteral("FormulaOutput"));
+        auto* result=assistant->findChild<QLineEdit*>(QStringLiteral("FormulaResult"));
+        auto verify=[&](bool ok,const QString& description){
+            log << (ok?"BASIC_UI_PASS ":"BASIC_UI_FAIL ") << description << "\n";
+            if(!ok)++problems;
+        };
+        auto choose=[&](const QString& function){
+            if(!selector)return false;
+            for(int i=0;i<selector->count();++i)if(selector->itemText(i).startsWith(function+QStringLiteral(" — "))){
+                selector->setCurrentIndex(i);QApplication::processEvents();return true;
+            }
+            return false;
+        };
+        auto field=[&](int n){return assistant->findChild<QLineEdit*>(QStringLiteral("FormulaArgument%1").arg(n));};
+        verify(selector&&output&&result&&output->isHidden(),"assistant initial output hidden");
+        if(choose(QStringLiteral("SUM"))&&field(0)&&result&&output){
+            verify(field(0)->isVisibleTo(assistant)&&!field(1)&&output->isHidden(),"SUM one required field");
+            notifyFormulaSelection(assistant,QStringLiteral("A1:A8"));
+            verify(result->text()==QLatin1String("=SUM(A1:A8)")&&!output->isHidden(),"SUM reference creates formula");
+            host.grab().save(dir+QStringLiteral("/ui-formula-sum.png"));
+        }else verify(false,"SUM widgets missing");
+        if(choose(QStringLiteral("VLOOKUP"))&&field(0)&&field(1)&&field(2)&&field(3)&&result){
+            verify(field(1)->isHidden()||!field(1)->isVisibleTo(assistant),"VLOOKUP second field initially hidden");
+            notifyFormulaSelection(assistant,QStringLiteral("A2"));
+            notifyFormulaSelection(assistant,QStringLiteral("F2:H100"));
+            field(2)->setText(QStringLiteral("2"));field(3)->setText(QStringLiteral("FALSE"));
+            verify(result->text()==QLatin1String("=VLOOKUP(A2,F2:H100,2,FALSE)"),"VLOOKUP progressive four arguments");
+            host.grab().save(dir+QStringLiteral("/ui-formula-vlookup.png"));
+        }else verify(false,"VLOOKUP widgets missing");
+        if(choose(QStringLiteral("TODAY"))&&result&&output)
+            verify(!field(0)&&result->text()==QLatin1String("=TODAY()")&&!output->isHidden(),"TODAY no parameters");
+        else verify(false,"TODAY widgets missing");
+    }
     log << "TONG: " << problems << " van de\n";
     return problems;
 }

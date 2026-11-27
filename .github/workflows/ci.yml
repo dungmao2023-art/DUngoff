@@ -284,6 +284,9 @@ jobs:
           DUNG_UI_SHOT_DIR="$PWD/report/ui" QT_QPA_PLATFORM=offscreen ./build/app/DungOffice 2>&1 | tee report/linux-ui-shots.log
           echo "mã thoát chế độ chụp: ${PIPESTATUS[0]} (3 = có cảnh báo chồng/cắt chữ, xem report/ui/ui-check.log)" | tee -a report/linux-ui-shots.log
           ls report/ui | head -50
+          test -s report/ui/ui-check.log
+          if grep -q 'BASIC_UI_FAIL' report/ui/ui-check.log; then cat report/ui/ui-check.log; exit 1; fi
+          grep -q 'BASIC_UI_PASS TODAY no parameters' report/ui/ui-check.log
       - name: FloatMenu — vòng đời thu nhỏ/ẩn/khôi phục (Linux)
         timeout-minutes: 2
         run: |
@@ -440,6 +443,7 @@ jobs:
           $p = Start-Process $exe.FullName -PassThru -Wait
           "mã thoát chế độ chụp: $($p.ExitCode) (3 = có cảnh báo chồng/cắt chữ)" | Tee-Object report/windows-ui-shots.log
           Get-ChildItem report/ui | Select-Object -First 50 | ForEach-Object { $_.Name }
+          if (!(Test-Path report/ui/ui-check.log) -or (Select-String -Path report/ui/ui-check.log -Pattern 'BASIC_UI_FAIL') -or !(Select-String -Path report/ui/ui-check.log -Pattern 'BASIC_UI_PASS TODAY no parameters')) { exit 1 }
       - name: FloatMenu — vòng đời thu nhỏ/ẩn/khôi phục (Windows)
         timeout-minutes: 2
         run: |
@@ -862,6 +866,12 @@ jobs:
             if ($got -ne $h) { Write-Host "::error::Băm lệch: $n"; exit 1 }
           }
           Write-Host "SHA256SUMS: khớp Get-FileHash"
+      - name: Kiểm bộ cài đầu-cuối (cài im lặng, registry, lối tắt, chạy app đã cài, gỡ, đường dẫn có dấu)
+        if: success() && steps.full.outcome == 'success'
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem installer/Output/*.exe | Select-Object -First 1).FullName
+          ./scripts/test-installer.ps1 -Setup $setup -DistApp "$PWD\build\dist\DungOffice" -DistDict "$PWD\build\dist\dict-vi" -Docx "$PWD\fixtures\mau-van-ban.docx" -Report "$PWD\report"
       - uses: actions/upload-artifact@v4
         if: success() && steps.full.outcome == 'success'
         with:
@@ -870,12 +880,7 @@ jobs:
             installer/Output/*.exe
             installer/Output/SHA256SUMS.txt
           retention-days: 14
-      - name: Kiểm bộ cài đầu-cuối (cài im lặng, registry, lối tắt, chạy app đã cài, gỡ, đường dẫn có dấu)
-        if: success() && steps.full.outcome == 'success'
-        shell: pwsh
-        run: |
-          $setup = (Get-ChildItem installer/Output/*.exe | Select-Object -First 1).FullName
-          ./scripts/test-installer.ps1 -Setup $setup -DistApp "$PWD\build\dist\DungOffice" -DistDict "$PWD\build\dist\dict-vi" -Docx "$PWD\fixtures\mau-van-ban.docx" -Report "$PWD\report"
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
