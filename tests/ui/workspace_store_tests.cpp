@@ -31,8 +31,16 @@ int main(int argc,char** argv) {
     else if(!workspace::load(QStringLiteral("workspace")).isEmpty()||readRaw(path+QStringLiteral(".hong"))!="first broken JSON") result=3;
     else if(!writeRaw(path,"second broken JSON")||!workspace::load(QStringLiteral("workspace")).isEmpty()||readRaw(path+QStringLiteral(".hong.1"))!="second broken JSON"||readRaw(path+QStringLiteral(".hong"))!="first broken JSON") result=4;
     else if(!workspace::save(QStringLiteral("workspace"),doc)||workspace::load(QStringLiteral("workspace"))!=doc) result=5;
+    if(!result) {
+        bool readable=false;
+        if(workspace::load(QStringLiteral("workspace"),&readable)!=doc||!readable) result=6;
+        else if(!workspace::load(QStringLiteral("missing"),&readable).isEmpty()||!readable) result=7;
+        else if(!QDir(dir).mkdir(QStringLiteral("blocked.json"))) result=8;
+        else if(!workspace::load(QStringLiteral("blocked"),&readable).isEmpty()||readable||
+                workspace::save(QStringLiteral("blocked"),doc)) result=9;
+    }
     QDir(dir).removeRecursively();
     if(result) std::fprintf(stderr,"WORKSPACE_STORE_FAIL %d\n",result);
-    else std::puts("WORKSPACE_STORE_PASS Unicode, corrupt overwrite guard, two preserved backups, recovery save");
+    else std::puts("WORKSPACE_STORE_PASS Unicode, corrupt overwrite guard, two preserved backups, recovery save, unreadable target rejected");
     return result;
 }
