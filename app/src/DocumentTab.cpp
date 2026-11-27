@@ -10,6 +10,7 @@
 #include "Theme.h"
 #include "TileView.h"
 #include "DataAssistWidgets.h"
+#include "tools/dataassist/ExcelBridge.h"
 #include <QScrollArea>
 #include <QTabWidget>
 #include "ppt/SlideThumbs.h"
@@ -186,9 +187,43 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
             if (!addr.isEmpty()) m_doc->command(".uno:GoToCell", dung::Document::stringArg("ToPoint", ss(addr)));
             m_view->setFocus();
         });
-        connect(m_formula, &QLineEdit::returnPressed, this, [this] {
-            if (m_doc->readOnly()) return;
-            m_doc->command(".uno:EnterString", dung::Document::stringArg("StringName", ss(m_formula->text())));
+        // Bind an edit to its initial cell and sheet, not the selection that
+        // happens to be current when the user eventually presses Enter.
+        struct FormulaEdit {
+            bool active = false;
+            int part = -1;
+            std::string sheet, cell;
+        };
+        auto edit = std::make_shared<FormulaEdit>();
+        connect(m_formula, &QLineEdit::textEdited, this, [this, edit](const QString&) {
+            if (edit->active || !m_doc || !m_view || m_doc->readOnly()) return;
+            m_doc->waitInputIdle();
+            edit->active = true;
+            edit->part = m_doc->currentPart();
+            edit->sheet = m_doc->partName(edit->part);
+            edit->cell = dataassist::bridgeCellAddress(ss(m_view->selectedCellRange()));
+        });
+        connect(m_formula, &QLineEdit::editingFinished, this, [this, edit] {
+            edit->active = false;
+            // Leaving without Enter discards uncommitted input.
+            if (m_doc) m_formula->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_FORMULA)));
+        });
+        connect(m_formula, &QLineEdit::returnPressed, this, [this, edit] {
+            if (!m_doc || !m_view || m_doc->readOnly() || !edit->active) return;
+            m_doc->waitInputIdle();
+            const auto cell = dataassist::bridgeCellAddress(ss(m_view->selectedCellRange()));
+            if (edit->cell.empty() || cell != edit->cell ||
+                m_doc->currentPart() != edit->part || m_doc->partName(edit->part) != edit->sheet) {
+                edit->active = false;
+                m_formula->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_FORMULA)));
+                QMessageBox::warning(this, tr("Thanh công thức"),
+                    tr("Không xác minh được ô ban đầu hoặc sheet đã thay đổi. Chưa ghi dữ liệu. Chọn một ô rồi sửa lại."));
+                return;
+            }
+            const auto value = ss(m_formula->text());
+            edit->active = false;
+            m_doc->command(".uno:EnterString", dung::Document::stringArg("StringName", value));
+            m_doc->waitInputIdle();
             m_view->setFocus();
         });
     }
@@ -340,11 +375,19 @@ QTabWidget#ExcelTools QTabBar::tab:selected { background:white; color:#2864BA; b
         addTool(m_formulaAssistant, tr("ƒx · Tôi muốn"));
         connect(m_view, &TileView::cellSelectionFinished, this, [this] {
             const int part = m_doc->currentPart();
+            const auto sheet = m_doc->partName(part);
             const unsigned generation = ++m_pickGeneration;
-            QTimer::singleShot(180, this, [this, part, generation] {
-                if (generation != m_pickGeneration || !isVisible() || !m_formulaAssistant || !m_formulaAssistant->isVisible() || m_doc->currentPart() != part) return;
+            QTimer::singleShot(180, this, [this, part, sheet, generation] {
+                auto current = [&] {
+                    return generation == m_pickGeneration && isVisible() && m_doc && m_view &&
+                        m_formulaAssistant && m_formulaAssistant->isVisible() &&
+                        m_doc->currentPart() == part && m_doc->partName(part) == sheet;
+                };
+                if (!current()) return;
                 m_doc->waitInputIdle(100, 700);
-                notifyFormulaSelection(m_formulaAssistant, m_view->selectedCellRange(true));
+                if (!current()) return;
+                const auto range = m_view->selectedCellRange(true);
+                if (current() && !range.isEmpty()) notifyFormulaSelection(m_formulaAssistant, range);
             });
         });
         m_rangeTools = createDocumentRangeToolsWidget(this, [this] { return qs(m_doc->selectionAs("text/plain;charset=utf-8")); });
