@@ -2,6 +2,7 @@
 #include "HomePage.h"
 
 #include "Theme.h"
+#include "update/UpdateDialog.h"
 #include "shell/ShellIcons.h"
 
 #include <functional>
@@ -272,7 +273,19 @@ HomePage::HomePage(QWidget* parent) : QWidget(parent) {
 
     m_status = new QLabel(body);
     m_status->setObjectName(QStringLiteral("HomeSubtitle"));
-    v->addWidget(m_status);
+    auto* statusRow=new QHBoxLayout;
+    m_status->setWordWrap(true);
+    statusRow->addWidget(m_status,1);
+    auto* updates=new QPushButton(tr("Kiểm tra cập nhật"),body);
+    updates->setObjectName(QStringLiteral("HomeCheckUpdates"));
+    updates->setAccessibleName(tr("Kiểm tra cập nhật Dũng Office"));
+    updates->setToolTip(tr("Mở hộp thoại kiểm tra phiên bản mới. Không tự cài đặt."));
+    connect(updates,&QPushButton::clicked,this,[this] {
+        UpdateDialog dialog(this);
+        dialog.exec();
+    });
+    statusRow->addWidget(updates);
+    v->addLayout(statusRow);
     v->addStretch(1);
     relayout();
 }
