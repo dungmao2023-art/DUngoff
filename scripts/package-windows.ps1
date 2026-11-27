@@ -71,5 +71,29 @@ Write-Host ("Từ điển tiếng Việt gỡ khỏi engine: {0} mục" -f $remo
 if (Test-Path (Join-Path $root "templates")) { Copy-Item -Recurse (Join-Path $root "templates") (Join-Path $app "templates") }
 Copy-Item (Join-Path $root "LICENSE") $app
 Copy-Item (Join-Path $root "THIRD_PARTY_NOTICES.md") $app
+
+# The Basic Windows CI requires PDF preview and qpdf. Fail before producing
+# an installer if packaging omitted a required component.
+if ($env:GITHUB_ACTIONS -eq "true") {
+  foreach ($relative in "DungOffice.exe","Qt6Core.dll","Qt6Widgets.dll","Qt6PrintSupport.dll","Qt6Pdf.dll","platforms\qwindows.dll","engine\program\mergedlo.dll","qpdf\qpdf.exe","LICENSE","THIRD_PARTY_NOTICES.md") {
+    $path = Join-Path $app $relative
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Thiếu thành phần Basic: $relative" }
+  }
+}
+$builtSha = (& git -C $root rev-parse HEAD 2>$null)
+if ($LASTEXITCODE -ne 0) { $builtSha = "" }
+$builtSha = ([string]$builtSha).Trim()
+if ($env:GITHUB_ACTIONS -eq "true" -and ($builtSha -notmatch '^[0-9a-f]{40}$' -or $builtSha -ne $env:GITHUB_SHA)) {
+  throw "Không xác minh được commit thực tế của bộ cài"
+}
+$manifest = [ordered]@{
+  schema = 1
+  checkout_sha = $builtSha
+  run_id = [string]$env:GITHUB_RUN_ID
+  engine_tag = [string]$env:ENGINE_TAG
+  application_sha256 = (Get-FileHash -LiteralPath (Join-Path $app "DungOffice.exe") -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+$manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $app "BUILD-INFO.json") -Encoding UTF8
+Write-Host "BUILD-INFO: checkout=$builtSha, run=$($manifest.run_id), exe=$($manifest.application_sha256)"
 $size = (Get-ChildItem $app -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
 Write-Host ("Thư mục chạy được: {0}  ({1:N0} MB)" -f $app, $size)

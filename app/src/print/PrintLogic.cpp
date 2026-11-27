@@ -1,6 +1,8 @@
 #include "PrintLogic.h"
 #include <algorithm>
 #include <QObject>
+#include <QFile>
+#include <QFileInfo>
 #include <QRegularExpression>
 
 namespace printlogic {
@@ -68,6 +70,19 @@ QString mismatchWarning(int previewPages, int displayPages) {
     return QObject::tr("Cảnh báo: bản in có %1 trang nhưng trong cửa sổ soạn thảo hiển thị %2 trang. "
                        "Hãy xem kỹ bản xem trước (đúng là nội dung sẽ in) trước khi in.")
         .arg(previewPages).arg(displayPages);
+}
+
+bool copyPrintPdf(const QString& source,const QString& destination,QString* error) {
+    if (error) error->clear();
+    auto fail=[&](const QString& message) { if (error) *error=message; return false; };
+    if (destination.isEmpty() || !destination.endsWith(QStringLiteral(".pdf"),Qt::CaseInsensitive))
+        return fail(QObject::tr("Chọn tên tệp PDF mới."));
+    const QFileInfo target(destination);
+    if (target.exists() || target.isSymLink())
+        return fail(QObject::tr("Tệp đích đã tồn tại; chọn tên khác."));
+    QFile input(source);
+    if (!input.copy(destination)) return fail(input.errorString());
+    return true;
 }
 
 } // namespace printlogic

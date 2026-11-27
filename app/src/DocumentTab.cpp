@@ -167,7 +167,7 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         fh->setContentsMargins(8, 4, 8, 4);
         m_nameBox = new QLineEdit(fb);
         m_nameBox->setFixedWidth(90);
-        m_nameBox->setToolTip(tr("Ô hiện tại — nhập địa chỉ (vd. B12) rồi Enter để đến ô đó"));
+        m_nameBox->setToolTip(tr("Nhập ô hoặc vùng trong sheet hiện tại (B12, A1:C5), rồi Enter"));
         auto* fx = new QPushButton(tr("ƒx · Tôi muốn"), fb);
         fx->setToolTip(tr("Mở hoặc thu gọn trợ lý công thức"));
         fx->setEnabled(!m_doc->readOnly());
@@ -184,8 +184,16 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         fh->addWidget(m_formula, 1);
         v->addWidget(fb);
         connect(m_nameBox, &QLineEdit::returnPressed, this, [this] {
-            const QString addr = m_nameBox->text().trimmed().toUpper();
-            if (!addr.isEmpty()) m_doc->command(".uno:GoToCell", dung::Document::stringArg("ToPoint", ss(addr)));
+            if (!m_doc || !m_view) return;
+            const auto addr=dataassist::bridgeRangeAddress(ss(m_nameBox->text()));
+            if (addr.empty()) {
+                m_nameBox->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS)));
+                QMessageBox::warning(this,tr("Địa chỉ ô"),tr("Nhập địa chỉ hợp lệ trong sheet hiện tại, ví dụ B12 hoặc A1:C5."));
+                m_nameBox->setFocus();
+                m_nameBox->selectAll();
+                return;
+            }
+            m_doc->command(".uno:GoToCell", dung::Document::stringArg("ToPoint",addr));
             m_view->setFocus();
         });
         // Bind an edit to its initial cell and sheet, not the selection that
@@ -202,7 +210,8 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
             edit->active = true;
             edit->part = m_doc->currentPart();
             edit->sheet = m_doc->partName(edit->part);
-            edit->cell = dataassist::bridgeCellAddress(ss(m_view->selectedCellRange()));
+            edit->cell = dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
+                m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
         });
         connect(m_formula, &QLineEdit::editingFinished, this, [this, edit] {
             edit->active = false;
@@ -212,7 +221,8 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         connect(m_formula, &QLineEdit::returnPressed, this, [this, edit] {
             if (!m_doc || !m_view || m_doc->readOnly() || !edit->active) return;
             m_doc->waitInputIdle();
-            const auto cell = dataassist::bridgeCellAddress(ss(m_view->selectedCellRange()));
+            const auto cell = dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
+                m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
             if (edit->cell.empty() || cell != edit->cell ||
                 m_doc->currentPart() != edit->part || m_doc->partName(edit->part) != edit->sheet) {
                 edit->active = false;
@@ -608,7 +618,10 @@ void DocumentTab::dropRecovery() {
 void DocumentTab::autosaveTick() {
     auto& rs = recovery::Session::instance();
     if (!rs.active() || !m_doc || m_doc->readOnly()) return;
-    if (!m_doc->modified() || !m_dirtySinceAutosave) return;
+    if (!m_doc->modified()) return;
+    // Even without an invalidate callback, a dirty document with no recovery
+    // snapshot yet must be saved at the next tick.
+    if (!m_dirtySinceAutosave && !m_recId.isEmpty()) return;
     if (!rs.hasRoom()) return;  // thư mục phục hồi đã đầy: bỏ qua, không làm gì khác
     const std::string ext = m_doc->recoveryExt();
     if (ext.empty()) return;
@@ -622,6 +635,12 @@ void DocumentTab::autosaveTick() {
         m_dirtySinceAutosave = false;
         if (m_hasAdopted) { recovery::discardEntry(m_adopted); m_hasAdopted = false; }  // đã có bản mới trong phiên này
     }
+}
+
+QString DocumentTab::activeFilePath() const {
+    if (!m_savedPath.isEmpty()) return m_savedPath;
+    if (m_doc->isNew()) return {};
+    return fromPath(m_doc->originalPath());
 }
 
 QString DocumentTab::title() const {
@@ -674,8 +693,16 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
     if (m_rangeTools && (type == LOK_CALLBACK_CELL_ADDRESS || type == LOK_CALLBACK_CELL_SELECTION_AREA ||
         type == LOK_CALLBACK_CELL_FORMULA || type == LOK_CALLBACK_SET_PART))
         notifyDocumentRangeTools(m_rangeTools);
-    if (type == LOK_CALLBACK_INVALIDATE_TILES && m_doc->modified()) m_dirtySinceAutosave = true;
-    if (m_doc->modified() != m_lastMod) { m_lastMod = m_doc->modified(); emit statusChanged(); } // đổi trạng thái "chưa lưu"
+    const bool modified = m_doc->modified();
+    // The first invalidation can arrive before ModifiedStatus=true.
+    // A transition to dirty must independently schedule a recovery snapshot.
+    if (modified && (type == LOK_CALLBACK_INVALIDATE_TILES || !m_lastMod))
+        m_dirtySinceAutosave = true;
+    if (modified != m_lastMod) {
+        m_lastMod = modified;
+        emit titleChanged();
+        emit statusChanged();
+    }
     switch (type) {
     case LOK_CALLBACK_CELL_ADDRESS:
         m_cellAddress = payload;
@@ -804,9 +831,7 @@ int DocumentTab::zoom() const { return m_view->zoom(); }
 
 // ---- Lưu an toàn ----
 static bool samePathUi(const QString& a, const QString& b) {
-    const QString ca = QFileInfo(a).canonicalFilePath(), cb = QFileInfo(b).canonicalFilePath();
-    if (!ca.isEmpty() && !cb.isEmpty()) return ca.compare(cb, Qt::CaseInsensitive) == 0;
-    return QFileInfo(a).absoluteFilePath().compare(QFileInfo(b).absoluteFilePath(), Qt::CaseInsensitive) == 0;
+    return savepath::samePathForProtection(a,b);
 }
 
 bool DocumentTab::doSave(const QString& path, bool confirmedReplace) {
@@ -904,7 +929,11 @@ bool DocumentTab::saveAs() {
         return false;
     }
     QStringList filters;
-    for (const auto* f : natives) filters << qs(f->label) + QStringLiteral(" (*.") + qs(f->ext) + QLatin1Char(')');
+    QStringList nativeExtensions;
+    for (const auto* f : natives) {
+        filters << qs(f->label) + QStringLiteral(" (*.") + qs(f->ext) + QLatin1Char(')');
+        nativeExtensions << qs(f->ext);
+    }
     const QString suggested = m_savedPath.isEmpty() ? fromPath(m_doc->suggestSaveAsPath()) : m_savedPath;
     QString selected = filters.first();
     const QString picked = QFileDialog::getSaveFileName(this, tr("Lưu thành"), suggested,
@@ -912,6 +941,12 @@ bool DocumentTab::saveAs() {
     if (picked.isEmpty()) return false;
     const int i = filters.indexOf(selected);
     const QString path = savepath::resolve(picked, qs(natives[std::max(0, i)]->ext));
+    // Save As must keep an editable format; PDF export is a separate action.
+    if (!savepath::nativeSuffixAllowed(path,nativeExtensions)) {
+        QMessageBox::warning(this,tr("Định dạng lưu không phù hợp"),
+            tr("Chọn một định dạng tài liệu chỉnh sửa được: %1. Muốn tạo PDF, dùng Xuất PDF.").arg(nativeExtensions.join(QStringLiteral(", "))));
+        return false;
+    }
     const bool exists = savepath::needsConfirmation(path);
     if (exists && QMessageBox::question(this, tr("Xác nhận thay thế"),
         tr("Tệp đích đã tồn tại:\n%1\nBạn có muốn thay thế tệp này không?").arg(QDir::toNativeSeparators(path)),
@@ -977,7 +1012,15 @@ bool DocumentTab::maybeClose() {
     QPushButton* discard = box.addButton(tr("Không lưu"), QMessageBox::DestructiveRole);
     box.addButton(tr("Huỷ"), QMessageBox::RejectRole);
     box.exec();
-    if (box.clickedButton() == saveBtn) return save();
+    if (box.clickedButton() == saveBtn) {
+        if (!save()) return false;
+        // Never close while the document still has unsaved changes.
+        if (m_doc->modified()) {
+            QMessageBox::warning(this,tr("Chưa lưu xong"),tr("Tài liệu vẫn có thay đổi chưa lưu. Giữ thẻ mở để bảo vệ nội dung."));
+            return false;
+        }
+        return true;
+    }
     if (box.clickedButton() == discard) { dropRecovery(); return true; }
     return false;
 }

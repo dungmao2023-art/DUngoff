@@ -35,6 +35,17 @@ int main(int argc, char** argv) {
     // 8. Thay ở chỗ không làm được bằng phím: báo unsupported, vẫn chốt chuỗi, không xoá bậy
     { bool un = false; auto ops = imeToOps(QString("a"), 2, 3, &un);
       check(un && ops.size() == 1 && ops[0].kind == ImeOp::Char, "thay phần sau con trỏ xa: báo không hỗ trợ, không xoá"); }
+    // Disjoint replacement to the left cannot be represented by adjacent Backspace.
+    { bool un=false; auto ops=imeToOps(QString::fromUtf8("ệ"),-5,2,&un);
+      check(un && ops.size()==1 && ops[0].kind==ImeOp::Char, "IME disjoint left range: no adjacent deletion"); }
+    { bool un=false; auto ops=imeToOps(QString("a"),-3,3,&un);
+      check(!un && ops.size()==4 && ops[2].kind==ImeOp::Backspace, "IME contiguous left range remains supported"); }
+    { bool un=false; auto ops=imeToOps(QString("a"),-2147483647-1,2147483647,&un);
+      check(un && ops.size()==1 && ops[0].kind==ImeOp::Char, "IME extreme range: no overflow or deletion"); }
+    { bool un=false; auto ops=imeToOps(QString("a"),0,4097,&un);
+      check(un && ops.size()==1 && ops[0].kind==ImeOp::Char, "IME oversized replacement does not mass-delete"); }
+    { QKeyEvent e(QEvent::KeyPress,Qt::Key_Backtab,Qt::NoModifier);
+      auto k=toLokKey(&e); check(k.valid && k.keyCode==(1282|0x1000), "Backtab maps to Shift+Tab even without modifier"); }
     // 9. imePlan: bắt đầu soạn (chưa composing) -> một bước Preedit
     { bool ca = false; auto st = imePlan(QString::fromUtf8("d"), QString(), 0, 0, false, &ca);
       check(st.size() == 1 && st[0].kind == ImeStep::Preedit && st[0].text == "d" && ca, "imePlan: bắt đầu soạn 'd' -> Preedit, đang soạn"); }

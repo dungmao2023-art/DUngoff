@@ -249,3 +249,16 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - #113: lỗi Windows trước đó là bộ kiểm thử lưu PDF; batch dùng main đã chứa #117, kiểm lại query ragged rows.
 - Tiết kiệm Actions: chuẩn bị nhiều commit trên nhánh không mở PR, kiểm tra xung đột, mở đúng một PR khi đủ nhóm độc lập; không trigger từng commit. Giữ nguyên CI bắt buộc của PR và main; không build engine hoặc release. Nếu batch đang CI, chuẩn bị nhánh kế tiếp riêng thay vì liên tục push làm hủy job.
 - #112 chưa gom vì chưa xác minh pikepdf runtime; #110 vẫn probe FAIL, không bật GUI. Giữ nguyên 33.83%, ca B0/B1 chưa tick.
+
+## Bằng chứng batch 1 — 27/11/2026
+- #122 HEAD 4be659dbed17a4c9d8dca09b8ec6015f224641ba, merged b61207982979aaaa0684268f27c4911491021e11. [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45977512404): engine smoke, recovery, PDF save, table tools, keymap/caret offscreen và các bộ test bắt buộc thành công. #113/#116/#118/#119/#120/#121 đóng vì đã gom vào #122, không merge lặp.
+- Batch 2 đang chuẩn bị: A01/A03 tên đích và tab; A04 dirty/recovery, Undo/Redo Unicode; X01 thanh công thức; A02 IME; đối chiếu đường dẫn Unicode. Chưa có CI của batch 2; không tick ca GUI hoặc nâng stage.
+
+## Dũng Office Basic — ưu tiên 28/11/2026
+- Mục tiêu cho người không chuyên: Word/Excel nhập liệu, chỉnh sửa và in; PowerPoint học sinh/sinh viên; PDF đọc/in/gộp/tách/xoay. Tập trung A01–A06/A08, W01–W04, X01–X06, P01–P05, D01–D02 (24 nhóm, 142/315 trọng số); toàn dự án ~59,63% nếu các nhóm này accepted và phần khác giữ nguyên. Không tuyên bố hoàn thành trước nghiệm thu.
+- Tái sử dụng LibreOfficeKit (MPL), Qt PrintSupport/PDF (LGPL, notices của PDFium), qpdf (Apache-2.0), Hunspell (tri-license, từ điển Việt riêng GPL). Không thay engine. Nguồn: https://docs.libreoffice.org/libreofficekit.html ; https://doc.qt.io/qt-6/qtprintsupport-index.html ; https://github.com/qpdf/qpdf ; https://hunspell.github.io/ .
+- Tạo mẫu PPTX bằng python-pptx (MIT) nếu cần, dùng ở công cụ phát triển, không cài Python cho người dùng: https://python-pptx.readthedocs.io/en/stable/user/intro.html . Dùng mẫu tự thiết kế hoặc có giấy phép rõ, không sao chép mẫu thương mại.
+- A05.1: sửa đường dự phòng thiếu Qt PDF để người dùng lưu bản in PDF mới, không ghi đè, trước khi mở trình xem ngoài; thêm test bản sao tồn tại sau khi file tạm mất. Windows CI đã yêu cầu Qt PDF; vẫn cần test máy in thật. Không cài thêm runtime.
+- Hoãn macro/VBA, PQ/Pivot nâng cao, OCR/sửa PDF gốc, tích hợp MISA/kho luật và animation phức tạp. Kiểm bộ cài và license thực tế trước phát hành.
+
+- A08.1: batch 2 bổ sung BUILD-INFO.json trong bộ cài (checkout SHA thực tế, run id, engine tag, SHA256 DungOffice.exe), yêu cầu Qt PrintSupport/PDF, qpdf và runtime chính khi đóng gói CI; E2E đối chiếu manifest và hash sau cài. Chưa nghiệm thu batch 2. Ca đích là thư mục giờ bị từ chối trước staging, không tuyên bố đã tiêm lỗi staging.

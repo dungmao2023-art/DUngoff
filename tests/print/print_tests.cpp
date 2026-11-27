@@ -90,6 +90,24 @@ int main(int argc, char** argv) {
     check(!mismatchWarning(5, 4).isEmpty() && mismatchWarning(5, 4).contains(QStringLiteral("5")) && mismatchWarning(5, 4).contains(QStringLiteral("4")), "số trang lệch: có cảnh báo nêu cả hai số");
     check(mismatchWarning(5, 0).isEmpty() && mismatchWarning(5, -1).isEmpty(), "không so sánh được: không cảnh báo");
 
+    // External viewer fallback must outlive the caller's temporary PDF,
+    // and must never replace a pre-existing file.
+    {
+        QTemporaryDir storage;
+        QTemporaryDir stage;
+        const QString src=stage.filePath("print.pdf");
+        const QString dest=storage.filePath("persistent.pdf");
+        const QByteArray bytes=makePdf({QSize(595,842)});
+        { QFile file(src); check(file.open(QIODevice::WriteOnly) && file.write(bytes)==bytes.size(),"create fallback print fixture"); }
+        QString err;
+        check(copyPrintPdf(src,dest,&err),"copy print PDF to explicit destination",err);
+        check(!copyPrintPdf(src,dest,&err),"fallback refuses existing destination");
+        check(!copyPrintPdf(src,storage.filePath("invalid.docx"),&err),"fallback refuses non-PDF suffix");
+        QFile::remove(src);
+        QFile retained(dest);
+        check(retained.open(QIODevice::ReadOnly) && retained.readAll()==bytes,"print copy survives temporary source deletion");
+    }
+
     // ---- Vẽ và in PDF ----
     const bool needPdf = qEnvironmentVariableIntValue("DUNG_REQUIRE_PDF") == 1;
     if (!printrender::available()) {

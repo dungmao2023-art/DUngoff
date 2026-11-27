@@ -178,6 +178,19 @@ Ok ($missing.Count -eq 0) "[full] đủ mọi tệp ứng dụng (thiếu $($mis
 $missing | Select-Object -First 10 | ForEach-Object { Say "    thiếu: $_" }
 foreach ($pat in "engine\program\*.dll", "qpdf\*") { Ok ($inst | Where-Object { $_ -like $pat.ToLower() }) "[full] có $pat" }
 Ok ($inst | Where-Object { $_ -match '^qt6core\.dll$' }) "[full] có Qt6Core.dll"
+foreach ($relative in "qt6printsupport.dll","qt6pdf.dll","platforms\qwindows.dll","qpdf\qpdf.exe","build-info.json") {
+  Ok ($inst -contains $relative) "[full] có thành phần Basic $relative"
+}
+try {
+  $buildInfo = Get-Content -LiteralPath (Join-Path $dir1 "BUILD-INFO.json") -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+  $sourceInfo = Get-Content -LiteralPath (Join-Path $DistApp "BUILD-INFO.json") -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+  $installedHash = (Get-FileHash -LiteralPath (Join-Path $dir1 "DungOffice.exe") -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+  Ok ($buildInfo.schema -eq 1 -and $buildInfo.checkout_sha -eq $sourceInfo.checkout_sha) "[full] manifest khớp bản đóng gói"
+  Ok ($installedHash -eq $buildInfo.application_sha256 -and $installedHash -eq $sourceInfo.application_sha256) "[full] SHA256 ứng dụng đã cài khớp manifest"
+  if ($env:GITHUB_ACTIONS -eq "true") {
+    Ok ($buildInfo.checkout_sha -eq $env:GITHUB_SHA -and $buildInfo.run_id -eq $env:GITHUB_RUN_ID) "[full] bản cài đúng commit và lượt CI"
+  }
+} catch { Ok $false "[full] không kiểm tra được manifest: $($_.Exception.Message)" }
 $dictInst = @($inst | Where-Object { $_ -like "dictionaries\vi\*" })
 $dictMissing = @($dictFiles | Where-Object { $dictInst -notcontains ("dictionaries\vi\" + $_) })
 if ($dictFiles.Count) {

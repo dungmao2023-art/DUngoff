@@ -304,6 +304,18 @@ int runSweepTests(const fs::path& program, const fs::path& out,const fs::path& p
     result(C, "wire:địa chỉ vùng hợp lệ", dataassist::bridgeRangeAddress("$a$1:$b$3") == "A1:B3" &&
         dataassist::bridgeRangeAddress("A1:A1") == "A1" &&
         dataassist::bridgeRangeAddress("A1:XFE3").empty() && dataassist::bridgeRangeAddress("A1:B2:C3").empty(), "");
+    result(C, "wire:formula bar requires matching single-cell address",
+        dataassist::bridgeConfirmedCell("$p$2","P2")=="P2" &&
+        dataassist::bridgeConfirmedCell("P2","P3").empty() &&
+        dataassist::bridgeConfirmedCell("P2:P3","P2").empty() &&
+        dataassist::bridgeConfirmedCell("P2","").empty() &&
+        dataassist::bridgeConfirmedCell("XFE1","XFE1").empty(), "");
+    result(C, "wire:name box normalizes safe local ranges",
+        dataassist::bridgeRangeAddress(" $b$12 ")=="B12" &&
+        dataassist::bridgeRangeAddress("A1:C5")=="A1:C5" &&
+        dataassist::bridgeRangeAddress("Sheet2.A1").empty() &&
+        dataassist::bridgeRangeAddress("A0").empty() &&
+        dataassist::bridgeRangeAddress("A1;B2").empty(), "");
     auto o4 = dataassist::bridgeInsertFormulaAt(x, "P4", "=SUM(P2:P3)", LOK_CALLBACK_CELL_ADDRESS,
         [](const std::string&) { return true; });
     result(C, "wire:chèn vào ô đích riêng", o4.ok && trim(range(x, "P4")) == "3", o4.message);

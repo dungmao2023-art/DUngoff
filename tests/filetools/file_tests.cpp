@@ -124,6 +124,34 @@ int main(int argc, char** argv)
         CHECK(get(existing)=="KEEP" && get(pdf)=="PDF","path policy never modifies existing data");
     }
 
+    {
+        const QString path=R+QStringLiteral("/Báo cáo.xlsx");
+        const QString alias=R+QStringLiteral("/./Báo cáo.xlsx");
+        const QString other=R+QStringLiteral("/Báo cáo khác.xlsx");
+        CHECK(put(path,"ONE") && put(other,"TWO"),"create two distinct workbook paths");
+        CHECK(savepath::sameExistingPath(path,alias),"same canonical file reuses document tab");
+        CHECK(!savepath::sameExistingPath(path,other),"different workbook remains separate");
+        CHECK(savepath::samePathForProtection(path,alias) &&
+              !savepath::samePathForProtection(path,other) &&
+              !savepath::samePathForProtection(QString(),QString()),"source protection handles aliases, distinct and empty paths");
+        CHECK(savepath::samePathForProtection(R+"/./new.xlsx",R+"/new.xlsx") &&
+              !savepath::samePathForProtection(R+"/new.xlsx",R+"/other.xlsx"),"missing paths compared by normalized absolute path");
+#ifdef Q_OS_WIN
+        CHECK(savepath::samePathText(QStringLiteral("Báo cáo.xlsx"),QStringLiteral("BÁO CÁO.XLSX")),
+              "Windows path comparison handles Unicode case");
+#else
+        CHECK(!savepath::samePathText("Report.xlsx","report.xlsx"),"Linux case-distinct filenames remain distinct");
+#endif
+        CHECK(!savepath::sameExistingPath(QString(),QString()) &&
+              !savepath::sameExistingPath(R+"/absent.xlsx",R+"/absent.xlsx"),"empty/missing paths never match a tab");
+        const QStringList allowed{QStringLiteral("xlsx"),QStringLiteral("ods")};
+        CHECK(savepath::nativeSuffixAllowed(path,allowed) &&
+              savepath::nativeSuffixAllowed(R+"/UPPER.XLSX",allowed),"editable extension accepted case-insensitively");
+        CHECK(!savepath::nativeSuffixAllowed(R+"/report.pdf",allowed) &&
+              !savepath::nativeSuffixAllowed(R+"/report.docx",allowed) &&
+              !savepath::nativeSuffixAllowed(QString(),allowed),"Save As rejects PDF, wrong kind and empty path");
+    }
+
     // ================= ĐỔI TÊN =================
     CHECK(removeVietnameseDiacritics(QStringLiteral("Đặng Thị Hương — Hợp đồng số 5.docx")) == QStringLiteral("Dang Thi Huong — Hop dong so 5.docx"), "bỏ dấu tiếng Việt (đ→d, Đ→D)");
     {

@@ -78,6 +78,13 @@ inline std::string bridgeRangeAddress(const std::string& s) {
     return a == b ? a : a + ":" + b;
 }
 
+// Formula bar may write only if the selected single cell and the engine
+// address callback agree; an old cursor rectangle alone is insufficient.
+inline std::string bridgeConfirmedCell(const std::string& selected, const std::string& reported) {
+    const auto a=bridgeCellAddress(selected), b=bridgeCellAddress(reported);
+    return !a.empty() && a==b ? a : std::string();
+}
+
 // Chờ callback mới để xác minh địa chỉ đích; không suy đoán từ vùng chọn cũ.
 // Luôn xác nhận trước khi ghi, kể cả khi giá trị hiển thị rỗng (ô có thể chứa công thức).
 inline InsertOutcome bridgeInsertFormulaAt(dung::Document& d, const std::string& target, const std::string& formula,

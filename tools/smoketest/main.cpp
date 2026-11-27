@@ -337,7 +337,7 @@ int main(int argc, char** argv) {
         check(!r4.ok, "Từ chối thay tệp đích đã tồn tại khi chưa xác nhận");
     }
 
-    step("lưu thất bại sau khi engine ghi tệp tạm");
+    step("từ chối lưu vào thư mục đích bị chặn");
     {
         const auto blocked = viDir / "blocked-target.xlsx";
         fs::create_directories(blocked);
@@ -347,7 +347,7 @@ int main(int argc, char** argv) {
         replace.allowReplaceExisting = true;
         auto failed = doc->saveAs(blocked, replace);
         check(!failed.ok, "Đích là thư mục: không báo đã lưu");
-        check(doc->modified(), "Lỗi sau staging vẫn giữ trạng thái chưa lưu");
+        check(doc->modified(), "Lỗi lưu vẫn giữ trạng thái chưa lưu");
         check(readAll(sentinel) == std::vector<char>({'K','E','E','P'}), "Không đổi dữ liệu tại đích bị chặn");
         check(readAll(original) == originalBytes, "Lỗi lưu không đổi tệp gốc");
     }
@@ -369,6 +369,22 @@ int main(int argc, char** argv) {
     {
         auto again = doc->saveAs(suggested); // Ctrl+S lần 2 vào chính tệp phiên này đã tạo
         check(again.ok && again.backup.empty(), "Lưu lại (Ctrl+S) vào tệp của phiên: không hỏi, không tạo sao lưu thừa");
+    }
+    {
+        // An output path alone does not prove the file still belongs to this session.
+        const auto separate=viDir / "external-edit.xlsx";
+        SaveOptions replace;
+        replace.allowReplaceExisting=true;
+        auto first=doc->saveAs(separate,replace);
+        check(first.ok,"Lưu bản dùng kiểm tra sửa bên ngoài");
+        if (first.ok) {
+            { std::ofstream other(separate,std::ios::binary|std::ios::trunc); other << "EXTERNAL"; }
+            auto refused=doc->saveAs(separate,replace);
+            check(!refused.ok && refused.message.find("bên ngoài")!=std::string::npos,
+                  "Ctrl+S không ghi đè bản do ứng dụng khác sửa");
+            check(readAll(separate)==std::vector<char>({'E','X','T','E','R','N','A','L'}),"Nội dung bên ngoài giữ nguyên");
+            check(readAll(original)==originalBytes,"Tệp gốc vẫn nguyên vẹn");
+        }
     }
     {
         // Không để lại tệp tạm "~dung-*"

@@ -5,6 +5,9 @@
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QFormLayout>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QDir>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -22,9 +25,22 @@
 void PrintDialog::run(QWidget* parent, const QString& pdfPath, int displayPages, const QString& title) {
     if (!printrender::available()) {
         // Không có bộ vẽ PDF: mở bằng trình xem PDF mặc định để người dùng in từ đó (không giả vờ có xem trước).
+        // The caller may remove its QTemporaryDir immediately after return.
+        // Keep the PDF only where the user explicitly elects to save it.
         QMessageBox::information(parent, QObject::tr("In"),
-            QObject::tr("Bản dựng này chưa có xem trước in tích hợp. Dũng Office sẽ mở bản in (PDF) bằng trình xem PDF của máy để bạn in từ đó."));
-        QDesktopServices::openUrl(QUrl::fromLocalFile(pdfPath));
+            QObject::tr("Bản dựng này chưa có xem trước in tích hợp. Chọn tên PDF mới để lưu bản in và mở bằng trình xem PDF của máy."));
+        QString path=QFileDialog::getSaveFileName(parent,QObject::tr("Lưu bản in PDF"),
+            QDir::home().filePath(QStringLiteral("Ban-in.pdf")),QObject::tr("PDF (*.pdf)"),
+            nullptr,QFileDialog::DontConfirmOverwrite);
+        if (path.isEmpty()) return;
+        if (!path.endsWith(QStringLiteral(".pdf"),Qt::CaseInsensitive)) path+=QStringLiteral(".pdf");
+        QString err;
+        if (!printlogic::copyPrintPdf(pdfPath,path,&err)) {
+            QMessageBox::warning(parent,QObject::tr("In"),QObject::tr("Không lưu được bản in: %1").arg(err));
+            return;
+        }
+        if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path)))
+            QMessageBox::information(parent,QObject::tr("In"),QObject::tr("Đã lưu bản in tại %1. Hãy mở tệp này để in.").arg(QDir::toNativeSeparators(path)));
         return;
     }
     const auto info = printrender::pdfInfo(pdfPath);
