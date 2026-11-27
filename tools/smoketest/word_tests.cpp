@@ -521,7 +521,7 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
     run(*review,w::findNext("ORIGINAL_MARKER",false));
     review->waitInputIdle();
     check(has(selText(*review),"ORIGINAL_MARKER"),"Chọn đúng chữ để bình luận");
-    review->command(".uno:InsertAnnotation",Document::stringArg("Text","COMMENT_MARKER"));
+    review->command(".uno:InsertAnnotation",Document::stringArg("Text","COMMENT_MARKER · Ghi chú tiếng Việt: Đường dẫn & số liệu"));
     review->waitInputIdle();
     const fs::path pending=out/"word-review.docx";
     fs::remove(pending,ec);
