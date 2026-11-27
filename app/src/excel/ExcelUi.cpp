@@ -358,7 +358,11 @@ void DocumentTab::excelAction(const QString& id) {
         cmd(".uno:Remove", ex::sheetRemove(cur + 1));
     } else if(a==QLatin1String("sheetMoveLeft")||a==QLatin1String("sheetMoveRight")) {
         const bool left=a==QLatin1String("sheetMoveLeft");
-        if((left&&cur==0)||(!left&&cur+1>=n)||!sameSheet())return;
+        if(!sameSheet())return;
+        if((left&&cur==0)||(!left&&cur+1>=n)){
+            QMessageBox::information(this,tr("Di chuyển sheet"),left?tr("Sheet đã ở đầu sổ làm việc."):tr("Sheet đã ở cuối sổ làm việc."));
+            return;
+        }
         // Forward insertion indices differ between engine builds.
         // Swap adjacent sheets using only the verified backward move:
         // for a rightward move, move the next sheet before this one.
