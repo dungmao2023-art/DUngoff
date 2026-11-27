@@ -118,3 +118,22 @@ Mốc hiện tại sau #39–41: chỉ số triển khai 29.9%, chưa có nhóm 
 - #69 CI PASS ở SHA f31c1d327576706f41563ddf80c68a612ac6570b, đã hòa giải xung đột trên SHA 48fe3de060093fc5953848dbb5c72e10ee5150c4; chờ CI đúng SHA mới, chưa merge.
 - #62 head 0b29ba10c910529d41253863c3691d2e06418b42: đã thêm 10 kiểm tra an toàn lưu file vào CI; chưa có kết quả ở SHA này, chưa kiểm PDF thật với pikepdf.
 - X10 giữ partial, chỉ số 32.94% không đổi stage/weight/giờ; 0 nhóm accepted. Cần kiểm thử main tích hợp, GUI Windows thật và dữ liệu XLSX thực. Không phát hành.
+
+## Đối chiếu bổ sung — main 1a00e7a94d53d5a9c1cac2f21274300700d27da3
+Các PR sau đã merge, CI trên head riêng Windows/Linux PASS (không đồng nghĩa nghiệm thu GUI hay main sau tích hợp):
+- #69 (`48fe3de060093fc5953848dbb5c72e10ee5150c4`): XLSX reader and sheet selection; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45916841509).
+- #72 (`a60062aa968cb63803e963cbfee7980414db31bb`): enter/exit pairing; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45917072946).
+- #73 (`3bfdcbc264ee7bd1fe321fae2402fbf6ab942911`): qpdf safe output; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45918052528).
+- #74 (`842712815239cfea247fd23a7d0746f5a0ffc61e`): native fill formulas; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45920396270).
+- #75 (`4ff94f0b5412024795c2fea7a348d8d83cfed067`): real XLSX query fixture; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45921729258).
+- #76 (`c9af4266c369a54d4e89aacdbf7c0f911b607265`): composite key dedup; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45920820122).
+- #77 (`64e538233fb425d653b302426bea6c0203af4c08`): recipe v4 group/reorder; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45921905564).
+- #78 (`c1de0b55e91b919c3455c5d8f77be0f20159ebd9`): extended OOXML fidelity scan; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45923660975).
+- #79 (`9f300f301e7f93b4d65622022a1f680094f13748`): Unicode Word comments; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45922313203).
+- #80 (`ee4b3b35242fe950142310e75d3ef66db854036a`): CSV import bounds; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45922965825).
+- #81 (`b1f94e598ff434ebb69b42f66b964fd48cdc7bec`): recipe v5 join; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45926895754).
+- #82 (`12fff6fd1441480b7ed49b2b3f216e0e6231ba58`): batch slide transition; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45927275342).
+- #83 (`426e62c5e281ae01356931f75afe263c372f9c7e`): native sort and row integrity; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45927625137).
+- #62 (`994a3ea45739aec4750897c18c040c424a00d028`): Python stdlib PDF safety tests only; [CI](https://github.com/dungmao2023-art/DUngoff/actions/runs/45923267715).
+
+X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được ghép trong recipe v5 và có kiểm tra dữ liệu XLSX thật; chưa đủ kiểu dữ liệu, GUI, benchmark, không phải Power Query M. Giữ nguyên stage các nhóm khác, trọng số và dự toán giờ. Chỉ số triển khai 33.83%, 0 nhóm accepted. #62 chưa kiểm PDF thật bằng pikepdf. #84–86 chưa có kết quả CI đúng head, không tính. Không phát hành.
