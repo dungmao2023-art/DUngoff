@@ -70,7 +70,8 @@ jobs:
       - name: Kiểm thử tiện ích bảng tính (dòng trùng, so sánh, làm sạch)
         run: |
           set -o pipefail
-          QT_QPA_PLATFORM=offscreen ./build/app/dung-tabletest 2>&1 | tee report/linux-tabletest.log
+          python3 tests/tableutil/make_query_fixture.py query-fixtures/source.xlsx
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-tabletest query-fixtures/source.xlsx 2>&1 | tee report/linux-tabletest.log
       - name: Kiểm thử điền tên hàng loạt (docx/pptx/xlsx, CSV, tên tệp)
         run: |
           set -o pipefail
@@ -393,7 +394,10 @@ jobs:
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-tabletest.exe | Select-Object -First 1
           if (-not $exe) { Write-Host "::error::Không thấy dung-tabletest.exe"; exit 1 }
-          & $exe.FullName *>&1 | Tee-Object report/windows-tabletest.log
+          python tests/tableutil/make_query_fixture.py query-fixtures/source.xlsx
+          if ($LASTEXITCODE) { exit 1 }
+          & $exe.FullName query-fixtures/source.xlsx *>&1 | Tee-Object report/windows-tabletest.log
+          if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử quét tính năng sẽ mất trên Windows
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-featurescan-test.exe | Select-Object -First 1
