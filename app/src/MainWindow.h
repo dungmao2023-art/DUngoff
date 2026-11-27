@@ -53,6 +53,7 @@ private:
     void showDocuments();
     void showProjects();
     void showWork(int index);
+    void showDrive();
     void showTemplates();
     void showToolbox();
     void onCurrentTabChanged();

@@ -35,6 +35,11 @@
 #include <QDir>
 #include <QDragEnterEvent>
 #include <QFileDialog>
+#include <QFile>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDateTime>
+#include <QPointer>
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -475,6 +480,9 @@ QWidget* MainWindow::buildSidebar() {
         side->setProperty(qPrintable(QStringLiteral("workBtn%1").arg(i)),QVariant::fromValue<QObject*>(workButtons[i]));
         connect(workButtons[i],&QPushButton::clicked,this,[this,i]{showWork(i);});
     }
+    auto* drive=make(tr("Google Drive"),app(QStringLiteral("G"),QColor("#267B69")),false);
+    connect(drive,&QPushButton::clicked,this,&MainWindow::showDrive);
+    drive->setToolTip(tr("Chọn thư mục đồng bộ Google Drive trên máy"));
     auto* open = make(tr("Mở tệp"), sym("open"), false);
     auto* about = make(tr("Giới thiệu"), sym("about"), false);
     bv->addStretch(1);
@@ -501,7 +509,7 @@ QPushButton#FeedbackNav:focus { border:2px solid #B9D0FF; }
     card->setObjectName(QStringLiteral("PrivacyCard"));
     auto* cv = new QVBoxLayout(card);
     cv->setContentsMargins(12, 10, 12, 10);
-    auto* ct = new QLabel(tr("<b>Ngoại tuyến · Riêng tư</b><br>Tài liệu ở lại trên máy bạn. Không tài khoản, không gửi lên mạng."), card);
+    auto* ct = new QLabel(tr("<b>Ngoại tuyến · Riêng tư</b><br>Tài liệu lưu trên máy. Đồng bộ ngoài chỉ khi bạn chủ động chọn thư mục và sao chép."), card);
     ct->setWordWrap(true);
     ct->setTextFormat(Qt::RichText);
     cv->addWidget(ct);
@@ -656,6 +664,7 @@ void MainWindow::showPalette() {
     add("tools", tr("Công cụ"));
     add("projects", tr("Dự án"));
     add("work",tr("Ghi chú"));add("calendar",tr("Lịch công việc"));add("contacts",tr("Danh bạ liên hệ"));
+    add("drive",tr("Google Drive · thư mục đồng bộ"));
     add("zoomIn", tr("Phóng to"), QStringLiteral("Ctrl+="));
     add("zoomOut", tr("Thu nhỏ"), QStringLiteral("Ctrl+-"));
     add("about", tr("Giới thiệu Dũng Office"));
@@ -676,6 +685,7 @@ void MainWindow::runCommand(const QString& id) {
     else if (id == QLatin1String("work")) showWork(0);
     else if (id == QLatin1String("calendar")) showWork(1);
     else if (id == QLatin1String("contacts")) showWork(2);
+    else if (id == QLatin1String("drive")) showDrive();
     else if (id == QLatin1String("newDoc")) newDoc(DocKind::Text);
     else if (id == QLatin1String("newXlsx")) newDoc(DocKind::Spreadsheet);
     else if (id == QLatin1String("newPpt")) newDoc(DocKind::Presentation);
@@ -730,6 +740,87 @@ void MainWindow::showToolbox() {
     if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
         if (auto* b = qobject_cast<QPushButton*>(side->property("toolBtn").value<QObject*>())) b->setChecked(true);
     refreshStatus();
+}
+
+void MainWindow::showDrive() {
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("Google Drive — thư mục đồng bộ"));
+    dlg.resize(560,360);
+    auto* v=new QVBoxLayout(&dlg);
+    auto* title=new QLabel(tr("Lưu bản sao vào Google Drive"),&dlg);
+    title->setStyleSheet(QStringLiteral("font-size:21px;font-weight:700;color:#17294D;"));v->addWidget(title);
+    auto* explanation=new QLabel(tr("Đăng nhập trong Google Drive cho máy tính, không phải Dũng Office. Chọn thư mục Drive đã đồng bộ hoặc ổ Drive trong File Explorer. Ứng dụng chỉ tạo bản sao theo yêu cầu; Google Drive chịu trách nhiệm tải lên. Không có OAuth trực tiếp, không xác minh trạng thái đám mây."),&dlg);
+    explanation->setWordWrap(true);v->addWidget(explanation);
+    auto* help=new QLabel(tr("<a href='https://support.google.com/drive/answer/10838124'>Hướng dẫn Google Drive cho máy tính</a>"),&dlg);
+    help->setOpenExternalLinks(true);v->addWidget(help);
+    auto* folder=new QLabel(&dlg);folder->setTextFormat(Qt::PlainText);folder->setWordWrap(true);
+    folder->setStyleSheet(QStringLiteral("background:#F4F8FF;border:1px solid #DCE5F2;border-radius:8px;padding:12px;"));
+    v->addWidget(folder);
+    auto* row=new QHBoxLayout;
+    auto* choose=new QPushButton(tr("Chọn thư mục"),&dlg);
+    auto* openFolder=new QPushButton(tr("Mở thư mục"),&dlg);
+    auto* clear=new QPushButton(tr("Ngắt kết nối"),&dlg);
+    row->addWidget(choose);row->addWidget(openFolder);row->addWidget(clear);v->addLayout(row);
+    auto* copy=new QPushButton(tr("Lưu bản sao tài liệu đang chọn"),&dlg);
+    copy->setStyleSheet(QStringLiteral("QPushButton{background:#267B69;color:white;border-radius:8px;padding:10px;font-weight:700;} QPushButton:disabled{background:#E8EDF5;color:#6B7A99;}"));
+    v->addWidget(copy);
+    auto* status=new QLabel(&dlg);status->setTextFormat(Qt::PlainText);status->setWordWrap(true);v->addWidget(status);
+    auto* buttons=new QDialogButtonBox(QDialogButtonBox::Close,&dlg);v->addWidget(buttons);
+    connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+    QString path=QSettings().value(QStringLiteral("drive/localSyncFolder")).toString();
+    const auto refresh=[&]{
+        const bool available=!path.isEmpty()&&QFileInfo(path).isDir();
+        folder->setText(path.isEmpty()?tr("Chưa chọn thư mục đồng bộ"):QDir::toNativeSeparators(path));
+        clear->setEnabled(!path.isEmpty());openFolder->setEnabled(available);
+        copy->setEnabled(available&&current());
+        if(!path.isEmpty()&&!available)status->setText(tr("Thư mục không còn truy cập được. Hãy bật Drive hoặc chọn lại."));
+    };
+    connect(choose,&QPushButton::clicked,&dlg,[&]{
+        const QString picked=QFileDialog::getExistingDirectory(&dlg,tr("Chọn thư mục Google Drive đã đồng bộ"),path);
+        if(picked.isEmpty())return;
+        path=QDir::cleanPath(picked);QSettings().setValue(QStringLiteral("drive/localSyncFolder"),path);
+        status->setText(tr("Đã ghi nhớ thư mục. Chưa tải tài liệu nào."));refresh();
+    });
+    connect(clear,&QPushButton::clicked,&dlg,[&]{
+        path.clear();QSettings().remove(QStringLiteral("drive/localSyncFolder"));refresh();
+        status->setText(tr("Đã quên thư mục. Không xóa tài liệu và không đăng xuất Google Drive."));
+    });
+    connect(openFolder,&QPushButton::clicked,&dlg,[&]{
+        if(!QDesktopServices::openUrl(QUrl::fromLocalFile(path)))status->setText(tr("Không mở được thư mục."));
+    });
+    connect(copy,&QPushButton::clicked,&dlg,[&]{
+        QPointer<DocumentTab> tab=current();
+        if(!tab||!QFileInfo(path).isDir()){refresh();return;}
+        tab->document()->waitInputIdle();
+        if(tab->document()->modified()||tab->activeFilePath().isEmpty()){
+            status->setText(tr("Tài liệu chưa lưu hoặc có chỉnh sửa mới. Đóng hộp thoại, lưu tài liệu trước rồi thực hiện lại."));
+            return;
+        }
+        const QString source=tab->activeFilePath();
+        const QFileInfo src(source);
+        if(!src.isFile()||!src.isReadable()||src.isSymLink()){
+            status->setText(tr("Không đọc được bản đã lưu; không sao chép."));return;
+        }
+        const QString targetDir=QDir(path).canonicalPath();
+        if(targetDir.isEmpty()){status->setText(tr("Không xác minh được thư mục đích."));return;}
+        QString destination=QDir(targetDir).filePath(src.fileName());
+        if(QFileInfo::exists(destination)||QFileInfo(destination).isSymLink()){
+            const QString stamp=QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss-zzz"));
+            destination=QDir(targetDir).filePath(src.completeBaseName()+QStringLiteral("-")+stamp+
+                (src.suffix().isEmpty()?QString():QStringLiteral(".")+src.suffix()));
+        }
+        if(QMessageBox::question(&dlg,tr("Xác nhận sao chép"),
+            tr("Tạo bản sao %1 trong thư mục %2? Nếu thư mục được Google Drive đồng bộ, tệp có thể được tải lên tài khoản Google đã đăng nhập trên máy.").arg(src.fileName(),QDir::toNativeSeparators(targetDir)),
+            QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        if(!tab||tab->activeFilePath()!=source||tab->document()->modified()||QDir(path).canonicalPath()!=targetDir){
+            status->setText(tr("Nguồn hoặc thư mục đích đã thay đổi. Chưa sao chép."));return;
+        }
+        // QFile::copy refuses an existing destination. No source edits, deletion or overwrite.
+        QFile file(source);
+        if(!file.copy(destination)){status->setText(tr("Không tạo được bản sao: %1").arg(file.errorString()));return;}
+        status->setText(tr("Đã tạo bản sao tại %1. Kiểm tra Google Drive để biết tình trạng tải lên.").arg(QDir::toNativeSeparators(destination)));
+    });
+    refresh();dlg.exec();
 }
 
 void MainWindow::showWork(int index) {
