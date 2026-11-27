@@ -53,6 +53,13 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
     horizontalScrollBar()->setSingleStep(40);
     verticalScrollBar()->setSingleStep(40);
 
+    m_tilePaintTimer.setSingleShot(true);
+    m_tilePaintTimer.setInterval(8);
+    connect(&m_tilePaintTimer,&QTimer::timeout,this,[this] {
+        const auto region=m_deferredPaint;
+        m_deferredPaint=QRegion();
+        if(isVisible()&&!region.isEmpty())viewport()->update(region);
+    });
     m_headerTimer.setSingleShot(true);
     m_headerTimer.setInterval(40);
     connect(&m_headerTimer, &QTimer::timeout, this, [this] {
@@ -129,7 +136,7 @@ void TileView::setZoom(int percent) {
     // Giữ điểm giữa màn hình khi đổi zoom
     const QPoint center = toTwips(viewport()->rect().center());
     m_zoom = percent;
-    m_tiles.clear();
+    m_tiles.clear(); m_dirtyTiles.clear(); m_deferredPaint=QRegion(); m_tilePaintTimer.stop();
     updateScrollBars();
     const QPoint h = headerSize();
     horizontalScrollBar()->setValue((int)(center.x() / twipsPerPx()) - (viewport()->width() - h.x()) / 2);
@@ -141,7 +148,7 @@ void TileView::setZoom(int percent) {
 
 void TileView::resetForPartChange() {
     m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear(); m_pickValid = false; m_pickComplete = false;
-    m_tiles.clear();
+    m_tiles.clear(); m_dirtyTiles.clear(); m_deferredPaint=QRegion(); m_tilePaintTimer.stop();
     m_selection.clear();
     m_cellArea = QRect();
     m_hasCaret = false;
@@ -216,6 +223,12 @@ void TileView::paintEvent(QPaintEvent* ev) {
         p.fillRect(page.translated(2, 2), QColor(0, 0, 0, 28));
     }
 
+    // Render a small batch per paint event. A single engine tile may still
+    // exceed the budget, but never synchronously render a whole cold viewport.
+    QElapsedTimer frameBudget;
+    frameBudget.start();
+    int rendered=0;
+    QRegion deferred;
     // ---- Tile ----
     p.save();
     p.setClipRect(content);
@@ -230,15 +243,31 @@ void TileView::paintEvent(QPaintEvent* ev) {
             if (!m_isCalc && (tx > maxTx || ty > maxTy)) continue; // ngoài trang
             const quint64 key = (quint64(tx) << 32) | quint64(ty);
             auto it = m_tiles.find(key);
-            if (it == m_tiles.end()) {
-                QImage img(kTilePx, kTilePx, QImage::Format_ARGB32_Premultiplied);
-                img.fill(Qt::white);
-                m_doc->paintTile(img.bits(), kTilePx, kTilePx, tx * tileTwips(), ty * tileTwips(), tileTwips(), tileTwips());
-                if (m_tiles.size() > 600) m_tiles.clear(); // giới hạn bộ nhớ
-                it = m_tiles.insert(key, img);
+            if(it==m_tiles.end() || m_dirtyTiles.contains(key)) {
+                if(rendered>0&&(rendered>=4||frameBudget.elapsed()>=12)) {
+                    deferred |= QRegion(target.intersected(content));
+                } else {
+                    QImage img(kTilePx,kTilePx,QImage::Format_ARGB32_Premultiplied);
+                    img.fill(Qt::white);
+                    m_doc->paintTile(img.bits(),kTilePx,kTilePx,tx*tileTwips(),ty*tileTwips(),tileTwips(),tileTwips());
+                    ++rendered;
+                    if(it==m_tiles.end()&&m_tiles.size()>=600) {
+                        // Evict one tile, not the entire viewport/cache.
+                        auto victim=m_tiles.begin();
+                        m_dirtyTiles.remove(victim.key());
+                        m_tiles.erase(victim);
+                    }
+                    it=m_tiles.insert(key,img);
+                    m_dirtyTiles.remove(key);
+                }
             }
-            p.drawImage(target.topLeft(), it.value());
+            if(it!=m_tiles.end())p.drawImage(target.topLeft(),it.value());
+            else p.fillRect(target,Qt::white);
         }
+    }
+    if(!deferred.isEmpty()) {
+        m_deferredPaint |= deferred;
+        if(!m_tilePaintTimer.isActive())m_tilePaintTimer.start();
     }
     // ---- Lớp phủ: vùng chọn, con trỏ ô, con trỏ văn bản ----
     const QRect area = cellOutlineTwips();
@@ -405,7 +434,7 @@ QVector<QRect> TileView::parseRects(const QString& s) {
 }
 
 void TileView::refreshAllTiles() {
-    m_tiles.clear();
+    for(auto it=m_tiles.cbegin();it!=m_tiles.cend();++it)m_dirtyTiles.insert(it.key());
     viewport()->update();
     if (m_isCalc) m_headerTimer.start();
 }
@@ -415,8 +444,8 @@ void TileView::invalidateTwips(const QRect& r) {
     for (auto it = m_tiles.begin(); it != m_tiles.end();) {
         const int tx = int(it.key() >> 32), ty = int(it.key() & 0xffffffff);
         const QRect tr(tx * tt, ty * tt, tt, tt);
-        if (tr.intersects(r)) it = m_tiles.erase(it);
-        else ++it;
+        if(tr.intersects(r))m_dirtyTiles.insert(it.key());
+        ++it;
     }
     viewport()->update(toView(r).intersected(viewport()->rect()));
 }
@@ -443,7 +472,7 @@ void TileView::handleEvent(int type, const QString& payload) {
             m_synthLate.start();
             break;
         }
-        if (payload.startsWith(QLatin1String("EMPTY"))) { m_tiles.clear(); viewport()->update(); break; }
+        if (payload.startsWith(QLatin1String("EMPTY"))) { refreshAllTiles(); break; }
         bool ok = false;
         QRect r = parseRect(payload, &ok);
         if (ok) {
@@ -455,11 +484,15 @@ void TileView::handleEvent(int type, const QString& payload) {
         if (m_isCalc) m_headerTimer.start();
         break;
     }
-    case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED:
-        m_doc->documentSize(m_docW, m_docH);
-        updateScrollBars();
-        if (!m_isCalc) { m_tiles.clear(); viewport()->update(); }
+    case LOK_CALLBACK_DOCUMENT_SIZE_CHANGED: {
+        const auto oldW=m_docW,oldH=m_docH;
+        m_doc->documentSize(m_docW,m_docH);
+        if(oldW!=m_docW||oldH!=m_docH) {
+            updateScrollBars();
+            if(!m_isCalc)refreshAllTiles();
+        }
         break;
+    }
     case LOK_CALLBACK_CELL_CURSOR:
         {
             const caretgeom::Parsed pc = caretgeom::parseCursorPayload(payload);
