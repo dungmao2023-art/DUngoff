@@ -25,6 +25,8 @@ public:
 
     // ---- Dành cho kiểm thử/chẩn đoán ----
     bool hasCaret() const { return m_hasCaret; }
+    bool renderPending() const { return !m_deferredPaint.isEmpty() || m_tilePaintTimer.isActive(); }
+    int peakTilesPerPaint() const { return m_peakTilesPerPaint; }
     bool hasCellCursor() const { return m_hasCell; }
     QRect caretViewRect() const;        // con trỏ chữ trong toạ độ viewport (rỗng nếu chưa có)
     QString selectedCellRange(bool verifyGesture = false); // chỉ trả về địa chỉ khi khớp hình học vùng engine và header
@@ -81,6 +83,7 @@ private:
     QSet<quint64> m_dirtyTiles; // stale images are usable only on the same part/zoom
     QRegion m_deferredPaint;
     QTimer m_tilePaintTimer;
+    int m_peakTilesPerPaint=0;
     QRect m_cellCursor, m_caret;   // twip; m_caret có thể rộng 0 nên dùng cờ m_hasCaret/m_hasCell, KHÔNG dùng isEmpty()
     QRect m_cellArea;              // vùng nhiều ô (CELL_SELECTION_AREA)
     bool m_hasCaret = false, m_hasCell = false;
