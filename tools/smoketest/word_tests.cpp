@@ -574,7 +574,19 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
             toc->waitInputIdle();
             const fs::path dest=out/"word-toc-updated.docx";
             fs::remove(dest,ec);
-            const auto saved=toc->saveAs(dest);
+            // Only consent to the newly detected, uncertain custom XML warning
+            // for this synthetic fixture, after proving the default still refuses.
+            SaveOptions options;
+            bool customXmlOnly=true, hasBlocking=false;
+            for(const auto& item:toc->featureLoss())if(item.blocking){
+                hasBlocking=true;customXmlOnly=customXmlOnly&&item.id=="xml-tuy-bien"&&!item.certain;
+            }
+            if(hasBlocking&&customXmlOnly){
+                const auto refused=toc->saveAs(dest);
+                check(!refused.ok&&!fs::exists(dest),"Mục lục: chặn lưu khi chưa xác nhận XML tùy biến");
+                options.allowFeatureLoss=true;
+            }
+            const auto saved=toc->saveAs(dest,options);
             check(saved.ok,"Lưu mục lục đã cập nhật: "+saved.message);
         }
     }

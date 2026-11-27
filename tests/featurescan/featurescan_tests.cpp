@@ -6,6 +6,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace fs = std::filesystem;
 using namespace dung;
@@ -79,6 +80,28 @@ int main(int argc, char** argv) {
             CHECK(q && q->count==2 && q->blocking && !q->certain);
             CHECK(find(v,"lien-ket-ngoai") && find(v,"lien-ket-ngoai")->blocking);
             CHECK(find(v,"chu-ky-ooxml") && find(v,"chu-ky-ooxml")->blocking);
+        }
+        {
+            const auto extended=classifyEntries({
+                "word/embeddings/oleObject1.bin","ppt/embeddings/Microsoft_Excel_Worksheet.xlsx",
+                "xl/embeddings/","word/embeddings/_rels/object.xml.rels",
+                "customXml/item1.xml","customXml/itemProps1.xml","customXml/_rels/item1.xml.rels",
+                "xl/threadedComments/threadedComment1.xml","xl/threadedComments/_rels/threadedComment1.xml.rels",
+                "xl/richData/rdRichValue.xml","xl/richData/_rels/rdRichValue.xml.rels","xl/metadata.xml",
+                "xl/vbaProjectSignature.bin","xl/vbaProjectSignatureAgile.bin","xl/vbaProjectSignatureV3.bin",
+                "customUI/customUI.xml","customUI/customUI14.xml"});
+            const std::vector<std::pair<std::string,int>> expected={
+                {"doi-tuong-nhung",2},{"xml-tuy-bien",1},{"binh-luan-luong",1},
+                {"du-lieu-nang-cao",2},{"chu-ky-vba",3},{"ribbon-tuy-bien",2}};
+            CHECK(extended.size()==expected.size());
+            for(const auto& e:expected){
+                const auto* item=find(extended,e.first);
+                CHECK(item&&item->count==e.second&&!item->certain&&item->blocking);
+            }
+            CHECK(!find(extended,"macro")); // signature alone does not prove VBA is present
+            CHECK(classifyEntries({"word/comments.xml","xl/comments/comment1.xml","xl/styles.xml",
+                "word/media/image1.png","ppt/media/image1.png","customXml/itemProps1.xml"}).empty());
+            CHECK(describeFeatureLoss(extended).find("có thể")!=std::string::npos);
         }
         CHECK(find(classifyEntries({"word/activeX/activeX1.xml"}), "activex")->certain == false);
         CHECK(classifyEntries({"ppt/slideMasters/slideMaster1.xml"}).empty());  // một master: không cảnh báo
@@ -169,7 +192,15 @@ int main(int argc, char** argv) {
         CHECK(pv.scanned && pv.items.empty());
         auto pp = scanFeatureLoss(fx / "features.pptx");
         // features.pptx: 1 master + 11 bố cục -> báo "có thể" (đúng với số đo trong docs/PPTX_LIMITS.md)
-        CHECK(pp.scanned && pp.items.size() == 1 && pp.items[0].id == "master-tach" && pp.items[0].count == 11);
+        const auto* master=find(pp.items,"master-tach");
+        CHECK(pp.scanned && master && master->count==11 && !master->blocking);
+        // New part-name warnings may coexist with the existing master warning.
+        // Do not suppress an unexpected old warning or a claim of proven loss.
+        for(const auto& item:pp.items)if(item.id!="master-tach"){
+            std::printf("fixture PPTX: %s (%d)\n",item.id.c_str(),item.count);
+            CHECK(!item.certain && item.blocking && (item.id=="doi-tuong-nhung" ||
+                item.id=="xml-tuy-bien" || item.id=="ribbon-tuy-bien" || item.id=="chu-ky-vba"));
+        }
     }
 
     std::printf("%d/%d kiểm tra đạt\n", g_n - g_fail, g_n);
