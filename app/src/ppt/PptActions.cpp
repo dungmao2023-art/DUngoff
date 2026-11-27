@@ -186,11 +186,11 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             }
             bb->button(QDialogButtonBox::Ok)->setEnabled(result.ok);
             note->setText(effects.isEmpty()?QObject::tr("Thêm hiệu ứng; dòng đầu phải là khi nhấp chuột."):
-                result.ok?QObject::tr("Timeline dự kiến theo từng lần nhấp. Mỗi đối tượng chỉ có một hiệu ứng. Chưa phát thử trực tiếp; kiểm tra trong PowerPoint sau khi xuất."):result.error);
+                result.ok?QObject::tr("Timeline dự kiến theo từng lần nhấp. Mỗi đối tượng có tối đa một hiệu ứng vào rồi một hiệu ứng ra, không chồng thời gian. Chưa phát thử trực tiếp; kiểm tra trong PowerPoint sau khi xuất."):result.error);
         };
         auto refresh = [&](int row) {
             { QSignalBlocker block(list);list->clear();
-              for(const auto& o:effects){auto* item=new QListWidgetItem(list);item->setData(Qt::UserRole,o.shapeId);}
+              for(int i=0;i<effects.size();++i){auto* item=new QListWidgetItem(list);item->setData(Qt::UserRole,i);}
               updateTimeline();
             }
             list->setCurrentRow(row);
@@ -199,14 +199,11 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         };
         auto syncOrder=[&] {
             if(list->count()!=effects.size())return false;
-            QList<ppttransition::AnimationOptions> ordered;QSet<unsigned> seen;
+            QList<ppttransition::AnimationOptions> ordered;QSet<int> seen;
             for(int i=0;i<list->count();++i){
-                const unsigned id=list->item(i)->data(Qt::UserRole).toUInt();
-                if(seen.contains(id))return false;
-                bool found=false;
-                for(const auto& o:effects)if(o.shapeId==id){ordered.append(o);found=true;break;}
-                if(!found)return false;
-                seen.insert(id);
+                bool ok=false;const int index=list->item(i)->data(Qt::UserRole).toInt(&ok);
+                if(!ok || index<0 || index>=effects.size() || seen.contains(index))return false;
+                ordered.append(effects[index]);seen.insert(index);
             }
             effects=ordered;return true;
         };
@@ -219,8 +216,9 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             }
             refresh(selected);
         };
-        auto duplicate = [&](unsigned id, int except) {
-            for (int i=0;i<effects.size();++i) if (i!=except && effects[i].shapeId==id) return true;
+        auto duplicate = [&](const ppttransition::AnimationOptions& candidate, int except) {
+            for (int i=0;i<effects.size();++i)
+                if (i!=except && effects[i].shapeId==candidate.shapeId && effects[i].exit==candidate.exit) return true;
             return false;
         };
         QObject::connect(list,&QListWidget::currentRowChanged,&dialog,[&](int row) {
@@ -231,12 +229,12 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         });
         QObject::connect(add,&QPushButton::clicked,&dialog,[&] {
             const auto o=read();
-            if (effects.size()>=100 || duplicate(o.shapeId,-1)) { QMessageBox::information(&dialog,QObject::tr("Hoạt ảnh"),QObject::tr("Đối tượng đã có hiệu ứng hoặc danh sách đủ 100 dòng.")); return; }
+            if (effects.size()>=100 || duplicate(o,-1)) { QMessageBox::information(&dialog,QObject::tr("Hoạt ảnh"),QObject::tr("Đối tượng đã có hiệu ứng cùng loại vào/ra hoặc danh sách đủ 100 dòng.")); return; }
             effects.append(o); refresh(int(effects.size())-1);
         });
         QObject::connect(edit,&QPushButton::clicked,&dialog,[&] {
             const int row=list->currentRow(); if(row<0) return; const auto o=read();
-            if(duplicate(o.shapeId,row)) { QMessageBox::information(&dialog,QObject::tr("Hoạt ảnh"),QObject::tr("Đối tượng đã có hiệu ứng ở dòng khác.")); return; }
+            if(duplicate(o,row)) { QMessageBox::information(&dialog,QObject::tr("Hoạt ảnh"),QObject::tr("Đối tượng đã có hiệu ứng cùng loại vào/ra ở dòng khác.")); return; }
             effects[row]=o; refresh(row);
         });
         QObject::connect(quick,&QPushButton::clicked,&dialog,[&] {
