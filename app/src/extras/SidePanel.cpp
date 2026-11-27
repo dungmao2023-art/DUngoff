@@ -100,15 +100,14 @@ void SidePanel::showPage(int index) {
 
 void SidePanel::toggleContent() { showPage(m_lastPage); }
 
-void SidePanel::flush() {
-    if (m_saveTimer->isActive()) {
-        m_saveTimer->stop();
-        saveNow();
-    }
+bool SidePanel::flush() {
+    m_saveTimer->stop();
+    if(m_dirty)saveNow();
+    return !m_dirty;
 }
 
 void SidePanel::scheduleSave() {
-    if (!m_loading) m_saveTimer->start();
+    if(!m_loading){m_dirty=true;m_saveTimer->start();}
 }
 
 void SidePanel::saveNow() {
@@ -118,8 +117,11 @@ void SidePanel::saveNow() {
     o.insert(QStringLiteral("dayNotes"), m_dayNotes);
     o.insert(QStringLiteral("contacts"), m_contacts);
     o.insert(QStringLiteral("version"), 1);
-    if (!workspace::save(QStringLiteral("workspace"), o))
-        QMessageBox::warning(this, tr("Dũng Office"), tr("Không lưu được ghi chú/lịch/liên hệ vào thư mục dữ liệu."));
+    if(workspace::save(QStringLiteral("workspace"),o))m_dirty=false;
+    else {
+        m_dirty=true;
+        QMessageBox::warning(this,tr("Dũng Office"),tr("Không lưu được ghi chú/lịch/liên hệ. Dữ liệu vẫn trong phiên làm việc; kiểm tra thư mục dữ liệu rồi thử lại khi đóng ứng dụng."));
+    }
 }
 
 void SidePanel::load() {

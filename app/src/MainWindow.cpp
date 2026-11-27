@@ -1287,7 +1287,7 @@ void MainWindow::showAbout() {
 }
 
 void MainWindow::closeEvent(QCloseEvent* e) {
-    m_side->flush();
+    if(!m_side->flush()){e->ignore();return;}
     m_projects->flush();
     while (m_tabs->count() > 0) {
         selectDocumentTab(0);

@@ -24,7 +24,7 @@ public:
     explicit SidePanel(QWidget* parent = nullptr);
     void toggleContent();
     void showPage(int index);
-    void flush(); // ghi ngay các thay đổi đang chờ (gọi khi đóng ứng dụng)
+    bool flush(); // false nếu vẫn còn thay đổi chưa lưu
 
 private:
     QWidget* buildNotes();
@@ -46,6 +46,7 @@ private:
     int m_lastPage = 0;
     QTimer* m_saveTimer;
     bool m_loading = false;
+    bool m_dirty = false;
 
     // Ghi chú
     QJsonArray m_notes;

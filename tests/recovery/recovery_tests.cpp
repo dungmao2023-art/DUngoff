@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 // Kiểm thử kho bản phục hồi. Tự chạy lại chính nó làm "tiến trình con" để mô phỏng sập (thoát không dọn).
 #include "RecoveryStore.h"
+#include "../../app/src/extras/WorkspaceStore.h"
+#include <QJsonObject>
+#include <QLockFile>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -35,6 +38,24 @@ int main(int argc, char** argv) {
 
     QTemporaryDir td;
     CHECK(td.isValid(), "tạo thư mục tạm");
+    {
+        const QString path=td.filePath("workspace-test.json");
+        const QJsonObject value{{QStringLiteral("name"),QStringLiteral("Lịch tiếng Việt")}};
+        CHECK(workspace::saveFile(path,value),"workspace JSON saved");
+        CHECK(workspace::loadFile(path)==value,"workspace Unicode roundtrip");
+        CHECK(writeFile(path,"{bad"),"create corrupt workspace fixture");
+        CHECK(!workspace::saveFile(path,value),"refuse overwrite corrupt workspace");
+        QFile raw(path);CHECK(raw.open(QIODevice::ReadOnly)&&raw.readAll()=="{bad","corrupt bytes unchanged");raw.close();
+        CHECK(writeFile(path+".hong","older backup"),"existing quarantine fixture");
+        CHECK(workspace::loadFile(path).isEmpty(),"corrupt workspace quarantined");
+        QFile old(path+".hong");CHECK(old.open(QIODevice::ReadOnly)&&old.readAll()=="older backup","earlier quarantine preserved");old.close();
+        CHECK(QDir(td.path()).entryList(QStringList{"workspace-test.json.hong-*"},QDir::Files).size()==1,"new unique quarantine");
+        CHECK(workspace::saveFile(path,value),"save after quarantine");
+        QLockFile busy(path+".lock");CHECK(busy.tryLock(),"hold workspace lock");
+        CHECK(!workspace::saveFile(path,QJsonObject()),"refuse simultaneous write");
+        busy.unlock();
+        CHECK(workspace::loadFile(path)==value,"locked attempt preserved workspace");
+    }
     const QString dir = td.path() + "/recovery-" + QString(40, QChar('x'));  // đường dẫn dài một chút
     recovery::setDirForTest(dir);
 

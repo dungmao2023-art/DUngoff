@@ -283,3 +283,6 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - Batch 4: PR #124 CI 45993822603 Windows/Linux PASS, merged efc77614a9e35664aa7c32ab95ad0278f095a6eb. UI bỏ quicklinks trùng, tìm kiếm có nút đóng/mở, chuyển cùng kho workspace.json sang trang Ghi chú/Lịch/Liên hệ; chụp thêm 3 trang. Mẫu có cảnh báo thay đổi và link https://csdl.dichvucong.gov.vn/ . Google Drive: tùy chọn thư mục đồng bộ cục bộ do người dùng chọn, chỉ sao chép bản đã lưu theo xác nhận, không ghi đè, không lưu mật khẩu/token, không tự upload hoặc xác nhận đồng bộ; Google Drive for desktop xử lý. Cần nghiệm thu GUI và Drive thật, chưa CI batch 4.
 
 - Batch 4: thêm kiểm tra widget thực SUM, VLOOKUP, TODAY và ảnh kết quả, CI chặn lỗi Basic UI; sửa hủy chọn, phạm vi tự lấy tham chiếu và giữ vùng kết quả khi sửa; bộ cài chỉ upload sau E2E đạt. Chưa chạy CI.
+
+## Batch 5 — chưa kích hoạt CI theo yêu cầu
+- E03: workspace JSON kiểm tra đủ byte ghi, từ chối ghi đè tệp hỏng/khóa/symlink, giữ bản hỏng cũ bằng tên riêng; chặn đóng cửa sổ nếu ghi chú/lịch/liên hệ còn lỗi lưu. Thêm test Unicode, quarantine và khóa ghi. Khóa chỉ bảo vệ lúc I/O, chưa giải quyết xung đột hai phiên đã đọc dữ liệu cũ. Không mở PR hoặc build mới trước báo cáo sẵn sàng.

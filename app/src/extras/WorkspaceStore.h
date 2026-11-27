@@ -12,4 +12,7 @@ QString dataDir();
 QJsonObject load(const QString& name);
 // Ghi nguyên tử (QSaveFile). Trả false nếu lỗi.
 bool save(const QString& name, const QJsonObject& obj);
+// Explicit paths for isolated tests; same atomic write/quarantine policy.
+QJsonObject loadFile(const QString& path);
+bool saveFile(const QString& path,const QJsonObject& obj);
 }
