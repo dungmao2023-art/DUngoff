@@ -108,6 +108,28 @@ void DocumentTab::excelAction(const QString& id) {
         }
         cmd(down?".uno:FillDown":".uno:FillRight");
         m_doc->waitInputIdle();m_view->setFocus();return;
+    } else if(a==QLatin1String("sortAscending")||a==QLatin1String("sortDescending")){
+        const bool descending=a==QLatin1String("sortDescending");
+        const QString title=descending?tr("Sắp xếp giảm dần"):tr("Sắp xếp tăng dần");
+        const QString cell=m_view->selectedCellRange();
+        // An explicitly selected multi-column range can split related rows.
+        // Use the existing native auto-region sort from one confirmed key cell.
+        if(dataassist::bridgeCellAddress(ss(cell)).empty()){
+            QMessageBox::information(this,title,tr("Chọn một ô dữ liệu trong cột cần sắp xếp. Không chọn riêng một dải ô; engine sẽ tự xác định vùng dữ liệu liên tục."));
+            return;
+        }
+        const auto before=m_doc->selectionAs("text/plain;charset=utf-8");
+        if(before.empty()){
+            QMessageBox::information(this,title,tr("Chọn ô có dữ liệu trong cột khóa, không chọn ô trống."));return;
+        }
+        if(QMessageBox::question(this,title,
+            tr("Sheet: %1 · ô khóa %2.\nEngine sẽ tự nhận diện vùng dữ liệu liên tục quanh ô khóa và sắp xếp các dòng. Hãy kiểm tra bảng có tiêu đề, không có dòng/cột trống ngắt vùng; dữ liệu ngoài vùng tự nhận diện có thể không di chuyển theo. Nên lưu bản sao trước. Tiếp tục?")
+            .arg(qs(originalSheet),cell),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        if(!sameSheet()||!m_view||m_view->selectedCellRange()!=cell||m_doc->selectionAs("text/plain;charset=utf-8")!=before){
+            QMessageBox::warning(this,title,tr("Ô khóa, sheet hoặc nội dung đã thay đổi. Chưa sắp xếp."));return;
+        }
+        cmd(descending?".uno:SortDescending":".uno:SortAscending");
+        m_doc->waitInputIdle();m_view->setFocus();return;
     } else if (a == QLatin1String("insertChart")) {
         m_doc->waitInputIdle();
         const QString range=m_view->selectedCellRange();

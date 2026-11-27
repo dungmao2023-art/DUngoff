@@ -31,6 +31,10 @@ def build(dest):
     ws2["E3"], ws2["E4"] = "old3", "old4"
     ws2["G2"] = "=A2+$B$2"
     ws2["H2"], ws2["I2"] = "oldH", "oldI"
+    # Independent contiguous table for the ascending native sort.
+    for row, values in enumerate([("Khóa", "Mã", "Giá trị"), (3, "003", 30), (1, "001", 10), (2, "002", 20)], start=10):
+        for col, value in enumerate(values, start=11):
+            ws2.cell(row, col, value)
     os.makedirs(dest, exist_ok=True)
     p = os.path.join(dest, "excel-co-ban.xlsx")
     wb.save(p)

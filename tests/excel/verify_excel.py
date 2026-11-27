@@ -27,6 +27,10 @@ def basic(path):
     check({ws.cell(r, 2).value for r in rows} == {1500.5, 300, 45, 20, 7}, "Giá trị số giữ nguyên, không bị ép kiểu")
     check({ws.cell(r, 1).value for r in rows} == {"Zút", "Thước", "Mực", "Vở", "Kẹp"},
           "Thay thế chỉ đổi văn bản (Bút→Zút), tên khác giữ nguyên")
+    expected = {"Zút": (1500.5, dt.datetime(2026,3,1)), "Vở": (20, dt.datetime(2026,1,15)),
+                "Thước": (300, dt.datetime(2026,2,10)), "Kẹp": (7, dt.datetime(2026,5,5)), "Mực": (45, dt.datetime(2026,4,4))}
+    check({ws.cell(r,1).value: (ws.cell(r,2).value, ws.cell(r,3).value) for r in rows} == expected,
+          "Sắp xếp giữ đúng liên kết tên, số tiền và ngày của mỗi dòng")
     vals = [ws.cell(r, 2).value for r in rows]
     check(vals == sorted(vals, reverse=True), f"Sắp xếp giảm dần: {vals}")
     check(all(ws.cell(r, 4).value == f"=B{r}*2" for r in rows),
@@ -64,6 +68,9 @@ def basic(path):
           "Kết quả FillDown được tính đúng sau lưu XLSX")
     check([cached[f"{col}2"].value for col in ("G","H","I")] == [15,10,12],
           "Kết quả FillRight được tính đúng sau lưu XLSX")
+    check([tuple(fill.cell(r,c).value for c in (11,12,13)) for r in range(10,14)] ==
+          [("Khóa","Mã","Giá trị"), (1,"001",10), (2,"002",20), (3,"003",30)],
+          "SortAscending giữ tiêu đề và liên kết toàn dòng, mã 0 đầu không đổi")
     # AutoSum chỉ để thông tin
     for r in range(ws.max_row - 3, ws.max_row + 1):
         v = ws.cell(r, 2).value

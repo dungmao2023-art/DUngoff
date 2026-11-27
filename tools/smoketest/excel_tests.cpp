@@ -214,6 +214,9 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
         doc->command(".uno:FillDown");doc->waitInputIdle();settle();
         selectRange("G2:I2");
         doc->command(".uno:FillRight");doc->waitInputIdle();settle();
+        step("sắp xếp tăng dần bảng độc lập trên sheet Phụ");
+        gotoCell(*doc,"K11");
+        doc->command(".uno:SortAscending");doc->waitInputIdle();settle(800);
         doc->setPart(0);doc->waitInputIdle();
     }
 
