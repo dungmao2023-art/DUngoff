@@ -820,11 +820,23 @@ bool Document::saveRecoveryCopy(const fs::path& dest, std::string* error) {
     if (!ok) { fs::remove(stage, ec); return fail("Engine không ghi được bản phục hồi."); }
     std::string why;
     if (!looksValid(stage, ext, why)) { fs::remove(stage, ec); return fail("Bản phục hồi không hợp lệ (" + why + ")."); }
+    // Keep the operation error separate from cleanup: a successful remove()
+    // must never turn a failed copy into an apparently successful one.
+    std::error_code cleanup;
     fs::create_directories(longPath(dest.parent_path()), ec);
+    if (ec) {
+        const auto message = ec.message();
+        fs::remove(longPath(stage), cleanup);
+        return fail("Không tạo được thư mục phục hồi: " + message);
+    }
     fs::path sibling = dest.parent_path() / fs::u8path("~rec-" + randomToken() + ".tmp");
     fs::copy_file(longPath(stage), longPath(sibling), fs::copy_options::none, ec);
-    fs::remove(stage, ec);
-    if (ec) return fail("Không ghi được bản phục hồi: " + ec.message());
+    fs::remove(longPath(stage), cleanup);
+    if (ec) {
+        const auto message = ec.message();
+        fs::remove(longPath(sibling), cleanup);
+        return fail("Không ghi được bản phục hồi: " + message);
+    }
     fs::rename(longPath(sibling), longPath(dest), ec);
     if (ec) {
         const std::string em = ec.message();
