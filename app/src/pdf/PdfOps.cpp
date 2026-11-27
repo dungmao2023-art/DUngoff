@@ -423,11 +423,15 @@ Result extract(const Input& in, const QString& pagesSpec, const QString& dest, b
     }
     PasswordFile pw(in.password);
     res = writeSafely({in.path}, dest, allowReplace, [&](const QString& tmp) {
-        QStringList a = pw.args();
+        QStringList a = pw.args(false);
+        // An owner-password-only PDF opens with an empty user password but
+        // is still encrypted. After the UI confirms an unprotected export,
+        // request decryption explicitly instead of inferring it from input.
+        if (inf.encrypted) a << QStringLiteral("--decrypt");
         a << in.path << QStringLiteral("--pages") << QStringLiteral(".") << rangeFromIndexes(idx) << QStringLiteral("--") << tmp;
         return a;
     });
-    if (res.ok && !in.password.isEmpty()) res.warnings << tr("Kết quả không còn mật khẩu.");
+    if (res.ok && inf.encrypted) res.warnings << tr("Kết quả không còn mật khẩu.");
     return res;
 }
 
@@ -564,11 +568,16 @@ Result rotate(const Input& in, const QString& pagesSpec, int degrees, const QStr
         return res;
     }
     QString perr;
-    const QList<int> idx = parsePages(pagesSpec, inf.pages, &perr);
-    if (idx.isEmpty()) {
+    // The rotate UI explicitly promises blank = all pages. Keep the
+    // general parser strict for extraction/deletion where blank is unsafe.
+    const auto selected=parsePages(pagesSpec.trimmed().isEmpty()?QStringLiteral("1-"):pagesSpec,inf.pages,&perr);
+    if (selected.isEmpty()) {
         res.error = perr;
         return res;
     }
+    QList<int> idx;
+    QSet<int> seen;
+    for(int page:selected)if(!seen.contains(page)){seen.insert(page);idx<<page;}
     PasswordFile pw(in.password);
     res = writeSafely({in.path}, dest, allowReplace, [&](const QString& tmp) {
         QStringList a = pw.args();

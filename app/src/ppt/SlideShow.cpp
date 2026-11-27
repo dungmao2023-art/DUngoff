@@ -47,12 +47,10 @@ bool SlideShow::hidden(int part) {
 void SlideShow::go(int delta) {
     if (m_blank != 0) { m_blank = 0; update(); return; }
     if (m_part < 0 || m_count <= 0) return;
-    int p = m_part;
-    for (;;) {
-        p += delta;
-        if (p < 0) return;
-        if (p >= m_count) { close(); return; } // hết bài thì thoát
-        if (m_visible[p]) break;                 // bỏ qua trang đã ẩn
+    const int p=slideshow::adjacentVisible(m_visible,m_part,delta);
+    if(p<0){
+        if(delta==1)close(); // hết bài thì thoát; lùi ở đầu thì giữ slide
+        return;
     }
     m_part = p;
     render();
@@ -113,6 +111,11 @@ void SlideShow::keyPressEvent(QKeyEvent* e) {
         return;
     }
     m_digits.clear();
+    if (!(e->modifiers() & (Qt::ControlModifier|Qt::AltModifier|Qt::MetaModifier))) {
+        if(e->key()==Qt::Key_N || e->key()==Qt::Key_P){
+            go(e->key()==Qt::Key_N?1:-1);e->accept();return;
+        }
+    }
     switch (e->key()) {
     case Qt::Key_Escape: close(); break;
     case Qt::Key_Right: case Qt::Key_Down: case Qt::Key_PageDown: case Qt::Key_Space: case Qt::Key_Return: case Qt::Key_Enter: go(+1); break;

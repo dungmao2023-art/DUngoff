@@ -317,6 +317,14 @@ int main(int argc, char** argv) {
     CHECK(!rotate({a, {}}, QStringLiteral("1"), 360, P(QStringLiteral("x360.pdf"))).ok, "xoay: góc 360 độ không có gì để làm");
     r = rotate({a, {}}, QStringLiteral("1-"), -90, P(QStringLiteral("xoay-trai.pdf")));
     CHECK(r.ok && readFile(P(QStringLiteral("xoay-trai.pdf"))).contains("/Rotate 270"), "xoay -90 độ thành 270");
+    const QString rotateAll=P(QStringLiteral("rotate-all-empty.pdf"));
+    r=rotate({a,{}},QStringLiteral("   "),90,rotateAll);
+    CHECK(r.ok&&info(rotateAll).pages==3&&readFile(rotateAll).count("/Rotate 90")==3,"blank rotation selection rotates every page");
+    const QString rotateOverlap=P(QStringLiteral("rotate-overlap.pdf"));
+    r=rotate({a,{}},QStringLiteral("1,1-2,2"),90,rotateOverlap);
+    CHECK(r.ok&&info(rotateOverlap).pages==3&&readFile(rotateOverlap).count("/Rotate 90")==2&&!readFile(rotateOverlap).contains("/Rotate 180"),"overlapping page ranges rotate each page once");
+    CHECK(!rotate({a,{}},QStringLiteral("4"),90,P(QStringLiteral("rotate-invalid.pdf"))).ok&&!QFile::exists(P(QStringLiteral("rotate-invalid.pdf"))),"invalid rotation range publishes nothing");
+    CHECK(readFile(a)==aBytes,"blank and overlapping rotations preserve source bytes");
 
     // --- compress
     r = compress({a, {}}, P(QStringLiteral("nen.pdf")));
@@ -368,6 +376,15 @@ int main(int argc, char** argv) {
         const auto ownerInfo=info(ownerOnly);
         CHECK(ownerInfo.ok&&ownerInfo.encrypted&&ownerInfo.pages==3,"encrypted PDF with empty user password still requires encryption warning");
     }
+    // Empty user password still means the source is encrypted. Export
+    // after UI consent must report that the result has lost protection.
+    const auto ownerBytes=readFile(ownerOnly);
+    const auto ownerExtract=P(QStringLiteral("owner-extracted.pdf"));
+    const auto ownerResult=extract({ownerOnly,{}},QStringLiteral("1"),ownerExtract);
+    const auto ownerOutput=info(ownerExtract);
+    CHECK(ownerResult.ok&&ownerOutput.ok&&!ownerOutput.encrypted&&ownerOutput.pages==1,"owner-only PDF extraction produces readable one-page copy");
+    CHECK(ownerResult.warnings.join(QStringLiteral(" ")).contains(QStringLiteral("Kết quả không còn mật khẩu.")),"owner-only PDF extraction reports decryption");
+    CHECK(readFile(ownerOnly)==ownerBytes,"owner-only PDF source remains byte-identical");
     // --- mật khẩu
     const QString enc = P(QStringLiteral("mat-khau.pdf"));
     {
