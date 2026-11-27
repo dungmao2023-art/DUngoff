@@ -77,7 +77,45 @@ int main(int argc, char **argv)
         CHECK(!decodeFilterSortRecipe(QByteArray("{bad"), src.header, loaded, error), "từ chối JSON hỏng");
         CHECK(loaded.filterCol == spec.filterCol && loaded.value == spec.value, "cấu hình lỗi không ghi đè lựa chọn hiện tại");
         auto invalid = json; invalid.replace("\"version\": 1", "\"version\": 2");
-        CHECK(!decodeFilterSortRecipe(invalid, src.header, loaded, error), "từ chối phiên bản không hỗ trợ");
+        CHECK(!decodeFilterSortRecipe(invalid, src.header, loaded, error), "từ chối cấu hình v2 thiếu cột");
+        spec.outputColumns={2,0}; spec.outputNames={"Điện thoại","Mã"};
+        const auto projected=filterSort(src,spec);
+        CHECK(projected.ok && projected.table.header==spec.outputNames && projected.table.rows.size()==3,"project selected columns after filter");
+        CHECK(projected.table.rows.value(0).value(0)=="0912345678" && projected.table.rows.value(0).value(1)=="010","projection follows sort and preserves text");
+        const auto v2=encodeFilterSortRecipe(src.header,spec);
+        CHECK(decodeFilterSortRecipe(v2,src.header,loaded,error) && filterSort(src,loaded).table==projected.table,"v2 recipe roundtrip");
+        CHECK(decodeFilterSortRecipe(json,src.header,loaded,error) && loaded.outputColumns.isEmpty(),"v1 recipe remains compatible");
+        auto bad=spec; bad.outputNames={"Mã","mã"};
+        CHECK(!filterSort(src,bad).ok,"reject duplicate output names");
+        bad=spec; bad.outputColumns={2,2};
+        CHECK(!filterSort(src,bad).ok,"reject duplicate source columns");
+        bad=spec; bad.outputColumns={2,99};
+        CHECK(!filterSort(src,bad).ok,"reject invalid source column");
+        bad=spec; bad.outputNames={"","Mã"};
+        CHECK(!filterSort(src,bad).ok,"reject empty output name");
+        auto ragged=src; ragged.rows.append(QStringList{"001"});
+        CHECK(!filterSort(ragged,spec).ok,"reject projection of ragged rows");
+    }
+
+    // ---- Fixed-order query pipeline, with v3 recipes ----
+    {
+        const Table src=T({"ID","Amount","City"},{{"001","1.234,50","X"},{"001","99","X"},{"002","1.234,50","Y"},{"","1.234,50","X"},{"","1.234,50","X"}});
+        const Table before=src;
+        FilterSortSpec p;p.cleanCol=1;p.cleanKind=ColumnKind::Money;p.filterCol=1;p.value="1234.5";
+        p.dedupCol=0;p.sortCol=0;p.outputColumns={1,0};p.outputNames={"Tien","Ma"};
+        auto r=filterSort(src,p);
+        CHECK(r.ok && r.table.rows.size()==4 && r.filteredRows==1 && r.removedDuplicates==0,"clean before filter, retain blank keys");
+        CHECK(r.table.rows.value(2).value(1)=="001" && r.table.rows.value(2).value(0)=="1234.5" && src==before,"sort/project preserves IDs and source");
+        p.filterCol=-1;r=filterSort(src,p);
+        CHECK(r.ok && r.removedDuplicates==1 && r.table.rows.size()==4 && r.table.rows.value(2).value(0)=="1234.5","dedup keeps first source record");
+        const auto json=encodeFilterSortRecipe(src.header,p);FilterSortSpec decoded;QString error;
+        CHECK(decodeFilterSortRecipe(json,src.header,decoded,error) && filterSort(src,decoded).table==r.table,"v3 pipeline recipe roundtrip");
+        CHECK(decoded.cleanCol==1 && decoded.dedupCol==0 && decoded.cleanKind==ColumnKind::Money,"v3 settings restored");
+        p.outputColumns.clear();p.outputNames.clear();
+        CHECK(decodeFilterSortRecipe(encodeFilterSortRecipe(src.header,p),src.header,decoded,error)&&decoded.outputColumns.isEmpty(),"v3 without projection");
+        p.cleanCol=-1;CHECK(!filterSort(src,p).ok,"reject invalid cleaning spec");
+        p.cleanCol=99;CHECK(!filterSort(src,p).ok,"reject invalid clean column");
+        p.cleanCol=1;p.dedupCol=99;CHECK(!filterSort(src,p).ok,"reject invalid dedup column");
     }
 
     // ---- Ghép bảng ----
@@ -238,6 +276,27 @@ int main(int argc, char **argv)
         const QString outp = d2.filePath("moi.csv");
         CHECK(writeCsvCopy(outp, t1, er), "ghi bản sao UTF-8 từ tệp Windows-1258");
         Table t2; CHECK(readCsv(outp, t2, er) && t2 == t1, "bản sao đọc lại nguyên vẹn");
+    }
+
+    // ---- Exact decimal group aggregation ----
+    {
+        const Table src=T({"ID","Amount"},{{"001","0.1"},{"001","0.2"},{"1","-0.0001"},{"",""},{"A","1.2345"},{"A","-1.2345"}});
+        const Table before=src;
+        auto r=groupCsv(src,0,1);
+        CHECK(r.ok && r.table.rows.size()==4 && r.table.rows.value(0).value(3)=="0.3","exact decimal sum");
+        CHECK(r.table.rows.value(1).value(0)=="1" && r.table.rows.value(1).value(3)=="-0.0001","preserve key and negative fraction");
+        CHECK(r.table.rows.value(2).value(0).isEmpty() && r.table.rows.value(2).value(2)=="0" && r.table.rows.value(2).value(3).isEmpty(),"blank key grouped, blank value excluded");
+        CHECK(r.table.rows.value(3).value(3)=="0" && src==before,"cancellation exact, source unchanged");
+        auto count=groupCsv(src,0);
+        CHECK(count.ok && count.table.rows.value(0).value(1)=="2" && count.table.header.size()==2,"count only");
+        for(const QString& bad:QStringList{"001","1,2","1.00001","1e2"," 1","999999999999999","=1+2","1\n"}) {
+            CHECK(!groupCsv(T({"ID","Amount"},{{"A",bad}}),0,1).ok,"reject noncanonical or out of range number");
+        }
+        CHECK(!groupCsv(T({"ID","Amount"},{{"A"}}),0,1).ok,"reject ragged input");
+        CHECK(!groupCsv(src,0,0).ok && !groupCsv(src,99,1).ok,"reject invalid columns");
+        Table huge=T({"ID","Amount"},{});
+        for(int i=0;i<10;++i)huge.rows.append(QStringList{"A","99999999999999.9999"});
+        CHECK(!groupCsv(huge,0,1).ok,"reject sum overflow");
     }
 
     // XLSX worksheet XML: read-only raw-value subset, no implicit evaluation.

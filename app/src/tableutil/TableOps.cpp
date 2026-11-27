@@ -7,6 +7,7 @@
 #include <QRegularExpression>
 #include <QTextStream>
 #include <algorithm>
+#include <limits>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -281,6 +282,70 @@ bool writeCsvCopy(const QString &path, const Table &t, QString &error, QChar sep
     return true;
 }
 
+// ---------------- Exact CSV group summary ----------------
+CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol)
+{
+    CsvGroupResult r;
+    if(keyCol<0 || keyCol>=source.header.size() || valueCol<-1 || valueCol>=source.header.size() || keyCol==valueCol) {
+        r.error=QObject::tr("Chọn cột nhóm và cột số hợp lệ, khác nhau."); return r;
+    }
+    struct Group { QString key; qsizetype rows=0,numbers=0; qint64 sum=0; };
+    QList<Group> groups; QHash<QString,qsizetype> indices;
+    // No thousands separators, leading-zero codes, exponents or implicit rounding.
+    static const QRegularExpression canonical(QStringLiteral(R"(^-?(?:0|[1-9][0-9]{0,13})(?:\.[0-9]{1,4})?\z)"));
+    for(qsizetype i=0;i<source.rows.size();++i) {
+        const auto& row=source.rows[i];
+        if(row.size()!=source.header.size()) { r.error=QObject::tr("Bản ghi %1 sai số cột.").arg(i+2); return r; }
+        const auto& key=row[keyCol];
+        if(!indices.contains(key)) {
+            if(groups.size()>=5000) { r.error=QObject::tr("Quá 5.000 nhóm; hãy lọc nguồn trước."); return r; }
+            indices.insert(key,groups.size()); Group g;g.key=key;groups.append(g);
+        }
+        auto& g=groups[indices.value(key)]; ++g.rows;
+        if(valueCol<0 || row[valueCol].isEmpty()) continue;
+        const auto& value=row[valueCol];
+        if(!canonical.match(value).hasMatch()) {
+            r.error=QObject::tr("Bản ghi %1: số không đúng dạng chuẩn (tối đa 14 chữ số nguyên và 4 chữ số thập phân). Hãy làm sạch cột số trước.").arg(i+2); return r;
+        }
+        const bool negative=value.startsWith(QLatin1Char('-'));
+        const QString magnitude=negative?value.mid(1):value;
+        const auto parts=magnitude.split(QLatin1Char('.'));
+        bool ok=false;
+        const qint64 integer=parts.first().toLongLong(&ok);
+        if(!ok) { r.error=QObject::tr("Số không hợp lệ.");return r; }
+        const qint64 fraction=parts.size()==2?parts[1].leftJustified(4,QLatin1Char('0')).toLongLong():0;
+        const qint64 scaled=(integer*10000+fraction)*(negative?-1:1);
+        if((scaled>0 && g.sum>(std::numeric_limits<qint64>::max)()-scaled) ||
+           (scaled<0 && g.sum<(std::numeric_limits<qint64>::min)()-scaled)) {
+            r.error=QObject::tr("Tổng nhóm vượt phạm vi số hỗ trợ; không xuất kết quả sai.");return r;
+        }
+        g.sum+=scaled;++g.numbers;
+    }
+    r.table.header << QObject::tr("Nhóm") << QObject::tr("Số dòng");
+    if(valueCol>=0) r.table.header << QObject::tr("Số ô có số") << QObject::tr("Tổng");
+    for(const auto& g:groups) {
+        QStringList row{g.key,QString::number(g.rows)};
+        if(valueCol>=0) {
+            row << QString::number(g.numbers);
+            QString sum;
+            if(g.numbers) {
+                const qint64 whole=g.sum/10000;
+                const qint64 rem=g.sum%10000;
+                sum=QString::number(whole);
+                if(g.sum<0 && whole==0) sum.prepend(QLatin1Char('-'));
+                if(rem) {
+                    QString decimal=QString::number(rem<0?-rem:rem).rightJustified(4,QLatin1Char('0'));
+                    while(decimal.endsWith(QLatin1Char('0'))) decimal.chop(1);
+                    sum+=QLatin1Char('.')+decimal;
+                }
+            }
+            row << sum;
+        }
+        r.table.rows.append(row);
+    }
+    r.ok=true;return r;
+}
+
 // ---------------- 1. Dòng trùng ----------------
 static QString cellAt(const QStringList &r, int c) { return c >= 0 && c < r.size() ? r[c] : QString(); }
 
@@ -475,7 +540,11 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
 {
     FilterSortResult result;
     const auto valid = [&](int col) { return col == -1 || (col >= 0 && col < source.header.size()); };
-    if (!valid(spec.filterCol) || !valid(spec.sortCol)) {
+    if (!valid(spec.filterCol) || !valid(spec.sortCol) || !valid(spec.cleanCol) || !valid(spec.dedupCol)
+        || (spec.mode!=FilterMode::Equal && spec.mode!=FilterMode::Contains && spec.mode!=FilterMode::Blank && spec.mode!=FilterMode::NotBlank)
+        || (spec.cleanKind!=ColumnKind::Keep && spec.cleanKind!=ColumnKind::Date && spec.cleanKind!=ColumnKind::Money)
+        || (spec.moneyLocale!=MoneyLocale::VN && spec.moneyLocale!=MoneyLocale::EN)
+        || ((spec.cleanCol<0)!=(spec.cleanKind==ColumnKind::Keep))) {
         result.error = QObject::tr("Cột lọc hoặc sắp xếp không hợp lệ.");
         return result;
     }
@@ -483,9 +552,33 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
         result.error = QObject::tr("Nhập nội dung cần chứa, hoặc chọn lọc ô trống.");
         return result;
     }
+    const bool project = !spec.outputColumns.isEmpty();
+    if (spec.outputColumns.size() != spec.outputNames.size()) {
+        result.error = QObject::tr("Cấu hình cột đầu ra không hợp lệ."); return result;
+    }
+    QSet<int> selected;
+    QSet<QString> names;
+    for (qsizetype i=0;i<spec.outputColumns.size();++i) {
+        const int col=spec.outputColumns[i];
+        const auto name=spec.outputNames[i].trimmed();
+        if (col<0 || col>=source.header.size() || selected.contains(col) || name.isEmpty() || names.contains(name.toCaseFolded())) {
+            result.error=QObject::tr("Cột đầu ra không hợp lệ, tên rỗng hoặc tên bị trùng."); return result;
+        }
+        selected.insert(col); names.insert(name.toCaseFolded());
+    }
+    if (project || spec.cleanCol>=0 || spec.dedupCol>=0) for (const auto& row:source.rows) if (row.size()!=source.header.size()) {
+        result.error=QObject::tr("Nguồn có dòng sai số cột; chưa chọn/đổi tên cột."); return result;
+    }
     const auto cs = spec.ignoreCase ? Qt::CaseInsensitive : Qt::CaseSensitive;
     result.table.header = source.header;
-    for (const auto& row : source.rows) {
+    QSet<QString> seen;
+    for (auto row : source.rows) {
+        if(spec.cleanCol>=0) {
+            const auto value=row[spec.cleanCol];
+            const auto clean=spec.cleanKind==ColumnKind::Date?cleanDate(value):cleanMoney(value,spec.moneyLocale);
+            if(clean.converted) {row[spec.cleanCol]=clean.value;++result.cleanedCells;}
+            if(!clean.warning.isEmpty())++result.cleanWarnings;
+        }
         bool keep = true;
         if (spec.filterCol >= 0) {
             const auto cell = row.value(spec.filterCol);
@@ -497,7 +590,16 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
                 default: result.error = QObject::tr("Kiểu lọc không hợp lệ."); return result;
             }
         }
-        if (keep) result.table.rows.append(row);
+        if(!keep){++result.filteredRows;continue;}
+        if(spec.dedupCol>=0) {
+            auto key=row[spec.dedupCol];
+            if(spec.dedupFold)key=key.trimmed().toCaseFolded();
+            if(!key.isEmpty()){
+                if(seen.contains(key)){++result.removedDuplicates;continue;}
+                seen.insert(key);
+            }
+        }
+        result.table.rows.append(row);
     }
     if (spec.sortCol >= 0)
         std::stable_sort(result.table.rows.begin(), result.table.rows.end(),
@@ -505,6 +607,15 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
                 const int cmp = a.value(spec.sortCol).compare(b.value(spec.sortCol), cs);
                 return spec.descending ? cmp > 0 : cmp < 0;
             });
+    // Filtering and sorting use source indices, then the output columns are projected.
+    if (project) {
+        result.table.header=spec.outputNames;
+        for (auto& row:result.table.rows) {
+            QStringList projected;
+            for (int col:spec.outputColumns) projected << row[col];
+            row=projected;
+        }
+    }
     result.ok = true;
     return result;
 }
@@ -517,6 +628,19 @@ QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpe
         {"mode", int(spec.mode)}, {"value", spec.value},
         {"ignoreCase", spec.ignoreCase}, {"descending", spec.descending}
     };
+    if (!spec.outputColumns.isEmpty() || !spec.outputNames.isEmpty()) {
+        obj.insert("version",2);
+        QJsonArray columns;
+        for(int col:spec.outputColumns) columns.append(col);
+        obj.insert("outputColumns",columns);
+        obj.insert("outputNames",QJsonArray::fromStringList(spec.outputNames));
+    }
+    if(spec.cleanCol>=0 || spec.dedupCol>=0 || spec.cleanKind!=ColumnKind::Keep || spec.moneyLocale!=MoneyLocale::VN || spec.dedupFold) {
+        obj.insert("version",3);
+        obj.insert("cleanCol",spec.cleanCol);obj.insert("cleanKind",int(spec.cleanKind));
+        obj.insert("moneyLocale",int(spec.moneyLocale));obj.insert("dedupCol",spec.dedupCol);
+        obj.insert("dedupFold",spec.dedupFold);
+    }
     return QJsonDocument(obj).toJson(QJsonDocument::Indented);
 }
 
@@ -529,7 +653,8 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     const auto doc = QJsonDocument::fromJson(json, &parseError);
     if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return fail();
     const auto obj = doc.object();
-    if (obj.value("version").toInt(-1) != 1 || !obj.value("header").isArray()
+    const int version=obj.value("version").toInt(-1);
+    if ((version != 1 && version != 2 && version != 3) || !obj.value("header").isArray()
         || obj.value("header").toArray() != QJsonArray::fromStringList(header)) return fail();
     const int filter = obj.value("filterCol").toInt(-2);
     const int sort = obj.value("sortCol").toInt(-2);
@@ -543,6 +668,25 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     candidate.value = obj.value("value").toString();
     candidate.ignoreCase = obj.value("ignoreCase").toBool();
     candidate.descending = obj.value("descending").toBool();
+    if(version==2 || (version==3 && (obj.contains("outputColumns") || obj.contains("outputNames")))) {
+        if(!obj.value("outputColumns").isArray() || !obj.value("outputNames").isArray()) return fail();
+        const auto columns=obj.value("outputColumns").toArray(), names=obj.value("outputNames").toArray();
+        if(columns.isEmpty() || columns.size()!=names.size() || columns.size()>header.size()) return fail();
+        for(qsizetype i=0;i<columns.size();++i) {
+            if(!columns[i].isDouble() || !names[i].isString()) return fail();
+            candidate.outputColumns.append(columns[i].toInt(-1));
+            candidate.outputNames.append(names[i].toString());
+        }
+    } else if(obj.contains("outputColumns") || obj.contains("outputNames")) return fail();
+    if(version==3) {
+        const int clean=obj.value("cleanCol").toInt(-2), kind=obj.value("cleanKind").toInt(-1);
+        const int locale=obj.value("moneyLocale").toInt(-1), dedup=obj.value("dedupCol").toInt(-2);
+        if(clean < -1 || clean>=header.size() || dedup < -1 || dedup>=header.size()
+            || kind<int(ColumnKind::Keep) || kind>int(ColumnKind::Money)
+            || locale<int(MoneyLocale::VN) || locale>int(MoneyLocale::EN) || !obj.value("dedupFold").isBool())return fail();
+        candidate.cleanCol=clean;candidate.cleanKind=ColumnKind(kind);candidate.moneyLocale=MoneyLocale(locale);
+        candidate.dedupCol=dedup;candidate.dedupFold=obj.value("dedupFold").toBool();
+    } else if(obj.contains("cleanCol")||obj.contains("cleanKind")||obj.contains("moneyLocale")||obj.contains("dedupCol")||obj.contains("dedupFold"))return fail();
     const auto checked = filterSort(Table{header, {}}, candidate);
     if (!checked.ok) { error = checked.error; return false; }
     spec = candidate;

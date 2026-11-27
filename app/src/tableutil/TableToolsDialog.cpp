@@ -202,6 +202,10 @@ struct TableToolsDialog::Impl {
     QComboBox* filterCol = nullptr; QComboBox* sortCol = nullptr;
     QComboBox* filterMode = nullptr; QLineEdit* filterValue = nullptr;
     QCheckBox* ignoreCase = nullptr; QCheckBox* descending = nullptr;
+    QList<int> outputColumns; QStringList outputNames;
+    int cleanCol=-1,dedupCol=-1;
+    ColumnKind cleanKind=ColumnKind::Keep; MoneyLocale queryLocale=MoneyLocale::VN;
+    bool dedupFold=false;
     QPlainTextEdit* report = nullptr;
     Table tableA;
     bool haveA = false;
@@ -266,6 +270,8 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     form4->addRow(tr("Sắp xếp theo cột (chữ):"), d->sortCol);
     form4->addRow(d->ignoreCase); form4->addRow(d->descending);
     l4->addLayout(form4);
+    auto* extraSteps=new QPushButton(tr("Làm sạch và bỏ trùng trong quy trình…"));l4->addWidget(extraSteps);
+    auto* chooseColumns = new QPushButton(tr("Chọn và đổi tên cột đầu ra…")); l4->addWidget(chooseColumns);
     auto* run4 = new QPushButton(tr("Xem trước kết quả lọc và sắp xếp…"));
     l4->addWidget(run4);
     auto* recipes = new QHBoxLayout;
@@ -274,6 +280,11 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     recipes->addWidget(saveRecipe); recipes->addWidget(loadRecipe);
     l4->addLayout(recipes);
     d->tabs->addTab(w4, tr("Lọc và sắp xếp"));
+    auto* w5=new QWidget; auto* l5=new QVBoxLayout(w5);
+    auto* groupNote=new QLabel(tr("Tổng hợp theo nhóm từ CSV. Khóa so khớp chính xác, ô rỗng là một nhóm riêng. Đếm dòng hoặc tính tổng số chuẩn (dấu chấm thập phân, không dấu hàng nghìn, tối đa 4 chữ số lẻ). Không ép kiểu mã hoặc số điện thoại."),w5);
+    groupNote->setWordWrap(true); l5->addWidget(groupNote);
+    auto* groupRun=new QPushButton(tr("Chọn cột và tổng hợp…"),w5); l5->addWidget(groupRun);
+    l5->addStretch(); d->tabs->addTab(w5,tr("Tổng hợp nhóm"));
 
     d->report = new QPlainTextEdit; d->report->setReadOnly(true); d->report->setPlaceholderText(tr("Báo cáo sẽ hiện ở đây."));
     d->report->setMinimumHeight(110);
@@ -287,6 +298,8 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->haveA = d->a->load(t, err);
         d->dupCols->clear(); d->keyCol->clear();
         d->filterCol->clear(); d->sortCol->clear();
+        d->outputColumns.clear(); d->outputNames.clear();
+        d->cleanCol=-1;d->dedupCol=-1;d->cleanKind=ColumnKind::Keep;d->queryLocale=MoneyLocale::VN;d->dedupFold=false;
         d->filterCol->addItem(tr("Không lọc"), -1);
         d->sortCol->addItem(tr("Giữ thứ tự gốc"), -1);
         auto* form = qobject_cast<QFormLayout*>(d->kindHost->layout());
@@ -365,6 +378,37 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->report->setPlainText(rep);
     });
 
+    connect(groupRun,&QPushButton::clicked,this,[this,askSave,save,needA] {
+        if(!needA() || d->tableA.header.isEmpty()) return;
+        QDialog dlg(this);dlg.setWindowTitle(tr("Tổng hợp nhóm CSV"));
+        auto* form=new QFormLayout(&dlg);
+        auto* key=new QComboBox(&dlg);auto* value=new QComboBox(&dlg);
+        value->addItem(tr("Chỉ đếm dòng"),-1);
+        for(int i=0;i<d->tableA.header.size();++i) {
+            const auto label=tr("%1 · %2").arg(i+1).arg(d->tableA.header[i]);
+            key->addItem(label,i);value->addItem(label,i);
+        }
+        form->addRow(tr("Cột nhóm:"),key);form->addRow(tr("Cột tính tổng:"),value);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);form->addRow(buttons);
+        connect(buttons,&QDialogButtonBox::accepted,&dlg,&QDialog::accept);
+        connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        if(dlg.exec()!=QDialog::Accepted) return;
+        const auto r=groupCsv(d->tableA,key->currentData().toInt(),value->currentData().toInt());
+        if(!r.ok){QMessageBox::warning(this,tr("Tổng hợp nhóm"),r.error);return;}
+        QString rep=tr("%1 nhóm từ %2 dòng; ô số rỗng không tham gia tổng.").arg(r.table.rows.size()).arg(d->tableA.rows.size());
+        rep+=QStringLiteral("\n")+r.table.header.join(QStringLiteral(" | "));
+        for(int i=0;i<r.table.rows.size() && i<20;++i)rep+=QStringLiteral("\n")+r.table.rows[i].join(QStringLiteral(" | "));
+        QDialog preview(this);preview.setWindowTitle(tr("Xem trước 20 nhóm"));preview.resize(720,420);
+        auto* layout=new QVBoxLayout(&preview);
+        auto* text=new QPlainTextEdit(rep,&preview);text->setReadOnly(true);layout->addWidget(text);
+        auto* actions=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&preview);layout->addWidget(actions);
+        connect(actions,&QDialogButtonBox::accepted,&preview,&QDialog::accept);
+        connect(actions,&QDialogButtonBox::rejected,&preview,&QDialog::reject);
+        if(preview.exec()!=QDialog::Accepted)return;
+        const auto out=askSave(defaultOut(d->a->path(),tr("tổng hợp nhóm")));
+        if(!out.isEmpty())save(out,r.table,rep);
+        d->report->setPlainText(rep);
+    });
     auto recipeSpec = [this] {
         FilterSortSpec spec;
         spec.filterCol = d->filterCol->currentData().toInt();
@@ -373,8 +417,69 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         spec.value = d->filterValue->text();
         spec.ignoreCase = d->ignoreCase->isChecked();
         spec.descending = d->descending->isChecked();
+        spec.outputColumns=d->outputColumns; spec.outputNames=d->outputNames;
+        spec.cleanCol=d->cleanCol;spec.cleanKind=d->cleanKind;spec.moneyLocale=d->queryLocale;
+        spec.dedupCol=d->dedupCol;spec.dedupFold=d->dedupFold;
         return spec;
     };
+    connect(extraSteps,&QPushButton::clicked,this,[this,needA] {
+        if(!needA())return;
+        QDialog dlg(this);dlg.setWindowTitle(tr("Quy trình dữ liệu"));
+        auto* form=new QFormLayout(&dlg);
+        auto* clean=new QComboBox(&dlg);auto* kind=new QComboBox(&dlg);
+        auto* locale=new QComboBox(&dlg);auto* dedup=new QComboBox(&dlg);
+        auto* fold=new QCheckBox(tr("Bỏ khoảng trắng đầu/cuối và không phân biệt hoa/thường khi bỏ trùng"),&dlg);
+        clean->addItem(tr("Không làm sạch"),-1);dedup->addItem(tr("Không bỏ trùng"),-1);
+        for(int i=0;i<d->tableA.header.size();++i){
+            const auto label=tr("%1 · %2").arg(i+1).arg(d->tableA.header[i]);
+            clean->addItem(label,i);dedup->addItem(label,i);
+        }
+        kind->addItem(tr("Ngày → dd/mm/yyyy"),int(ColumnKind::Date));
+        kind->addItem(tr("Số tiền → số thuần"),int(ColumnKind::Money));
+        locale->addItem(tr("Việt Nam: 1.234,56"),int(MoneyLocale::VN));
+        locale->addItem(tr("Anh: 1,234.56"),int(MoneyLocale::EN));
+        clean->setCurrentIndex(clean->findData(d->cleanCol));dedup->setCurrentIndex(dedup->findData(d->dedupCol));
+        kind->setCurrentIndex(d->cleanKind==ColumnKind::Money?1:0);locale->setCurrentIndex(locale->findData(int(d->queryLocale)));
+        fold->setChecked(d->dedupFold);
+        form->addRow(tr("1. Cột làm sạch:"),clean);form->addRow(tr("Kiểu:"),kind);form->addRow(tr("Định dạng số:"),locale);
+        auto* note=new QLabel(tr("2. Lọc theo thiết lập ở tab chính. 3. Bỏ trùng theo khóa dưới đây, giữ dòng đầu tiên sau lọc. Khóa rỗng luôn giữ. 4. Sắp xếp. 5. Chọn cột đầu ra."),&dlg);note->setWordWrap(true);form->addRow(note);
+        form->addRow(tr("3. Cột bỏ trùng:"),dedup);form->addRow(fold);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);form->addRow(buttons);
+        connect(buttons,&QDialogButtonBox::accepted,&dlg,&QDialog::accept);connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        if(dlg.exec()!=QDialog::Accepted)return;
+        d->cleanCol=clean->currentData().toInt();d->cleanKind=d->cleanCol<0?ColumnKind::Keep:ColumnKind(kind->currentData().toInt());
+        d->queryLocale=MoneyLocale(locale->currentData().toInt());d->dedupCol=dedup->currentData().toInt();d->dedupFold=fold->isChecked();
+    });
+    connect(chooseColumns,&QPushButton::clicked,this,[this,needA] {
+        if(!needA()) return;
+        QDialog dlg(this); dlg.setWindowTitle(tr("Cột đầu ra")); dlg.resize(540,430);
+        auto* layout=new QVBoxLayout(&dlg);
+        auto* note=new QLabel(tr("Tích cột cần giữ; nhấp đúp để đổi tên. Thứ tự theo nguồn; lọc/sắp xếp vẫn dùng cột gốc."),&dlg);
+        note->setWordWrap(true); layout->addWidget(note);
+        auto* list=new QListWidget(&dlg); layout->addWidget(list,1);
+        for(int i=0;i<d->tableA.header.size();++i) {
+            const auto pos=d->outputColumns.indexOf(i);
+            auto* item=new QListWidgetItem(pos>=0?d->outputNames[pos]:d->tableA.header[i],list);
+            item->setFlags(item->flags()|Qt::ItemIsUserCheckable|Qt::ItemIsEditable);
+            item->setToolTip(tr("Cột nguồn %1: %2").arg(i+1).arg(d->tableA.header[i]));
+            item->setCheckState(d->outputColumns.isEmpty()||pos>=0?Qt::Checked:Qt::Unchecked);
+        }
+        auto* reset=new QPushButton(tr("Giữ tất cả cột và tên gốc"),&dlg); layout->addWidget(reset);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg); layout->addWidget(buttons);
+        connect(reset,&QPushButton::clicked,&dlg,[&] { d->outputColumns.clear(); d->outputNames.clear(); dlg.accept(); });
+        connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        connect(buttons,&QDialogButtonBox::accepted,&dlg,[&] {
+            FilterSortSpec spec;
+            for(int i=0;i<list->count();++i) if(list->item(i)->checkState()==Qt::Checked) {
+                spec.outputColumns.append(i); spec.outputNames.append(list->item(i)->text().trimmed());
+            }
+            if(spec.outputColumns.isEmpty()) { QMessageBox::warning(&dlg,tr("Cột đầu ra"),tr("Chọn ít nhất một cột.")); return; }
+            const auto checked=filterSort(Table{d->tableA.header,{}},spec);
+            if(!checked.ok) { QMessageBox::warning(&dlg,tr("Cột đầu ra"),checked.error); return; }
+            d->outputColumns=spec.outputColumns; d->outputNames=spec.outputNames; dlg.accept();
+        });
+        dlg.exec();
+    });
     connect(saveRecipe, &QPushButton::clicked, this, [this, needA, recipeSpec] {
         if (!needA()) return;
         const auto spec = recipeSpec();
@@ -410,6 +515,9 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->filterValue->setText(spec.value);
         d->ignoreCase->setChecked(spec.ignoreCase);
         d->descending->setChecked(spec.descending);
+        d->outputColumns=spec.outputColumns; d->outputNames=spec.outputNames;
+        d->cleanCol=spec.cleanCol;d->cleanKind=spec.cleanKind;d->queryLocale=spec.moneyLocale;
+        d->dedupCol=spec.dedupCol;d->dedupFold=spec.dedupFold;
         d->report->setPlainText(tr("Đã nạp cấu hình. Bấm Xem trước để chạy với dữ liệu hiện tại."));
     });
     connect(run4, &QPushButton::clicked, this, [this, askSave, save, needA, recipeSpec] {
@@ -418,6 +526,8 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         if (!r.ok) { QMessageBox::warning(this, tr("Lọc và sắp xếp"), r.error); return; }
         QString rep = tr("Kết quả: %1 / %2 dòng. Sắp xếp dạng chữ, không ép kiểu; nguồn không bị sửa.")
             .arg(r.table.rows.size()).arg(d->tableA.rows.size());
+        rep += tr("\nLàm sạch %1 ô; %2 cảnh báo (giữ nguyên ô không chắc chắn); lọc bỏ %3 dòng; bỏ trùng %4 dòng.")
+            .arg(r.cleanedCells).arg(r.cleanWarnings).arg(r.filteredRows).arg(r.removedDuplicates);
         rep += QStringLiteral("\n") + r.table.header.join(QStringLiteral(" | "));
         for (int i = 0; i < r.table.rows.size() && i < 20; ++i)
             rep += QStringLiteral("\n") + r.table.rows[i].join(QStringLiteral(" | "));
