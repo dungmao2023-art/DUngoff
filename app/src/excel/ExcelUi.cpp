@@ -136,12 +136,34 @@ void DocumentTab::excelAction(const QString& id) {
     } else if (a == QLatin1String("insertChart")) {
         m_doc->waitInputIdle();
         const QString range=m_view->selectedCellRange();
-        if(dataassist::bridgeRangeAddress(ss(range)).empty()||!range.contains(QLatin1Char(':'))) {
+        const auto normalized=dataassist::bridgeRangeAddress(ss(range));
+        const auto ends=qs(normalized).split(QLatin1Char(':'));
+        if(ends.size()!=2){
             QMessageBox::information(this,tr("Biểu đồ"),tr("Chọn vùng dữ liệu liền nhau gồm nhãn và giá trị ngay trên sheet, sau đó bấm Biểu đồ cột."));
             return;
         }
-        // Native Calc chart insertion, not an exported copy, screenshot or manual XML patch.
-        // Do not dispatch another edit while the engine is processing this command.
+        auto coords=[](const QString& cell){
+            int i=0,col=0;
+            while(i<cell.size()&&cell[i].unicode()>='A'&&cell[i].unicode()<='Z'){
+                col=col*26+cell[i].unicode()-'A'+1;++i;
+            }
+            return QPair<int,int>(cell.mid(i).toInt(),col);
+        };
+        const auto first=coords(ends.first()),last=coords(ends.last());
+        const int rows=last.first-first.first+1,cols=last.second-first.second+1;
+        if(rows<2||cols<2||qint64(rows)*cols>50000||cols>100){
+            QMessageBox::information(this,tr("Biểu đồ"),tr("Chọn bảng từ 2 hàng và 2 cột, tối đa 50.000 ô và 100 cột; hàng/cột nhãn cần nằm trong vùng chọn."));return;
+        }
+        const auto before=m_doc->selectionAs("text/plain;charset=utf-8");
+        if(dataassist::bridgeTrim(before).empty()){
+            QMessageBox::information(this,tr("Biểu đồ"),tr("Không đọc được dữ liệu nguồn trong vùng chọn."));return;
+        }
+        if(QMessageBox::question(this,tr("Biểu đồ cột"),
+            tr("Tạo biểu đồ cột từ vùng %1 trên sheet %2 (%3 hàng × %4 cột)? Engine tự nhận diện nhãn và chuỗi số; biểu đồ liên kết trực tiếp với nguồn.").arg(range,qs(originalSheet)).arg(rows).arg(cols),
+            QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        if(!sameSheet()||!m_view||m_view->selectedCellRange()!=range||m_doc->selectionAs("text/plain;charset=utf-8")!=before){
+            QMessageBox::warning(this,tr("Biểu đồ"),tr("Vùng hoặc dữ liệu nguồn đã đổi. Chưa tạo biểu đồ."));return;
+        }
         m_view->setFocus();
         cmd(".uno:InsertObjectChart");
         return;

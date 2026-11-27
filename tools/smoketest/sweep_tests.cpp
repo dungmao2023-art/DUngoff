@@ -511,6 +511,23 @@ int runSweepTests(const fs::path& program, const fs::path& out,const fs::path& p
                 fs::remove(dest,ec);
                 const auto saved=c.saveAs(dest);
                 result("Calc","chart-save",saved.ok,saved.message);
+                // Reopen through the same engine and change a linked value before saving
+                // again. The independent OOXML checker verifies the actual data and chart.
+                if(saved.ok){
+                    xc.reset();
+                    auto reopened=engine->open(dest,&err);
+                    result("Calc","chart-reopen",bool(reopened),err);
+                    if(reopened){
+                        reopened->setPart(0);
+                        reopened->setClientView(512,512,7680,7680,0,0,7680,7680);
+                        enter(*reopened,"B3",u"56");
+                        settle(1000);
+                        const fs::path roundtrip=out/"native-chart-roundtrip.xlsx";
+                        fs::remove(roundtrip,ec);
+                        const auto again=reopened->saveAs(roundtrip);
+                        result("Calc","chart-roundtrip-save",again.ok,again.message);
+                    }
+                }
                 // Independent checker validates object/relationship/data references.
             }
         }
