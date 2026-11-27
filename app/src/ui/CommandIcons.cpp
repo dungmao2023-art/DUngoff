@@ -51,6 +51,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:AlignTop", "align-top"}, {".uno:AlignVCenter", "align-middle"}, {".uno:AlignBottom", "align-bottom"},
         {".uno:AutoSum", "sum"}, {".uno:DataFilterAutoFilter", "filter"},
         {".uno:DeleteColumns", "col-delete"}, {".uno:DeleteRows", "row-delete"},
+        {"xl:deleteRow", "row-delete"}, {"xl:deleteColumn", "col-delete"},
         {".uno:InsertColumnsBefore", "col-insert"}, {".uno:InsertRowsBefore", "row-insert"},
         {".uno:InsertColumnsAfter", "col-insert"}, {".uno:InsertRowsAfter", "row-insert"},
         {"word:tableDeleteRow", "row-delete"}, {"word:tableDeleteColumn", "col-delete"}, {"word:tableMergeRow", "merge-cells"},

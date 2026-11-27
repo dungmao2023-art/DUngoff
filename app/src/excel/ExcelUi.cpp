@@ -96,7 +96,29 @@ void DocumentTab::excelAction(const QString& id) {
         return true;
     };
 
-    if(a==QLatin1String("fillSeries")){
+    if(a==QLatin1String("deleteRow")||a==QLatin1String("deleteColumn")){
+        const bool row=a==QLatin1String("deleteRow");
+        const QString title=row?tr("Xóa hàng"):tr("Xóa cột");
+        const auto confirmedCell=[&]{
+            return dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
+                m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
+        };
+        const auto cell=confirmedCell();
+        if(cell.empty()){
+            QMessageBox::information(this,title,tr("Chọn một ô trong hàng hoặc cột cần xóa. Không chọn nhiều ô."));return;
+        }
+        const auto before=m_doc->selectionAs("text/plain;charset=utf-8");
+        if(QMessageBox::question(this,title,
+            tr("Sheet %1 · ô %2. Xóa toàn bộ %3 chứa ô này, kể cả công thức và dữ liệu ngoài vùng nhìn thấy? Các tham chiếu có thể thay đổi. Có thể dùng Ctrl+Z để hoàn tác.")
+                .arg(qs(originalSheet),qs(cell),row?tr("hàng"):tr("cột")),
+            QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        if(!sameSheet()||!m_view||confirmedCell()!=cell||
+           m_doc->selectionAs("text/plain;charset=utf-8")!=before){
+            QMessageBox::warning(this,title,tr("Sheet, ô hoặc dữ liệu đã thay đổi. Chưa xóa."));return;
+        }
+        cmd(row?".uno:DeleteRows":".uno:DeleteColumns");
+        m_doc->waitInputIdle();m_view->setFocus();return;
+    }else if(a==QLatin1String("fillSeries")){
         const QString title=tr("Điền dãy số");
         const QString range=m_view->selectedCellRange();
         const auto ends=range.split(QLatin1Char(':'));

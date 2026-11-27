@@ -281,6 +281,39 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
     check(r.ok, "Lưu thành excel-ket-qua.xlsx: " + r.message);
     doc.reset();
 
+    // Separate deterministic fixture: the broad Excel suite contains dynamic
+    // array probes that may serialize differently on a second Save As.
+    // Retain whole-sheet comparison and add an unedited repeated-save control.
+    step("mở fixture riêng cho xóa hàng/cột và Undo");
+    auto deletion=engine->open(src,&err);
+    check(bool(deletion),"Mở fixture xóa/Undo: "+err);
+    if(deletion){
+        deletion->setClientView(512,512,7680,7680,0,0,7680,7680);
+        check(deletion->partCount()==2&&deletion->partName(1)=="Phụ","Fixture có sheet Phụ");
+        deletion->setPart(1);deletion->waitInputIdle();
+        gotoCell(*deletion,"K11");
+        deletion->command(".uno:SortAscending");deletion->waitInputIdle();settle(800);
+        auto snapshot=[&](const char* file){
+            const auto dest=out/file;
+            fs::remove(dest,ec);
+            const auto saved=deletion->saveAs(dest);
+            check(saved.ok,std::string("Lưu kiểm thử ")+file+": "+saved.message);
+        };
+        snapshot("excel-delete-baseline.xlsx");
+        snapshot("excel-delete-control.xlsx");
+        gotoCell(*deletion,"K11");
+        deletion->command(".uno:DeleteRows");deletion->waitInputIdle();settle();
+        snapshot("excel-row-deleted.xlsx");
+        deletion->command(".uno:Undo");deletion->waitInputIdle();settle();
+        snapshot("excel-row-restored.xlsx");
+        gotoCell(*deletion,"L11");
+        deletion->command(".uno:DeleteColumns");deletion->waitInputIdle();settle();
+        snapshot("excel-column-deleted.xlsx");
+        deletion->command(".uno:Undo");deletion->waitInputIdle();settle();
+        snapshot("excel-column-restored.xlsx");
+    }
+    deletion.reset();
+
     // ======================= Tệp stress 5000 dòng =======================
     if (!stress.empty() && fs::exists(stress)) {
         fs::path s2 = out / "stress-goc.xlsx";

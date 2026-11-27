@@ -38,6 +38,8 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] X01.1 Nhập số/chữ/công thức, F2/double click, thanh công thức, chọn ô/vùng và chuyển sheet; IME và Undo.
 - [ ] X01.2 Copy/cut/paste vùng có công thức, số, ngày, mã 001; giữ dữ liệu ngoài vùng; paste values không đổi style; Undo khôi phục chính xác. #110 là probe, chưa bật GUI.
 - [ ] X02.1 Thêm/xóa/đổi tên/nhân đôi/di chuyển sheet; hàng/cột; merge/wrap/resize; định dạng số, ngày, tiền, %, custom; lưu XLSX.
+  - 28/11: nhánh fix/excel-safe-row-column-delete-20261128, code/test 67d4973a445f34c1e63d73e47f6c5e4c25e98c84. Ribbon xóa một hàng/cột từ ô đã xác minh bằng callback; hỏi xác nhận mặc định Không, kiểm lại sheet/ô/nội dung trước khi gửi UNO. Test native lưu XLSX sau xóa và Undo, so giá trị/công thức/kiểu ô, sheet khác và bảng còn lại. Chờ CI Windows/Linux; GUI thật, Cancel, thay vùng chọn, mở lại Excel còn cần kiểm. Không tăng stage.
+  - #154 CI 46077214485 (HEAD 73faa93c0228d50631d300d01bcfe90d8c8435ad): Linux PASS, Windows FAIL 4 lần so sánh sheet Dữ liệu; xóa/Undo trên Phụ PASS. Chưa rõ ô khác biệt; giả thuyết ảnh hưởng tuần tự hóa công thức thăm dò động khi Save As lặp. Code/test 6b5ce2ec7d7ab7350bbdbace775daf20e77b7768: tách fixture sạch, lưu baseline và control không chỉnh, so toàn bộ sheet và in tọa độ/giá trị/kiểu ô khác biệt; giữ kiểm tra xóa/Undo, không hạ điều kiện. Chờ CI mới.
 - [ ] X03.1 SUM/AVERAGE/COUNT/IF/SUMIF(S)/COUNTIF(S), VLOOKUP/XLOOKUP/INDEX/MATCH, tham chiếu tương đối/tuyệt đối/liên sheet; lỗi công thức đúng.
 - [ ] X03.2 Tôi muốn tự nhận ô/vùng đang chọn, đủ đối số từng hàm, chọn ô kết quả, đổi sheet không ghi nhầm.
 - [ ] X04.1 FillDown/Right, chuỗi ngày/số, kéo fill handle; công thức và tham chiếu cập nhật đúng.
