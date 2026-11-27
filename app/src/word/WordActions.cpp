@@ -87,7 +87,7 @@ struct WordInsertTarget {
     const QString base = QString::fromUtf8(doc->displayName().c_str());
     const bool notDocx = !doc->isNew() && !base.endsWith(QLatin1String(".docx"), Qt::CaseInsensitive);
     QString msg = QObject::tr("Đặt lề «%1»: trái %2 mm, phải %3 mm, trên %4 mm, dưới %5 mm — cho TẤT CẢ các phần của tài liệu.\n\n"
-                              "Engine trên Windows chưa nhận lề qua lệnh, nên Dũng Office sẽ tạo MỘT BẢN SAO của tài liệu hiện tại "
+                              "Để áp dụng lề nhất quán và kiểm tra từng phần, Dũng Office sẽ tạo MỘT BẢN SAO của tài liệu hiện tại "
                               "(gồm cả phần bạn vừa sửa) với lề mới và mở trong thẻ mới.\n"
                               "• Thẻ hiện tại và tệp gốc KHÔNG bị đổi; thẻ hiện tại vẫn giữ lịch sử hoàn tác.\n"
                               "• Thẻ mới bắt đầu ở đầu tài liệu, chưa có lịch sử hoàn tác, và được đánh dấu chưa lưu (Lưu sẽ hỏi tên mới, không ghi đè tệp gốc).")
@@ -515,6 +515,12 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             l=qRound(left->value()*100);r=qRound(right->value()*100);
             t=qRound(top->value()*100);b=qRound(bottom->value()*100);
             label=QObject::tr("tùy chỉnh");
+            // Use the validated all-section copy path on both platforms.
+            // Native Linux page style commands do not promise all sections.
+            MarginSpec custom;
+            custom.left=mmToTwips(l/100.0);custom.right=mmToTwips(r/100.0);
+            custom.top=mmToTwips(t/100.0);custom.bottom=mmToTwips(b/100.0);
+            return applyMarginsByPatch(tab,parent,custom,label);
         }
 #ifdef Q_OS_WIN
         // Engine Windows 26.8.3: lệnh PageLRMargin/PageULMargin không đổi lề (CI đã thử 6 bộ lệnh). Dùng đường vá XML trên bản sao.
