@@ -45,6 +45,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:ChangeCaseToTitleCase", "font-name"}, {".uno:ChangeCaseToToggleCase", "font-name"}, {".uno:InsertSymbol", "text"},
         // Excel
         {".uno:FillDown", "move-down"}, {".uno:FillRight", "transfer"},
+        {"xl:fillDown", "move-down"}, {"xl:fillRight", "transfer"},
         {".uno:AlignLeft", "align-left"}, {".uno:AlignHorizontalCenter", "align-center"}, {".uno:AlignRight", "align-right"},
         {".uno:AlignTop", "align-top"}, {".uno:AlignVCenter", "align-middle"}, {".uno:AlignBottom", "align-bottom"},
         {".uno:AutoSum", "sum"}, {".uno:DataFilterAutoFilter", "filter"},

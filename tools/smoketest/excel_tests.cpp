@@ -199,6 +199,24 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
         }
     }
 
+    // Native fill commands: test formula references and replacement in a separate sheet.
+    step("điền công thức xuống và sang phải trên sheet Phụ");
+    int fillPart=-1;
+    for(int i=0;i<doc->partCount();++i)if(doc->partName(i)=="Phụ")fillPart=i;
+    check(fillPart>=0,"Có sheet Phụ để kiểm tra điền công thức");
+    if(fillPart>=0){
+        doc->setPart(fillPart);doc->waitInputIdle();
+        auto selectRange=[&](const std::string& range){
+            doc->command(".uno:GoToCell",Document::stringArg("ToPoint",range));
+            doc->waitInputIdle();settle(400);
+        };
+        selectRange("E2:E4");
+        doc->command(".uno:FillDown");doc->waitInputIdle();settle();
+        selectRange("G2:I2");
+        doc->command(".uno:FillRight");doc->waitInputIdle();settle();
+        doc->setPart(0);doc->waitInputIdle();
+    }
+
     step("lưu kết quả");
     auto r = doc->saveAs(out / "excel-ket-qua.xlsx");
     check(r.ok, "Lưu thành excel-ket-qua.xlsx: " + r.message);
