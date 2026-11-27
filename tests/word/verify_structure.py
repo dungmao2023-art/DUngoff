@@ -93,3 +93,35 @@ with zipfile.ZipFile(Path(sys.argv[1]).parent / "word-table-edited.docx") as z:
           "edited DOCX: added one row and one column")
     check("TABLE_CELL_MARKER" in text(tables[0]), "edited DOCX: original cell retained")
     check("TABLE_BODY_MARKER" in text(root), "edited DOCX: body retained")
+
+# Deletion is deliberate: the targeted marked cell disappears, then Undo
+# must restore it along with the full dimensions. Body text must survive.
+for filename, height, width, marker in (
+    ("word-table-row-deleted.docx", 5, 5, False),
+    ("word-table-row-restored.docx", 6, 5, True),
+    ("word-table-column-deleted.docx", 6, 4, False),
+    ("word-table-column-restored.docx", 6, 5, True),
+):
+    with zipfile.ZipFile(Path(sys.argv[1]).parent / filename) as z:
+        root = ET.fromstring(z.read("word/document.xml"))
+        tables = list(root.iter(W+"tbl"))
+        check(len(tables) == 1, filename + ": exactly one table")
+        rows = tables[0].findall(W+"tr")
+        check(len(rows) == height and all(len(row.findall(W+"tc")) == width for row in rows),
+              filename + ": correct dimensions")
+        check(("TABLE_CELL_MARKER" in text(tables[0])) == marker, filename + ": targeted text deletion/restoration")
+        check("TABLE_BODY_MARKER" in text(root), filename + ": body retained")
+
+with zipfile.ZipFile(Path(sys.argv[1]).parent / "word-table-merged.docx") as z:
+    root = ET.fromstring(z.read("word/document.xml"))
+    tables = list(root.iter(W+"tbl"))
+    check(len(tables) == 1, "merged DOCX: exactly one table")
+    rows = tables[0].findall(W+"tr")
+    check(len(rows) == 6, "merged DOCX: other rows retained")
+    merged = [cell for row in rows for cell in row.findall(W+"tc")
+              if cell.find(W+"tcPr/"+W+"gridSpan") is not None
+              and cell.find(W+"tcPr/"+W+"gridSpan").get(W+"val") == "5"]
+    check(len(merged) == 1, "merged DOCX: one cell spans all five columns")
+    check("TABLE_CELL_MARKER" in text(merged[0]) and "TABLE_SECOND_CELL" in text(merged[0]),
+          "merged DOCX: both cell texts retained together")
+    check("TABLE_BODY_MARKER" in text(root), "merged DOCX: body retained")

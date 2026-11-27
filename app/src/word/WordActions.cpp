@@ -138,7 +138,40 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
     if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
-    if (name == QLatin1String("acceptAllReview") || name == QLatin1String("rejectAllReview")) {
+    if(name==QLatin1String("tableDeleteRow")||name==QLatin1String("tableDeleteColumn")||name==QLatin1String("tableMergeRow")){
+        const bool row=name==QLatin1String("tableDeleteRow");
+        const bool merge=name==QLatin1String("tableMergeRow");
+        const QString command=merge?QStringLiteral(".uno:MergeCells"):row?QStringLiteral(".uno:DeleteRows"):QStringLiteral(".uno:DeleteColumns");
+        const WordInsertTarget target(tab);
+        // Require a single insertion point, never an arbitrary multi-cell selection.
+        if(!target.selected.empty()||target.caret.empty()){
+            QMessageBox::information(parent,QObject::tr("Chỉnh sửa bảng"),
+                QObject::tr("Đặt con trỏ trong một ô của hàng hoặc cột cần sửa. Không chọn nhiều ô."));
+            return true;
+        }
+        const QString title=merge?QObject::tr("Gộp cả hàng"):row?QObject::tr("Xóa hàng"):QObject::tr("Xóa cột");
+        const QString prompt=merge?QObject::tr("Gộp toàn bộ các ô của hàng chứa con trỏ?"):
+            row?QObject::tr("Xóa hàng chứa con trỏ cùng nội dung các ô của hàng đó?"):
+                QObject::tr("Xóa cột chứa con trỏ cùng nội dung các ô của cột đó?");
+        if(QMessageBox::question(parent,title,prompt+QObject::tr("\nBạn có thể dùng Hoàn tác (Ctrl+Z) nếu cần."),
+              QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return true;
+        if(!target.verify())return true;
+        if(!merge&&target.tab->states().value(command)==QLatin1String("disabled")){
+            QMessageBox::information(parent,title,QObject::tr("Lệnh không khả dụng tại vị trí hiện tại."));
+            return true;
+        }
+        if(merge){
+            if(target.tab->states().value(QStringLiteral(".uno:EntireRow"))==QLatin1String("disabled")){
+                QMessageBox::information(parent,title,QObject::tr("Không thể chọn hàng tại vị trí hiện tại."));
+                return true;
+            }
+            doc->command(".uno:EntireRow");
+            doc->waitInputIdle();
+        }
+        doc->command(ss(command));
+        doc->waitInputIdle();
+        if(target.tab&&target.tab->view())target.tab->view()->setFocus();
+    } else if (name == QLatin1String("acceptAllReview") || name == QLatin1String("rejectAllReview")) {
         const bool accept = name == QLatin1String("acceptAllReview");
         if (QMessageBox::question(parent,QObject::tr("Xử lý toàn bộ thay đổi"),
             accept ? QObject::tr("Chấp nhận tất cả thay đổi được theo dõi trong tài liệu đang mở? Nội dung xóa được chấp nhận sẽ bị loại bỏ.") :
