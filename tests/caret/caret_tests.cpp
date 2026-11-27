@@ -11,6 +11,8 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QImage>
+#include <QPdfWriter>
+#include <QPainter>
 #include <QMouseEvent>
 #include <QPointer>
 #include <QTimer>
@@ -110,6 +112,16 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
     pump(1500);
     note(label + QString(": focus=%1").arg(view.hasFocus()));
     QWidget* vp = view.viewport();
+    QElapsedTimer renderTiming;renderTiming.start();
+    const int originalZoom=view.zoom();
+    view.setZoom(originalZoom==100?110:100);
+    pump(100);
+    const bool drained=waitFor([&] { return !view.renderPending(); },8000);
+    check(drained && view.peakTilesPerPaint()>0 && view.peakTilesPerPaint()<=4,
+          label+": render phân lô tối đa 4 tile/lượt, hoàn tất khung nhìn",
+          QString("peak=%1 drain=%2 ms").arg(view.peakTilesPerPaint()).arg(renderTiming.elapsed()));
+    view.setZoom(originalZoom);
+    pump(400);
 
     if (wantCell) {
         click(vp, QPoint(120, 60));
@@ -255,6 +267,16 @@ int main(int argc, char** argv) {
             if (!docx.isEmpty()) runDoc(*eng, "docx", docx, false, true, out);
             if (!xlsx.isEmpty()) runDoc(*eng, "xlsx", xlsx, true, false, out);
             if (!pptx.isEmpty()) runDoc(*eng, "pptx", pptx, false, true, out);
+            // Generate an independent local PDF fixture to exercise the same viewer.
+            const QString pdf=out+"/perf-viewer.pdf";
+            {
+                QPdfWriter writer(pdf);
+                writer.setResolution(96);
+                QPainter painter(&writer);
+                painter.drawText(80,100,QStringLiteral("PDF render performance fixture"));
+                painter.end();
+            }
+            runDoc(*eng,"pdf",pdf,false,false,out);
         }
     }
 #endif
