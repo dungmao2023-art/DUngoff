@@ -199,8 +199,8 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
             }},
             {tr("Dữ liệu"), {
                 {tr("Điền"), {
-                    B(".uno:FillDown", tr("Điền xuống"), 0xE74B, "↓", false),
-                    B(".uno:FillRight", tr("Điền sang phải"), 0xE72A, "→", false),
+                    B("xl:fillDown", tr("Điền xuống"), 0xE74B, "↓", false),
+                    B("xl:fillRight", tr("Điền sang phải"), 0xE72A, "→", false),
                 }},
                 {tr("Sắp xếp & lọc"), {
                     B(".uno:SortAscending", tr("Tăng dần"), 0xE8CB, "A↓", false),
