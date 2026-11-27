@@ -73,6 +73,22 @@ std::size_t pathChars(const fs::path& p) {
     return (ec ? p : a).native().size();
 }
 
+// Publish a complete sibling without replacing any entry that appeared after
+// destination selection. Fail closed on unsupported filesystems.
+bool publishNewFile(const fs::path& sibling, const fs::path& dest, std::error_code& ec) {
+    ec.clear();
+#ifdef _WIN32
+    if (!MoveFileExW(longPath(sibling).c_str(), longPath(dest).c_str(), 0)) {
+        ec = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+        return false;
+    }
+#else
+    fs::create_hard_link(longPath(sibling), longPath(dest), ec);
+    if (ec) return false;
+#endif
+    return true;
+}
+
 namespace {
 
 std::string randomToken() {
@@ -820,11 +836,23 @@ bool Document::saveRecoveryCopy(const fs::path& dest, std::string* error) {
     if (!ok) { fs::remove(stage, ec); return fail("Engine không ghi được bản phục hồi."); }
     std::string why;
     if (!looksValid(stage, ext, why)) { fs::remove(stage, ec); return fail("Bản phục hồi không hợp lệ (" + why + ")."); }
+    // Keep the operation error separate from cleanup: a successful remove()
+    // must never turn a failed copy into an apparently successful one.
+    std::error_code cleanup;
     fs::create_directories(longPath(dest.parent_path()), ec);
+    if (ec) {
+        const auto message = ec.message();
+        fs::remove(longPath(stage), cleanup);
+        return fail("Không tạo được thư mục phục hồi: " + message);
+    }
     fs::path sibling = dest.parent_path() / fs::u8path("~rec-" + randomToken() + ".tmp");
     fs::copy_file(longPath(stage), longPath(sibling), fs::copy_options::none, ec);
-    fs::remove(stage, ec);
-    if (ec) return fail("Không ghi được bản phục hồi: " + ec.message());
+    fs::remove(longPath(stage), cleanup);
+    if (ec) {
+        const auto message = ec.message();
+        fs::remove(longPath(sibling), cleanup);
+        return fail("Không ghi được bản phục hồi: " + message);
+    }
     fs::rename(longPath(sibling), longPath(dest), ec);
     if (ec) {
         const std::string em = ec.message();
@@ -1182,7 +1210,12 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
     // cùng thư mục với đích (dùng tiền tố \\?\ khi đường dẫn dài) và đổi tên để thay thế đích.
     fs::path stage = m_workDir / fs::u8path("~luu-" + randomToken() + "." + ext);
     const std::string stageUrl = toFileUrl(stage);
+    const bool wasModified = m_modified;
     bool ok = onEngine([&] { return m_doc->saveAs(stageUrl.c_str(), ext.c_str(), nullptr); });
+    // Staging is not a successful user save. Some engines clear the modified
+    // flag during saveAs even if publication subsequently fails or is PDF-only.
+    // Only clear it after successful publication of a native editable document.
+    if (wasModified) m_modified = true;
     if (!ok) {
         fs::remove(stage, ec);
         r.message = "Engine không ghi được tệp.";
@@ -1207,12 +1240,18 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
     fs::path sibling = target.parent_path() / fs::u8path("~dung-" + randomToken() + "." + ext);
     fs::copy_file(longPath(stage), longPath(sibling), fs::copy_options::none, ec);
     if (ec) {
-        fs::remove(longPath(sibling), ec);
-        fs::remove(stage, ec);
-        r.message = "Không ghi được vào thư mục đích: " + ec.message() + "." + longNote + " Tệp đích chưa bị thay đổi.";
+        const auto em = ec.message();
+        std::error_code cleanup;
+        fs::remove(longPath(sibling), cleanup);
+        fs::remove(stage, cleanup);
+        r.message = "Không ghi được vào thư mục đích: " + em + "." + longNote + " Tệp đích chưa bị thay đổi.";
         return r;
     }
-    fs::rename(longPath(sibling), longPath(target), ec); // thay thế nguyên tử trong cùng thư mục
+    if (exists) {
+        fs::rename(longPath(sibling), longPath(target), ec);
+    } else {
+        publishNewFile(sibling, target, ec);
+    }
     if (ec) {
         const std::string em = ec.message();
         fs::remove(longPath(sibling), ec);
@@ -1220,6 +1259,7 @@ SaveResult Document::saveAs(const fs::path& target, const SaveOptions& opts) {
         r.message = "Không đưa được tệp vào vị trí đích: " + em + "." + longNote;
         return r;
     }
+    fs::remove(longPath(sibling), ec); // POSIX publication leaves staged hard link
     fs::remove(stage, ec);
     r.ok = true;
     r.written = target;
