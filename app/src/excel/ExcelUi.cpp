@@ -73,6 +73,16 @@ void DocumentTab::excelAction(const QString& id) {
         return m_doc->currentPart() == cur && m_doc->partCount() == n && m_doc->partName(cur) == originalSheet;
     };
 
+    // Modal dialogs run a nested event loop. Never apply their result to a
+    // different sheet or cell range if the selection changes while open.
+    const auto confirmTarget = [&](const QString& range, const QString& title) {
+        if (!sameSheet() || !m_view || m_view->selectedCellRange() != range) {
+            QMessageBox::warning(this, title, tr("Sheet hoặc vùng chọn đã thay đổi. Chưa áp dụng thao tác."));
+            return false;
+        }
+        return true;
+    };
+
     if(a==QLatin1String("fillSeries")){
         const QString title=tr("Điền dãy số");
         const QString range=m_view->selectedCellRange();
@@ -269,12 +279,12 @@ void DocumentTab::excelAction(const QString& id) {
         box.addButton(QMessageBox::Cancel); box.setDefaultButton(copy); box.exec();
         if (box.clickedButton() == copy) QApplication::clipboard()->setText(result.text);
         else if (box.clickedButton() == replace) {
-            if (m_doc->currentPart() != cur || m_view->selectedCellRange() != range || qs(m_doc->selectionAs("text/plain;charset=utf-8")).trimmed() != value) {
+            if (!sameSheet() || !m_view || m_view->selectedCellRange() != range || qs(m_doc->selectionAs("text/plain;charset=utf-8")).trimmed() != value) {
                 QMessageBox::warning(this, tr("Số → chữ"), tr("Vùng chọn đã đổi. Chưa ghi dữ liệu.")); return;
             }
             if (QMessageBox::question(this, tr("Thay số hoặc công thức?"), tr("Thay %1 bằng chữ? Công thức gốc (nếu có) sẽ bị thay thế.").arg(range), QMessageBox::Yes|QMessageBox::No, QMessageBox::No) == QMessageBox::Yes) {
                 m_doc->waitInputIdle();
-                if (!sameSheet() || m_view->selectedCellRange() != range ||
+                if (!sameSheet() || !m_view || m_view->selectedCellRange() != range ||
                     qs(m_doc->selectionAs("text/plain;charset=utf-8")).trimmed() != value) {
                     QMessageBox::warning(this, tr("Số → chữ"), tr("Ô hoặc giá trị đã đổi trong lúc xác nhận; chưa ghi dữ liệu.")); return;
                 }
@@ -302,27 +312,32 @@ void DocumentTab::excelAction(const QString& id) {
         const QString stem = fromPath(m_doc->workingCopy().stem());
         cmd(".uno:Move", ex::sheetMove(ss(stem), cur + 2, true));
     } else if (a == QLatin1String("fontName")) {
+        const QString targetRange = m_view->selectedCellRange();
         bool ok = false;
         const QString f = QInputDialog::getItem(this, tr("Phông chữ"), tr("Chọn phông:"), QFontDatabase::families(), 0, true, &ok);
-        if (ok && !f.trimmed().isEmpty()) cmd(".uno:CharFontName", ex::fontName(ss(f.trimmed())));
+        if (ok && !f.trimmed().isEmpty() && confirmTarget(targetRange, tr("Phông chữ"))) cmd(".uno:CharFontName", ex::fontName(ss(f.trimmed())));
     } else if (a == QLatin1String("fontSize")) {
+        const QString targetRange = m_view->selectedCellRange();
         bool ok = false;
         const int pt = QInputDialog::getInt(this, tr("Cỡ chữ"), tr("Cỡ chữ (pt):"), 11, 4, 96, 1, &ok);
-        if (ok) cmd(".uno:FontHeight", ex::fontHeight(pt));
+        if (ok && confirmTarget(targetRange, tr("Cỡ chữ"))) cmd(".uno:FontHeight", ex::fontHeight(pt));
     } else if (a == QLatin1String("textColor") || a == QLatin1String("fillColor")) {
+        const QString targetRange = m_view->selectedCellRange();
         const QColor c = QColorDialog::getColor(Qt::black, this, a == QLatin1String("textColor") ? tr("Màu chữ") : tr("Màu nền ô"));
-        if (!c.isValid()) return;
+        if (!c.isValid() || !confirmTarget(targetRange, tr("Màu ô"))) return;
         const unsigned rgb = ((unsigned)c.red() << 16) | ((unsigned)c.green() << 8) | (unsigned)c.blue();
         if (a == QLatin1String("textColor")) cmd(".uno:Color", ex::textColor(rgb));
         else cmd(".uno:BackgroundColor", ex::fillColor(rgb));
     } else if (a == QLatin1String("colWidth")) {
+        const QString targetRange = m_view->selectedCellRange();
         bool ok = false;
         const double cm = QInputDialog::getDouble(this, tr("Độ rộng cột"), tr("Độ rộng (cm):"), 2.5, 0.2, 50, 2, &ok);
-        if (ok) cmd(".uno:ColumnWidth", ex::columnWidth(ex::cmToHundredthMm(cm)));
+        if (ok && confirmTarget(targetRange, tr("Độ rộng cột"))) cmd(".uno:ColumnWidth", ex::columnWidth(ex::cmToHundredthMm(cm)));
     } else if (a == QLatin1String("rowHeight")) {
+        const QString targetRange = m_view->selectedCellRange();
         bool ok = false;
         const double cm = QInputDialog::getDouble(this, tr("Chiều cao hàng"), tr("Chiều cao (cm):"), 0.5, 0.1, 20, 2, &ok);
-        if (ok) cmd(".uno:RowHeight", ex::rowHeight(ex::cmToHundredthMm(cm)));
+        if (ok && confirmTarget(targetRange, tr("Chiều cao hàng"))) cmd(".uno:RowHeight", ex::rowHeight(ex::cmToHundredthMm(cm)));
     } else if (a == QLatin1String("replace")) {
         bool ok = false;
         const QString f = QInputDialog::getText(this, tr("Tìm và thay thế"), tr("Tìm:"), QLineEdit::Normal, QString(), &ok);
@@ -336,10 +351,12 @@ void DocumentTab::excelAction(const QString& id) {
         cmd(".uno:ExecuteSearch", ex::replaceAll(ss(f), ss(r)));
         m_doc->waitInputIdle();
     } else if (a == QLatin1String("find")) {
+        const QString targetRange = m_view->selectedCellRange();
         bool ok = false;
         const QString f = QInputDialog::getText(this, tr("Tìm"), tr("Tìm:"), QLineEdit::Normal, QString(), &ok);
-        if (ok && !f.isEmpty()) cmd(".uno:ExecuteSearch", ex::findNext(ss(f)));
+        if (ok && !f.isEmpty() && confirmTarget(targetRange, tr("Tìm"))) cmd(".uno:ExecuteSearch", ex::findNext(ss(f)));
     }
+    if (!m_doc || m_doc.get() != originalDoc || !m_view || readOnly()) return;
     if (a.startsWith(QLatin1String("sheet"))) { m_doc->waitInputIdle(); rebuildParts(); m_view->resetForPartChange(); emit statusChanged(); }
     m_view->setFocus();
 }
