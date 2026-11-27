@@ -441,13 +441,16 @@ PatchResult patchDocumentXml(const QByteArray& xml, const MarginSpec& spec, QByt
         const qint32 rr = spec.right ? *spec.right : (s.right >= 0 ? s.right : 1440);
         const qint32 tp = spec.top ? *spec.top : (s.top >= 0 ? s.top : 1440);
         const qint32 bt = spec.bottom ? *spec.bottom : (s.bottom >= 0 ? s.bottom : 1440);
-        if (s.pageW > 0 && l + rr > s.pageW - kMinContent) {
-            r.error = QStringLiteral("lề trái + phải (%1 + %2 twip) quá lớn so với bề rộng giấy %3 twip ở phần %4")
+        // Gutter orientation may be set in settings.xml. Conservatively reserve it
+        // in both axes rather than allow an unusable text area in either layout.
+        const qint64 gutter=qMax<qint64>(0,s.gutter);
+        if (s.pageW > 0 && qint64(l) + rr + gutter > qint64(s.pageW) - kMinContent) {
+            r.error = QStringLiteral("lề trái + phải (%1 + %2 twip) và lề gáy quá lớn so với bề rộng giấy %3 twip ở phần %4")
                           .arg(l).arg(rr).arg(s.pageW).arg(s.index + 1);
             return r;
         }
-        if (s.pageH > 0 && tp + bt > s.pageH - kMinContent) {
-            r.error = QStringLiteral("lề trên + dưới (%1 + %2 twip) quá lớn so với chiều cao giấy %3 twip ở phần %4")
+        if (s.pageH > 0 && qint64(tp) + bt + gutter > qint64(s.pageH) - kMinContent) {
+            r.error = QStringLiteral("lề trên + dưới (%1 + %2 twip) và lề gáy quá lớn so với chiều cao giấy %3 twip ở phần %4")
                           .arg(tp).arg(bt).arg(s.pageH).arg(s.index + 1);
             return r;
         }
