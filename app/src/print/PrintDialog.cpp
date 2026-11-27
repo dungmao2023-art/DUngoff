@@ -168,8 +168,14 @@ void PrintDialog::showPage(int page1) {
     const QSize box = m_scroll->viewport()->size() - QSize(16, 16);
     QString err;
     const QImage img = printrender::renderPage(m_pdf, page1, box.expandedTo(QSize(200, 200)), &err);
-    if (img.isNull()) m_img->setText(tr("Không vẽ được trang: %1").arg(err));
-    else m_img->setPixmap(QPixmap::fromImage(img));
+    if (img.isNull()) {
+        m_img->clear();
+        m_img->setText(tr("Không vẽ được trang: %1").arg(err));
+        m_print->setEnabled(false);
+    } else {
+        m_img->setPixmap(QPixmap::fromImage(img));
+        m_print->setEnabled(true);
+    }
     m_pageLbl->setText(tr("Trang %1 / %2").arg(page1).arg(m_total));
 }
 
