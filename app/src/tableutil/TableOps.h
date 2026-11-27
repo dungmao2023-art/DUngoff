@@ -96,8 +96,16 @@ struct FilterSortSpec {
     // Empty lists preserve the original schema. Otherwise project in the supplied order.
     QList<int> outputColumns;
     QStringList outputNames;
+    // Optional steps: clean one source column, filter, deduplicate by one key, sort, project.
+    int cleanCol=-1, dedupCol=-1;
+    ColumnKind cleanKind=ColumnKind::Keep;
+    MoneyLocale moneyLocale=MoneyLocale::VN;
+    bool dedupFold=false;
 };
-struct FilterSortResult { bool ok = false; Table table; QString error; };
+struct FilterSortResult {
+    bool ok = false; Table table; QString error;
+    qsizetype cleanedCells=0, cleanWarnings=0, removedDuplicates=0, filteredRows=0;
+};
 FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec);
 
 // JSON recipe stores only schema and options, never the source path or rows.
