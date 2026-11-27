@@ -618,7 +618,10 @@ void DocumentTab::dropRecovery() {
 void DocumentTab::autosaveTick() {
     auto& rs = recovery::Session::instance();
     if (!rs.active() || !m_doc || m_doc->readOnly()) return;
-    if (!m_doc->modified() || !m_dirtySinceAutosave) return;
+    if (!m_doc->modified()) return;
+    // Even without an invalidate callback, a dirty document with no recovery
+    // snapshot yet must be saved at the next tick.
+    if (!m_dirtySinceAutosave && !m_recId.isEmpty()) return;
     if (!rs.hasRoom()) return;  // thư mục phục hồi đã đầy: bỏ qua, không làm gì khác
     const std::string ext = m_doc->recoveryExt();
     if (ext.empty()) return;
@@ -690,8 +693,16 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
     if (m_rangeTools && (type == LOK_CALLBACK_CELL_ADDRESS || type == LOK_CALLBACK_CELL_SELECTION_AREA ||
         type == LOK_CALLBACK_CELL_FORMULA || type == LOK_CALLBACK_SET_PART))
         notifyDocumentRangeTools(m_rangeTools);
-    if (type == LOK_CALLBACK_INVALIDATE_TILES && m_doc->modified()) m_dirtySinceAutosave = true;
-    if (m_doc->modified() != m_lastMod) { m_lastMod = m_doc->modified(); emit statusChanged(); } // đổi trạng thái "chưa lưu"
+    const bool modified = m_doc->modified();
+    // The first invalidation can arrive before ModifiedStatus=true.
+    // A transition to dirty must independently schedule a recovery snapshot.
+    if (modified && (type == LOK_CALLBACK_INVALIDATE_TILES || !m_lastMod))
+        m_dirtySinceAutosave = true;
+    if (modified != m_lastMod) {
+        m_lastMod = modified;
+        emit titleChanged();
+        emit statusChanged();
+    }
     switch (type) {
     case LOK_CALLBACK_CELL_ADDRESS:
         m_cellAddress = payload;
