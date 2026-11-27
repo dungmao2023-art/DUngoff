@@ -78,6 +78,7 @@
 #include <QScreen>
 #include <QEvent>
 #include <QEventLoop>
+#include <QCheckBox>
 #include <QElapsedTimer>
 #include <QHideEvent>
 #include <QShowEvent>
@@ -1513,6 +1514,37 @@ int MainWindow::captureShots(const QString& dir) {
         if(choose(QStringLiteral("TODAY"))&&result&&output)
             verify(!field(0)&&result->text()==QLatin1String("=TODAY()")&&!output->isHidden(),"TODAY no parameters");
         else verify(false,"TODAY widgets missing");
+    }
+    // Real embedded range widget with a controllable input-idle gate.
+    {
+        bool idle=false;
+        int reads=0;
+        QWidget host;
+        auto* layout=new QVBoxLayout(&host);
+        auto* range=createDocumentRangeToolsWidget(&host,[&]{++reads;return QStringLiteral("1\t2\n3\t4");},[&]{return idle;});
+        layout->addWidget(range);
+        host.resize(380,600);host.show();QApplication::processEvents();
+        auto* live=range->findChild<QCheckBox*>(QStringLiteral("RangeLiveRefresh"));
+        auto verify=[&](bool ok,const QString& description){
+            log << (ok?"BASIC_UI_PASS ":"BASIC_UI_FAIL ") << description << "\n";
+            if(!ok)++problems;
+        };
+        auto wait=[](int ms){QEventLoop loop;QTimer::singleShot(ms,&loop,&QEventLoop::quit);loop.exec();};
+        verify(live!=nullptr,"live range checkbox exists");
+        if(live){
+            live->setChecked(true);
+            wait(500);
+            verify(reads==0,"busy input defers live range read");
+            idle=true;wait(500);
+            verify(reads==1,"idle resumes one live range read");
+            notifyDocumentRangeTools(range);
+            host.hide();wait(500);
+            verify(reads==1,"hidden range does not read");
+            host.show();wait(500);
+            verify(reads==2,"show resumes one live range read");
+            live->setChecked(false);notifyDocumentRangeTools(range);wait(300);
+            verify(reads==2,"disabled live range does not read");
+        }
     }
     log << "TONG: " << problems << " van de\n";
     return problems;
