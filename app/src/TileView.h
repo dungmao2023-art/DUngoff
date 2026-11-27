@@ -27,6 +27,7 @@ public:
     bool hasCaret() const { return m_hasCaret; }
     bool renderPending() const { return !m_deferredPaint.isEmpty() || m_tilePaintTimer.isActive(); }
     int peakTilesPerPaint() const { return m_peakTilesPerPaint; }
+    unsigned coalescedDragDispatches() const { return m_dragDispatches; }
     bool hasCellCursor() const { return m_hasCell; }
     QRect caretViewRect() const;        // con trỏ chữ trong toạ độ viewport (rỗng nếu chưa có)
     QString selectedCellRange(bool verifyGesture = false); // chỉ trả về địa chỉ khi khớp hình học vùng engine và header
@@ -78,6 +79,7 @@ private:
     QPoint m_dragTwips;
     int m_dragButtons=0,m_dragModifiers=0;
     bool m_dragPending=false;
+    unsigned m_dragDispatches=0;
     static QRect parseRect(const QString& s, bool* ok = nullptr);
     static QVector<QRect> parseRects(const QString& s);
 
