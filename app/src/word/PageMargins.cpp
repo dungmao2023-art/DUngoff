@@ -7,7 +7,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSet>
-#include <QTemporaryFile>
+#include <QTemporaryDir>
 #include <algorithm>
 #include <cmath>
 
@@ -545,9 +545,13 @@ bool replaceZipEntry(const QString& src, const QString& dst, const QString& entr
     const quint32 crc = ft::zipCrc32(newData);
 
     // --- ghi tệp tạm rồi đổi tên
-    QTemporaryFile out(QDir(destination.absolutePath()).filePath(QStringLiteral(".DungOffice-zip-XXXXXX")));
-    if (!out.open()) return fail(QStringLiteral("không tạo được tệp tạm: ") + out.errorString());
-    const QString tmp=out.fileName();
+    // QTemporaryFile::close may keep its native handle open on Windows.
+    // Use an isolated directory and a regular QFile, which really closes before rename.
+    QTemporaryDir staging(QDir(destination.absolutePath()).filePath(QStringLiteral(".DungOffice-zip-XXXXXX")));
+    if(!staging.isValid())return fail(QStringLiteral("không tạo được thư mục tạm"));
+    const QString tmp=staging.filePath(QStringLiteral("copy.zip"));
+    QFile out(tmp);
+    if (!out.open(QIODevice::WriteOnly)) return fail(QStringLiteral("không tạo được tệp tạm: ") + out.errorString());
     auto bail = [&](const QString& m) { out.close(); return fail(m); };
     auto wr = [&](const QByteArray& b) { return out.write(b) == b.size(); };
 
