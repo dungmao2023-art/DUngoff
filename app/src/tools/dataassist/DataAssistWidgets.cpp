@@ -341,6 +341,7 @@ public:
         lay->addWidget(vi_);
         if (readSelection_) {
             live_ = new QCheckBox(QStringLiteral("Tự cập nhật thống kê vùng chọn"));
+            live_->setObjectName(QStringLiteral("RangeLiveRefresh"));
             live_->setToolTip(QStringLiteral("Chỉ đọc vùng khi panel đang hiện. Tắt nếu chọn vùng rất lớn."));
             lay->addWidget(live_);
             timer_ = new QTimer(this); timer_->setSingleShot(true); timer_->setInterval(220);
@@ -365,6 +366,15 @@ public:
         });
     }
     void scheduleRefresh() { if (timer_ && live_->isChecked() && isVisible()) timer_->start(); }
+protected:
+    void hideEvent(QHideEvent* event) override {
+        if(timer_)timer_->stop();
+        QWidget::hideEvent(event);
+    }
+    void showEvent(QShowEvent* event) override {
+        QWidget::showEvent(event);
+        scheduleRefresh();
+    }
 private:
     void readAndSummarize() {
         const auto reader = readSelection_ ? readSelection_ : hooks().selectedRangeText;
