@@ -50,6 +50,8 @@ jobs:
         run: |
           set -o pipefail
           ./build/app/dung-ppttransitiontest tests/fixtures/mailmerge/giay-moi.pptx
+      - name: Kiểm thử an toàn lưu PDF (Python chuẩn, không cần engine)
+        run: python3 -m unittest discover -s tools/pdfcore -p test_pdf_save.py -v
       - name: Kiểm thử công cụ PDF (qpdf)
         run: |
           set -o pipefail
@@ -382,6 +384,8 @@ jobs:
           if (-not $exe) { exit 1 }
           & $exe.FullName tests/fixtures/mailmerge/giay-moi.pptx
           if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm thử an toàn lưu PDF (Python chuẩn, Windows)
+        run: python -m unittest discover -s tools/pdfcore -p test_pdf_save.py -v
       - name: Kiểm thử công cụ PDF (qpdf) trên Windows
         run: |
           $env:DUNG_QPDF = "$PWD/build/qpdf/qpdf.exe"
