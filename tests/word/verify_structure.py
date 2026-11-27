@@ -111,3 +111,17 @@ for filename, height, width, marker in (
               filename + ": correct dimensions")
         check(("TABLE_CELL_MARKER" in text(tables[0])) == marker, filename + ": targeted text deletion/restoration")
         check("TABLE_BODY_MARKER" in text(root), filename + ": body retained")
+
+with zipfile.ZipFile(Path(sys.argv[1]).parent / "word-table-merged.docx") as z:
+    root = ET.fromstring(z.read("word/document.xml"))
+    tables = list(root.iter(W+"tbl"))
+    check(len(tables) == 1, "merged DOCX: exactly one table")
+    rows = tables[0].findall(W+"tr")
+    check(len(rows) == 6, "merged DOCX: other rows retained")
+    merged = [cell for row in rows for cell in row.findall(W+"tc")
+              if cell.find(W+"tcPr/"+W+"gridSpan") is not None
+              and cell.find(W+"tcPr/"+W+"gridSpan").get(W+"val") == "5"]
+    check(len(merged) == 1, "merged DOCX: one cell spans all five columns")
+    check("TABLE_CELL_MARKER" in text(merged[0]) and "TABLE_SECOND_CELL" in text(merged[0]),
+          "merged DOCX: both cell texts retained together")
+    check("TABLE_BODY_MARKER" in text(root), "merged DOCX: body retained")
