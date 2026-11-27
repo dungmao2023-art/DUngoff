@@ -188,6 +188,8 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     B("xl:sheetAdd", tr("Thêm sheet"), 0xE710, "+▭", false),
                     B("xl:sheetRename", tr("Đổi tên"), 0xE8AC, "Ab", false),
                     B("xl:sheetDup", tr("Nhân đôi"), 0xE8C8, "⧉", false),
+                    B("xl:sheetMoveLeft", tr("Dời sheet sang trái"), 0xE72B, "←", false),
+                    B("xl:sheetMoveRight", tr("Dời sheet sang phải"), 0xE72A, "→", false),
                     B("xl:sheetDelete", tr("Xoá sheet"), 0xE74D, "−▭", false),
                 }},
             }},

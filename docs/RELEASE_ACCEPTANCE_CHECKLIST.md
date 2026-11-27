@@ -302,3 +302,10 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 
 ## W02 — bảng Word, 28/11/2026
 - #147 merged main ad6a45adfc46627abe2ecb789fd1f3c256c046e5; [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/46049318168), nút chèn hàng/cột. #144/#145/#148 merged vào nhánh staging, CI tương ứng 46046692515/46046699616/46049420196 PASS cả hai OS. #149 tích hợp bị xung đột main; nhánh fix/word-table-controls-current-20261128 áp lại đúng 5 hunk trên main mới, giữ thay đổi khác, thêm kiểm tra Undo sau gộp hàng (hai marker trở lại ô riêng, kích thước 6×5 và nội dung thân văn bản còn nguyên). Mã/test HEAD trước cập nhật tài liệu ba40e1fe9fecb7bd1a787ec3074ecf94650c9a37; cần CI tích hợp mới. GUI Windows thật: chèn/xóa/gộp, hủy xác nhận, Undo, lưu và mở lại MS Word; tách ô, resize và thao tác ảnh chưa hoàn thành. Không nâng stage hoặc trọng số.
+
+
+## B1 — Excel, PowerPoint, PDF cơ bản (28/11/2026)
+- X02: đưa lệnh dời sheet trái/phải đã có trong menu ngữ cảnh và smoke test engine ra ribbon, báo rõ khi đã ở đầu/cuối. Không thay thuật toán di chuyển. Cần kiểm GUI, lưu/mở lại XLSX.
+- P03: N/P chuyển slide tiếp/trước, dùng helper chung bỏ qua slide ẩn và dừng ở biên, thêm 3 kiểm tra logic. Cần thử bàn phím và trình chiếu Windows/màn hình ngoài; không coi đây là phát animation.
+- D02: sửa lỗi ô phạm vi xoay PDF trống (giao diện hứa xoay tất cả nhưng parser từ chối); loại trang trùng trước khi xoay, giữ parser tách/xóa nghiêm ngặt. 4 kiểm tra qpdf mới gồm xoay tất cả, khoảng chồng nhau, từ chối ngoài phạm vi và giữ nguyên nguồn. Cần chạy CI và thử GUI.
+- Mã/test SHA 2187b6d1a14b62077db869213f27f8f610272a91; CI mới chưa xác nhận; không tăng stage, trọng số hoặc thêm dependency.
