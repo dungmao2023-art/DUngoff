@@ -1,6 +1,7 @@
 #include "TableOps.h"
 #include <QObject>
 #include <QFile>
+#include <QFileInfo>
 #include <QHash>
 #include <QSet>
 #include <QDate>
@@ -23,9 +24,27 @@ static QVector<QStringList> parseCsv(const QString &text, QChar sep, QString &er
     enum class State { Start, Bare, Quoted, Closed };
     State state = State::Start;
     bool any = false;
-    auto finishCell = [&] { row << cell; cell.clear(); state = State::Start; };
+    qsizetype cells=0;
+    auto finishCell = [&] {
+        if(row.size()>=kMaxCsvColumns || ++cells>kMaxCsvCells || cell.size()>kMaxCsvCellChars){
+            err=QObject::tr("CSV vượt giới hạn 1.024 cột, 5 triệu ô hoặc 1 triệu ký tự mỗi ô; chưa nhập dữ liệu.");
+            return false;
+        }
+        row << cell; cell.clear(); state = State::Start;return true;
+    };
+    auto finishRow=[&]{
+        if(rows.size()>=kMaxCsvRecords){
+            err=QObject::tr("CSV vượt 250.000 dòng dữ liệu; hãy chia thành các tệp nhỏ hơn.");
+            return false;
+        }
+        if(!finishCell())return false;
+        rows<<row;row.clear();any=false;return true;
+    };
     for (qsizetype i = 0; i < text.size(); ++i) {
         const QChar ch = text[i];
+        if(cell.size()>kMaxCsvCellChars){
+            err=QObject::tr("Ô CSV quá dài; chưa nhập dữ liệu.");return {};
+        }
         if (state == State::Quoted) {
             if (ch == QLatin1Char('"')) {
                 if (i + 1 < text.size() && text[i + 1] == QLatin1Char('"')) {
@@ -34,10 +53,10 @@ static QVector<QStringList> parseCsv(const QString &text, QChar sep, QString &er
             } else cell += ch;
             continue;
         }
-        if (ch == sep) { finishCell(); any = true; }
+        if (ch == sep) { if(!finishCell())return {}; any = true; }
         else if (ch == QLatin1Char('\r') || ch == QLatin1Char('\n')) {
             if (ch == QLatin1Char('\r') && i + 1 < text.size() && text[i + 1] == QLatin1Char('\n')) ++i;
-            finishCell(); rows << row; row.clear(); any = false;
+            if(!finishRow())return {};
         } else if (state == State::Closed || (state == State::Bare && ch == QLatin1Char('"'))) {
             err = QObject::tr("Dấu nháy sai vị trí tại bản ghi %1. Không đọc dữ liệu để tránh mất nội dung.").arg(rows.size() + 1);
             return {};
@@ -48,7 +67,7 @@ static QVector<QStringList> parseCsv(const QString &text, QChar sep, QString &er
         }
     }
     if (state == State::Quoted) { err = QObject::tr("Dấu nháy đóng chưa khớp trong CSV."); return {}; }
-    if (any || !cell.isEmpty() || !row.isEmpty()) { finishCell(); rows << row; }
+    if (any || !cell.isEmpty() || !row.isEmpty()) { if(!finishRow())return {}; }
     return rows;
 }
 
@@ -217,6 +236,7 @@ bool readCsvBytes(const QByteArray& raw, Encoding enc, Table& out, QString& erro
     if (sep != QLatin1Char(',') && sep != QLatin1Char(';') && sep != QLatin1Char('\t')) {
         error = QObject::tr("Dấu phân cách không được hỗ trợ."); return false;
     }
+    if(raw.size()>kMaxCsvBytes){error=QObject::tr("CSV vượt 100 MiB; hãy chia tệp.");return false;}
     QString text;
     if (!decodeText(raw, enc, text, error)) return false;
     auto rows = parseCsv(text, sep, error);
@@ -227,14 +247,25 @@ bool readCsvBytes(const QByteArray& raw, Encoding enc, Table& out, QString& erro
     return true;
 }
 
+bool readCsvFileBytes(const QString& path,QByteArray& out,QString& error){
+    error.clear();
+    const QFileInfo info(path);
+    if(!info.isFile()){error=QObject::tr("Chọn tệp CSV thường.");return false;}
+    QFile f(path);
+    if(!f.open(QIODevice::ReadOnly)){error=QObject::tr("Không mở được tệp: ")+f.errorString();return false;}
+    if(f.size()>kMaxCsvBytes){error=QObject::tr("CSV vượt 100 MiB; hãy chia tệp.");return false;}
+    const auto bytes=f.read(kMaxCsvBytes+1);
+    if(f.error()!=QFileDevice::NoError){error=f.errorString();return false;}
+    if(bytes.size()>kMaxCsvBytes||!f.atEnd()){
+        error=QObject::tr("CSV vượt 100 MiB hoặc chưa đọc hết; chưa nhập dữ liệu.");return false;
+    }
+    out=bytes;return true;
+}
+
 bool readCsvWith(const QString &path, Encoding enc, Table &out, QString &error, QChar sep)
 {
-    error.clear();
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) { error = QObject::tr("Không mở được tệp: ") + f.errorString(); return false; }
-    const auto bytes = f.readAll();
-    if (f.error() != QFileDevice::NoError) { error = f.errorString(); return false; }
-    return readCsvBytes(bytes, enc, out, error, sep);
+    QByteArray bytes;
+    return readCsvFileBytes(path,bytes,error)&&readCsvBytes(bytes,enc,out,error,sep);
 }
 
 bool readCsv(const QString &path, Table &out, QString &error, QChar sep)

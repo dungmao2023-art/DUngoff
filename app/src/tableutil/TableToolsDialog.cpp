@@ -102,15 +102,10 @@ public:
             {QSignalBlocker block(m_sheet);for(const auto& sheet:m_sheetList)m_sheet->addItem(sheet.name);m_sheet->setCurrentIndex(0);}
             loadSheet();return;
         }
-        QFile f(p);
-        if (!f.open(QIODevice::ReadOnly)) {
-            m_reason->setText(tr("Không mở được tệp: %1").arg(f.errorString()));
-            m_preview->clear(); if (onLoaded) onLoaded(); return;
-        }
-        m_raw = f.readAll();
-        if (f.error() != QFileDevice::NoError) {
-            m_raw.clear(); m_reason->setText(f.errorString()); m_preview->clear();
-            if (onLoaded) onLoaded(); return;
+        QString readError;
+        if(!readCsvFileBytes(p,m_raw,readError)){
+            m_reason->setText(readError);m_preview->clear();
+            if(onLoaded)onLoaded();return;
         }
         m_loadedBytes = true;
         m_guess = detectCsvEncoding(m_raw);

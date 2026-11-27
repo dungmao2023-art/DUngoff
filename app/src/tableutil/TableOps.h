@@ -16,6 +16,13 @@ struct Table {
 };
 
 // ---- CSV (UTF-8, có/không BOM). Ghi: KHÔNG ghi đè tệp đã có. ----
+// Limits apply to the entire input, not a truncated prefix.
+inline constexpr qint64 kMaxCsvBytes=100LL*1024*1024;
+inline constexpr qsizetype kMaxCsvRecords=250001; // includes header
+inline constexpr qsizetype kMaxCsvColumns=1024;
+inline constexpr qsizetype kMaxCsvCells=5000000;
+inline constexpr qsizetype kMaxCsvCellChars=1048576;
+bool readCsvFileBytes(const QString& path,QByteArray& out,QString& error);
 bool readCsv(const QString &path, Table &out, QString &error, QChar sep = QLatin1Char(','));
 bool writeCsvCopy(const QString &path, const Table &t, QString &error, QChar sep = QLatin1Char(','));
 
