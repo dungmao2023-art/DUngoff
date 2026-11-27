@@ -86,7 +86,7 @@ PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     m_tabs->addTab(buildStamp(), tr("Đóng dấu"));
     m_tabs->addTab(buildImages(), tr("Ảnh → PDF"));
     m_tabs->addTab(buildBlank(), tr("Trang trắng"));
-    m_tabs->addTab(buildReorder(), tr("Sắp xếp"));
+    m_tabs->addTab(buildReorder(), tr("Sắp xếp / xóa trang"));
     m_tabs->addTab(buildOcr(), tr("OCR · TXT / PDF"));
     m_tabs->addTab(buildSearch(),tr("Tìm chữ PDF"));
     lay->addWidget(m_tabs);
@@ -318,21 +318,47 @@ QWidget* PdfToolsDialog::buildReorder() {
     f->addRow(QString(), m_orderInfo);
     m_orderSpec = new QLineEdit(w);
     m_orderSpec->setPlaceholderText(tr("VD: 3,1-2,4-"));
-    f->addRow(tr("Thứ tự trang mới:"), m_orderSpec);
-    auto* note = new QLabel(tr("Nhập các trang theo thứ tự mong muốn. Mỗi trang phải xuất hiện đúng một lần. Không sửa tệp gốc; muốn xóa trang, dùng Tách."), w);
+    auto* mode=new QComboBox(w);
+    mode->addItem(tr("Sắp xếp lại (giữ mọi trang)"),false);
+    mode->addItem(tr("Xóa các trang đã nhập"),true);
+    f->addRow(tr("Thao tác:"),mode);
+    f->addRow(tr("Danh sách trang:"),m_orderSpec);
+    auto* note = new QLabel(tr("Nhập các trang theo thứ tự mong muốn. Mỗi trang phải xuất hiện đúng một lần. Không sửa tệp gốc."), w);
     note->setWordWrap(true);
     f->addRow(note);
     auto* go = new QPushButton(tr("Lưu bản đã sắp xếp..."), w);
     f->addRow(go);
-    connect(go, &QPushButton::clicked, this, [this] {
-        const QString src = m_orderFile->text(), spec = m_orderSpec->text().trimmed();
-        if (src.isEmpty() || spec.isEmpty()) { QMessageBox::information(this, tr("Sắp xếp"), tr("Hãy chọn PDF và nhập thứ tự trang.")); return; }
-        const QString dest = pickDest(this, src, tr("sắp xếp"));
-        if (dest.isEmpty()) return;
-        const bool replace = false;
-        showResult(runWithPasswords({src}, [this, src, spec, dest, replace] {
-            return reorder(inputFor(src), spec, dest, replace);
-        }), tr("Sắp xếp xong"));
+    connect(mode,QOverload<int>::of(&QComboBox::currentIndexChanged),w,[=]{
+        const bool remove=mode->currentData().toBool();
+        m_orderSpec->clear();
+        m_orderSpec->setPlaceholderText(remove?tr("VD: 2,5-7"):tr("VD: 3,1-2,4-"));
+        note->setText(remove?tr("Nhập những trang cần xóa. Trang còn lại giữ thứ tự gốc. Không được xóa tất cả. Đây không phải công cụ xóa thông tin mật (redaction)."):
+            tr("Nhập thứ tự mới, mỗi trang đúng một lần. Không sửa tệp gốc."));
+        go->setText(remove?tr("Lưu bản đã xóa trang..."):tr("Lưu bản đã sắp xếp..."));
+    });
+    connect(go,&QPushButton::clicked,this,[this,mode]{
+        const QString src=m_orderFile->text(),spec=m_orderSpec->text().trimmed();
+        const bool remove=mode->currentData().toBool();
+        if(src.isEmpty()||spec.isEmpty()){QMessageBox::information(this,tr("Trang PDF"),tr("Hãy chọn PDF và nhập danh sách trang."));return;}
+        int expectedPages=0;
+        if(remove){
+            auto inf=info(src,m_passwords.value(src));
+            if(inf.needPassword&&askPassword(src))inf=info(src,m_passwords.value(src));
+            if(!inf.ok){QMessageBox::warning(this,tr("Xóa trang"),inf.error);return;}
+            const auto plan=planRemovePages(spec,inf.pages);
+            if(!plan.ok){QMessageBox::warning(this,tr("Xóa trang"),plan.error);return;}
+            expectedPages=inf.pages;
+            const auto shown=plan.keepSpec.size()>160?plan.keepSpec.left(160)+QStringLiteral("…"):plan.keepSpec;
+            if(QMessageBox::question(this,tr("Xác nhận xóa trang"),
+                tr("Xóa %1/%2 trang, giữ %3 trang (%4). Chỉ tạo bản PDF mới, tệp gốc giữ nguyên. Tiếp tục?")
+                    .arg(plan.removed).arg(expectedPages).arg(plan.retained).arg(shown),
+                QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        }
+        const QString dest=pickDest(this,src,remove?tr("xóa trang"):tr("sắp xếp"));
+        if(dest.isEmpty())return;
+        showResult(runWithPasswords({src},[this,src,spec,dest,remove,expectedPages]{
+            return remove?removePages(inputFor(src),spec,expectedPages,dest):reorder(inputFor(src),spec,dest,false);
+        }),remove?tr("Xóa trang xong"):tr("Sắp xếp xong"));
     });
     return w;
 }

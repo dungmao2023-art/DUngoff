@@ -210,6 +210,18 @@ int main(int argc, char** argv) {
     CHECK(!reorder({a, {}}, QStringLiteral("1,3"), P(QStringLiteral("invalid-order.pdf"))).ok, "Từ chối thiếu trang");
     CHECK(!reorder({a, {}}, QStringLiteral("3,1,2"), a, true).ok && readFile(a) == aBytes, "Không ghi đè nguồn khi sắp xếp");
 
+    // --- remove specified pages, keep original order.
+    const auto plan=planRemovePages(QStringLiteral("2,2"),3);
+    CHECK(plan.ok&&plan.removed==1&&plan.retained==2&&plan.keepSpec=="1,3","delete duplicates count once");
+    CHECK(!planRemovePages(QStringLiteral("1-3"),3).ok,"reject deleting all pages");
+    CHECK(!planRemovePages(QStringLiteral("4"),3).ok,"reject out of range deletion");
+    const auto removed=P(QStringLiteral("removed.pdf"));
+    CHECK(removePages({a,{}},QStringLiteral("2"),3,removed).ok&&info(removed).pages==2,"delete page 2 from real PDF");
+    const auto after=P(QStringLiteral("removed-last.pdf"));
+    CHECK(extract({removed,{}},QStringLiteral("2"),after).ok&&qdfOf(after).contains("(A 3)"),"retained pages in original order");
+    CHECK(!removePages({a,{}},QStringLiteral("2"),4,P(QStringLiteral("changed.pdf"))).ok&&!QFile::exists(P(QStringLiteral("changed.pdf"))),"reject changed source page count");
+    CHECK(!removePages({a,{}},QStringLiteral("2"),3,removed).ok,"refuse existing output");
+    CHECK(!removePages({a,{}},QStringLiteral("2"),3,a).ok&&readFile(a)==aBytes,"source unchanged");
     // --- merge
     Result r = merge({{a, {}}, {b, {}}}, P(QStringLiteral("gop.pdf")));
     CHECK(r.ok && info(P(QStringLiteral("gop.pdf"))).pages == 5, "gộp 3+2 thành 5 trang");
