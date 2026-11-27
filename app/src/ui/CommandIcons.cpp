@@ -55,6 +55,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:NumberFormatDate", "calendar"}, {".uno:NumberFormatDecDecimals", "decimal-dec"}, {".uno:NumberFormatIncDecimals", "decimal-inc"},
         {".uno:NumberFormatPercent", "percent"}, {".uno:NumberFormatStandard", "clear-format"}, {".uno:NumberFormatThousands", "thousands"},
         {".uno:SetOptimalColumnWidth", "col-width"}, {".uno:SortAscending", "sort"}, {".uno:SortDescending", "sort"},
+        {"xl:sortAscending", "sort"}, {"xl:sortDescending", "sort"},
         {".uno:ToggleMergeCells", "merge-cells"}, {".uno:WrapText", "wrap-text"},
         {"xl:colWidth", "col-width"}, {"xl:rowHeight", "row-height"}, {"xl:fillColor", "fill-color"}, {"xl:textColor", "font-color"},
         {".uno:RecalcPivotTable", "transfer"}, {"xl:insertChart", "col-width"}, {"xl:formulaAssistant", "sum"}, {"xl:rangeTools", "col-width"}, {"xl:vnMoney", "currency"},
