@@ -131,6 +131,9 @@ int main(int argc, char** argv)
         CHECK(put(path,"ONE") && put(other,"TWO"),"create two distinct workbook paths");
         CHECK(savepath::sameExistingPath(path,alias),"same canonical file reuses document tab");
         CHECK(!savepath::sameExistingPath(path,other),"different workbook remains separate");
+        CHECK(savepath::conflictsWithOpenPaths(alias,{other,path}),"Save As detects file open in another tab");
+        CHECK(!savepath::conflictsWithOpenPaths(path,{other,QString()}),"Save As ignores unrelated and unsaved tabs");
+        CHECK(savepath::conflictsWithOpenPaths(R+"/./new.xlsx",{R+"/new.xlsx"}),"missing but open path remains protected");
         CHECK(savepath::samePathForProtection(path,alias) &&
               !savepath::samePathForProtection(path,other) &&
               !savepath::samePathForProtection(QString(),QString()),"source protection handles aliases, distinct and empty paths");
