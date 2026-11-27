@@ -6,6 +6,7 @@
 
 #include <QFrame>
 #include <QComboBox>
+#include <QLineEdit>
 #include <QFontDatabase>
 #include <QGridLayout>
 #include <QSignalBlocker>
@@ -363,7 +364,11 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             auto* controls=new QHBoxLayout;
             controls->setSpacing(3);
             auto* family=new QComboBox(gw);family->setObjectName(QStringLiteral("RibbonFontFamily"));
-            family->addItems(QFontDatabase::families());
+            const auto available=QFontDatabase::families();
+            family->addItems(available);
+            family->setEditable(true);
+            family->setInsertPolicy(QComboBox::NoInsert);
+            family->lineEdit()->setPlaceholderText(tr("Chọn hoặc nhập tên font"));
             family->setPlaceholderText(tr("Chọn phông"));
             family->setCurrentIndex(-1);family->setFixedWidth(158);
             family->setToolTip(tr("Phông chữ (tên do engine hoặc hệ điều hành cung cấp)"));family->setAccessibleName(tr("Phông chữ"));
@@ -374,11 +379,20 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             points->setCurrentIndex(-1);points->setToolTip(tr("Cỡ chữ (pt)"));points->setAccessibleName(tr("Cỡ chữ"));
             m_fontBox=family;m_sizeBox=points;
             const bool excel=m_lastKind==int(DocKind::Spreadsheet);
-            connect(family,qOverload<int>(&QComboBox::activated),this,[this,family,excel](int index){
-                if(index<0||family->itemText(index).isEmpty())return;
-                const auto name=family->itemText(index).toUtf8().toStdString();
+            auto applyFamily=[this,family,excel](const QString& value){
+                const auto selected=value.trimmed();
+                if(selected.isEmpty()||selected.size()>200||!family->isEnabled())return;
+                const auto name=selected.toUtf8().toStdString();
                 const auto json=excel?dung::excel::fontName(name):dung::word::fontName(name).second;
                 emit unoCommand(QStringLiteral(".uno:CharFontName#")+QString::fromStdString(json));
+            };
+            connect(family,qOverload<int>(&QComboBox::activated),this,[family,applyFamily](int index){
+                if(index>=0)applyFamily(family->itemText(index));
+            });
+            connect(family->lineEdit(),&QLineEdit::returnPressed,this,[family,applyFamily]{
+                // Known list entries are handled by QComboBox::activated. Typed unknown names use the native engine.
+                if(family->findText(family->currentText().trimmed(),Qt::MatchFixedString)<0)
+                    applyFamily(family->currentText());
             });
             connect(points,qOverload<int>(&QComboBox::activated),this,[this,points,excel](int index){
                 bool ok=false;const double pt=points->itemText(index).toDouble(&ok);
@@ -476,6 +490,7 @@ void Ribbon::setFontFamilies(const QStringList& engineFamilies) {
     QSignalBlocker blocker(m_fontBox.data());
     m_fontBox->clear();m_fontBox->addItems(names);
     m_fontBox->setCurrentIndex(m_fontBox->findText(current,Qt::MatchFixedString));
+    if(m_fontBox->currentIndex()<0)m_fontBox->clearEditText();
     m_fontBox->setToolTip(engineFamilies.isEmpty()?tr("Phông chữ trên máy; engine chưa trả danh sách"):tr("Phông chữ do engine tài liệu cung cấp"));
 }
 
@@ -515,7 +530,11 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
 }
 
 void Ribbon::resetStates(const QHash<QString, QString>& states) {
-    for(auto* box:{m_fontBox.data(),m_sizeBox.data()})if(box){QSignalBlocker block(box);box->setCurrentIndex(-1);box->setEnabled(true);}
+    for(auto* box:{m_fontBox.data(),m_sizeBox.data()})if(box){
+        QSignalBlocker block(box);box->setCurrentIndex(-1);
+        if(box->isEditable())box->clearEditText();
+        box->setEnabled(true);
+    }
     for (auto it = m_buttons.begin(); it != m_buttons.end(); ++it)
         if (it.value() && it.value()->isCheckable()) it.value()->setChecked(false);
     for (auto it = states.begin(); it != states.end(); ++it) setCommandState(it.key(), it.value());

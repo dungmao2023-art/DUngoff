@@ -33,10 +33,14 @@ int main(int argc, char** argv) {
         if(k!=dung::DocKind::Drawing){
             auto* family=r.findChild<QComboBox*>(QStringLiteral("RibbonFontFamily"));
             auto* size=r.findChild<QComboBox*>(QStringLiteral("RibbonFontSize"));
-            if(!family||!size||family->count()==0||size->count()==0){printf("[LỖI] thiếu bộ chọn font/cỡ chữ\n");++fail;}
+            if(!family||!size||size->count()==0){
+                printf("[LỖI] kind=%d widget font=%d widget size=%d sizes=%d\n",int(k),int(family!=nullptr),int(size!=nullptr),size?size->count():0);++fail;
+            }
             else{
                 QString emitted;
                 const auto connection=QObject::connect(&r,&Ribbon::unoCommand,&r,[&](const QString& cmd){emitted=cmd;});
+                // Windows offscreen platform may have no system fonts. Verify engine-fed entries independently.
+                printf("kind=%d, system font count=%d\n",int(k),family->count());
                 r.setFontFamilies({QStringLiteral("Carlito"),QStringLiteral("Liberation Serif")});
                 if(family->count()!=2||family->itemText(0)!=QLatin1String("Carlito")||!emitted.isEmpty()){
                     printf("[LỖI] danh sách font engine chưa đồng bộ\n");++fail;
@@ -51,6 +55,11 @@ int main(int argc, char** argv) {
                 emitted.clear();
                 QMetaObject::invokeMethod(size,"activated",Qt::DirectConnection,Q_ARG(int,size->currentIndex()));
                 if(!emitted.startsWith(QLatin1String(".uno:FontHeight#"))){printf("[LỖI] chọn cỡ không phát lệnh\n");++fail;}
+                emitted.clear();
+                r.setCommandState(QStringLiteral(".uno:CharFontName"),QStringLiteral("Document Font Not Installed"));
+                if(family->currentText()!=QLatin1String("Document Font Not Installed")||!emitted.isEmpty()){
+                    printf("[LỖI] font tài liệu chưa cài không được hiển thị hoặc UI tự ghi\n");++fail;
+                }
                 QObject::disconnect(connection);
             }
         }

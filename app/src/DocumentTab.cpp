@@ -45,6 +45,9 @@
 #include <QInputDialog>
 #include <QShortcut>
 #include <QKeySequence>
+#include <QToolButton>
+#include <QStyle>
+#include "ui/Icons.h"
 #include "word/WordCommands.h"
 #include "word/WordActions.h"
 #include "templates/TemplateLibrary.h"
@@ -183,6 +186,18 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         m_formula->setToolTip(tr("Sửa nội dung một ô; Enter hoặc rời ô nhập để xác nhận, Esc để huỷ. Nếu vị trí đã thay đổi, nội dung sẽ không bị ghi sang ô khác."));
         m_formula->setReadOnly(m_doc->readOnly());
         fh->addWidget(m_nameBox);
+        auto* cancelEdit=new QToolButton(fb);
+        auto* acceptEdit=new QToolButton(fb);
+        for(auto* button:{cancelEdit,acceptEdit}){
+            button->setFixedSize(28,28);button->setAutoRaise(true);
+            button->setFocusPolicy(Qt::NoFocus);button->setEnabled(false);
+        }
+        cancelEdit->setIcon(style()->standardIcon(QStyle::SP_DialogCancelButton));
+        acceptEdit->setIcon(style()->standardIcon(QStyle::SP_DialogApplyButton));
+        cancelEdit->setToolTip(tr("Hủy chỉnh sửa công thức (Esc)"));
+        acceptEdit->setToolTip(tr("Xác nhận công thức (Enter)"));
+        cancelEdit->setAccessibleName(cancelEdit->toolTip());acceptEdit->setAccessibleName(acceptEdit->toolTip());
+        fh->addWidget(cancelEdit);fh->addWidget(acceptEdit);
         fh->addWidget(fx);
         fh->addWidget(m_formula, 1);
         v->addWidget(fb);
@@ -207,20 +222,22 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
             std::string sheet, cell;
         };
         auto edit = std::make_shared<FormulaEdit>();
-        connect(m_formula, &QLineEdit::textEdited, this, [this, edit](const QString&) {
+        connect(m_formula, &QLineEdit::textEdited, this, [this, edit,cancelEdit,acceptEdit](const QString&) {
             if (edit->active || !m_doc || !m_view || m_doc->readOnly()) return;
             m_doc->waitInputIdle();
             edit->active = true;
+            cancelEdit->setEnabled(true);acceptEdit->setEnabled(true);
             edit->part = m_doc->currentPart();
             edit->sheet = m_doc->partName(edit->part);
             edit->cell = dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
                 m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
         });
-        auto commitFormula = [this, edit](bool focusView) {
+        auto commitFormula = [this, edit,cancelEdit,acceptEdit](bool focusView) {
             if (!m_doc || !m_view || m_doc->readOnly() || !edit->active) return;
             const QString draft=m_formula->text();
             // Clear before invoking a modal dialog or changing focus to avoid double commits.
             edit->active=false;
+            cancelEdit->setEnabled(false);acceptEdit->setEnabled(false);
             m_doc->waitInputIdle();
             const auto cell=dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
                 m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
@@ -242,11 +259,15 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         connect(m_formula,&QLineEdit::returnPressed,this,[commitFormula]{commitFormula(true);});
         auto* cancelFormula=new QShortcut(QKeySequence(Qt::Key_Escape),m_formula);
         cancelFormula->setContext(Qt::WidgetShortcut);
-        connect(cancelFormula,&QShortcut::activated,this,[this,edit]{
+        auto discardFormula=[this,edit,cancelEdit,acceptEdit]{
             edit->active=false;
+            cancelEdit->setEnabled(false);acceptEdit->setEnabled(false);
             m_formula->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_FORMULA)));
             if(m_view)m_view->setFocus();
-        });
+        };
+        connect(cancelFormula,&QShortcut::activated,this,discardFormula);
+        connect(cancelEdit,&QToolButton::clicked,this,discardFormula);
+        connect(acceptEdit,&QToolButton::clicked,this,[commitFormula]{commitFormula(true);});
     }
 
     // ---- Vùng tài liệu (+ danh sách trang chiếu bên trái cho PowerPoint/PDF) ----

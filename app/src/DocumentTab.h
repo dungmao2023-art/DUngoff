@@ -7,6 +7,7 @@
 #include <QWidget>
 #include <memory>
 #include <functional>
+#include <utility>
 
 class QLineEdit;
 class QLabel;
