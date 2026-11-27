@@ -2,6 +2,86 @@
 
 Mốc rà soát 26/11/2026: main 487a62b31a7cf645dc8bfaa45d2afe2518cae1b3. Đây là backlog sống, không phải tuyên bố hoàn thiện. Đọc file này trước mỗi lượt làm; đối chiếu HEAD, PR và CI mới nhất, không sao chép báo cáo cũ. Mỗi mục chỉ đánh dấu [x] khi đạt tiêu chí nghiệm thu ghi ngay bên cạnh (có link PR, SHA, CI, hoặc bằng chứng test máy thật). "Có mã" / "CI xanh" không đồng nghĩa "GUI đã nghiệm thu". P0 = bắt buộc trước bản beta ổn định, P1 = mở rộng sau P0 hoặc triển khai độc lập; không bắt buộc tương đương 100% MS Office. Không phát hành công khai khi chưa được chủ dự án đồng ý.
 
+## Cổng nghiệm thu công sở — ưu tiên cơ bản (27/11/2026, chủ dự án xác nhận)
+Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải bảng điểm thứ hai. Không đổi trọng số hoặc stage chỉ vì tạo checklist. Cổng B0/B1 là yêu cầu sử dụng hằng ngày; B2 làm sau hoặc khi có blocker độc lập. Không bỏ P0 cũ khỏi phạm vi dự án; chức năng nâng cao chưa đạt phải ghi rõ giới hạn, không quảng cáo. Mốc 50% chỉ là checkpoint, không phải đủ phát hành hoặc lý do dừng nếu cổng cơ bản chưa đạt.
+
+### B0 — an toàn dữ liệu, thao tác và bộ cài (ưu tiên tuyệt đối)
+- [ ] A01.1 Tạo DOCX/XLSX/PPTX từ trống; nhập nội dung Unicode, lưu, đóng, mở lại; đối chiếu nội dung/định dạng trên MS Office.
+- [ ] A01.2 Mở file có sẵn, sửa một phần, Save As sang tên mới; hash nguồn không đổi; Cancel không tạo file.
+- [ ] A04.1 Undo/Redo liên tiếp sau gõ, dán, xóa, định dạng; không thay đổi dữ liệu ngoài vùng.
+- [ ] A04.2 Tắt bất thường khi đang chỉnh; khôi phục bản tự lưu; chọn giữ/bỏ; không ghi đè nguồn.
+- [ ] A04.3 File khóa/read-only/đầy đĩa/đích đã tồn tại: báo lỗi rõ, giữ bản gốc và nội dung chưa lưu; không báo thành công giả.
+- [ ] A02.1 Windows thật: Telex/VNI/IME, dấu tiếng Việt, caret nhấp nháy, click đúng vị trí, kéo chọn, Backspace/Delete, Ctrl+A/C/X/V/Z/Y, Enter, Tab.
+- [ ] A02.2 DPI 100/125/150/200%; zoom, cuộn, chuột và bàn phím không lệch vị trí.
+- [ ] A03.1 Mở đồng thời 2 file mỗi loại; tab phân loại; đổi tab/sheet; lưu/đóng đúng file, hủy đóng khi chưa lưu.
+- [ ] A05.1 In/xem trước từ Word/Excel/PPT/PDF; chọn phạm vi, A4, hướng giấy, lề, chữ Việt; kiểm PDF xuất và máy in thật.
+- [ ] A06.1 Ribbon/panel vừa 800×600, 1366×768, 1920×1080; không che thao tác bắt buộc; DPI kiểm thật.
+- [ ] A07.1 Thu nhỏ/restore FloatMenu, mở đúng công cụ/tab, không mất file chưa lưu.
+- [ ] A08.1 Bộ cài đúng SHA main, SHA256; Windows sạch cài/mở đủ bốn công cụ, nâng cấp/gỡ không mất dữ liệu.
+- [ ] A09.1 Inventory dependency/license/notice, font và từ điển; kiểm offline, không tự tải binary hoặc thực thi macro không được phép.
+- [ ] A10.1 Đo thời gian mở/lưu, RAM và độ phản hồi trên máy thật với 5.000 dòng, 30 slide, 100 trang PDF; ghi cấu hình và kết quả.
+
+### B1 — Word: ca làm việc hành chính
+- [ ] W01.1 Soạn văn bản 3 trang tiếng Việt: chọn đoạn, font/cỡ/màu, đậm/nghiêng/gạch chân, căn trái/phải/giữa/đều, spacing, indent; Undo/Redo và roundtrip.
+- [ ] W01.2 Bullet/numbering nhiều cấp, tiếp tục và khởi động lại danh sách.
+- [ ] W02.1 Tạo bảng 4×5; chèn/xóa hàng cột, gộp/tách, chỉnh rộng/cao; giữ nội dung khi lưu.
+- [ ] W02.2 Chèn ảnh, resize giữ tỷ lệ, wrap, kéo vị trí; link, ký hiệu, ngắt trang.
+- [ ] W03.1 A4, lề tùy chỉnh theo nhu cầu hành chính, portrait/landscape, header/footer, số trang; kiểm preview/in.
+- [ ] W03.2 Heading 1–3, tạo TOC thật, sửa heading và cập nhật mục lục; mở lại DOCX.
+- [ ] W03.3 Footnote/endnote, số trang và section; không mất nội dung.
+- [ ] W04.1 Tìm/thay một và tất cả, phân biệt hoa thường, đếm từ; test dấu Việt, hủy thao tác.
+- [ ] W04.2 Kiểm chính tả tiếng Việt bằng từ điển có license xác minh; phân biệt kiểm âm tiết.
+- [ ] W05.1 Mẫu công văn, đơn, hợp đồng; số tiền thành chữ, ngày, chuyển mã; mail merge từ Excel/CSV có Unicode.
+- [ ] W06.1 Comment thêm/sửa/xóa; Track Changes bật/tắt, chấp nhận/từ chối; giữ review cũ và mở lại MS Word.
+
+### B1 — Excel: ca làm việc bảng tính
+- [ ] X01.1 Nhập số/chữ/công thức, F2/double click, thanh công thức, chọn ô/vùng và chuyển sheet; IME và Undo.
+- [ ] X01.2 Copy/cut/paste vùng có công thức, số, ngày, mã 001; giữ dữ liệu ngoài vùng; paste values không đổi style; Undo khôi phục chính xác. #110 là probe, chưa bật GUI.
+- [ ] X02.1 Thêm/xóa/đổi tên/nhân đôi/di chuyển sheet; hàng/cột; merge/wrap/resize; định dạng số, ngày, tiền, %, custom; lưu XLSX.
+- [ ] X03.1 SUM/AVERAGE/COUNT/IF/SUMIF(S)/COUNTIF(S), VLOOKUP/XLOOKUP/INDEX/MATCH, tham chiếu tương đối/tuyệt đối/liên sheet; lỗi công thức đúng.
+- [ ] X03.2 Tôi muốn tự nhận ô/vùng đang chọn, đủ đối số từng hàm, chọn ô kết quả, đổi sheet không ghi nhầm.
+- [ ] X04.1 FillDown/Right, chuỗi ngày/số, kéo fill handle; công thức và tham chiếu cập nhật đúng.
+- [ ] X05.1 Filter, sort một/nhiều khóa, freeze; dữ liệu nguyên hàng, header và công thức không lệch.
+- [ ] X05.2 Conditional formatting, data validation/dropdown, bảo vệ sheet; kiểm XLSX thật.
+- [ ] X06.1 Tạo biểu đồ cột/đường/tròn từ vùng; sửa tiêu đề, nguồn, loại; thay dữ liệu cập nhật chart; lưu và mở lại Excel.
+- [ ] X07.1 Tạo PivotTable thật từ vùng có tiêu đề, chọn row/column/value, SUM/COUNT; sửa cấu hình, refresh sau đổi số và nhóm; kiểm cache và output XLSX.
+- [ ] X08.1 CSV nhập/xuất Unicode, dấu phân cách/quote/newline, mã dài/0 đầu; dedup/đối soát; số thành chữ không phá định dạng.
+- [ ] X09.1 Import/export mẫu MISA/KiotViet chính thức; nếu thiếu fixture thì ghi blocker, không bịa tương thích.
+- [ ] X10.1 Power Query cơ bản: chọn nguồn CSV/XLSX/sheet, lọc/sort, kiểu dữ liệu, join/group, lưu recipe, chạy lại; preview, xuất bản sao; không gọi là M đầy đủ.
+
+### B1 — PowerPoint: ca làm bài thuyết trình
+- [ ] P01.1 Chèn/sửa textbox, ảnh/hình, kéo/resize/rotate; căn chỉnh, thứ tự lớp, nhóm/bỏ nhóm; nhiều đối tượng, Undo/Redo.
+- [ ] P02.1 Tạo/xóa/nhân đôi/sắp xếp slide, layout, thumbnail, notes; mở lại PPTX.
+- [ ] P03.1 F5/Shift+F5, chuyển slide/phím ESC, quay đúng slide; toàn màn hình/cửa sổ, màn hình ngoài.
+- [ ] P04.1 Transition cơ bản, thời gian và advance; áp dụng cho một/nhiều slide; theme/master/layout cơ bản.
+- [ ] P05.1 Appear/Fade, nhiều đối tượng, click, duration/delay/order; phát thật PowerPoint/Impress, không ghi đè timing cũ.
+
+### B1 — PDF: ca xử lý tài liệu
+- [ ] D01.1 Đọc PDF văn bản/scan/mật khẩu, trang/zoom, tìm tiếng Việt, chọn/copy chữ, hiển thị kết quả; lỗi mật khẩu rõ.
+- [ ] D02.1 Gộp/tách/xoay/xóa/sắp xếp/nén; preview, page count, hash nguồn, đích không ghi đè; xác nhận trước khi bỏ mã hóa.
+- [ ] D03.1 Chỉnh bản sao ODG chữ/ảnh/hình, Undo, xuất PDF, đối chiếu layout; thông báo giới hạn, không gọi là sửa stream gốc.
+- [ ] D05.1 Watermark, số trang, chữ Unicode và ảnh; xem trước, font nhúng, đúng vị trí/trang.
+- [ ] D06.1 OCR vie/eng trên Windows thật: đa trang, hủy, TXT/searchable PDF; kiểm chất lượng chữ và lớp text; cảnh báo raster, không trộn nguồn đổi.
+- [ ] D07.1 Chú thích/điền form cơ bản nếu khả thi; lưu bản sao và xác minh, không coi overlay là redaction.
+
+### B1 — Tiện ích cần cho công sở
+- [ ] E01.1 Mẫu Word/Excel/PPT thường dùng mở/lưu thật, phân loại, nguồn và giấy phép rõ; không đếm mẫu trùng.
+- [ ] E03.1 Notes/Calendar/tác vụ lưu local, nhắc lịch, backup/restore.
+- [ ] E06.1 Hướng dẫn tiếng Việt: cài đặt, tạo/lưu/in, giới hạn tính năng, lỗi thường gặp và cập nhật.
+- [ ] E02.1 Kho luật có link chính thức, ngày kiểm tra, hiệu lực; không tự tạo nội dung luật.
+- [ ] E04.1 Góp ý, email đích do chủ xác nhận; E05.1 kiểm tool thực tế, license/checksum và báo thiếu dependency.
+
+### B2 — mở rộng sau khi chức năng cơ bản ổn định
+X11/X12/X13 (M, VBA, macro), P06 (emphasis, motion path, sửa timing nâng cao), D04 (sửa PDF gốc), D07 (redaction thật/chữ ký nâng cao), E02/E05 nâng cao. Không xóa các ID hoặc giảm tiêu chí cũ; chỉ đổi thứ tự thực hiện.
+
+### Quy trình chống làm lại và quên việc
+1. Đọc HEAD main, file này, CSV, PR mở và CI theo đúng SHA. Tìm ID/ca con trước khi sửa; không tạo PR trùng chức năng đã có. Nếu PR tồn tại, tiếp tục nhánh đó hoặc ghi rõ PR thay thế khi xung đột.
+2. Chọn ca B0 chưa đạt trước, rồi B1; nếu bị blocker thật (GUI/fixture/quyền/engine/CI), ghi blocker và chuyển ca độc lập. Ưu tiên vá regression, không chạy probe vô hạn hoặc thêm tính năng nâng cao chỉ để tăng số commit.
+3. Mỗi PR ghi ID/ca con, mã và test thực tế, SHA, CI Windows/Linux, kết quả mở/lưu file; nếu chưa test GUI thì ghi rõ. Merge khi CI đúng HEAD PASS, mergeable và các test bắt buộc đã chạy; kiểm lại xung đột sau mỗi merge.
+4. Chỉ đánh dấu [x] từng ca con khi có bằng chứng theo tiêu chí; lưu bằng chứng cạnh ca (PR, commit, CI, máy thật/phiên bản Office nếu cần). Stage CSV chỉ tăng khi tiêu chí nhóm cũ đạt mức tương ứng; không cộng hai lần.
+5. Khi đã đạt một ca, không làm lại trừ regression hoặc thay đổi phụ thuộc ảnh hưởng. Ghi ca hoàn thành, ca tiếp theo, blocker, điều kiện nghiệm thu máy thật trong mỗi lượt. Không force push, không ghi đè người khác, không rebuild engine vô cớ, không public release.
+6. Chỉ số 50/60/70% không thay cho cổng: báo riêng số ca B0/B1 đã nghiệm thu, ca fail/blocked, 48 nhóm có trọng số. Chỉ đề xuất dùng công sở khi tất cả ca B0 và B1 thiết yếu PASS trên bản tích hợp Windows thật, không có lỗi mất dữ liệu; các mục thiếu phải được chủ dự án chấp nhận rõ ràng.
+
 ## P0 — dùng chung cả bốn công cụ
 - [ ] A01 Mở, tạo, sửa, lưu, Save As, mở lại DOCX/XLSX/PPTX/PDF; kiểm nội dung, ảnh, công thức và định dạng, không ghi đè nguồn ngoài ý muốn. CI #27 là cơ sở, cần test bản tổng hợp.
 - [ ] A02 Nhập tiếng Việt (Telex/VNI/IME), caret nhấp nháy, click, kéo chọn, Ctrl+A/C/X/V/Z/Y, double click, phím tắt, cuộn/zoom trên từng loại. Test Windows thật, kể cả DPI 125/150/200%.
@@ -151,3 +231,21 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 - #102 head 261734f1cfb6004942143f6f7f384c6124c485f5 merged 705c45b; [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45947947713). X05/A04 kiểm sheet/vùng chọn khi mở hộp thoại định dạng; GUI và trường hợp range rỗng cần nghiệm thu.
 - #100 head 4b66cd51263488efde213651ce797d41a50eda1a và #97 head 0a2dc044fa7b039ef784b1c4be7816c602dc91c9 đã đồng bộ chính xác hai file PDF của #98; CI mới chưa hoàn tất. Không tính là merged.
 - Giữ nguyên stage, trọng số, giờ dự toán: 33.83% triển khai có trọng số, 0 nhóm accepted. Các CI branch riêng không thay thế nghiệm thu main tích hợp và GUI thực tế.
+
+## Bằng chứng cập nhật — main 9ac4871be570677236fdba24c73b742bda970aff (27/11/2026)
+- P06: [#114](https://github.com/dungmao2023-art/DUngoff/pull/114) head 49d6c45cf57d9b0ce4c65b6dadc5ab1f70c97ac9, merged 07ddbde25b6edba2792e02da7886d43bd87987d1; [Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45971609706). Graphic frame XML target, clear roundtrip; chưa thử playback thực.
+- X07.1: [#115](https://github.com/dungmao2023-art/DUngoff/pull/115) head e9d6f0f2c4ae51d63b4a46098f4602064e76c048, merged 9ac4871be570677236fdba24c73b742bda970aff; [Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45972714392). Đổi số, đổi nhóm nguồn B2, tổng từng nhóm và grand total, lưu/mở lại XLSX thật đều đạt. Tạo mới/cấu hình/GUI chưa đạt, giữ ca chưa tick.
+- X01.2: #110 head 68d2a4fe00a3accafc1fcac2754f984b7ddfbb86 [CI FAIL hai OS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45970794361), giá trị/bold/Undo đạt nhưng font và alignment thay đổi; không bật GUI.
+- A04.3/X10.1: #113 head 547a27719b44fc2dfab2056ec817f4da9ccdf982 [Linux PASS/Windows FAIL](https://github.com/dungmao2023-art/DUngoff/actions/runs/45971209960), test PDF save phát hiện metadata khác dù chưa thay thế. #117 head e14ace07da22d95872db4eee0458e80c7fdc040b sửa so sánh snapshot, [CI chưa xong](https://github.com/dungmao2023-art/DUngoff/actions/runs/45973869624).
+- A04.2: #118 head 49f6ff8b7813d08f92b111a18f622bc8535383e4 sửa lỗi cleanup che lỗi copy recovery, [CI chưa xong](https://github.com/dungmao2023-art/DUngoff/actions/runs/45974454595).
+- A04.3/A05.1: #119 head 1e9ed08eea2ee252def83a85274409107dad700e giữ dirty state khi lưu lỗi/xuất PDF, [CI chưa xong](https://github.com/dungmao2023-art/DUngoff/actions/runs/45975003462).
+- D02: #112 head 0ceac8299fe64405a880cc302a5ad85d8aae8d2d [CI chung PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45964491339), chưa merge vì thiếu chạy pikepdf thực tế.
+- D06: #111 merged ff4bd17, head 9b035d767e3fbe0711cfe988922b8a08b1dce95d [CI Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45953089425), kiểm metadata nguồn OCR; Windows OCR thực/GUI còn thiếu.
+- Giữ nguyên stage, trọng số, giờ dự toán: 33.83%, 0 nhóm accepted. Không đánh dấu B0/B1 đạt chỉ vì có CI từng phần.
+
+## Batch B0 — main 11897514c48cc001e3070a0ac8b2c892d7f21681
+- #117 merged 1189751; head e14ace07da22d95872db4eee0458e80c7fdc040b, [Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45973869624), kiểm thử an toàn lưu PDF đạt. Không coi đây là nghiệm thu toàn bộ A04.3.
+- #118 head 49f6ff8b7813d08f92b111a18f622bc8535383e4 [Windows/Linux PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/45974454595); gom vào batch cùng #119/#120/#121/#113 và #116. Cần CI trên HEAD tích hợp; không tính là merged trước khi batch merge.
+- #113: lỗi Windows trước đó là bộ kiểm thử lưu PDF; batch dùng main đã chứa #117, kiểm lại query ragged rows.
+- Tiết kiệm Actions: chuẩn bị nhiều commit trên nhánh không mở PR, kiểm tra xung đột, mở đúng một PR khi đủ nhóm độc lập; không trigger từng commit. Giữ nguyên CI bắt buộc của PR và main; không build engine hoặc release. Nếu batch đang CI, chuẩn bị nhánh kế tiếp riêng thay vì liên tục push làm hủy job.
+- #112 chưa gom vì chưa xác minh pikepdf runtime; #110 vẫn probe FAIL, không bật GUI. Giữ nguyên 33.83%, ca B0/B1 chưa tick.
