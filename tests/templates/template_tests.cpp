@@ -121,11 +121,11 @@ int main(int argc, char** argv) {
             {cat,QByteArray("\xEF\xBB\xBF" "Duong_dan,Tinh_trang,Nguon_goc,URL,Dinh_dang\n")+name+",,,,DOCX\n"},
             {name,"test template bytes"}};
         const auto zipPath=tmp.filePath("synthetic.zip");
-        auto bad=goodZip;bad.append({"../outside.txt","x"});write(zipPath,storedZip(bad));
+        auto bad=goodZip;bad.append(QPair<QByteArray,QByteArray>{"../outside.txt","x"});write(zipPath,storedZip(bad));
         CHECK(!tpl::installFromZip(zipPath).ok&&tpl::installed().version=="2025.1","ZIP traversal rejected before installing");
-        bad=goodZip;bad.append({"MANIFEST.JSON","x"});write(zipPath,storedZip(bad));
+        bad=goodZip;bad.append(QPair<QByteArray,QByteArray>{"MANIFEST.JSON","x"});write(zipPath,storedZip(bad));
         CHECK(!tpl::installFromZip(zipPath).ok&&tpl::installed().version=="2025.1","case-fold duplicate ZIP entries rejected");
-        bad=goodZip;bad.append({"C:/outside.txt","x"});write(zipPath,storedZip(bad));
+        bad=goodZip;bad.append(QPair<QByteArray,QByteArray>{"C:/outside.txt","x"});write(zipPath,storedZip(bad));
         CHECK(!tpl::installFromZip(zipPath).ok&&tpl::installed().version=="2025.1","ZIP absolute drive path rejected");
         write(zipPath,storedZip(goodZip,true));
         CHECK(!tpl::installFromZip(zipPath).ok&&tpl::installed().version=="2025.1","ZIP CRC mismatch rejected");
