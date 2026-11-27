@@ -6,6 +6,8 @@
 #include "print/PrintRender.h"
 #include <QPixmap>
 #include <QTemporaryDir>
+#include <QThread>
+#include <memory>
 
 #include "EngineHost.h"
 #include "Theme.h"
@@ -626,19 +628,55 @@ void DocumentTab::setCopyOrigin(const QString& originalPath) {
 }
 
 void DocumentTab::refreshPdfComparison() {
-    if (!m_pdfComparison || m_pdfComparison->isHidden() || !m_pdfOriginalImage) return;
-    const int part = m_doc->currentPart();
-    if (part == m_pdfComparedPart) return;
-    m_pdfComparedPart = part;
-    QString error;
-    const QImage image = printrender::renderPage(m_recOrigin,part+1,QSize(340,1200),&error);
-    if (image.isNull()) {
+    if(!m_pdfComparison||m_pdfComparison->isHidden()||!m_pdfOriginalImage)return;
+    const int part=m_doc->currentPart();
+    if(part<0)return;
+    const bool sameRequest=part==m_pdfRequestedPart&&m_recOrigin==m_pdfRequestedPath;
+    if(part==m_pdfComparedPart&&m_recOrigin==m_pdfComparedPath&&sameRequest)return;
+    m_pdfRequestedPart=part;
+    m_pdfRequestedPath=m_recOrigin;
+    if(!sameRequest||!m_pdfComparisonBusy) {
         m_pdfOriginalImage->setPixmap(QPixmap());
-        m_pdfOriginalImage->setText(tr("Không xem được trang gốc %1: %2").arg(part+1).arg(error));
-    } else {
-        m_pdfOriginalImage->setPixmap(QPixmap::fromImage(image));
-        m_pdfOriginalImage->setToolTip(tr("Trang %1 của PDF gốc; bản sửa hiển thị ở vùng làm việc bên cạnh.").arg(part+1));
+        m_pdfOriginalImage->setText(tr("Đang đọc trang gốc %1…").arg(part+1));
+        m_pdfOriginalImage->setToolTip(QString());
     }
+    startPdfComparison();
+}
+
+void DocumentTab::startPdfComparison() {
+    if(m_pdfComparisonBusy||!m_pdfComparison||m_pdfComparison->isHidden()||
+       m_pdfRequestedPart<0||m_pdfRequestedPath.isEmpty())return;
+    const int part=m_pdfRequestedPart;
+    const QString path=m_pdfRequestedPath;
+    struct Result { QImage image; QString error; };
+    auto result=std::make_shared<Result>();
+    m_pdfComparisonBusy=true;
+    // Independent QPdfDocument is opened in this worker. Never access the
+    // LibreOffice document or QWidget from the worker thread.
+    auto* worker=QThread::create([result,path,part]{
+        result->image=printrender::renderPage(path,part+1,QSize(340,1200),&result->error);
+    });
+    connect(worker,&QThread::finished,this,[this,result,path,part]{
+        m_pdfComparisonBusy=false;
+        if(!m_pdfComparison||m_pdfComparison->isHidden()||!m_pdfOriginalImage)return;
+        if(part!=m_pdfRequestedPart||path!=m_pdfRequestedPath||
+           part!=m_doc->currentPart()||path!=m_recOrigin) {
+            // A newer page supersedes this result. Never flash the old page.
+            refreshPdfComparison();
+            return;
+        }
+        m_pdfComparedPart=part;
+        m_pdfComparedPath=path;
+        if(result->image.isNull()) {
+            m_pdfOriginalImage->setPixmap(QPixmap());
+            m_pdfOriginalImage->setText(tr("Không xem được trang gốc %1: %2").arg(part+1).arg(result->error));
+        } else {
+            m_pdfOriginalImage->setPixmap(QPixmap::fromImage(result->image));
+            m_pdfOriginalImage->setToolTip(tr("Trang %1 của PDF gốc; bản sửa hiển thị ở vùng làm việc bên cạnh.").arg(part+1));
+        }
+    });
+    connect(worker,&QThread::finished,worker,&QObject::deleteLater);
+    worker->start();
 }
 
 void DocumentTab::dropRecovery() {
