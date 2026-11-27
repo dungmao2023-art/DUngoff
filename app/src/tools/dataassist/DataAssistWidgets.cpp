@@ -221,13 +221,16 @@ private:
         shown_.clear(); list_->clear();
         const QString q = search_->text().trimmed();
         QVector<const FuncInfo*> items;
-        if (!q.isEmpty()) items = search(q, 30);
+        // Filter category before limiting results; otherwise a valid match
+        // in a narrow category may be hidden by unrelated top-30 entries.
+        if (!q.isEmpty()) items = search(q, int(catalog().size()));
         else for (const FuncInfo &f : catalog()) items.push_back(&f);
         const int cat = cat_->currentData().toInt();
         for (const FuncInfo *f : items) {
             if (cat >= 0 && int(f->cat) != cat) continue;
             shown_.push_back(f);
             list_->addItem(QStringLiteral("%1 — %2").arg(f->name, f->intent));
+            if (!q.isEmpty() && shown_.size() >= 30) break;
         }
         if (!shown_.isEmpty()) list_->setCurrentRow(0); else { desc_->setText(q.isEmpty() ? QString() : QStringLiteral("Không có hàm khớp “%1”.").arg(q)); clearForm(); }
     }
