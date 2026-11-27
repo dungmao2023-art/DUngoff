@@ -121,14 +121,27 @@ std::string lowerExt(const fs::path& p) {
 }
 
 bool samePath(const fs::path& a, const fs::path& b) {
+    if (a.empty() || b.empty()) return false;
     std::error_code ec;
-    if (fs::exists(longPath(a), ec) && fs::exists(longPath(b), ec)) return fs::equivalent(longPath(a), longPath(b), ec);
-    std::string x = toUtf8(fs::weakly_canonical(a, ec)), y = toUtf8(fs::weakly_canonical(b, ec));
+    if (fs::exists(longPath(a), ec) && fs::exists(longPath(b), ec)) {
+        const bool equal = fs::equivalent(longPath(a), longPath(b), ec);
+        if (!ec) return equal;
+    }
+    // Do not compare empty canonical results when resolution fails.
+    // Resolve each side independently; retain a lexical absolute fallback.
+    auto normalized = [](const fs::path& p) {
+        std::error_code error;
+        auto q = fs::weakly_canonical(longPath(p), error);
+        if (!error && !q.empty()) return q;
+        q = fs::absolute(p,error);
+        return (error ? p : q).lexically_normal();
+    };
+    const auto x=normalized(a), y=normalized(b);
 #ifdef _WIN32
-    std::transform(x.begin(), x.end(), x.begin(), ::tolower);
-    std::transform(y.begin(), y.end(), y.begin(), ::tolower);
+    return CompareStringOrdinal(x.c_str(),-1,y.c_str(),-1,TRUE)==CSTR_EQUAL;
+#else
+    return x==y;
 #endif
-    return x == y;
 }
 
 // Kiểm tra cấu trúc tệp đã ghi trước khi đưa vào vị trí cuối cùng.
