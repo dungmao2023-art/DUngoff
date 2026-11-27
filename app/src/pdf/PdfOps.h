@@ -4,8 +4,8 @@
 //
 // Quy tắc an toàn (docs/DATA_SAFETY.md, khớp tools/pdfcore/dung_pdf.py):
 //  - Tệp nguồn chỉ được đọc, không bao giờ bị ghi; đích không được trùng tệp nguồn.
-//  - Ghi vào tệp tạm "~dung-xxxx-tên.pdf" cùng thư mục đích, kiểm tra %PDF- và %%EOF
-//    cùng `qpdf --check`, rồi mới đổi tên sang đích.
+//  - Ghi trong thư mục tạm riêng cạnh đích, kiểm tra %PDF- và %%EOF
+//    cùng `qpdf --check`, rồi công bố không ghi đè (Windows rename / POSIX hardlink).
 //  - Đích đã tồn tại: từ chối trừ khi allowReplace; khi thay thì sao lưu thành
 //    "tên.dung-backup-YYYYMMDD-HHMMSS.pdf" trước.
 //  - Lỗi trả về bằng tiếng Việt; tệp có mật khẩu được báo bằng needPassword.
@@ -52,7 +52,8 @@ Result merge(const QList<Input>& inputs, const QString& dest, bool allowReplace 
 Result extract(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace = false);
 // Sắp xếp: mọi trang phải xuất hiện đúng một lần; không xóa hoặc nhân bản trang.
 Result reorder(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace = false);
-// Mỗi trang một tệp: <outDir>/<tên>-trangNNN.pdf. Không ghi đè: nếu có tệp trùng tên thì từ chối toàn bộ.
+// Mỗi trang một tệp: <outDir>/<tên>-trangNNN.pdf. Từ chối trùng tên trước khi tách;
+// nếu lỗi xuất giữa chừng, giữ các trang đã công bố và trả chúng trong Result.files.
 Result splitEach(const Input& in, const QString& outDir);
 Result rotate(const Input& in, const QString& pagesSpec, int degrees, const QString& dest, bool allowReplace = false);
 Result compress(const Input& in, const QString& dest, bool allowReplace = false);

@@ -5,6 +5,7 @@
 #include "pdf/PdfOcr.h"
 
 #include <QGuiApplication>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QColor>
@@ -17,6 +18,14 @@
 
 #include <cstdio>
 #include <iostream>
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 using namespace dungpdf;
 
@@ -126,7 +135,31 @@ static int tempLeftovers(const QString& dir) {
     return QDir(dir).entryList({QStringLiteral("~dung-*")}, QDir::AllEntries | QDir::NoDotAndDotDot).size();
 }
 
+// Child mode: proxy the real qpdf, then create a competing destination after
+// transformation, before PdfOps publishes. This exercises the actual write path.
+static int raceProxy(int argc,char** argv) {
+    QCoreApplication app(argc,argv);
+    const QString real=qEnvironmentVariable("DUNG_PDF_TEST_REAL_QPDF");
+    const QString target=qEnvironmentVariable("DUNG_PDF_TEST_RACE_TARGET");
+    if(real.isEmpty()||target.isEmpty())return 91;
+    QProcess child;child.setProcessChannelMode(QProcess::ForwardedChannels);
+    const auto args=app.arguments().mid(1);
+    child.start(real,args);
+    if(!child.waitForStarted(15000)||!child.waitForFinished(120000))return 92;
+    if(child.exitStatus()!=QProcess::NormalExit)return 93;
+    const int code=child.exitCode();
+    if((code==0||code==3)&&!args.isEmpty()&&args.last().endsWith(QLatin1String("/result.pdf"))
+        &&!args.contains(QStringLiteral("--check"))){
+        QFile competing(target);
+        const QByteArray bytes("competing writer");
+        if(!competing.open(QIODevice::WriteOnly|QIODevice::NewOnly)||competing.write(bytes)!=bytes.size()||!competing.flush())return 94;
+    }
+    return code;
+}
+
 int main(int argc, char** argv) {
+    if(qEnvironmentVariableIsSet("DUNG_PDF_TEST_REAL_QPDF")&&qEnvironmentVariableIsSet("DUNG_PDF_TEST_RACE_TARGET"))
+        return raceProxy(argc,argv);
     if(qgetenv("QT_QPA_PLATFORM").isEmpty()) {
 #ifdef Q_OS_WIN
         // Windows native font database is necessary; no visible windows are created.
@@ -155,10 +188,13 @@ int main(int argc, char** argv) {
     QString perr;
     CHECK(parsePages(QStringLiteral("1-3,5,8-"), 9, &perr) == (QList<int>{0, 1, 2, 4, 7, 8}), "parsePages '1-3,5,8-' (9 trang)");
     CHECK(parsePages(QStringLiteral("2-"), 4) == (QList<int>{1, 2, 3}), "parsePages mở đầu cuối '2-'");
-    for (const char* bad : {"0", "4", "3-1", "", "x", "1,,x"}) {
+    for (const char* bad : {"0", "4", "3-1", "", "x", "1,,x", "1,,2", "1,", ",1", "1 2", "-", "+1", "1-2-3"}) {
         QString e;
         CHECK(parsePages(QString::fromLatin1(bad), 3, &e).isEmpty() && !e.isEmpty(), QStringLiteral("parsePages từ chối '%1'").arg(QString::fromLatin1(bad)));
     }
+
+    CHECK(parsePages(QStringLiteral("1 - 3"),3,&perr)==(QList<int>{0,1,2}) && perr.isEmpty(),"page range spaces around dash");
+    CHECK(parsePages(QStringLiteral("1-1000001"),1000001,&perr).isEmpty(),"reject excessive page expansion");
 
     // --- info
     const Info ia = info(a);
@@ -187,6 +223,43 @@ int main(int argc, char** argv) {
     CHECK(!r.ok && readFile(a) == aBytes, "gộp: không được ghi đè lên chính tệp nguồn");
     r = merge({{a, {}}}, P(QStringLiteral("mot.pdf")));
     CHECK(!r.ok, "gộp: cần ít nhất hai tệp");
+
+    const QString alias=P(QStringLiteral("source-hardlink.pdf"));
+#ifdef Q_OS_WIN
+    const bool linked=CreateHardLinkW(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(alias).utf16()),
+        reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(a).utf16()),nullptr)!=0;
+#else
+    const bool linked=::link(QFile::encodeName(a).constData(),QFile::encodeName(alias).constData())==0;
+#endif
+    if(linked){
+        CHECK(!extract({a,{}},QStringLiteral("1"),alias,true).ok && readFile(alias)==aBytes && readFile(a)==aBytes,
+              "reject hardlink destination even with replacement consent");
+    }else std::cout<<"SKIP hardlink unavailable on test filesystem\n";
+#ifndef Q_OS_WIN
+    const QString dangling=P(QStringLiteral("dangling.pdf")), absent=P(QStringLiteral("absent.pdf"));
+    if(::symlink(QFile::encodeName(absent).constData(),QFile::encodeName(dangling).constData())==0){
+        CHECK(!extract({a,{}},QStringLiteral("1"),dangling,true).ok && QFileInfo(dangling).isSymLink() && !QFileInfo::exists(absent),
+              "reject dangling symlink without replacing or creating target");
+    }
+#endif
+    CHECK(!extract({a,{}},QStringLiteral("1"),d,true).ok,"reject directory destination");
+
+    // The destination did not exist at operation start, but is created by
+    // another writer after qpdf finishes. The native output must not clobber it.
+    const QString raceTarget=P(QStringLiteral("race.pdf"));
+    {
+        const QByteArray oldQpdf=qgetenv("DUNG_QPDF");
+        const bool hadQpdf=qEnvironmentVariableIsSet("DUNG_QPDF");
+        qputenv("DUNG_PDF_TEST_REAL_QPDF",qpdf.toUtf8());
+        qputenv("DUNG_PDF_TEST_RACE_TARGET",raceTarget.toUtf8());
+        qputenv("DUNG_QPDF",QCoreApplication::applicationFilePath().toUtf8());
+        const auto racing=extract({a,{}},QStringLiteral("1"),raceTarget,false);
+        if(hadQpdf)qputenv("DUNG_QPDF",oldQpdf);else qunsetenv("DUNG_QPDF");
+        qunsetenv("DUNG_PDF_TEST_REAL_QPDF");qunsetenv("DUNG_PDF_TEST_RACE_TARGET");
+        CHECK(!racing.ok && readFile(raceTarget)=="competing writer" && readFile(a)==aBytes,
+              "competing destination created during qpdf is not overwritten");
+        CHECK(tempLeftovers(d)==0,"no temporary output after competing writer");
+    }
 
     // --- tên tiếng Việt có dấu và dấu cách
     const QString vn = P(QStringLiteral("Báo cáo tháng 1 Dũng.pdf"));
