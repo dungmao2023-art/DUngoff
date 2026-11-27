@@ -285,7 +285,9 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         auto* hint = new QLabel(tr("Mẫu tham khảo. Tạo tệp mới, không thay tài liệu đang mở."), templates);
         hint->setWordWrap(true);
         hint->setObjectName(QStringLiteral("SectionNote"));
-        tv->addWidget(hint);
+        auto* sourceNote=new QLabel(tr("Mẫu có thể thay đổi theo thời gian. <a href='https://csdl.dichvucong.gov.vn/'>Tra cứu mẫu hiện hành</a> tại cơ quan nhà nước."),templates);
+        sourceNote->setWordWrap(true);sourceNote->setOpenExternalLinks(true);sourceNote->setTextFormat(Qt::RichText);
+        tv->addWidget(hint);tv->addWidget(sourceNote);
         auto* use = new QPushButton(tr("Tạo từ mẫu"), templates);
         use->setEnabled(false);
         tv->addWidget(use);
