@@ -21,6 +21,9 @@ struct AnimationTiming { int click=0, startMs=0, endMs=0; };
 // Deterministic per-click timeline. The first row must be click; no auto-start on slide entry yet.
 Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTiming>* timing);
 QList<Shape> slideShapes(const QString& source, int slide1, QString* error);
+// Remove only a verified direct slide timing element, never transition or shape content.
+Result clearAnimationXml(const QByteArray& xml,QByteArray* output);
+Result createClearAnimationCopy(const QString& source,const QString& destination,int slide1);
 Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& options, QByteArray* output);
 Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options);
 Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOptions>& effects, QByteArray* output);

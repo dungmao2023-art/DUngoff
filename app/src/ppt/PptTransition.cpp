@@ -162,7 +162,7 @@ Result patchXml(const QByteArray& xml, const Options& o, QByteArray* output) {
     *output = patched.toUtf8(); return {true, {}};
 }
 namespace {
-struct AnimScan { QString error; QList<Shape> shapes; qsizetype insertion = -1; bool hasTiming = false; };
+struct AnimScan { QString error; QList<Shape> shapes; qsizetype insertion = -1; bool hasTiming = false; qsizetype timingStart=-1,timingEnd=-1; };
 AnimScan scanAnimation(const QString& text) {
     AnimScan out;
     QXmlStreamReader xr(text);
@@ -188,7 +188,11 @@ AnimScan scanAnimation(const QString& text) {
             } else if (path.size() == 2) {
                 if (!isP) return bad(QStringLiteral("Slide có cấu trúc mở rộng chưa hỗ trợ."));
                 if (n == QLatin1String("cSld")) common = true;
-                if (n == QLatin1String("timing")) out.hasTiming = true;
+                if(n==QLatin1String("timing")){
+                    if(out.hasTiming)return bad(QStringLiteral("Slide chứa nhiều phần timing."));
+                    out.hasTiming=true;out.timingStart=tokenStart();
+                    if(out.timingStart<0)return bad(QStringLiteral("Không xác minh được đầu timing."));
+                }
                 if (n == QLatin1String("extLst") && out.insertion < 0) {
                     out.insertion = tokenStart();
                     if (out.insertion < 0) return bad(QStringLiteral("Không xác minh vị trí timing."));
@@ -206,6 +210,11 @@ AnimScan scanAnimation(const QString& text) {
                     out.shapes.append({id, xr.attributes().value(QStringLiteral("name")).toString()});
             }
         } else if (xr.isEndElement()) {
+            if(path.size()==2&&path.last()==QLatin1String("timing")){
+                out.timingEnd=xr.characterOffset();
+                if(out.timingEnd<=out.timingStart||out.timingEnd>text.size()||text.at(out.timingEnd-1)!=QLatin1Char('>'))
+                    return bad(QStringLiteral("Không xác minh được cuối timing."));
+            }
             if (path.size() == 1 && out.insertion < 0) out.insertion = tokenStart();
             if (!path.isEmpty()) path.removeLast();
         }
@@ -320,6 +329,19 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
     if (!after.error.isEmpty() || !after.hasTiming || after.shapes.size() != scan.shapes.size())
         return fail(QStringLiteral("XML animation đầu ra không qua kiểm tra."));
     *output = text.toUtf8(); return {true, {}};
+}
+Result clearAnimationXml(const QByteArray& xml,QByteArray* output){
+    if(!output)return fail(QStringLiteral("Thiếu bộ đệm đầu ra."));
+    QString text=QString::fromUtf8(xml);
+    if(text.toUtf8()!=xml)return fail(QStringLiteral("Chỉ hỗ trợ XML UTF-8."));
+    const auto before=scanAnimation(text);
+    if(!before.error.isEmpty())return fail(before.error);
+    if(!before.hasTiming)return fail(QStringLiteral("Slide không có timing để xóa."));
+    if(before.timingStart<0||before.timingEnd<=before.timingStart)return fail(QStringLiteral("Không xác minh được phạm vi timing."));
+    text.remove(before.timingStart,before.timingEnd-before.timingStart);
+    const auto after=scanAnimation(text);
+    if(!after.error.isEmpty()||after.hasTiming||after.shapes.size()!=before.shapes.size())return fail(QStringLiteral("XML sau xóa timing không qua kiểm tra."));
+    *output=text.toUtf8();return {true,{}};
 }
 Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& o, QByteArray* output) {
     return patchAnimationSequenceXml(xml, {o}, output);
@@ -515,6 +537,9 @@ Result createRangeCopy(const QString& source,const QString& destination,int firs
     }
     if(!QFile::rename(current,destination))return fail(QStringLiteral("Không đặt được tên đích; không ghi đè."));
     return {true,{}};
+}
+Result createClearAnimationCopy(const QString& source,const QString& destination,int slide1){
+    return createPatchedCopy(source,destination,slide1,[](const QByteArray& xml,QByteArray* out){return clearAnimationXml(xml,out);});
 }
 Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options) {
     return createAnimationSequenceCopy(source, destination, slide1, {options});
