@@ -18,6 +18,30 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
 
+    // Composite keys must be injective even with literal separators in input.
+    {
+        const QString sep(QChar(0x1F));
+        const QString nul(QChar(0));
+        const Table tricky=T({"A","B"},{{"a"+sep+"b","c"},{"a","b"+sep+"c"},
+            {"a"+sep+"b","c"},{"",""},{"",""},{nul,"1:2"},{"",nul+"1:2"}});
+        const Table before=tricky;
+        const auto result=removeDuplicates(tricky,{0,1},false);
+        CHECK(result.ok && result.cleaned.rows.size()==6 && result.removed.size()==1 &&
+            result.removed.first().originalIndex==2 && result.removed.first().keptIndex==0,
+            "composite key collision does not remove distinct rows");
+        CHECK(result.cleaned.rows.value(1)==tricky.rows.value(1) &&
+            result.cleaned.rows.value(4)==tricky.rows.value(5) && result.cleaned.rows.value(5)==tricky.rows.value(6),
+            "embedded separators and NUL remain distinct");
+        CHECK(tricky==before,"source unchanged after dedup");
+        const auto repeated=removeDuplicates(tricky,{0,0},false);
+        CHECK(!repeated.ok && repeated.cleaned==tricky && repeated.removed.isEmpty(),"reject repeated key column without data loss");
+        const Table ragged=T({"A","B"},{{"x"},{"x",""}});
+        const auto malformed=removeDuplicates(ragged,{0,1},false);
+        CHECK(!malformed.ok && malformed.cleaned==ragged && malformed.removed.isEmpty(),"reject malformed row instead of treating missing cell as blank");
+        const auto folded=removeDuplicates(T({"A","B"},{{" ID "," Tên "},{"id","tên"}}),{0,1},true);
+        CHECK(folded.ok && folded.removed.size()==1,"trim and case-fold still work");
+    }
+
     // ---- Dòng trùng ----
     Table t = T({"Ma", "Ten", "SDT"}, {
         {"A01", "Nguyễn Văn An", "0912345678"},
