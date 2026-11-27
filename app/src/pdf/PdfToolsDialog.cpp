@@ -128,7 +128,8 @@ Input PdfToolsDialog::inputFor(const QString& path) const {
 bool PdfToolsDialog::askPassword(const QString& path) {
     bool ok = false;
     const QString pw = QInputDialog::getText(this, tr("Tệp có mật khẩu"),
-                                             tr("Nhập mật khẩu để mở \"%1\":").arg(QFileInfo(path).fileName()),
+                                             tr("Nhập mật khẩu để mở \"%1\". Mật khẩu chỉ giữ trong phiên hộp thoại; "
+                                                "phiên bản qpdf hiện tại nhận qua đối số tiến trình, có thể bị tiến trình cùng người dùng nhìn thấy.").arg(QFileInfo(path).fileName()),
                                              QLineEdit::Password, QString(), &ok);
     if (!ok) return false;
     m_passwords.insert(path, pw);
@@ -137,30 +138,39 @@ bool PdfToolsDialog::askPassword(const QString& path) {
 
 Result PdfToolsDialog::runWithPasswords(const QStringList& paths, const std::function<Result()>& op) {
     Result r;
-    for (int attempt = 0; attempt < 4; ++attempt) {
-        // Chạy ở luồng nền, giữ giao diện phản hồi bằng vòng lặp sự kiện cục bộ.
-        QEventLoop loop;
-        QThread* th = QThread::create([&] { r = op(); });
-        connect(th, &QThread::finished, &loop, &QEventLoop::quit);
-        setEnabled(false);
-        th->start();
-        loop.exec();
-        th->wait();
-        delete th;
-        setEnabled(true);
-        if (!r.needPassword) return r;
-        // Hỏi mật khẩu cho tệp đầu tiên chưa có mật khẩu đúng.
-        bool asked = false;
-        for (const QString& p : paths) {
-            const dungpdf::Info i = info(p, m_passwords.value(p));
-            if (i.needPassword) {
-                if (!askPassword(p)) { r.error = tr("Đã hủy: chưa nhập mật khẩu."); r.needPassword = false; return r; }
-                asked = true;
-                break;
+    QStringList encrypted;
+    // Preflight every input before any output is created. Do not retry a writing
+    // operation automatically: split may have already published some pages.
+    QStringList checked;
+    for(const QString& path:paths){
+        if(checked.contains(path))continue;
+        checked<<path;
+        dungpdf::Info i;
+        for(int attempt=0;attempt<4;++attempt){
+            i=info(path,m_passwords.value(path));
+            if(!i.needPassword)break;
+            if(attempt==3||!askPassword(path)){
+                r.error=tr("Đã dừng: chưa xác minh được mật khẩu PDF nguồn.");return r;
             }
         }
-        if (!asked) return r;
+        if(!i.ok){r.error=i.error;r.needPassword=i.needPassword;return r;}
+        if(i.encrypted)encrypted<<QFileInfo(path).fileName();
     }
+    if(!encrypted.isEmpty()){
+        const auto shown=encrypted.mid(0,8).join(QLatin1Char('\n'));
+        QString message=tr("%1 tệp nguồn đang được mã hóa:\n%2").arg(encrypted.size()).arg(shown);
+        if(encrypted.size()>8)message+=tr("\n… và %1 tệp khác.").arg(encrypted.size()-8);
+        message+=tr("\n\nBản xuất có thể không còn mật khẩu hoặc giới hạn quyền. Tệp nguồn giữ nguyên. "
+                    "Chỉ tiếp tục nếu bạn có quyền tạo bản sao không được bảo vệ. Tiếp tục xuất?");
+        if(QMessageBox::question(this,tr("Xác nhận xuất PDF có mật khẩu"),message,
+            QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes){
+            r.error=tr("Đã hủy trước khi xuất PDF; chưa tạo tệp kết quả.");return r;
+        }
+    }
+    QEventLoop loop;
+    QThread* th=QThread::create([&]{r=op();});
+    connect(th,&QThread::finished,&loop,&QEventLoop::quit);
+    setEnabled(false);th->start();loop.exec();th->wait();delete th;setEnabled(true);
     return r;
 }
 
@@ -193,7 +203,8 @@ void PdfToolsDialog::refreshPageCount(const QString& path, QLabel* label) {
     if (!label) return;
     dungpdf::Info i = info(path, m_passwords.value(path));
     if (i.needPassword && askPassword(path)) i = info(path, m_passwords.value(path));
-    label->setText(i.ok ? tr("%1 trang, %2").arg(i.pages).arg(human(i.bytes)) : i.error);
+    label->setText(i.ok ? tr("%1 trang, %2%3").arg(i.pages).arg(human(i.bytes))
+        .arg(i.encrypted?tr(" · Có mật khẩu/mã hóa"):QString()) : i.error);
 }
 
 // Export tools always create new files. Do not infer overwrite permission from
