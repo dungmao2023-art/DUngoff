@@ -7,6 +7,8 @@ on:
       - '.github/workflows/engine-preflight.yml'
       - 'scripts/backup-engine.ps1'
       - 'engine-build/dung-scripts/test_dung_api.py'
+      - 'engine-build/dung-scripts/probe_model_capabilities.py'
+      - '.github/workflows/ci.yml'
 permissions:
   contents: read
 jobs:
@@ -42,6 +44,15 @@ jobs:
           $sha = $Matches[1].ToLowerInvariant()
           Write-Host "Candidate tag: $tag; asset ID: $($a[0].id); published SHA256: $sha"
           ./scripts/fetch-engine.ps1 -Tag $tag -Sha256 $sha -Repo "$env:GITHUB_REPOSITORY" -OutDir "$env:RUNNER_TEMP/engine-candidate-v2"
+      - name: Probe standalone model capabilities on v2
+        id: model
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $env:DUNG_PROGRAM_DIR = "$env:RUNNER_TEMP/engine-candidate-v2/engine/program"
+          New-Item -ItemType Directory -Force -Path report | Out-Null
+          & "$env:DUNG_PROGRAM_DIR/python.exe" engine-build/dung-scripts/probe_model_capabilities.py 2>&1 | Tee-Object report/engine-v2-model.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Probe Python UNO and script provider on isolated candidate
         shell: pwsh
         run: |
@@ -49,6 +60,9 @@ jobs:
           New-Item -ItemType Directory -Force -Path report | Out-Null
           & "$env:DUNG_PROGRAM_DIR/python.exe" engine-build/dung-scripts/test_dung_api.py 2>&1 | Tee-Object report/engine-v2-uno.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Require model matrix success
+        if: always() && steps.model.outcome == 'failure'
+        run: exit 1
       - name: Preserve probe evidence
         if: always()
         uses: actions/upload-artifact@v4
