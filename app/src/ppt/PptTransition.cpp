@@ -234,11 +234,12 @@ QList<Shape> slideShapes(const QString& source, int slide1, QString* error) {
 Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTiming>* timing) {
     if(!timing || effects.isEmpty() || effects.size()>100)return fail(QStringLiteral("Chọn từ 1 đến 100 hoạt ảnh."));
     if(effects.first().trigger!=AnimationTrigger::Click)return fail(QStringLiteral("Dòng đầu phải bắt đầu khi nhấp chuột."));
-    QList<AnimationTiming> plan;QSet<unsigned> ids;
+    QList<AnimationTiming> plan;QHash<unsigned,AnimationTiming> entrances;QSet<unsigned> exits;
     for(const auto& o:effects){
-        if(!o.shapeId || ids.contains(o.shapeId) || o.durationMs<100 || o.durationMs>10000 || o.delayMs<0 || o.delayMs>30000)
-            return fail(QStringLiteral("Đối tượng trùng hoặc thông số hoạt ảnh không hợp lệ."));
-        ids.insert(o.shapeId);
+        if(!o.shapeId || o.durationMs<100 || o.durationMs>10000 || o.delayMs<0 || o.delayMs>30000)
+            return fail(QStringLiteral("Thông số hoạt ảnh không hợp lệ."));
+        if(exits.contains(o.shapeId) || (!o.exit && entrances.contains(o.shapeId)))
+            return fail(QStringLiteral("Mỗi đối tượng tối đa một hiệu ứng vào rồi một hiệu ứng ra; không thêm sau hiệu ứng ra."));
         AnimationTiming t;
         if(o.trigger==AnimationTrigger::Click){t.click=plan.isEmpty()?1:plan.last().click+1;t.startMs=o.delayMs;}
         else if(o.trigger==AnimationTrigger::WithPrevious){t.click=plan.last().click;t.startMs=plan.last().startMs+o.delayMs;}
@@ -246,6 +247,14 @@ Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTimin
         else return fail(QStringLiteral("Chế độ bắt đầu không hợp lệ."));
         t.endMs=t.startMs+(o.fade?o.durationMs+(o.exit?1:0):1);
         if(t.endMs>600000)return fail(QStringLiteral("Mỗi nhóm nhấp chuột tối đa 600 giây."));
+        if(o.exit){
+            if(entrances.contains(o.shapeId)){
+                const auto entry=entrances.value(o.shapeId);
+                if(t.click<entry.click || (t.click==entry.click && t.startMs<entry.endMs))
+                    return fail(QStringLiteral("Hiệu ứng ra phải bắt đầu sau khi hiệu ứng vào kết thúc."));
+            }
+            exits.insert(o.shapeId);
+        }else entrances.insert(o.shapeId,t);
         plan.append(t);
     }
     *timing=plan;return {true,{}};
