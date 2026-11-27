@@ -31,7 +31,7 @@ for filename in ("word-review.docx", "word-review-roundtrip.docx"):
               filename + ": inserted text is actual tracked insertion")
         comments = ET.fromstring(review.read("word/comments.xml"))
         comment_ids = {node.get(W+"id") for node in comments.iter(W+"comment")
-                       if "COMMENT_MARKER" in text(node)}
+                       if "COMMENT_MARKER · Ghi chú tiếng Việt: Đường dẫn & số liệu" in text(node)}
         refs = {node.get(W+"id") for node in root.iter(W+"commentReference")}
         check(bool(comment_ids & refs), filename + ": native comment linked to document")
 
@@ -68,6 +68,6 @@ for filename, accepted in (("word-review-accepted.docx", True), ("word-review-re
         check(("INSERTED_MARKER" in text(root)) == accepted, filename + ": tracked insertion resolved correctly")
         check(not any(root.iter(W+"ins")) and not any(root.iter(W+"del")), filename + ": revisions resolved")
         comments = ET.fromstring(z.read("word/comments.xml"))
-        ids = {node.get(W+"id") for node in comments.iter(W+"comment") if "COMMENT_MARKER" in text(node)}
+        ids = {node.get(W+"id") for node in comments.iter(W+"comment") if "COMMENT_MARKER · Ghi chú tiếng Việt: Đường dẫn & số liệu" in text(node)}
         refs = {node.get(W+"id") for node in root.iter(W+"commentReference")}
         check(bool(ids & refs), filename + ": unrelated comment retained")
