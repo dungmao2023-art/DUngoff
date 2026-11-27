@@ -174,7 +174,7 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     } else if (name == QLatin1String("acceptAllReview") || name == QLatin1String("rejectAllReview")) {
         const bool accept = name == QLatin1String("acceptAllReview");
         QPointer<DocumentTab> live(tab);
-        const QString documentName=qs(doc->displayName());
+        const QString documentName=QString::fromUtf8(doc->displayName().c_str());
         if (QMessageBox::question(parent,QObject::tr("Xử lý toàn bộ thay đổi"),
             QObject::tr("Tài liệu: %1\n\n").arg(documentName)+(accept ?
                 QObject::tr("Chấp nhận tất cả thay đổi được theo dõi? Nội dung xóa được chấp nhận sẽ bị loại bỏ.") :
@@ -183,7 +183,7 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return true;
         if(!live || live->readOnly() || live->document()!=doc || !live->view()) return true;
         doc->waitInputIdle();
-        if(qs(doc->displayName())!=documentName){
+        if(QString::fromUtf8(doc->displayName().c_str())!=documentName){
             QMessageBox::warning(live.data(),QObject::tr("Xử lý toàn bộ thay đổi"),QObject::tr("Tên tài liệu đã thay đổi. Chưa xử lý; hãy xác nhận lại."));
             return true;
         }
