@@ -295,6 +295,25 @@ void testZip(const QString& tmp) {
     const ReadResult r2 = readDocxMargins(dst2);
     check(p.ok && r2.ok && r2.sections[2].top == 1440 && r2.sections[0].right == 1440, "vá chuỗi: lề mới thay lề cũ", p.error);
 
+    // A preexisting destination and its conventional temporary path must survive.
+    const QString occupied=tmp+"/occupied.docx";
+    const QString oldTemp=occupied+".dung-tmp";
+    const QByteArray originalDestination("existing destination"), originalTemp("existing temporary file");
+    { QFile file(occupied); check(file.open(QIODevice::WriteOnly)&&file.write(originalDestination)==originalDestination.size(),"tạo đích đã có"); }
+    { QFile file(oldTemp); check(file.open(QIODevice::WriteOnly)&&file.write(originalTemp)==originalTemp.size(),"tạo tệp tạm cũ"); }
+    p=patchDocxMargins(src,occupied,vn());
+    check(!p.ok&&slurp(occupied)==originalDestination&&slurp(oldTemp)==originalTemp&&slurp(src)==srcBytes,
+          "đích có sẵn: không ghi đè đích, nguồn hoặc tệp tạm");
+    QString refused;
+    check(!replaceZipEntry(src,occupied,QStringLiteral("word/document.xml"),multiDoc(),&refused)&&
+          slurp(occupied)==originalDestination,"hàm ZIP dùng chung Word/PPT cũng từ chối đích đã có");
+    const QString fresh=tmp+"/fresh.docx";
+    const QString freshLegacy=fresh+".dung-tmp";
+    { QFile file(freshLegacy); check(file.open(QIODevice::WriteOnly)&&file.write(originalTemp)==originalTemp.size(),"tạo tệp tạm trùng tên cũ"); }
+    p=patchDocxMargins(src,fresh,vn());
+    check(p.ok&&slurp(freshLegacy)==originalTemp&&slurp(src)==srcBytes,
+          "đích mới: không xóa tệp tạm tồn tại trước");
+
     // Từ chối ghi đè nguồn
     p = patchDocxMargins(src, src, vn());
     check(!p.ok && slurp(src) == srcBytes, "đích trùng nguồn: từ chối, nguồn nguyên vẹn");
