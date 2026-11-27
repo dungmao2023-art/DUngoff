@@ -59,6 +59,10 @@ void DocumentTab::excelSheetMenu(const QPoint& pos) {
     if (i >= 0) {
         menu.addAction(tr("Đổi tên…"), this, [this] { excelAction(QStringLiteral("xl:sheetRename")); });
         menu.addAction(tr("Nhân đôi"), this, [this] { excelAction(QStringLiteral("xl:sheetDup")); });
+        auto* left=menu.addAction(tr("Dời sang trái"),this,[this]{excelAction(QStringLiteral("xl:sheetMoveLeft"));});
+        left->setEnabled(i>0);
+        auto* right=menu.addAction(tr("Dời sang phải"),this,[this]{excelAction(QStringLiteral("xl:sheetMoveRight"));});
+        right->setEnabled(i+1<m_sheets->count());
         menu.addAction(tr("Xoá sheet…"), this, [this] { excelAction(QStringLiteral("xl:sheetDelete")); });
     }
     menu.exec(m_sheets->mapToGlobal(pos));
@@ -352,6 +356,21 @@ void DocumentTab::excelAction(const QString& id) {
                     .arg(qs(m_doc->partName(cur))), QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
         if (!sameSheet()) { QMessageBox::warning(this, tr("Xoá sheet"), tr("Sheet đã thay đổi; chưa xoá dữ liệu.")); return; }
         cmd(".uno:Remove", ex::sheetRemove(cur + 1));
+    } else if(a==QLatin1String("sheetMoveLeft")||a==QLatin1String("sheetMoveRight")) {
+        const bool left=a==QLatin1String("sheetMoveLeft");
+        if((left&&cur==0)||(!left&&cur+1>=n)||!sameSheet())return;
+        // Native Move takes a 1-based insertion position before removal.
+        // A rightward move inserts after the next sheet.
+        const int index1=left?cur:cur+3;
+        const QString stem=fromPath(m_doc->workingCopy().stem());
+        cmd(".uno:Move",ex::sheetMove(ss(stem),index1,false));
+        m_doc->waitInputIdle();
+        const int expected=cur+(left?-1:1);
+        if(m_doc->partCount()!=n||m_doc->partName(expected)!=originalSheet){
+            QMessageBox::warning(this,tr("Di chuyển sheet"),tr("Chưa xác minh được thứ tự sheet sau thao tác. Hãy kiểm tra lại trước khi lưu."));
+        }else if(m_doc->currentPart()!=expected){
+            m_doc->setPart(expected);
+        }
     } else if (a == QLatin1String("sheetDup")) {
         const QString stem = fromPath(m_doc->workingCopy().stem());
         cmd(".uno:Move", ex::sheetMove(ss(stem), cur + 2, true));
