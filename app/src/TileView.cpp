@@ -36,12 +36,12 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
     connect(&m_headerTimer, &QTimer::timeout, this, &TileView::requestHeaders);
     m_synthTimer.setSingleShot(true);
     m_synthTimer.setInterval(60);
-    connect(&m_synthTimer, &QTimer::timeout, this, [this] { refreshAllTiles(); m_synthLate.start(); });
+    connect(&m_synthTimer, &QTimer::timeout, this, &TileView::refreshAllTiles);
     m_blink.setInterval(530);
     connect(&m_blink, &QTimer::timeout, this, [this] {
         if (m_blinkFrozen) return;
         m_blinkOn = !m_blinkOn;
-        if (m_hasCaret) viewport()->update();
+        updateCaretRegion();
     });
     m_blink.start();
     m_synthLate.setSingleShot(true);
@@ -111,7 +111,7 @@ void TileView::setZoom(int percent) {
 }
 
 void TileView::resetForPartChange() {
-    m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear(); m_pickValid = false;
+    m_hasCell = false; m_cellCursor = QRect(); m_rows.clear(); m_cols.clear(); m_pickValid = false; m_pickComplete = false;
     m_tiles.clear();
     m_selection.clear();
     m_cellArea = QRect();
@@ -314,10 +314,14 @@ void TileView::drawCaret(QPainter& p) {
     p.fillRect(c, QColor(0x1B, 0x2A, 0x41));
 }
 
+void TileView::updateCaretRegion() {
+    if (m_hasCaret) viewport()->update(toView(m_caret).adjusted(-3,-3,3,3));
+}
+
 void TileView::restartBlink() {
     m_blinkOn = true;
     m_blink.start();   // khởi động lại chu kỳ: hiện liền ~530ms rồi mới tắt
-    if (m_hasCaret) viewport()->update();
+    updateCaretRegion();
 }
 
 void TileView::focusInEvent(QFocusEvent* e) {
@@ -373,7 +377,7 @@ void TileView::invalidateTwips(const QRect& r) {
         if (tr.intersects(r)) it = m_tiles.erase(it);
         else ++it;
     }
-    viewport()->update();
+    viewport()->update(toView(r).intersected(viewport()->rect()));
 }
 
 void TileView::handleEvent(int type, const QString& payload) {
@@ -391,7 +395,13 @@ void TileView::handleEvent(int type, const QString& payload) {
     switch (type) {
     case LOK_CALLBACK_INVALIDATE_TILES: {
         // Engine Windows không tự báo làm mới sau khi gõ/ra lệnh: tầng engine phát "SYNTH".
-        if (payload == QLatin1String("SYNTH")) { if (!m_synthTimer.isActive()) m_synthTimer.start(); break; }
+        if (payload == QLatin1String("SYNTH")) {
+            if (!m_synthTimer.isActive()) m_synthTimer.start();
+            // Keep the leading refresh, but render the final fallback only after
+            // the input burst ends, not every 250 ms while the user types.
+            m_synthLate.start();
+            break;
+        }
         if (payload.startsWith(QLatin1String("EMPTY"))) { m_tiles.clear(); viewport()->update(); break; }
         bool ok = false;
         QRect r = parseRect(payload, &ok);
@@ -431,20 +441,19 @@ void TileView::handleEvent(int type, const QString& payload) {
         viewport()->update();
         break;
     case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR: {
+        updateCaretRegion(); // erase old caret even if the new one is elsewhere
         const caretgeom::Parsed pc = caretgeom::parseCursorPayload(payload);
         m_hasCaret = pc.valid;
         m_caret = pc.valid ? pc.rect : QRect();
         // Engine headless có thể không gửi CURSOR_VISIBLE: khi chưa từng thấy thì coi con trỏ là hiện.
         if (!m_caretVisSeen) m_caretVisible = m_hasCaret;
         restartBlink();   // đang gõ/di chuyển: hiện liên tục rồi nhấp nháy lại
-        viewport()->update();
         break;
     }
     case LOK_CALLBACK_CURSOR_VISIBLE:
         m_caretVisSeen = true;
         m_caretVisible = payload.contains(QLatin1String("true"));
         restartBlink();
-        viewport()->update();
         break;
     case LOK_CALLBACK_CELL_SELECTION_AREA: {
         // Vùng nhiều ô của Calc (nếu engine không báo qua TEXT_SELECTION): tô mờ giống vùng chọn chữ.
@@ -475,6 +484,7 @@ void TileView::mousePressEvent(QMouseEvent* e) {
         viewport()->update();
         const QPoint pos = e->position().toPoint();
         const QPoint h = headerSize();
+        m_pickComplete = false;
         m_pickValid = e->button() == Qt::LeftButton && pos.x() >= h.x() && pos.y() >= h.y();
         m_pickStart = toTwips(pos);
     }
@@ -490,6 +500,7 @@ void TileView::mouseReleaseEvent(QMouseEvent* e) {
     m_clickCount = 1;
     if (m_isCalc && e->button() == Qt::LeftButton && m_pickValid) {
         m_pickEnd = toTwips(e->position().toPoint());
+        m_pickComplete = true;
         emit cellSelectionFinished();
     }
 }
@@ -497,7 +508,7 @@ QString TileView::selectedCellRange(bool verifyGesture) {
     if (!m_isCalc || !m_hasCell) return {};
     const QRect area = !m_cellArea.isEmpty() ? m_cellArea : m_cellCursor;
     if (area.isEmpty()) return {};
-    if (verifyGesture && (!m_pickValid || !area.contains(m_pickStart) || !area.contains(m_pickEnd))) return {};
+    if (verifyGesture && (!m_pickComplete || !m_pickValid || !area.contains(m_pickStart) || !area.contains(m_pickEnd))) return {};
     requestHeaders(); // engine trả tên hàng/cột theo viewport hiện tại
     const double scale = twipsPerPx();
     auto edges = [](const QVector<Header>& headers, int start, double lo, double hi) -> QPair<QString, QString> {
