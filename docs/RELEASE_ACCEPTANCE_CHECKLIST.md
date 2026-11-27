@@ -42,6 +42,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] X03.2 Tôi muốn tự nhận ô/vùng đang chọn, đủ đối số từng hàm, chọn ô kết quả, đổi sheet không ghi nhầm.
 - [ ] X04.1 FillDown/Right, chuỗi ngày/số, kéo fill handle; công thức và tham chiếu cập nhật đúng.
 - [ ] X05.1 Filter, sort một/nhiều khóa, freeze; dữ liệu nguyên hàng, header và công thức không lệch.
+  - 28/11: X05 code/test cc1ff9abad3df6bfd385b548f5ea6f362bbdd1ff, tạo XLSX tổng hợp có sheet bảo vệ không mật khẩu, ô B2/B3 mở khóa với danh sách Đạt/Chờ, mã và công thức khóa; thử sửa B2 bằng engine, lưu và kiểm độc lập cả phạm vi/quy tắc/cờ bảo vệ/công thức/ô sheet khác. CI Windows/Linux mới chưa chạy; không tuyên bố đã tạo/sửa quy tắc hoặc bật/tắt bảo vệ trong GUI, chưa test từ chối nhập sai/ô khóa trên máy thật. Giữ stage.
 - [ ] X05.2 Conditional formatting, data validation/dropdown, bảo vệ sheet; kiểm XLSX thật.
 - [ ] X06.1 Tạo biểu đồ cột/đường/tròn từ vùng; sửa tiêu đề, nguồn, loại; thay dữ liệu cập nhật chart; lưu và mở lại Excel.
 - [ ] X07.1 Tạo PivotTable thật từ vùng có tiêu đề, chọn row/column/value, SUM/COUNT; sửa cấu hình, refresh sau đổi số và nhóm; kiểm cache và output XLSX.
