@@ -65,6 +65,7 @@ void DocumentTab::excelAction(const QString& id) {
     auto cmd = [this](const char* c, const std::string& args = std::string()) { m_doc->command(c, args); };
     const int cur = m_doc->currentPart();
     const int n = m_doc->partCount();
+    if (cur < 0 || cur >= n) return;
     const auto* originalDoc = m_doc.get();
     const auto originalSheet = m_doc->partName(cur);
     auto sameSheet = [&] {
@@ -76,8 +77,9 @@ void DocumentTab::excelAction(const QString& id) {
     // Modal dialogs run a nested event loop. Never apply their result to a
     // different sheet or cell range if the selection changes while open.
     const auto confirmTarget = [&](const QString& range, const QString& title) {
-        if (!sameSheet() || !m_view || m_view->selectedCellRange() != range) {
-            QMessageBox::warning(this, title, tr("Sheet hoặc vùng chọn đã thay đổi. Chưa áp dụng thao tác."));
+        if (range.isEmpty() || dataassist::bridgeRangeAddress(ss(range)).empty() ||
+            !sameSheet() || !m_view || m_view->selectedCellRange() != range || !sameSheet()) {
+            QMessageBox::warning(this, title, tr("Không xác minh được vùng chọn ban đầu hoặc sheet đã thay đổi. Chưa áp dụng thao tác. Hãy chọn lại ô."));
             return false;
         }
         return true;
