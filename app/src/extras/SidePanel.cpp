@@ -56,6 +56,17 @@ SidePanel::SidePanel(QWidget* parent) : QWidget(parent) {
     v->addWidget(m_tabs,1);
     auto* foot=new QLabel(tr("Dữ liệu lưu cục bộ · Không tự gửi lên mạng"),m_content);
     foot->setObjectName(QStringLiteral("WorkHint"));foot->setWordWrap(true);v->addWidget(foot);
+    auto* saveRow=new QHBoxLayout;
+    m_saveStatus=new QLabel(tr("Đã lưu"),m_content);
+    m_saveStatus->setObjectName(QStringLiteral("WorkspaceSaveStatus"));
+    m_saveStatus->setWordWrap(true);
+    m_retrySave=new QPushButton(tr("Lưu ngay"),m_content);
+    m_retrySave->setObjectName(QStringLiteral("WorkspaceSaveNow"));
+    m_retrySave->setEnabled(false);
+    saveRow->addWidget(m_saveStatus,1);
+    saveRow->addWidget(m_retrySave);
+    v->addLayout(saveRow);
+    connect(m_retrySave,&QPushButton::clicked,this,[this]{ flush(); });
     outer->addWidget(m_content,1);
     setStyleSheet(QStringLiteral(R"(
 QWidget#SidePanel, QWidget#WorkRail { background: #FBFCFF; }
@@ -90,6 +101,7 @@ QWidget#WorkContent QCalendarWidget QAbstractItemView { selection-background-col
     load();
     if(!m_readable) {
         m_tabs->setEnabled(false);
+        m_saveStatus->setText(tr("Chỉ đọc"));
         foot->setText(tr("Không thể đọc dữ liệu công việc an toàn. Tạm khóa chỉnh sửa để tránh ghi đè; hãy kiểm tra tệp dữ liệu và mở lại ứng dụng."));
         foot->setStyleSheet(QStringLiteral("color:#A33626;font-size:12px;"));
     }
@@ -113,6 +125,8 @@ bool SidePanel::flush() {
 void SidePanel::scheduleSave() {
     if (!m_loading && m_readable) {
         m_dirty=true;
+        m_saveStatus->setText(tr("Chưa lưu"));
+        m_retrySave->setEnabled(true);
         m_saveTimer->start();
     }
 }
@@ -127,11 +141,14 @@ bool SidePanel::saveNow() {
     o.insert(QStringLiteral("contacts"), m_contacts);
     o.insert(QStringLiteral("version"), 1);
     if (!workspace::save(QStringLiteral("workspace"), o)) {
-        QMessageBox::warning(this, tr("Dũng Office"), tr("Không lưu được ghi chú/lịch/liên hệ. Nội dung vẫn còn trong bộ nhớ; kiểm tra thư mục dữ liệu rồi thử lại."));
+        m_saveStatus->setText(tr("Lưu thất bại — nội dung vẫn còn. Kiểm tra thư mục dữ liệu và bấm Lưu ngay."));
+        m_retrySave->setEnabled(true);
         return false;
     }
     m_workspaceBase=o;
     m_dirty=false;
+    m_saveStatus->setText(tr("Đã lưu"));
+    m_retrySave->setEnabled(false);
     return true;
 }
 
@@ -167,6 +184,7 @@ QWidget* SidePanel::buildNotes() {
     m_noteList->setMinimumWidth(160);
     split->addWidget(m_noteList);
     m_noteText = new QPlainTextEdit(w);
+    m_noteText->setObjectName(QStringLiteral("WorkspaceNoteEditor"));
     m_noteText->setPlaceholderText(tr("Gõ ghi chú ở đây. Dùng \"[ ] việc cần làm\" và \"[x] việc đã xong\" để lập danh sách việc."));
     split->addWidget(m_noteText);split->setStretchFactor(1,1);split->setSizes({220,700});
     v->addWidget(split,1);
