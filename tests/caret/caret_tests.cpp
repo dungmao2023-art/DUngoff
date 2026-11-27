@@ -203,6 +203,23 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
         }
         click(vp,QPoint(120,60));pump(500);
         check(view.cellSelectionViewRect()==view.cellCursorViewRect(),label + ": click một ô xóa viền vùng cũ");
+        const auto releases=view.mouseUpDispatches();
+        auto gesture=[&](QEvent::Type type,QPoint pos,Qt::MouseButton button,Qt::MouseButtons buttons){
+            QMouseEvent event(type,pos,vp->mapToGlobal(pos),button,buttons,Qt::NoModifier);
+            QApplication::sendEvent(vp,&event);
+        };
+        gesture(QEvent::MouseButtonPress,QPoint(120,60),Qt::LeftButton,Qt::LeftButton);
+        gesture(QEvent::MouseMove,QPoint(180,100),Qt::NoButton,Qt::LeftButton);
+        gesture(QEvent::MouseButtonRelease,QPoint(1,100),Qt::LeftButton,Qt::NoButton);
+        check(view.mouseUpDispatches()==releases+1,label+": thả trên tiêu đề vẫn gửi mouse-up");
+        gesture(QEvent::MouseButtonPress,QPoint(1,100),Qt::LeftButton,Qt::LeftButton);
+        gesture(QEvent::MouseMove,QPoint(180,100),Qt::NoButton,Qt::LeftButton);
+        gesture(QEvent::MouseButtonRelease,QPoint(180,100),Qt::LeftButton,Qt::NoButton);
+        check(view.mouseUpDispatches()==releases+1,label+": không gửi mouse-up cho thao tác bắt đầu tại tiêu đề");
+        pump(500);
+        click(vp,QPoint(120,60));pump(500);
+        check(view.mouseUpDispatches()==releases+2&&view.cellSelectionViewRect()==view.cellCursorViewRect(),
+              label+": click tiếp theo sau kéo qua tiêu đề hoạt động bình thường");
     }
     if (wantCaret) {
         bool ok = false;
