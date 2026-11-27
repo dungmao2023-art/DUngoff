@@ -7,6 +7,7 @@
 #include <QFrame>
 #include <QComboBox>
 #include <QFontDatabase>
+#include <QGuiApplication>
 #include <QGridLayout>
 #include <QSignalBlocker>
 #include "word/WordCommands.h"
@@ -351,7 +352,15 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             auto* controls=new QHBoxLayout;
             controls->setSpacing(3);
             auto* family=new QComboBox(gw);family->setObjectName(QStringLiteral("RibbonFontFamily"));
-            family->addItems(QFontDatabase::families());
+            // Some platform backends (notably Windows offscreen) cannot
+            // enumerate fonts. Keep the application default selectable without
+            // inventing a list of installed fonts.
+            QStringList families=QFontDatabase::families();
+            if(families.isEmpty()) {
+                const QString defaultFamily=QGuiApplication::font().family().trimmed();
+                families.append(defaultFamily.isEmpty()?QStringLiteral("sans-serif"):defaultFamily);
+            }
+            family->addItems(families);
             family->setPlaceholderText(tr("Chọn phông"));
             family->setCurrentIndex(-1);family->setFixedWidth(158);
             family->setToolTip(tr("Phông chữ"));family->setAccessibleName(tr("Phông chữ"));
@@ -469,6 +478,12 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
                         index=selector->findText(QString::number(pt));
                         if(index<0){selector->addItem(QString::number(pt));index=selector->count()-1;}
                     }
+                }
+                // A document may reference a font not enumerated locally.
+                // Show the actual engine state rather than clearing the field.
+                if(selector==m_fontBox.data()&&index<0&&!text.isEmpty()) {
+                    selector->addItem(text);
+                    index=selector->count()-1;
                 }
                 selector->setCurrentIndex(index);
             }
