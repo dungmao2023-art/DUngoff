@@ -76,9 +76,17 @@ Tham chiếu upstream: https://api.libreoffice.org/docs/idl/ref/interfacecom_1_1
 
 **Yêu cầu trước build mới:** sửa workflow engine để chỉ chạy thủ công khi freeze, tách package candidate khỏi phát hành và chặn promote nếu test fail (hiện workflow cũ continue-on-error với UNO probe; chưa thay trong PR audit để tránh kích hoạt push build). Không tự động nâng version ứng dụng hoặc xóa archive cũ. Các chức năng chưa có UI vẫn cần lập trình sau khi bridge đạt, và PDF/OCR không chờ LibreOffice.
 
-## 7. Kết luận audit
+## 7. Quyết định thử v2 trước (28/11, chủ dự án đồng ý)
 
-Có blocker thực ở giao tiếp model/dialog và font fallback; chưa có đủ bằng chứng bắt buộc rebuild ngay. Engine v2 đã có nhưng probe lỗi setup. Danh sách này là scope gom một đợt nếu cần, không phải tuyên bố đã sửa hoặc hoàn tất kiểm thử. Các mục engine-independent phát triển song song. Không tăng trọng số/stage, không public release.
+- [Preflight 46084197395](https://github.com/dungmao2023-art/DUngoff/actions/runs/46084197395): tải và kiểm SHA256/7z v1 PASS, [artifact rollback 15237803289](https://github.com/dungmao2023-art/DUngoff/actions/runs/46084197395/artifacts/15237803289) 170667831 bytes, retention 30 ngày, chưa chứng minh mở ứng dụng từ bản sao độc lập. Release v1 giữ nguyên.
+- V2 asset 789258177, digest `cb7664001dfb51a31467f2b1849e294e6564d607a91baea5c4efa215010ad492` khớp khi tải. UNO trực tiếp PASS 4 lề DOCX, provider FAIL `AttributeError: 'NoneType' object has no attribute 'StyleFamilies'` (đối tượng tài liệu không có trong script context); không còn lỗi import. Không suy diễn lỗi này thành yêu cầu rebuild.
+- PR #160 chuyển pin CI Windows sang v2 trên nhánh thử nghiệm (commit 6ed1001022b0137d1125458572637614ee90f2c8), cache tách theo tag/checksum, khóa bước release. Main vẫn v1. Linux vẫn dùng LibreOffice hệ thống; không gọi kết quả Linux là v2.
+- Thêm ma trận standalone UNO (d376110bd30b0302c309cc95ee4ae48d7d97089c, workflow 0eb55ef43c87cf8315ad8ce112072276b9a6e317): split bảng Word, tạo TOC, validation + bảo vệ Calc, tạo PivotTable, nhóm hình Impress. Đọc DOCX/XLSX/PPTX thực; lỗi riêng từng case, không che fail. Kết quả đang chờ. Đây không phải live LOK, chưa có giao diện tính năng; cần kiểm Undo/selection/document identity sau khi chọn bridge.
+- Header LOK hiện có getPresentationInfo/createSlideRenderer/renderNextSlideLayer/postSlideshowCleanup, chưa chứng minh ABI/runtime hoặc playback. Ưu tiên probe v2 trước khi viết patch slideshow. Kiểm lại font/IME/clipboard/dialog theo ma trận; không thay workflow biên dịch engine, không build v3 hoặc phát hành installer.
+
+## 8. Kết luận audit
+
+Có blocker thực ở giao tiếp model/dialog và font fallback; chưa có đủ bằng chứng bắt buộc rebuild ngay. Engine v2 đã có, probe import đã sửa; direct UNO PASS, provider context FAIL; đang thử ma trận và CI ứng dụng trên v2. Danh sách này là scope gom một đợt nếu cần, không phải tuyên bố đã sửa hoặc hoàn tất kiểm thử. Các mục engine-independent phát triển song song. Không tăng trọng số/stage, không public release.
 
 ---
 
