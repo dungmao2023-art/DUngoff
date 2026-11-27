@@ -564,11 +564,16 @@ Result rotate(const Input& in, const QString& pagesSpec, int degrees, const QStr
         return res;
     }
     QString perr;
-    const QList<int> idx = parsePages(pagesSpec, inf.pages, &perr);
-    if (idx.isEmpty()) {
+    // The rotate UI explicitly promises blank = all pages. Keep the
+    // general parser strict for extraction/deletion where blank is unsafe.
+    const auto selected=parsePages(pagesSpec.trimmed().isEmpty()?QStringLiteral("1-"):pagesSpec,inf.pages,&perr);
+    if (selected.isEmpty()) {
         res.error = perr;
         return res;
     }
+    QList<int> idx;
+    QSet<int> seen;
+    for(int page:selected)if(!seen.contains(page)){seen.insert(page);idx<<page;}
     PasswordFile pw(in.password);
     res = writeSafely({in.path}, dest, allowReplace, [&](const QString& tmp) {
         QStringList a = pw.args();
