@@ -1,0 +1,58 @@
+name: Engine preflight (no rebuild)
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/engine-preflight.yml'
+      - 'scripts/backup-engine.ps1'
+      - 'engine-build/dung-scripts/test_dung_api.py'
+permissions:
+  contents: read
+jobs:
+  preserve-and-probe:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify immutable v1 rollback archive
+        shell: pwsh
+        run: |
+          ./scripts/backup-engine.ps1 -BackupRoot "$env:RUNNER_TEMP/engine-backup" -Repo "$env:GITHUB_REPOSITORY"
+      - name: Store independent rollback archive (temporary retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rollback-engine-26.8.3.1-headless
+          path: ${{ runner.temp }}/engine-backup/engine-26.8.3.1-headless/
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error
+      - name: Verify published v2 metadata and extract separately
+        shell: pwsh
+        run: |
+          $tag = 'engine-26.8.3.2-headless'
+          $rel = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Cannot read candidate release" }
+          $a = @($rel.assets | Where-Object name -eq 'dung-engine-headless-win64.7z')
+          if ($a.Count -ne 1 -or $a[0].digest -notmatch '^sha256:([a-fA-F0-9]{64})$') {
+            throw "No unique published SHA256 for v2; stop, verify the archived build separately"
+          }
+          $sha = $Matches[1].ToLowerInvariant()
+          Write-Host "Candidate tag: $tag; asset ID: $($a[0].id); published SHA256: $sha"
+          ./scripts/fetch-engine.ps1 -Tag $tag -Sha256 $sha -Repo "$env:GITHUB_REPOSITORY" -OutDir "$env:RUNNER_TEMP/engine-candidate-v2"
+      - name: Probe Python UNO and script provider on isolated candidate
+        shell: pwsh
+        run: |
+          $env:DUNG_PROGRAM_DIR = "$env:RUNNER_TEMP/engine-candidate-v2/engine/program"
+          New-Item -ItemType Directory -Force -Path report | Out-Null
+          & "$env:DUNG_PROGRAM_DIR/python.exe" engine-build/dung-scripts/test_dung_api.py 2>&1 | Tee-Object report/engine-v2-uno.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Preserve probe evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-preflight-report
+          path: report/
+          if-no-files-found: warn
