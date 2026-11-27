@@ -633,6 +633,7 @@ void TileView::flushDragMove() {
     const int buttons=m_dragButtons,modifiers=m_dragModifiers;
     clearDragMove();
     const UiTiming timing("drag");
+    ++m_dragDispatches;
     m_doc->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,pos.x(),pos.y(),1,buttons,modifiers);
 }
 
