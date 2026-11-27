@@ -317,6 +317,14 @@ int main(int argc, char** argv) {
     CHECK(!rotate({a, {}}, QStringLiteral("1"), 360, P(QStringLiteral("x360.pdf"))).ok, "xoay: góc 360 độ không có gì để làm");
     r = rotate({a, {}}, QStringLiteral("1-"), -90, P(QStringLiteral("xoay-trai.pdf")));
     CHECK(r.ok && readFile(P(QStringLiteral("xoay-trai.pdf"))).contains("/Rotate 270"), "xoay -90 độ thành 270");
+    const QString rotateAll=P(QStringLiteral("rotate-all-empty.pdf"));
+    r=rotate({a,{}},QStringLiteral("   "),90,rotateAll);
+    CHECK(r.ok&&info(rotateAll).pages==3&&readFile(rotateAll).count("/Rotate 90")==3,"blank rotation selection rotates every page");
+    const QString rotateOverlap=P(QStringLiteral("rotate-overlap.pdf"));
+    r=rotate({a,{}},QStringLiteral("1,1-2,2"),90,rotateOverlap);
+    CHECK(r.ok&&info(rotateOverlap).pages==3&&readFile(rotateOverlap).count("/Rotate 90")==2&&!readFile(rotateOverlap).contains("/Rotate 180"),"overlapping page ranges rotate each page once");
+    CHECK(!rotate({a,{}},QStringLiteral("4"),90,P(QStringLiteral("rotate-invalid.pdf"))).ok&&!QFile::exists(P(QStringLiteral("rotate-invalid.pdf"))),"invalid rotation range publishes nothing");
+    CHECK(readFile(a)==aBytes,"blank and overlapping rotations preserve source bytes");
 
     // --- compress
     r = compress({a, {}}, P(QStringLiteral("nen.pdf")));
