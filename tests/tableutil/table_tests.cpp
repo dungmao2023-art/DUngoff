@@ -32,6 +32,24 @@ int main(int argc, char **argv)
         QueryJoinSpec loaded;FilterSortSpec decoded;QString error;
         CHECK(decodeQueryRecipe(json,left.header,right.header,loaded,decoded,error)&&loaded.enabled&&decoded.groupKey==2&&filterSort(queryJoinInput(left,right,loaded).table,decoded).table==result.table,"v5 recipe replay");
         CHECK(!decodeQueryRecipe(json,left.header,{"ID","Other"},loaded,decoded,error)&&loaded.enabled&&decoded.groupKey==2,"schema mismatch preserves current options");
+        steps.groupExtrema=true;
+        const auto extended=filterSort(input.table,steps);
+        CHECK(extended.ok&&extended.table.rows.value(0).value(4)=="0.1"&&extended.table.rows.value(0).value(5)=="0.2","joined query extrema");
+        const auto newJson=encodeQueryRecipe(left.header,join,steps);
+        CHECK(decodeQueryRecipe(newJson,left.header,right.header,loaded,decoded,error)&&decoded.groupExtrema&&
+              filterSort(queryJoinInput(left,right,loaded).table,decoded).table==extended.table,"v5 join wrapper with v6 extrema replays");
+        CHECK(decodeQueryRecipe(json,left.header,right.header,loaded,decoded,error)&&!decoded.groupExtrema&&
+              filterSort(input.table,decoded).table==result.table,"old join recipe retains old schema");
+        FilterSortSpec only;only.groupKey=0;only.groupValue=1;only.groupExtrema=true;
+        const auto standalone=encodeFilterSortRecipe(left.header,only);
+        CHECK(decodeQueryRecipe(standalone,left.header,{},loaded,decoded,error)&&!loaded.enabled&&decoded.groupExtrema,
+              "v6 without join loads");
+        auto invalid=standalone;invalid.replace("\"groupValue\": 1","\"groupValue\": -1");
+        CHECK(invalid!=standalone&&!decodeQueryRecipe(invalid,left.header,{},loaded,decoded,error)&&decoded.groupExtrema,
+              "reject extrema without numeric column, preserve prior config");
+        invalid=standalone;invalid.replace("\"version\": 6","\"version\": 4");
+        CHECK(invalid!=standalone&&!decodeQueryRecipe(invalid,left.header,{},loaded,decoded,error),
+              "older recipe version cannot silently ignore extrema");
         CHECK(!queryJoinInput(left,T({"ID","Other"},{{"001","A"}}),join).ok,"reject changed lookup schema");
         CHECK(!queryJoinInput(left,T(right.header,{{"001","A"},{"001","B"}}),join).ok,"reject duplicate right keys");
         join.kind=JoinKind::Inner;
@@ -354,6 +372,12 @@ int main(int argc, char **argv)
         CHECK(r.table.rows.value(1).value(0)=="1" && r.table.rows.value(1).value(3)=="-0.0001","preserve key and negative fraction");
         CHECK(r.table.rows.value(2).value(0).isEmpty() && r.table.rows.value(2).value(2)=="0" && r.table.rows.value(2).value(3).isEmpty(),"blank key grouped, blank value excluded");
         CHECK(r.table.rows.value(3).value(3)=="0" && src==before,"cancellation exact, source unchanged");
+        const auto extrema=groupCsv(src,0,1,true);
+        CHECK(extrema.ok&&extrema.table.header.size()==6&&extrema.table.rows.value(0).value(4)=="0.1"&&extrema.table.rows.value(0).value(5)=="0.2","exact min max positive decimals");
+        CHECK(extrema.table.rows.value(1).value(4)=="-0.0001"&&extrema.table.rows.value(1).value(5)=="-0.0001","single negative fraction");
+        CHECK(extrema.table.rows.value(2).value(4).isEmpty()&&extrema.table.rows.value(2).value(5).isEmpty(),"empty numeric group has no extrema");
+        CHECK(extrema.table.rows.value(3).value(4)=="-1.2345"&&extrema.table.rows.value(3).value(5)=="1.2345","mixed signs compare numerically");
+        CHECK(groupCsv(src,0,1).table==r.table&&groupCsv(src,0,-1,true).table.header.size()==2,"legacy schema and count-only unchanged");
         auto count=groupCsv(src,0);
         CHECK(count.ok && count.table.rows.value(0).value(1)=="2" && count.table.header.size()==2,"count only");
         for(const QString& bad:QStringList{"001","1,2","1.00001","1e2"," 1","999999999999999","=1+2","1\n"}) {

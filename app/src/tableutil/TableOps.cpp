@@ -314,13 +314,13 @@ bool writeCsvCopy(const QString &path, const Table &t, QString &error, QChar sep
 }
 
 // ---------------- Exact CSV group summary ----------------
-CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol)
+CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol,bool includeExtrema)
 {
     CsvGroupResult r;
     if(keyCol<0 || keyCol>=source.header.size() || valueCol<-1 || valueCol>=source.header.size() || keyCol==valueCol) {
         r.error=QObject::tr("Chọn cột nhóm và cột số hợp lệ, khác nhau."); return r;
     }
-    struct Group { QString key; qsizetype rows=0,numbers=0; qint64 sum=0; };
+    struct Group { QString key; qsizetype rows=0,numbers=0; qint64 sum=0,minimum=0,maximum=0; };
     QList<Group> groups; QHash<QString,qsizetype> indices;
     // No thousands separators, leading-zero codes, exponents or implicit rounding.
     static const QRegularExpression canonical(QStringLiteral(R"(^-?(?:0|[1-9][0-9]{0,13})(?:\.[0-9]{1,4})?\z)"));
@@ -350,27 +350,31 @@ CsvGroupResult groupCsv(const Table& source,int keyCol,int valueCol)
            (scaled<0 && g.sum<(std::numeric_limits<qint64>::min)()-scaled)) {
             r.error=QObject::tr("Tổng nhóm vượt phạm vi số hỗ trợ; không xuất kết quả sai.");return r;
         }
+        if(!g.numbers){g.minimum=scaled;g.maximum=scaled;}
+        else {g.minimum=qMin(g.minimum,scaled);g.maximum=qMax(g.maximum,scaled);}
         g.sum+=scaled;++g.numbers;
     }
+    auto decimalText=[](qint64 value){
+        const qint64 whole=value/10000,rem=value%10000;
+        QString text=QString::number(whole);
+        if(value<0&&whole==0)text.prepend(QLatin1Char('-'));
+        if(rem){
+            QString decimal=QString::number(rem<0?-rem:rem).rightJustified(4,QLatin1Char('0'));
+            while(decimal.endsWith(QLatin1Char('0')))decimal.chop(1);
+            text+=QLatin1Char('.')+decimal;
+        }
+        return text;
+    };
     r.table.header << QObject::tr("Nhóm") << QObject::tr("Số dòng");
-    if(valueCol>=0) r.table.header << QObject::tr("Số ô có số") << QObject::tr("Tổng");
-    for(const auto& g:groups) {
+    if(valueCol>=0){
+        r.table.header << QObject::tr("Số ô có số") << QObject::tr("Tổng");
+        if(includeExtrema)r.table.header << QObject::tr("Nhỏ nhất") << QObject::tr("Lớn nhất");
+    }
+    for(const auto& g:groups){
         QStringList row{g.key,QString::number(g.rows)};
-        if(valueCol>=0) {
-            row << QString::number(g.numbers);
-            QString sum;
-            if(g.numbers) {
-                const qint64 whole=g.sum/10000;
-                const qint64 rem=g.sum%10000;
-                sum=QString::number(whole);
-                if(g.sum<0 && whole==0) sum.prepend(QLatin1Char('-'));
-                if(rem) {
-                    QString decimal=QString::number(rem<0?-rem:rem).rightJustified(4,QLatin1Char('0'));
-                    while(decimal.endsWith(QLatin1Char('0'))) decimal.chop(1);
-                    sum+=QLatin1Char('.')+decimal;
-                }
-            }
-            row << sum;
+        if(valueCol>=0){
+            row<<QString::number(g.numbers)<<(g.numbers?decimalText(g.sum):QString());
+            if(includeExtrema)row<<(g.numbers?decimalText(g.minimum):QString())<<(g.numbers?decimalText(g.maximum):QString());
         }
         r.table.rows.append(row);
     }
@@ -614,7 +618,8 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
         }
         selected.insert(col); names.insert(name.toCaseFolded());
     }
-    if((spec.groupKey<0 && spec.groupValue>=0) ||
+    if((spec.groupExtrema&&(spec.groupKey<0||spec.groupValue<0)) ||
+       (spec.groupKey<0 && spec.groupValue>=0) ||
        (spec.groupKey>=0 && spec.groupKey==spec.groupValue) ||
        (project && spec.groupKey>=0 && (!selected.contains(spec.groupKey) ||
         (spec.groupValue>=0 && !selected.contains(spec.groupValue))))){
@@ -673,7 +678,7 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
     if(spec.groupKey>=0){
         const int key=project?int(spec.outputColumns.indexOf(spec.groupKey)):spec.groupKey;
         const int value=spec.groupValue<0?-1:project?int(spec.outputColumns.indexOf(spec.groupValue)):spec.groupValue;
-        const auto grouped=groupCsv(result.table,key,value);
+        const auto grouped=groupCsv(result.table,key,value,spec.groupExtrema);
         if(!grouped.ok){result.error=grouped.error;result.table={};return result;}
         result.grouped=true;result.groupedInputRows=result.table.rows.size();result.table=grouped.table;
     }
@@ -705,6 +710,8 @@ QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpe
     if(spec.groupKey!=-1 || spec.groupValue!=-1){
         obj.insert("version",4);obj.insert("groupKey",spec.groupKey);obj.insert("groupValue",spec.groupValue);
     }
+    // Version 5 is reserved for the join wrapper; version 6 adds numeric extrema.
+    if(spec.groupExtrema){obj.insert("version",6);obj.insert("groupExtrema",true);}
     return QJsonDocument(obj).toJson(QJsonDocument::Indented);
 }
 
@@ -718,7 +725,7 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return fail();
     const auto obj = doc.object();
     const int version=obj.value("version").toInt(-1);
-    if ((version != 1 && version != 2 && version != 3 && version != 4) || !obj.value("header").isArray()
+    if ((version != 1 && version != 2 && version != 3 && version != 4 && version != 6) || !obj.value("header").isArray()
         || obj.value("header").toArray() != QJsonArray::fromStringList(header)) return fail();
     const int filter = obj.value("filterCol").toInt(-2);
     const int sort = obj.value("sortCol").toInt(-2);
@@ -751,10 +758,14 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
         candidate.cleanCol=clean;candidate.cleanKind=ColumnKind(kind);candidate.moneyLocale=MoneyLocale(locale);
         candidate.dedupCol=dedup;candidate.dedupFold=obj.value("dedupFold").toBool();
     } else if(obj.contains("cleanCol")||obj.contains("cleanKind")||obj.contains("moneyLocale")||obj.contains("dedupCol")||obj.contains("dedupFold"))return fail();
-    if(version==4){
+    if(version==4||version==6){
         candidate.groupKey=obj.value("groupKey").toInt(-2);candidate.groupValue=obj.value("groupValue").toInt(-2);
         if(candidate.groupKey<0 || candidate.groupKey>=header.size() || candidate.groupValue<-1 || candidate.groupValue>=header.size())return fail();
     }else if(obj.contains("groupKey")||obj.contains("groupValue"))return fail();
+    if(version==6){
+        if(!obj.value("groupExtrema").isBool()||!obj.value("groupExtrema").toBool())return fail();
+        candidate.groupExtrema=true;
+    }else if(obj.contains("groupExtrema"))return fail();
     const auto checked = filterSort(Table{header, {}}, candidate);
     if (!checked.ok) { error = checked.error; return false; }
     spec = candidate;

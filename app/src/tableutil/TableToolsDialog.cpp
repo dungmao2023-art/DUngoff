@@ -202,6 +202,7 @@ struct TableToolsDialog::Impl {
     ColumnKind cleanKind=ColumnKind::Keep; MoneyLocale queryLocale=MoneyLocale::VN;
     bool dedupFold=false;
     int groupKey=-1,groupValue=-1;
+    bool groupExtrema=false;
     QueryJoinSpec queryJoin;
     QStringList queryHeader;
     QPlainTextEdit* report = nullptr;
@@ -281,7 +282,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
     l4->addLayout(recipes);
     d->tabs->addTab(w4, tr("Lọc và sắp xếp"));
     auto* w5=new QWidget; auto* l5=new QVBoxLayout(w5);
-    auto* groupNote=new QLabel(tr("Tổng hợp theo nhóm từ CSV. Khóa so khớp chính xác, ô rỗng là một nhóm riêng. Đếm dòng hoặc tính tổng số chuẩn (dấu chấm thập phân, không dấu hàng nghìn, tối đa 4 chữ số lẻ). Không ép kiểu mã hoặc số điện thoại."),w5);
+    auto* groupNote=new QLabel(tr("Tổng hợp theo nhóm từ CSV/XLSX. Khóa so khớp chính xác, ô rỗng là một nhóm riêng. Đếm dòng, tính tổng và tùy chọn nhỏ nhất/lớn nhất của số chuẩn (dấu chấm thập phân, không dấu hàng nghìn, tối đa 4 chữ số lẻ). Không ép kiểu mã hoặc số điện thoại."),w5);
     groupNote->setWordWrap(true); l5->addWidget(groupNote);
     auto* groupRun=new QPushButton(tr("Chọn cột và tổng hợp…"),w5); l5->addWidget(groupRun);
     l5->addStretch(); d->tabs->addTab(w5,tr("Tổng hợp nhóm"));
@@ -300,7 +301,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->filterCol->clear(); d->sortCol->clear();
         d->outputColumns.clear(); d->outputNames.clear();
         d->cleanCol=-1;d->dedupCol=-1;d->cleanKind=ColumnKind::Keep;d->queryLocale=MoneyLocale::VN;d->dedupFold=false;
-        d->groupKey=-1;d->groupValue=-1;d->queryJoin={};d->queryHeader.clear();
+        d->groupKey=-1;d->groupValue=-1;d->groupExtrema=false;d->queryJoin={};d->queryHeader.clear();
         d->filterCol->addItem(tr("Không lọc"), -1);
         d->sortCol->addItem(tr("Giữ thứ tự gốc"), -1);
         auto* form = qobject_cast<QFormLayout*>(d->kindHost->layout());
@@ -389,14 +390,21 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
             const auto label=tr("%1 · %2").arg(i+1).arg(d->tableA.header[i]);
             key->addItem(label,i);value->addItem(label,i);
         }
-        form->addRow(tr("Cột nhóm:"),key);form->addRow(tr("Cột tính tổng:"),value);
+        form->addRow(tr("Cột nhóm:"),key);form->addRow(tr("Cột số:"),value);
+        auto* extrema=new QCheckBox(tr("Thêm giá trị nhỏ nhất và lớn nhất"),&dlg);
+        extrema->setEnabled(value->currentData().toInt()>=0);
+        connect(value,QOverload<int>::of(&QComboBox::currentIndexChanged),&dlg,[value,extrema]{
+            const bool numeric=value->currentData().toInt()>=0;
+            extrema->setEnabled(numeric);if(!numeric)extrema->setChecked(false);
+        });
+        form->addRow(extrema);
         auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);form->addRow(buttons);
         connect(buttons,&QDialogButtonBox::accepted,&dlg,&QDialog::accept);
         connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
         if(dlg.exec()!=QDialog::Accepted) return;
-        const auto r=groupCsv(d->tableA,key->currentData().toInt(),value->currentData().toInt());
+        const auto r=groupCsv(d->tableA,key->currentData().toInt(),value->currentData().toInt(),extrema->isChecked());
         if(!r.ok){QMessageBox::warning(this,tr("Tổng hợp nhóm"),r.error);return;}
-        QString rep=tr("%1 nhóm từ %2 dòng; ô số rỗng không tham gia tổng.").arg(r.table.rows.size()).arg(d->tableA.rows.size());
+        QString rep=tr("%1 nhóm từ %2 dòng; ô số rỗng không tham gia thống kê số.").arg(r.table.rows.size()).arg(d->tableA.rows.size());
         rep+=QStringLiteral("\n")+r.table.header.join(QStringLiteral(" | "));
         for(int i=0;i<r.table.rows.size() && i<20;++i)rep+=QStringLiteral("\n")+r.table.rows[i].join(QStringLiteral(" | "));
         QDialog preview(this);preview.setWindowTitle(tr("Xem trước 20 nhóm"));preview.resize(720,420);
@@ -421,7 +429,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         spec.outputColumns=d->outputColumns; spec.outputNames=d->outputNames;
         spec.cleanCol=d->cleanCol;spec.cleanKind=d->cleanKind;spec.moneyLocale=d->queryLocale;
         spec.dedupCol=d->dedupCol;spec.dedupFold=d->dedupFold;
-        spec.groupKey=d->groupKey;spec.groupValue=d->groupValue;
+        spec.groupKey=d->groupKey;spec.groupValue=d->groupValue;spec.groupExtrema=d->groupExtrema;
         return spec;
     };
     auto resetQueryColumns=[this](const QStringList& header){
@@ -435,7 +443,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->filterMode->setCurrentIndex(0);d->filterValue->clear();d->ignoreCase->setChecked(false);d->descending->setChecked(false);
         d->outputColumns.clear();d->outputNames.clear();
         d->cleanCol=-1;d->dedupCol=-1;d->cleanKind=ColumnKind::Keep;d->queryLocale=MoneyLocale::VN;d->dedupFold=false;
-        d->groupKey=-1;d->groupValue=-1;
+        d->groupKey=-1;d->groupValue=-1;d->groupExtrema=false;
     };
     connect(joinStep,&QPushButton::clicked,this,[this,needA,resetQueryColumns]{
         if(!needA())return;
@@ -512,16 +520,24 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         }
         key->setCurrentIndex(qMax(0,key->findData(d->groupKey)));
         value->setCurrentIndex(qMax(0,value->findData(d->groupValue)));
+        auto* extrema=new QCheckBox(tr("Thêm giá trị nhỏ nhất và lớn nhất"),&dlg);
+        extrema->setChecked(d->groupExtrema);
+        auto syncExtrema=[&]{const bool numeric=key->currentData().toInt()>=0&&value->currentData().toInt()>=0;
+            extrema->setEnabled(numeric);if(!numeric)extrema->setChecked(false);};
+        connect(key,QOverload<int>::of(&QComboBox::currentIndexChanged),&dlg,syncExtrema);
+        connect(value,QOverload<int>::of(&QComboBox::currentIndexChanged),&dlg,syncExtrema);
+        syncExtrema();
         auto* note=new QLabel(tr("Tổng hợp sau khi làm sạch, lọc, bỏ trùng, sắp xếp và chọn cột. Cộng số thập phân chính xác tối đa 4 chữ số lẻ; khóa nhóm phân biệt số 0 đầu. Phải giữ cột nhóm và cột số trong bước chọn cột."),&dlg);
-        note->setWordWrap(true);form->addRow(note);form->addRow(tr("Cột nhóm:"),key);form->addRow(tr("Cột cộng:"),value);
+        note->setWordWrap(true);form->addRow(note);form->addRow(tr("Cột nhóm:"),key);form->addRow(tr("Cột số:"),value);form->addRow(extrema);
         auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);form->addRow(buttons);
         connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
         connect(buttons,&QDialogButtonBox::accepted,&dlg,[&]{
             auto spec=recipeSpec();spec.groupKey=key->currentData().toInt();
             spec.groupValue=spec.groupKey<0?-1:value->currentData().toInt();
+            spec.groupExtrema=extrema->isChecked();
             const auto checked=filterSort(Table{d->queryHeader,{}},spec);
             if(!checked.ok){QMessageBox::warning(&dlg,tr("Tổng hợp"),checked.error);return;}
-            d->groupKey=spec.groupKey;d->groupValue=spec.groupValue;dlg.accept();
+            d->groupKey=spec.groupKey;d->groupValue=spec.groupValue;d->groupExtrema=spec.groupExtrema;dlg.accept();
         });
         dlg.exec();
     });
@@ -617,7 +633,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->outputColumns=spec.outputColumns; d->outputNames=spec.outputNames;
         d->cleanCol=spec.cleanCol;d->cleanKind=spec.cleanKind;d->queryLocale=spec.moneyLocale;
         d->dedupCol=spec.dedupCol;d->dedupFold=spec.dedupFold;
-        d->groupKey=spec.groupKey;d->groupValue=spec.groupValue;
+        d->groupKey=spec.groupKey;d->groupValue=spec.groupValue;d->groupExtrema=spec.groupExtrema;
         d->report->setPlainText(tr("Đã nạp cấu hình. Bấm Xem trước để chạy với dữ liệu hiện tại."));
     });
     connect(run4, &QPushButton::clicked, this, [this, askSave, save, needA, recipeSpec] {
