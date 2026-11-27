@@ -151,10 +151,16 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
         QApplication::sendEvent(vp, &pr);
         check(!doc->inputIdleFor(10000),label+": thao tác chuột được ghi nhận là input gần đây");
         check(view.selectedCellRange(true).isEmpty(),label+": không lấy vùng làm tham chiếu khi chưa thả chuột");
-        QMouseEvent mv(QEvent::MouseMove, QPoint(330, 130), vp->mapToGlobal(QPoint(330, 130)), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
-        QApplication::sendEvent(vp, &mv);
+        const auto dispatchBefore=view.coalescedDragDispatches();
+        for(int i=1;i<=30;++i) {
+            const QPoint pos(120+7*i,60+70*i/30);
+            QMouseEvent mv(QEvent::MouseMove,pos,vp->mapToGlobal(pos),Qt::NoButton,Qt::LeftButton,Qt::NoModifier);
+            QApplication::sendEvent(vp,&mv);
+        }
+        check(view.coalescedDragDispatches()==dispatchBefore,label+": burst 30 move chưa gửi lặp vào engine");
         QMouseEvent rl(QEvent::MouseButtonRelease, QPoint(330, 130), vp->mapToGlobal(QPoint(330, 130)), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
         QApplication::sendEvent(vp, &rl);
+        check(view.coalescedDragDispatches()==dispatchBefore+1,label+": gửi đúng một move cuối trước khi thả chuột");
         note(label+QString(": PERF drag dispatch %1 ms (press/move/release)").arg(dragTiming.elapsed()));
         pump(1500);
         const QImage multi = vp->grab().toImage().scaled(vp->size()).convertToFormat(QImage::Format_RGB32);
