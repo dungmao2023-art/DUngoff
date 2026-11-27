@@ -629,7 +629,7 @@ void DocumentTab::setCopyOrigin(const QString& originalPath) {
 }
 
 void DocumentTab::refreshPdfComparison() {
-    if(!m_pdfComparison||m_pdfComparison->isHidden()||!m_pdfOriginalImage)return;
+    if(!isVisible()||!m_pdfComparison||m_pdfComparison->isHidden()||!m_pdfOriginalImage)return;
     const int part=m_doc->currentPart();
     if(part<0)return;
     const bool sameRequest=part==m_pdfRequestedPart&&m_recOrigin==m_pdfRequestedPath;
@@ -657,7 +657,7 @@ void DocumentTab::refreshPdfComparison() {
 }
 
 void DocumentTab::startPdfComparison() {
-    if(m_pdfComparisonBusy||!m_pdfComparison||m_pdfComparison->isHidden()||
+    if(m_pdfComparisonBusy||!isVisible()||!m_pdfComparison||m_pdfComparison->isHidden()||
        m_pdfRequestedPart<0||m_pdfRequestedPath.isEmpty())return;
     const int part=m_pdfRequestedPart;
     const QString path=m_pdfRequestedPath;
@@ -674,7 +674,7 @@ void DocumentTab::startPdfComparison() {
     worker->setParent(qApp);
     connect(worker,&QThread::finished,this,[this,result,path,part]{
         m_pdfComparisonBusy=false;
-        if(!m_pdfComparison||m_pdfComparison->isHidden()||!m_pdfOriginalImage)return;
+        if(!isVisible()||!m_pdfComparison||m_pdfComparison->isHidden()||!m_pdfOriginalImage)return;
         if(part!=m_pdfRequestedPart||path!=m_pdfRequestedPath||
            part!=m_doc->currentPart()||path!=m_recOrigin) {
             // A newer page supersedes this result. Never flash the old page.
@@ -776,6 +776,9 @@ void DocumentTab::hideEvent(QHideEvent* event) {
 void DocumentTab::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     if(m_slideRefresh&&!m_pptNotes&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
+    // Re-evaluate the latest page after the stacked document becomes visible.
+    if(m_pdfComparison&&!m_pdfComparison->isHidden())
+        QTimer::singleShot(0,this,[this]{refreshPdfComparison();});
 }
 
 void DocumentTab::rebuildParts() {
