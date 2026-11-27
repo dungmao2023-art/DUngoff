@@ -202,6 +202,7 @@ struct TableToolsDialog::Impl {
     ColumnKind cleanKind=ColumnKind::Keep; MoneyLocale queryLocale=MoneyLocale::VN;
     bool dedupFold=false;
     int groupKey=-1,groupValue=-1;
+    bool groupExtrema=false;
     QueryJoinSpec queryJoin;
     QStringList queryHeader;
     QPlainTextEdit* report = nullptr;
@@ -300,7 +301,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->filterCol->clear(); d->sortCol->clear();
         d->outputColumns.clear(); d->outputNames.clear();
         d->cleanCol=-1;d->dedupCol=-1;d->cleanKind=ColumnKind::Keep;d->queryLocale=MoneyLocale::VN;d->dedupFold=false;
-        d->groupKey=-1;d->groupValue=-1;d->queryJoin={};d->queryHeader.clear();
+        d->groupKey=-1;d->groupValue=-1;d->groupExtrema=false;d->queryJoin={};d->queryHeader.clear();
         d->filterCol->addItem(tr("Không lọc"), -1);
         d->sortCol->addItem(tr("Giữ thứ tự gốc"), -1);
         auto* form = qobject_cast<QFormLayout*>(d->kindHost->layout());
@@ -428,7 +429,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         spec.outputColumns=d->outputColumns; spec.outputNames=d->outputNames;
         spec.cleanCol=d->cleanCol;spec.cleanKind=d->cleanKind;spec.moneyLocale=d->queryLocale;
         spec.dedupCol=d->dedupCol;spec.dedupFold=d->dedupFold;
-        spec.groupKey=d->groupKey;spec.groupValue=d->groupValue;
+        spec.groupKey=d->groupKey;spec.groupValue=d->groupValue;spec.groupExtrema=d->groupExtrema;
         return spec;
     };
     auto resetQueryColumns=[this](const QStringList& header){
@@ -442,7 +443,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->filterMode->setCurrentIndex(0);d->filterValue->clear();d->ignoreCase->setChecked(false);d->descending->setChecked(false);
         d->outputColumns.clear();d->outputNames.clear();
         d->cleanCol=-1;d->dedupCol=-1;d->cleanKind=ColumnKind::Keep;d->queryLocale=MoneyLocale::VN;d->dedupFold=false;
-        d->groupKey=-1;d->groupValue=-1;
+        d->groupKey=-1;d->groupValue=-1;d->groupExtrema=false;
     };
     connect(joinStep,&QPushButton::clicked,this,[this,needA,resetQueryColumns]{
         if(!needA())return;
@@ -519,16 +520,24 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         }
         key->setCurrentIndex(qMax(0,key->findData(d->groupKey)));
         value->setCurrentIndex(qMax(0,value->findData(d->groupValue)));
+        auto* extrema=new QCheckBox(tr("Thêm giá trị nhỏ nhất và lớn nhất"),&dlg);
+        extrema->setChecked(d->groupExtrema);
+        auto syncExtrema=[&]{const bool numeric=key->currentData().toInt()>=0&&value->currentData().toInt()>=0;
+            extrema->setEnabled(numeric);if(!numeric)extrema->setChecked(false);};
+        connect(key,QOverload<int>::of(&QComboBox::currentIndexChanged),&dlg,syncExtrema);
+        connect(value,QOverload<int>::of(&QComboBox::currentIndexChanged),&dlg,syncExtrema);
+        syncExtrema();
         auto* note=new QLabel(tr("Tổng hợp sau khi làm sạch, lọc, bỏ trùng, sắp xếp và chọn cột. Cộng số thập phân chính xác tối đa 4 chữ số lẻ; khóa nhóm phân biệt số 0 đầu. Phải giữ cột nhóm và cột số trong bước chọn cột."),&dlg);
-        note->setWordWrap(true);form->addRow(note);form->addRow(tr("Cột nhóm:"),key);form->addRow(tr("Cột cộng:"),value);
+        note->setWordWrap(true);form->addRow(note);form->addRow(tr("Cột nhóm:"),key);form->addRow(tr("Cột số:"),value);form->addRow(extrema);
         auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);form->addRow(buttons);
         connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
         connect(buttons,&QDialogButtonBox::accepted,&dlg,[&]{
             auto spec=recipeSpec();spec.groupKey=key->currentData().toInt();
             spec.groupValue=spec.groupKey<0?-1:value->currentData().toInt();
+            spec.groupExtrema=extrema->isChecked();
             const auto checked=filterSort(Table{d->queryHeader,{}},spec);
             if(!checked.ok){QMessageBox::warning(&dlg,tr("Tổng hợp"),checked.error);return;}
-            d->groupKey=spec.groupKey;d->groupValue=spec.groupValue;dlg.accept();
+            d->groupKey=spec.groupKey;d->groupValue=spec.groupValue;d->groupExtrema=spec.groupExtrema;dlg.accept();
         });
         dlg.exec();
     });
@@ -624,7 +633,7 @@ TableToolsDialog::TableToolsDialog(QWidget* parent) : QDialog(parent), d(new Imp
         d->outputColumns=spec.outputColumns; d->outputNames=spec.outputNames;
         d->cleanCol=spec.cleanCol;d->cleanKind=spec.cleanKind;d->queryLocale=spec.moneyLocale;
         d->dedupCol=spec.dedupCol;d->dedupFold=spec.dedupFold;
-        d->groupKey=spec.groupKey;d->groupValue=spec.groupValue;
+        d->groupKey=spec.groupKey;d->groupValue=spec.groupValue;d->groupExtrema=spec.groupExtrema;
         d->report->setPlainText(tr("Đã nạp cấu hình. Bấm Xem trước để chạy với dữ liệu hiện tại."));
     });
     connect(run4, &QPushButton::clicked, this, [this, askSave, save, needA, recipeSpec] {

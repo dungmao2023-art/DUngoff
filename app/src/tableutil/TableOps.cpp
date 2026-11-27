@@ -618,7 +618,8 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
         }
         selected.insert(col); names.insert(name.toCaseFolded());
     }
-    if((spec.groupKey<0 && spec.groupValue>=0) ||
+    if((spec.groupExtrema&&(spec.groupKey<0||spec.groupValue<0)) ||
+       (spec.groupKey<0 && spec.groupValue>=0) ||
        (spec.groupKey>=0 && spec.groupKey==spec.groupValue) ||
        (project && spec.groupKey>=0 && (!selected.contains(spec.groupKey) ||
         (spec.groupValue>=0 && !selected.contains(spec.groupValue))))){
@@ -677,7 +678,7 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
     if(spec.groupKey>=0){
         const int key=project?int(spec.outputColumns.indexOf(spec.groupKey)):spec.groupKey;
         const int value=spec.groupValue<0?-1:project?int(spec.outputColumns.indexOf(spec.groupValue)):spec.groupValue;
-        const auto grouped=groupCsv(result.table,key,value);
+        const auto grouped=groupCsv(result.table,key,value,spec.groupExtrema);
         if(!grouped.ok){result.error=grouped.error;result.table={};return result;}
         result.grouped=true;result.groupedInputRows=result.table.rows.size();result.table=grouped.table;
     }
@@ -709,6 +710,8 @@ QByteArray encodeFilterSortRecipe(const QStringList& header, const FilterSortSpe
     if(spec.groupKey!=-1 || spec.groupValue!=-1){
         obj.insert("version",4);obj.insert("groupKey",spec.groupKey);obj.insert("groupValue",spec.groupValue);
     }
+    // Version 5 is reserved for the join wrapper; version 6 adds numeric extrema.
+    if(spec.groupExtrema){obj.insert("version",6);obj.insert("groupExtrema",true);}
     return QJsonDocument(obj).toJson(QJsonDocument::Indented);
 }
 
@@ -722,7 +725,7 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
     if (parseError.error != QJsonParseError::NoError || !doc.isObject()) return fail();
     const auto obj = doc.object();
     const int version=obj.value("version").toInt(-1);
-    if ((version != 1 && version != 2 && version != 3 && version != 4) || !obj.value("header").isArray()
+    if ((version != 1 && version != 2 && version != 3 && version != 4 && version != 6) || !obj.value("header").isArray()
         || obj.value("header").toArray() != QJsonArray::fromStringList(header)) return fail();
     const int filter = obj.value("filterCol").toInt(-2);
     const int sort = obj.value("sortCol").toInt(-2);
@@ -755,10 +758,14 @@ bool decodeFilterSortRecipe(const QByteArray& json, const QStringList& header, F
         candidate.cleanCol=clean;candidate.cleanKind=ColumnKind(kind);candidate.moneyLocale=MoneyLocale(locale);
         candidate.dedupCol=dedup;candidate.dedupFold=obj.value("dedupFold").toBool();
     } else if(obj.contains("cleanCol")||obj.contains("cleanKind")||obj.contains("moneyLocale")||obj.contains("dedupCol")||obj.contains("dedupFold"))return fail();
-    if(version==4){
+    if(version==4||version==6){
         candidate.groupKey=obj.value("groupKey").toInt(-2);candidate.groupValue=obj.value("groupValue").toInt(-2);
         if(candidate.groupKey<0 || candidate.groupKey>=header.size() || candidate.groupValue<-1 || candidate.groupValue>=header.size())return fail();
     }else if(obj.contains("groupKey")||obj.contains("groupValue"))return fail();
+    if(version==6){
+        if(!obj.value("groupExtrema").isBool()||!obj.value("groupExtrema").toBool())return fail();
+        candidate.groupExtrema=true;
+    }else if(obj.contains("groupExtrema"))return fail();
     const auto checked = filterSort(Table{header, {}}, candidate);
     if (!checked.ok) { error = checked.error; return false; }
     spec = candidate;

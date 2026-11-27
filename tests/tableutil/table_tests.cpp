@@ -32,6 +32,24 @@ int main(int argc, char **argv)
         QueryJoinSpec loaded;FilterSortSpec decoded;QString error;
         CHECK(decodeQueryRecipe(json,left.header,right.header,loaded,decoded,error)&&loaded.enabled&&decoded.groupKey==2&&filterSort(queryJoinInput(left,right,loaded).table,decoded).table==result.table,"v5 recipe replay");
         CHECK(!decodeQueryRecipe(json,left.header,{"ID","Other"},loaded,decoded,error)&&loaded.enabled&&decoded.groupKey==2,"schema mismatch preserves current options");
+        steps.groupExtrema=true;
+        const auto extended=filterSort(input.table,steps);
+        CHECK(extended.ok&&extended.table.rows.value(0).value(4)=="0.1"&&extended.table.rows.value(0).value(5)=="0.2","joined query extrema");
+        const auto newJson=encodeQueryRecipe(left.header,join,steps);
+        CHECK(decodeQueryRecipe(newJson,left.header,right.header,loaded,decoded,error)&&decoded.groupExtrema&&
+              filterSort(queryJoinInput(left,right,loaded).table,decoded).table==extended.table,"v5 join wrapper with v6 extrema replays");
+        CHECK(decodeQueryRecipe(json,left.header,right.header,loaded,decoded,error)&&!decoded.groupExtrema&&
+              filterSort(input.table,decoded).table==result.table,"old join recipe retains old schema");
+        FilterSortSpec only;only.groupKey=0;only.groupValue=1;only.groupExtrema=true;
+        const auto standalone=encodeFilterSortRecipe(left.header,only);
+        CHECK(decodeQueryRecipe(standalone,left.header,{},loaded,decoded,error)&&!loaded.enabled&&decoded.groupExtrema,
+              "v6 without join loads");
+        auto invalid=standalone;invalid.replace("\"groupValue\": 1","\"groupValue\": -1");
+        CHECK(invalid!=standalone&&!decodeQueryRecipe(invalid,left.header,{},loaded,decoded,error)&&decoded.groupExtrema,
+              "reject extrema without numeric column, preserve prior config");
+        invalid=standalone;invalid.replace("\"version\": 6","\"version\": 4");
+        CHECK(invalid!=standalone&&!decodeQueryRecipe(invalid,left.header,{},loaded,decoded,error),
+              "older recipe version cannot silently ignore extrema");
         CHECK(!queryJoinInput(left,T({"ID","Other"},{{"001","A"}}),join).ok,"reject changed lookup schema");
         CHECK(!queryJoinInput(left,T(right.header,{{"001","A"},{"001","B"}}),join).ok,"reject duplicate right keys");
         join.kind=JoinKind::Inner;

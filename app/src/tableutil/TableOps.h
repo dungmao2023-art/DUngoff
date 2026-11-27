@@ -116,6 +116,7 @@ struct FilterSortSpec {
     bool dedupFold=false;
     // Group after projection. These are source indices and must survive projection.
     int groupKey=-1, groupValue=-1;
+    bool groupExtrema=false;
 };
 struct FilterSortResult {
     bool ok = false; Table table; QString error;
