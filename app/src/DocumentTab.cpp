@@ -635,6 +635,14 @@ void DocumentTab::refreshPdfComparison() {
     if(!m_pdfComparisonBusy&&part==m_pdfComparedPart&&m_recOrigin==m_pdfComparedPath&&sameRequest)return;
     m_pdfRequestedPart=part;
     m_pdfRequestedPath=m_recOrigin;
+    if(m_pdfRequestedPath.isEmpty()) {
+        m_pdfComparedPart=-1;
+        m_pdfComparedPath.clear();
+        m_pdfOriginalImage->setPixmap(QPixmap());
+        m_pdfOriginalImage->setText(tr("Không có đường dẫn PDF gốc để đối chiếu."));
+        m_pdfOriginalImage->setToolTip(QString());
+        return;
+    }
     if(!sameRequest||!m_pdfComparisonBusy) {
         // The displayed pixmap is about to be replaced. In A→B→A navigation
         // do not mistake the now-cleared old image for a ready preview of A.
