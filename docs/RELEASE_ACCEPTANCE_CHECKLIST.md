@@ -48,6 +48,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] X08.1 CSV nhập/xuất Unicode, dấu phân cách/quote/newline, mã dài/0 đầu; dedup/đối soát; số thành chữ không phá định dạng.
 - [ ] X09.1 Import/export mẫu MISA/KiotViet chính thức; nếu thiếu fixture thì ghi blocker, không bịa tương thích.
 - [ ] X10.1 Power Query cơ bản: chọn nguồn CSV/XLSX/sheet, lọc/sort, kiểu dữ liệu, join/group, lưu recipe, chạy lại; preview, xuất bản sao; không gọi là M đầy đủ.
+  - 28/11: X10 vá làm sạch tiền: không đổi dấu thập phân đứng riêng thành 0, không ghép khoảng trắng tùy ý, giữ mã dài hơn 15 chữ số sau bỏ ký hiệu tiền. Chỉ nhận nhóm nghìn bằng khoảng trắng hợp lệ; giữ nguyên input lỗi và báo cảnh báo. Mã/test 6fd9e6b1c0728cced826c7b0812aaaa85a1b75ec; thêm kiểm tra VN/EN/NBSP và query giữ dữ liệu lỗi. Chờ CI, kiểm GUI thực; không tăng stage.
 
 ### B1 — PowerPoint: ca làm bài thuyết trình
 - [ ] P01.1 Chèn/sửa textbox, ảnh/hình, kéo/resize/rotate; căn chỉnh, thứ tự lớp, nhóm/bỏ nhóm; nhiều đối tượng, Undo/Redo.
