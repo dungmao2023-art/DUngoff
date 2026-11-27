@@ -52,6 +52,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 ### B1 — PowerPoint: ca làm bài thuyết trình
 - [ ] P01.1 Chèn/sửa textbox, ảnh/hình, kéo/resize/rotate; căn chỉnh, thứ tự lớp, nhóm/bỏ nhóm; nhiều đối tượng, Undo/Redo.
 - [ ] P02.1 Tạo/xóa/nhân đôi/sắp xếp slide, layout, thumbnail, notes; mở lại PPTX.
+  - 28/11: nhánh fix/ppt-safe-slide-delete-20261128; code/test dcee847bf86b9e00cd5756de6c9e27b091c0aa45. Xóa slide qua xác nhận mặc định Không, không xóa slide duy nhất, kiểm lại danh tính tài liệu/vị trí/số lượng/tên/hash và partInfo trước khi gửi UNO. Đến trang kiểm lại tài liệu và số slide sau dialog. Thêm 5 kiểm tra native xóa slide có nội dung, Undo/Redo và thứ tự/băm render. Chưa chạy CI, chưa xác nhận GUI hoặc PPTX roundtrip mới; giữ stage.
 - [ ] P03.1 F5/Shift+F5, chuyển slide/phím ESC, quay đúng slide; toàn màn hình/cửa sổ, màn hình ngoài.
 - [ ] P04.1 Transition cơ bản, thời gian và advance; áp dụng cho một/nhiều slide; theme/master/layout cơ bản.
 - [ ] P05.1 Appear/Fade, nhiều đối tượng, click, duration/delay/order; phát thật PowerPoint/Impress, không ghi đè timing cũ.
