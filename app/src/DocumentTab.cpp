@@ -424,16 +424,7 @@ QTabWidget#ExcelTools QTabBar::tab:selected { background:white; color:#2864BA; b
             const auto sheet = m_doc->partName(part);
             const unsigned generation = ++m_pickGeneration;
             QTimer::singleShot(180, this, [this, part, sheet, generation] {
-                auto current = [&] {
-                    return generation == m_pickGeneration && isVisible() && m_doc && m_view &&
-                        m_formulaAssistant && m_formulaAssistant->isVisible() &&
-                        m_doc->currentPart() == part && m_doc->partName(part) == sheet;
-                };
-                if (!current()) return;
-                m_doc->waitInputIdle(100, 700);
-                if (!current()) return;
-                const auto range = m_view->selectedCellRange(true);
-                if (current() && !range.isEmpty()) notifyFormulaSelection(m_formulaAssistant, range);
+                tryFormulaPick(part,sheet,generation,18);
             });
         });
         m_rangeTools = createDocumentRangeToolsWidget(this, [this] { return qs(m_doc->selectionAs("text/plain;charset=utf-8")); });
@@ -727,6 +718,26 @@ void DocumentTab::rebuildParts() {
         m_slides->setCurrentRow(cur);
     }
     m_rebuildingParts = false;
+}
+
+void DocumentTab::tryFormulaPick(int part,const std::string& sheet,unsigned generation,int retries) {
+    auto current=[&] {
+        return generation==m_pickGeneration && isVisible() && m_doc && m_view &&
+            m_formulaAssistant && m_formulaAssistant->isVisible() &&
+            m_doc->currentPart()==part && m_doc->partName(part)==sheet;
+    };
+    if(generation!=m_pickGeneration || !isVisible() || !m_doc || !m_view ||
+       !m_formulaAssistant || !m_formulaAssistant->isVisible())return;
+    // Never sleep on the GUI thread waiting for selection callbacks.
+    if(!m_doc->inputIdleFor(100)) {
+        if(retries>0) QTimer::singleShot(40,this,[this,part,sheet,generation,retries]{
+            tryFormulaPick(part,sheet,generation,retries-1);
+        });
+        return;
+    }
+    if(!current())return;
+    const auto range=m_view->selectedCellRange(true);
+    if(current()&&!range.isEmpty())notifyFormulaSelection(m_formulaAssistant,range);
 }
 
 void DocumentTab::onEngineEvent(int type, const QString& payload) {
