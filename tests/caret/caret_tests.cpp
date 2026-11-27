@@ -14,6 +14,7 @@
 #include <QPdfWriter>
 #include <QPainter>
 #include <QMouseEvent>
+#include <QResizeEvent>
 #include <QPointer>
 #include <QTimer>
 #include <QThread>
@@ -120,8 +121,18 @@ void runDoc(dung::Engine& eng, const QString& label, const QString& path, bool w
     check(drained && view.peakTilesPerPaint()>0 && view.peakTilesPerPaint()<=4,
           label+": render phân lô tối đa 4 tile/lượt, hoàn tất khung nhìn",
           QString("peak=%1 drain=%2 ms").arg(view.peakTilesPerPaint()).arg(renderTiming.elapsed()));
+    const unsigned beforeZoom=view.visibleAreaDispatches();
     view.setZoom(originalZoom);
     pump(400);
+    const unsigned afterZoom=view.visibleAreaDispatches();
+    check(afterZoom>beforeZoom,label+": thay đổi zoom gửi vùng nhìn mới tới engine");
+    // A resize notification with identical geometry schedules the same
+    // viewport submission as real scroll/resize timers.
+    QResizeEvent unchanged(view.size(),view.size());
+    QApplication::sendEvent(&view,&unchanged);
+    pump(150);
+    check(view.visibleAreaDispatches()==afterZoom,
+          label+": thông báo resize trùng hình học không gọi lại engine");
 
 
     if (wantCell) {
