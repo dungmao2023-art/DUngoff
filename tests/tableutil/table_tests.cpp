@@ -222,6 +222,29 @@ int main(int argc, char **argv)
         p.cleanCol=1;p.dedupCol=99;CHECK(!filterSort(src,p).ok,"reject invalid dedup column");
     }
 
+    // Boolean normalization is opt-in, text-only, and precedes filters.
+    {
+        const Table src=T({"ID","Flag"},{{"001"," Có "},{"002","FALSE"},{"003","YES"},{"004","không"},{"005","001"},{"006","1"},{"007",""},{"008","maybe"},{"009","ĐÚNG"},{"010","Sai"}});
+        const Table before=src;
+        FilterSortSpec p;p.cleanCol=1;p.cleanKind=ColumnKind::Boolean;
+        const auto r=filterSort(src,p);
+        CHECK(r.ok&&r.cleanedCells==5&&r.cleanWarnings==3,"boolean normalization counts only actual changes and unknowns");
+        CHECK(r.table.rows.value(0).value(1)=="TRUE"&&r.table.rows.value(1).value(1)=="FALSE"&&r.table.rows.value(3).value(1)=="FALSE","Vietnamese and English boolean values");
+        CHECK(r.table.rows.value(4).value(1)=="001"&&r.table.rows.value(5).value(1)=="1"&&r.table.rows.value(6).value(1).isEmpty()&&r.table.rows.value(7).value(1)=="maybe"&&src==before,"unknowns codes blanks and original source preserved");
+        const auto standalone=cleanTable(src,{{"Flag",ColumnKind::Boolean}});
+        CHECK(standalone.cleaned==r.table&&standalone.changes.size()==5&&standalone.warnings.size()==3,"same explicit semantics in clean-table UI");
+        p.filterCol=1;p.value="TRUE";
+        const auto filtered=filterSort(src,p);
+        CHECK(filtered.ok&&filtered.table.rows.size()==3&&filtered.table.rows.value(2).value(0)=="009","boolean cleaning runs before filtering");
+        FilterSortSpec decoded;QString error;
+        CHECK(decodeFilterSortRecipe(encodeFilterSortRecipe(src.header,p),src.header,decoded,error)&&decoded.cleanKind==ColumnKind::Boolean&&filterSort(src,decoded).table==filtered.table,"recipe boolean roundtrip");
+        CHECK(!cleanBoolean("0").converted&&!cleanBoolean("0").warning.isEmpty(),"numeric zero not inferred");
+        CHECK(!cleanBoolean("TRUE").converted&&cleanBoolean("TRUE").warning.isEmpty(),"canonical boolean unchanged");
+        p.cleanKind=static_cast<ColumnKind>(99);
+        CHECK(!filterSort(src,p).ok,"invalid kind rejected");
+        CHECK(!decodeFilterSortRecipe(encodeFilterSortRecipe(src.header,p),src.header,decoded,error)&&decoded.cleanKind==ColumnKind::Boolean,"invalid recipe leaves prior configuration intact");
+    }
+
     // ---- Ghép bảng ----
     {
         const auto left=T({"ID","B.Name"},{{"001","x"},{"1","y"},{"001","z"},{"","empty"}});
