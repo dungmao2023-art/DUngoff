@@ -55,7 +55,14 @@ TileView::TileView(dung::Document* doc, QWidget* parent)
 
     m_headerTimer.setSingleShot(true);
     m_headerTimer.setInterval(40);
-    connect(&m_headerTimer, &QTimer::timeout, this, &TileView::requestHeaders);
+    connect(&m_headerTimer, &QTimer::timeout, this, [this] {
+        // Header queries run synchronously on the engine queue. Defer automatic
+        // refresh while typing or dragging; explicit target verification still
+        // calls requestHeaders() immediately.
+        if(!isVisible())return;
+        if(!m_doc->inputIdleFor(80)){m_headerTimer.start();return;}
+        requestHeaders();
+    });
     m_synthTimer.setSingleShot(true);
     m_synthTimer.setInterval(60);
     connect(&m_synthTimer, &QTimer::timeout, this, &TileView::refreshAllTiles);
@@ -338,6 +345,16 @@ void TileView::drawCaret(QPainter& p) {
     p.fillRect(c, QColor(0x1B, 0x2A, 0x41));
 }
 
+QRegion TileView::selectionPaintRegion() const {
+    QRegion region;
+    const QRect clip=viewport()->rect();
+    const QRect outline=cellSelectionViewRect();
+    if(!outline.isEmpty())region|=outline.adjusted(-5,-5,5,5).intersected(clip);
+    for(const auto& rect:m_selection)
+        region|=toView(rect).adjusted(-2,-2,2,2).intersected(clip);
+    return region;
+}
+
 void TileView::updateCaretRegion() {
     if (m_hasCaret) viewport()->update(toView(m_caret).adjusted(-3,-3,3,3));
 }
@@ -460,10 +477,14 @@ void TileView::handleEvent(int type, const QString& payload) {
         }
         viewport()->update();
         break;
-    case LOK_CALLBACK_TEXT_SELECTION:
-        m_selection = parseRects(payload);
-        viewport()->update();
+    case LOK_CALLBACK_TEXT_SELECTION: {
+        const auto next=parseRects(payload);
+        if(next==m_selection)break;
+        const auto old=selectionPaintRegion();
+        m_selection=next;
+        viewport()->update(old|selectionPaintRegion());
         break;
+    }
     case LOK_CALLBACK_INVALIDATE_VISIBLE_CURSOR: {
         updateCaretRegion(); // erase old caret even if the new one is elsewhere
         const caretgeom::Parsed pc = caretgeom::parseCursorPayload(payload);
@@ -482,8 +503,11 @@ void TileView::handleEvent(int type, const QString& payload) {
     case LOK_CALLBACK_CELL_SELECTION_AREA: {
         // Vùng nhiều ô của Calc (nếu engine không báo qua TEXT_SELECTION): tô mờ giống vùng chọn chữ.
         const caretgeom::Parsed pa = caretgeom::parseCursorPayload(payload);
-        m_cellArea = (pa.valid && pa.rect.width() > 0 && pa.rect.height() > 0) ? pa.rect : QRect();
-        viewport()->update();
+        const QRect next=(pa.valid && pa.rect.width()>0 && pa.rect.height()>0)?pa.rect:QRect();
+        if(next==m_cellArea)break;
+        const auto old=selectionPaintRegion();
+        m_cellArea=next;
+        viewport()->update(old|selectionPaintRegion());
         break;
     }
     default:
@@ -504,9 +528,10 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 
 void TileView::mousePressEvent(QMouseEvent* e) {
     if (m_isCalc) {
+        const auto old=selectionPaintRegion();
         m_cellArea = QRect();
         m_selection.clear(); // do not paint the previous range while a new gesture starts
-        viewport()->update();
+        viewport()->update(old|selectionPaintRegion());
         const QPoint pos = e->position().toPoint();
         const QPoint h = headerSize();
         m_pickComplete = false;
