@@ -22,4 +22,7 @@ QVector<int> expandCopies(const QVector<int>& pages, int copies, bool collate);
 // displayPages <= 0: không so sánh được (vd Excel: phần = sheet) → chuỗi rỗng.
 QString mismatchWarning(int previewPages, int displayPages);
 
+// Persist the print PDF at a user-selected new path. Never overwrite existing data.
+bool copyPrintPdf(const QString& source,const QString& destination,QString* error=nullptr);
+
 } // namespace printlogic
