@@ -187,6 +187,18 @@ int main(int argc, char **argv)
         CHECK(!filterSort(src,bad).ok,"reject empty output name");
         auto ragged=src; ragged.rows.append(QStringList{"001"});
         CHECK(!filterSort(ragged,spec).ok,"reject projection of ragged rows");
+        FilterSortSpec onlyFilter;
+        onlyFilter.filterCol=1; onlyFilter.mode=FilterMode::Blank;
+        const auto badFilter=filterSort(ragged,onlyFilter);
+        CHECK(!badFilter.ok&&badFilter.table.rows.isEmpty()&&!badFilter.error.isEmpty(),
+            "blank filter rejects missing field rather than treating it as blank");
+        FilterSortSpec onlySort; onlySort.sortCol=1;
+        CHECK(!filterSort(ragged,onlySort).ok,"sort rejects short row");
+        auto oversized=src; auto extra=src.rows.first(); extra.append("unexpected");
+        oversized.rows.append(extra);
+        CHECK(!filterSort(oversized,onlySort).ok,"sort rejects extra field");
+        CHECK(!filterSort(ragged,FilterSortSpec{}).ok,"no-op recipe rejects malformed input");
+        CHECK(filterSort(src,FilterSortSpec{}).table==src,"valid no-op still preserves data");
     }
 
     // ---- Fixed-order query pipeline, with v3 recipes ----

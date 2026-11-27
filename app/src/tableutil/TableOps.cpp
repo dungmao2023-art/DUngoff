@@ -640,8 +640,10 @@ FilterSortResult filterSort(const Table& source, const FilterSortSpec& spec)
         (spec.groupValue>=0 && !selected.contains(spec.groupValue))))){
         result.error=QObject::tr("Chọn khóa nhóm và cột số khác nhau; phải giữ các cột này trong bước chọn cột.");return result;
     }
-    if (project || spec.cleanCol>=0 || spec.dedupCol>=0 || spec.groupKey>=0) for (const auto& row:source.rows) if (row.size()!=source.header.size()) {
-        result.error=QObject::tr("Nguồn có dòng sai số cột; chưa chọn/đổi tên cột."); return result;
+    // Every pipeline step requires a rectangular source. Missing fields must
+    // never be interpreted as genuine blank values by a filter or sort.
+    for (qsizetype i=0;i<source.rows.size();++i) if (source.rows[i].size()!=source.header.size()) {
+        result.error=QObject::tr("Bản ghi %1 sai số cột; không chạy truy vấn.").arg(i+2); return result;
     }
     const auto cs = spec.ignoreCase ? Qt::CaseInsensitive : Qt::CaseSensitive;
     result.table.header = source.header;

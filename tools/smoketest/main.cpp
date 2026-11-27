@@ -310,6 +310,21 @@ int main(int argc, char** argv) {
 
     // ---------------- Quy tắc an toàn khi lưu ----------------
     step("quy tắc lưu an toàn");
+    {
+        const auto stage = viDir / "publish-stage.tmp";
+        const auto target = viDir / "publish-target.xlsx";
+        std::error_code e;
+        fs::remove(stage,e); fs::remove(target,e);
+        { std::ofstream outFile(stage, std::ios::binary); outFile << "COMPLETE"; }
+        { std::ofstream competing(target, std::ios::binary); competing << "OTHER"; }
+        check(!publishNewFile(stage,target,e) && bool(e), "Không ghi đè đích xuất hiện sau preflight");
+        check(readAll(target)==std::vector<char>({'O','T','H','E','R'}), "Tệp cạnh tranh giữ nguyên byte");
+        check(readAll(stage)==std::vector<char>({'C','O','M','P','L','E','T','E'}), "Tệp staging còn nguyên khi bị từ chối");
+        fs::remove(target,e);
+        check(publishNewFile(stage,target,e) && !e, "Công bố nguyên tử tệp mới");
+        check(readAll(target)==std::vector<char>({'C','O','M','P','L','E','T','E'}), "Đích nhận đủ dữ liệu");
+        fs::remove(stage,e); fs::remove(target,e);
+    }
     auto r1 = doc->saveAs(original);
     check(!r1.ok, "Từ chối ghi đè tệp gốc khi chưa xác nhận: " + r1.message);
     auto r2 = doc->saveAs(viDir / "khac.xls");
@@ -320,6 +335,27 @@ int main(int argc, char** argv) {
         std::ofstream(viDir / "da-co.xlsx") << "x";
         auto r4 = doc->saveAs(viDir / "da-co.xlsx");
         check(!r4.ok, "Từ chối thay tệp đích đã tồn tại khi chưa xác nhận");
+    }
+
+    step("lưu thất bại sau khi engine ghi tệp tạm");
+    {
+        const auto blocked = viDir / "blocked-target.xlsx";
+        fs::create_directories(blocked);
+        const auto sentinel = blocked / "keep.txt";
+        { std::ofstream keep(sentinel, std::ios::binary); keep << "KEEP"; }
+        SaveOptions replace;
+        replace.allowReplaceExisting = true;
+        auto failed = doc->saveAs(blocked, replace);
+        check(!failed.ok, "Đích là thư mục: không báo đã lưu");
+        check(doc->modified(), "Lỗi sau staging vẫn giữ trạng thái chưa lưu");
+        check(readAll(sentinel) == std::vector<char>({'K','E','E','P'}), "Không đổi dữ liệu tại đích bị chặn");
+        check(readAll(original) == originalBytes, "Lỗi lưu không đổi tệp gốc");
+    }
+    {
+        SaveOptions exportOnly;
+        exportOnly.allowLossyExport = true;
+        const auto printed = doc->saveAs(viDir / "unsaved-print.pdf", exportOnly);
+        check(printed.ok && doc->modified(), "Xuất PDF không coi XLSX đang sửa là đã lưu");
     }
 
     // ---------------- Lưu thành (mặc định) ----------------

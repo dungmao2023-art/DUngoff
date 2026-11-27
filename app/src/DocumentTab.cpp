@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 #define LOK_USE_UNSTABLE_API
 #include "DocumentTab.h"
+#include "SavePathPolicy.h"
 #include "print/PrintDialog.h"
 #include "print/PrintRender.h"
 #include <QPixmap>
@@ -906,24 +907,33 @@ bool DocumentTab::saveAs() {
     for (const auto* f : natives) filters << qs(f->label) + QStringLiteral(" (*.") + qs(f->ext) + QLatin1Char(')');
     const QString suggested = m_savedPath.isEmpty() ? fromPath(m_doc->suggestSaveAsPath()) : m_savedPath;
     QString selected = filters.first();
-    QString path = QFileDialog::getSaveFileName(this, tr("Lưu thành"), suggested, filters.join(QStringLiteral(";;")), &selected);
-    if (path.isEmpty()) return false;
-    if (QFileInfo(path).suffix().isEmpty()) {
-        const int i = filters.indexOf(selected);
-        path += QLatin1Char('.') + qs(natives[std::max(0, i)]->ext);
-    }
-    // Hộp thoại hệ thống đã hỏi xác nhận nếu tệp tồn tại -> coi như đã xác nhận thay thế.
-    return doSave(path, true);
+    const QString picked = QFileDialog::getSaveFileName(this, tr("Lưu thành"), suggested,
+        filters.join(QStringLiteral(";;")), &selected, QFileDialog::DontConfirmOverwrite);
+    if (picked.isEmpty()) return false;
+    const int i = filters.indexOf(selected);
+    const QString path = savepath::resolve(picked, qs(natives[std::max(0, i)]->ext));
+    const bool exists = savepath::needsConfirmation(path);
+    if (exists && QMessageBox::question(this, tr("Xác nhận thay thế"),
+        tr("Tệp đích đã tồn tại:\n%1\nBạn có muốn thay thế tệp này không?").arg(QDir::toNativeSeparators(path)),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+        return false;
+    return doSave(path, exists);
 }
 
 bool DocumentTab::exportPdf() {
     QString base = m_savedPath.isEmpty() ? fromPath(m_doc->suggestSaveAsPath("pdf"))
                                          : QFileInfo(m_savedPath).absolutePath() + QLatin1Char('/') +
                                                QFileInfo(m_savedPath).completeBaseName() + QStringLiteral(".pdf");
-    QString path = QFileDialog::getSaveFileName(this, tr("Xuất PDF"), base, tr("PDF (*.pdf)"));
-    if (path.isEmpty()) return false;
-    if (!path.endsWith(QLatin1String(".pdf"), Qt::CaseInsensitive)) path += QStringLiteral(".pdf");
-    return doSave(path, true);
+    const QString picked = QFileDialog::getSaveFileName(this, tr("Xuất PDF"), base,
+        tr("PDF (*.pdf)"), nullptr, QFileDialog::DontConfirmOverwrite);
+    if (picked.isEmpty()) return false;
+    const QString path = savepath::resolve(picked, QStringLiteral("pdf"), true);
+    const bool exists = savepath::needsConfirmation(path);
+    if (exists && QMessageBox::question(this, tr("Xác nhận thay thế PDF"),
+        tr("Tệp đích đã tồn tại:\n%1\nBạn có muốn thay thế tệp này không?").arg(QDir::toNativeSeparators(path)),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+        return false;
+    return doSave(path, exists);
 }
 
 bool DocumentTab::printDocument() {
