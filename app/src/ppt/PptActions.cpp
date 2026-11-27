@@ -249,7 +249,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             if(!syncOrder()){QMessageBox::warning(&dialog,QObject::tr("Hoạt ảnh"),QObject::tr("Thứ tự chưa hợp lệ; chưa xuất."));return;}
             QList<ppttransition::AnimationTiming> plan;
             const auto valid=ppttransition::planAnimation(effects,&plan);
-            if(!valid.ok){note->setText(valid.error);return;}
+            if(!valid.ok){refresh(list->currentRow());note->setText(valid.error);return;}
             dialog.accept();
         }); QObject::connect(bb,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
         refresh(-1);
@@ -273,15 +273,24 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         auto* root = new QVBoxLayout(&dialog);
         auto* form = new QFormLayout;
         auto* page = new QSpinBox; page->setRange(1, slides.size()); page->setValue(qBound(1, d->currentPart()+1, int(slides.size())));
+        auto* rangeEnd=new QSpinBox;rangeEnd->setRange(1,slides.size());rangeEnd->setValue(page->value());
+        QObject::connect(page,qOverload<int>(&QSpinBox::valueChanged),&dialog,[rangeEnd](int first){rangeEnd->setMinimum(first);if(rangeEnd->value()<first)rangeEnd->setValue(first);});
+        auto* all=new QCheckBox(QObject::tr("Áp dụng cho tất cả slide"));
+        QObject::connect(all,&QCheckBox::toggled,&dialog,[page,rangeEnd,slides](bool enabled){
+            if(enabled){page->setValue(1);rangeEnd->setValue(int(slides.size()));}
+            page->setEnabled(!enabled);rangeEnd->setEnabled(!enabled);
+        });
         auto* effect = new QComboBox;
         effect->addItems({QObject::tr("Không hiệu ứng"), QObject::tr("Mờ dần"), QObject::tr("Đẩy sang trái"), QObject::tr("Quét sang trái"), QObject::tr("Hòa tan")});
         effect->setCurrentIndex(1);
         auto* speed = new QComboBox; speed->addItems({QObject::tr("Chậm"), QObject::tr("Vừa"), QObject::tr("Nhanh")}); speed->setCurrentIndex(1);
         auto* click = new QCheckBox(QObject::tr("Chuyển khi bấm chuột")); click->setChecked(true);
         auto* seconds = new QSpinBox; seconds->setRange(0, 600); seconds->setSpecialValueText(QObject::tr("Tắt tự chuyển"));
-        form->addRow(QObject::tr("Slide"), page); form->addRow(QObject::tr("Hiệu ứng"), effect);
+        form->addRow(QObject::tr("Từ slide"),page);form->addRow(QObject::tr("Đến slide"),rangeEnd);form->addRow(all);
+        rangeEnd->setMinimum(page->value());
+        form->addRow(QObject::tr("Hiệu ứng"), effect);
         form->addRow(QObject::tr("Tốc độ"), speed); form->addRow(click); form->addRow(QObject::tr("Tự chuyển sau (giây)"), seconds); root->addLayout(form);
-        auto* note = new QLabel(QObject::tr("Chuyển cảnh cơ bản được ghi vào PPTX; mở bản xuất bằng PowerPoint để kiểm tra. Chuyển cảnh phức tạp chưa hỗ trợ sẽ bị từ chối.")); note->setWordWrap(true); root->addWidget(note);
+        auto* note = new QLabel(QObject::tr("Chuyển cảnh cơ bản được ghi vào PPTX; mở bản xuất bằng PowerPoint để kiểm tra. Tối đa 100 slide mỗi lần; chuyển cảnh phức tạp chưa hỗ trợ sẽ bị từ chối trước khi xuất bản sao.")); note->setWordWrap(true); root->addWidget(note);
         auto* bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel); root->addWidget(bb);
         QObject::connect(bb, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
         QObject::connect(bb, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
@@ -290,7 +299,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         const QString dest = QFileDialog::getSaveFileName(tab, QObject::tr("Lưu bản PPTX mới"), src.absolutePath() + QLatin1Char('/') + src.completeBaseName() + QStringLiteral(" - chuyen canh.pptx"), QObject::tr("PowerPoint (*.pptx)"));
         if (dest.isEmpty()) return true;
         ppttransition::Options o; o.effect = ppttransition::Effect(effect->currentIndex()); o.speed = speed->currentIndex(); o.onClick = click->isChecked(); o.autoAdvanceMs = seconds->value()*1000;
-        const auto result = ppttransition::createCopy(source, dest, page->value(), o);
+        const auto result = ppttransition::createRangeCopy(source,dest,page->value(),rangeEnd->value(),o);
         if (!result.ok) QMessageBox::warning(tab, QObject::tr("Chuyển cảnh"), result.error);
         else QMessageBox::information(tab, QObject::tr("Chuyển cảnh"), QObject::tr("Đã lưu PPTX mới và kiểm cấu trúc gói:\n%1\nHãy thử trình chiếu trong PowerPoint; nguồn không bị sửa.").arg(dest));
     }
