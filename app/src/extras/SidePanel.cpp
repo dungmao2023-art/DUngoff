@@ -88,6 +88,11 @@ QWidget#WorkContent QCalendarWidget QAbstractItemView { selection-background-col
     m_saveTimer->setInterval(800);
     connect(m_saveTimer, &QTimer::timeout, this, &SidePanel::saveNow);
     load();
+    if(!m_readable) {
+        m_tabs->setEnabled(false);
+        foot->setText(tr("Không thể đọc dữ liệu công việc an toàn. Tạm khóa chỉnh sửa để tránh ghi đè; hãy kiểm tra tệp dữ liệu và mở lại ứng dụng."));
+        foot->setStyleSheet(QStringLiteral("color:#A33626;font-size:12px;"));
+    }
 }
 
 void SidePanel::showPage(int index) {
@@ -106,7 +111,7 @@ bool SidePanel::flush() {
 }
 
 void SidePanel::scheduleSave() {
-    if (!m_loading) {
+    if (!m_loading && m_readable) {
         m_dirty=true;
         m_saveTimer->start();
     }
@@ -114,7 +119,8 @@ void SidePanel::scheduleSave() {
 
 bool SidePanel::saveNow() {
     if(!m_dirty) return true;
-    QJsonObject o;
+    if(!m_readable) return false;
+    QJsonObject o=m_workspaceBase;
     o.insert(QStringLiteral("notes"), m_notes);
     o.insert(QStringLiteral("events"), m_events);
     o.insert(QStringLiteral("dayNotes"), m_dayNotes);
@@ -124,13 +130,16 @@ bool SidePanel::saveNow() {
         QMessageBox::warning(this, tr("Dũng Office"), tr("Không lưu được ghi chú/lịch/liên hệ. Nội dung vẫn còn trong bộ nhớ; kiểm tra thư mục dữ liệu rồi thử lại."));
         return false;
     }
+    m_workspaceBase=o;
     m_dirty=false;
     return true;
 }
 
 void SidePanel::load() {
     m_loading = true;
-    const QJsonObject o = workspace::load(QStringLiteral("workspace"));
+    const QJsonObject o = workspace::load(QStringLiteral("workspace"),&m_readable);
+    if(o.value(QStringLiteral("version")).toInt(1)>1) m_readable=false;
+    m_workspaceBase=o;
     m_notes = o.value(QStringLiteral("notes")).toArray();
     m_events = o.value(QStringLiteral("events")).toArray();
     m_dayNotes = o.value(QStringLiteral("dayNotes")).toObject();
