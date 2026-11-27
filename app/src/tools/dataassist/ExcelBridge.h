@@ -91,26 +91,41 @@ inline InsertOutcome bridgeInsertFormulaAt(dung::Document& d, const std::string&
     if (formula.empty() || formula[0] != '=') { o.message = "Công thức phải bắt đầu bằng ="; return o; }
     d.waitInputIdle();
     const int part = d.currentPart();
+    const int count = d.partCount();
+    if (part < 0 || part >= count) { o.message = "Không xác minh được sheet hiện tại."; return o; }
+    const auto sheet = d.partName(part);
     d.clearEvents();
     d.command(".uno:GoToCell", dung::Document::stringArg("ToPoint", addr));
     const bool matched = d.waitFor(addressEvent, [&](const std::string& s) { return bridgeCellAddress(s) == addr; }, timeoutMs);
     d.waitInputIdle();
-    if (!matched || d.currentPart() != part || bridgeCellAddress(d.lastPayload(addressEvent)) != addr) {
+    if (!matched || d.currentPart() != part || d.partCount() != count || d.partName(part) != sheet ||
+        bridgeCellAddress(d.lastPayload(addressEvent)) != addr) {
         o.message = "Chưa xác minh được ô kết quả. Chọn ô khác rồi thử lại; chưa ghi dữ liệu.";
         return o;
     }
-    const auto sheet = d.partName(part);
     o.previous = bridgeSelectedText(d);
+    o.hadData = !o.previous.empty();
     if (!confirm || !confirm(o.previous)) { o.declined = true; o.message = "Đã huỷ; chưa ghi dữ liệu."; return o; }
     // Dialog xác nhận có thể chạy event loop: kiểm lại địa chỉ, sheet và dữ liệu đã hiện.
     d.waitInputIdle();
-    if (d.currentPart() != part || d.partName(part) != sheet ||
+    if (d.readOnly() || d.currentPart() != part || d.partCount() != count || d.partName(part) != sheet ||
         bridgeCellAddress(d.lastPayload(addressEvent)) != addr ||
         bridgeSelectedText(d) != o.previous) {
         o.message = "Ô kết quả hoặc dữ liệu đã thay đổi trong lúc xác nhận; chưa ghi công thức.";
         return o;
     }
-    return bridgeInsertFormula(d, formula, [](const std::string&) { return true; });
+    // Dispatch only after the verified target check; do not perform a second
+    // overwrite-confirmation path with an implicitly selected cell.
+    d.command(".uno:EnterString", dung::Document::stringArg("StringName", formula));
+    d.waitInputIdle();
+    if (d.currentPart() != part || d.partCount() != count || d.partName(part) != sheet ||
+        bridgeCellAddress(d.lastPayload(addressEvent)) != addr) {
+        o.message = "Đã gửi lệnh nhưng không xác minh được ô sau khi ghi; kiểm tra bảng tính trước khi thử lại.";
+        return o;
+    }
+    o.resultText = bridgeTrim(bridgeSelectedText(d));
+    o.ok = true; // dispatch/target verified, not proof of saved XLSX content
+    return o;
 }
 
 inline bool bridgeLooksLikeError(const std::string& r) { return r.rfind("#", 0) == 0 || r.rfind("Err:", 0) == 0; }
