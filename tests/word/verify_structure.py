@@ -71,3 +71,25 @@ for filename, accepted in (("word-review-accepted.docx", True), ("word-review-re
         ids = {node.get(W+"id") for node in comments.iter(W+"comment") if "COMMENT_MARKER · Ghi chú tiếng Việt: Đường dẫn & số liệu" in text(node)}
         refs = {node.get(W+"id") for node in root.iter(W+"commentReference")}
         check(bool(ids & refs), filename + ": unrelated comment retained")
+
+# Verify the real table dimensions and surrounding text after each save.
+for filename in ("word-table-custom.docx", "word-table-custom-roundtrip.docx"):
+    with zipfile.ZipFile(Path(sys.argv[1]).parent / filename) as z:
+        root = ET.fromstring(z.read("word/document.xml"))
+        tables = list(root.iter(W+"tbl"))
+        check(len(tables) == 1, filename + ": exactly one native table")
+        rows = tables[0].findall(W+"tr")
+        check(len(rows) == 5 and all(len(row.findall(W+"tc")) == 4 for row in rows),
+              filename + ": exactly five rows and four cells per row")
+        check("TABLE_BODY_MARKER" in text(root), filename + ": preceding text retained")
+        check("TABLE_CELL_MARKER" in text(tables[0]), filename + ": cell content retained")
+
+with zipfile.ZipFile(Path(sys.argv[1]).parent / "word-table-edited.docx") as z:
+    root = ET.fromstring(z.read("word/document.xml"))
+    tables = list(root.iter(W+"tbl"))
+    check(len(tables) == 1, "edited DOCX: exactly one table")
+    rows = tables[0].findall(W+"tr")
+    check(len(rows) == 6 and all(len(row.findall(W+"tc")) == 5 for row in rows),
+          "edited DOCX: added one row and one column")
+    check("TABLE_CELL_MARKER" in text(tables[0]), "edited DOCX: original cell retained")
+    check("TABLE_BODY_MARKER" in text(root), "edited DOCX: body retained")

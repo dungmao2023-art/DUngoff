@@ -27,6 +27,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
+#include <QSpinBox>
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
@@ -360,12 +361,37 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         dlg.exec();
     } else if (name == QLatin1String("table")) {
         const WordInsertTarget target(tab);
-        bool ok = false;
-        const int cols = QInputDialog::getInt(parent, QObject::tr("Chèn bảng"), QObject::tr("Số cột:"), 3, 1, 63, 1, &ok);
-        if (!ok) return true;
-        const int rows = QInputDialog::getInt(parent, QObject::tr("Chèn bảng"), QObject::tr("Số hàng:"), 3, 1, 500, 1, &ok);
-        if (ok && target.verify()) {
-            send(target.tab.data(),insertTable(cols,rows));
+        QDialog dialog(parent);
+        dialog.setWindowTitle(QObject::tr("Chèn bảng"));
+        auto* layout=new QVBoxLayout(&dialog);
+        auto* form=new QFormLayout;
+        auto* cols=new QSpinBox(&dialog);
+        cols->setRange(1,63);cols->setValue(3);
+        auto* rows=new QSpinBox(&dialog);
+        rows->setRange(1,500);rows->setValue(3);
+        form->addRow(QObject::tr("Số cột"),cols);
+        form->addRow(QObject::tr("Số hàng"),rows);
+        layout->addLayout(form);
+        auto* preview=new QLabel(&dialog);preview->setWordWrap(true);
+        layout->addWidget(preview);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);
+        auto* insert=buttons->button(QDialogButtonBox::Ok);
+        insert->setText(QObject::tr("Chèn bảng"));insert->setAutoDefault(false);
+        buttons->button(QDialogButtonBox::Cancel)->setDefault(true);
+        layout->addWidget(buttons);
+        auto refresh=[&]{
+            const int cells=cols->value()*rows->value();
+            insert->setEnabled(cells<=5000);
+            preview->setText(cells<=5000?QObject::tr("%1 cột × %2 hàng = %3 ô").arg(cols->value()).arg(rows->value()).arg(cells):
+                QObject::tr("Chọn bảng không quá 5.000 ô để tránh làm chậm tài liệu."));
+        };
+        QObject::connect(cols,&QSpinBox::valueChanged,&dialog,[&](int){refresh();});
+        QObject::connect(rows,&QSpinBox::valueChanged,&dialog,[&](int){refresh();});
+        QObject::connect(buttons,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);
+        QObject::connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+        refresh();
+        if(dialog.exec()==QDialog::Accepted&&cols->value()*rows->value()<=5000&&target.verify()){
+            send(target.tab.data(),insertTable(cols->value(),rows->value()));
             target.tab->view()->setFocus();
         }
     } else if (name == QLatin1String("image")) {

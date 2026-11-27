@@ -519,6 +519,55 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
     check(result.ok, "Lưu cấu trúc Word: " + result.message);
     doc.reset();
 
+    // Verify arbitrary table dimensions in a standalone document, independent
+    // of the header/footer and review fixtures.
+    step("Word — chèn bảng tùy chọn 4 cột 5 hàng");
+    {
+        auto table=engine->createNew(DocKind::Text,&error);
+        check(bool(table),"Tạo tài liệu bảng: "+error);
+        if(!table)return 1;
+        table->setClientView(512,512,7680,7680,0,0,7680,7680);
+        table->typeText(u"TABLE_BODY_MARKER");
+        table->waitInputIdle();
+        run(*table,".uno:GoToEndOfDoc");
+        run(*table,w::insertTable(4,5));
+        table->waitInputIdle();
+        table->typeText(u"TABLE_CELL_MARKER");
+        table->waitInputIdle();
+        const fs::path dest=out/"word-table-custom.docx";
+        fs::remove(dest,ec);
+        const auto saved=table->saveAs(dest);
+        check(saved.ok,"Lưu DOCX bảng tùy chọn: "+saved.message);
+        table.reset();
+        if(saved.ok){
+            auto reopened=engine->open(dest,&error);
+            check(bool(reopened),"Mở lại DOCX bảng tùy chọn: "+error);
+            if(reopened){
+                const fs::path rt=out/"word-table-custom-roundtrip.docx";
+                fs::remove(rt,ec);
+                const auto result=reopened->saveAs(rt);
+                check(result.ok,"Roundtrip bảng tùy chọn: "+result.message);
+                step("Word — thêm hàng và cột trong bảng hiện có");
+                run(*reopened,w::findNext("TABLE_CELL_MARKER",false));
+                check(has(selText(*reopened),"TABLE_CELL_MARKER"),"Chọn đúng ô trong bảng");
+                reopened->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+                reopened->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+                reopened->waitInputIdle();
+                run(*reopened,".uno:InsertRowsAfter");
+                run(*reopened,w::findNext("TABLE_CELL_MARKER",false));
+                check(has(selText(*reopened),"TABLE_CELL_MARKER"),"Giữ nội dung ô sau khi thêm hàng");
+                reopened->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+                reopened->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+                reopened->waitInputIdle();
+                run(*reopened,".uno:InsertColumnsAfter");
+                const fs::path edited=out/"word-table-edited.docx";
+                fs::remove(edited,ec);
+                const auto editedResult=reopened->saveAs(edited);
+                check(editedResult.ok,"Lưu bảng sau thêm hàng/cột: "+editedResult.message);
+            }
+        }
+    }
+
     // Native Writer review: use the same UNO commands as the ribbon and inspect
     // the exported DOCX rather than inferring success from the modified flag.
     step("Word Review — ghi thay đổi và bình luận native");
