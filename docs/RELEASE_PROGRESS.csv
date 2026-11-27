@@ -2,7 +2,7 @@ id,priority,group,weight,stage,remaining_low_hours,remaining_high_hours,evidence
 "A01","P0","Chung","5","integrated","3","8","#27; cần kiểm bản tích hợp"
 "A02","P0","Chung","8","partial","8","24","Caret đã vá #18; IME/DPI máy thật"
 "A03","P0","Chung","3","integrated","2","6","Nhóm tab #9; cần thao tác thật"
-"A04","P0","Chung","5","integrated","4","12","#48/#73/#78/#117 merged; PDF save snapshot CI 45973869624 both OS; #118 CI PASS batch pending; GUI/crash and disk tests remaining"
+"A04","P0","Chung","5","integrated","4","12","#48/#73/#78/#117 merged; PDF save snapshot CI 45973869624 both OS; #122 merged; Windows/Linux CI 45977512404 PASS; GUI/crash and disk tests remaining"
 "A05","P0","Chung","5","integrated","3","10","Print tests; máy in thật"
 "A06","P0","Chung","5","partial","6","16","CaptureShots; bố cục và DPI"
 "A07","P0","Chung","3","integrated","2","5","#37 merged, offscreen PASS; native"
