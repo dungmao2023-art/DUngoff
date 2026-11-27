@@ -38,6 +38,10 @@ int main(int argc, char** argv) {
     const QString dir = td.path() + "/recovery-" + QString(40, QChar('x'));  // đường dẫn dài một chút
     recovery::setDirForTest(dir);
 
+    CHECK(recovery::snapshotOrigin("new.xlsx",true,"original.xlsx","temporary.xlsx")=="new.xlsx","Save As recovery points to current saved file");
+    CHECK(recovery::snapshotOrigin("",true,"original.xlsx","temporary.xlsx")=="original.xlsx","recovered origin retained before Save As");
+    CHECK(recovery::snapshotOrigin("",true,"","temporary.xlsx").isEmpty(),"new recovered document not linked to temporary file");
+    CHECK(recovery::snapshotOrigin("",false,"","initial.docx")=="initial.docx","ordinary document keeps source");
     // 1. phiên này: begin / commit / discard / end
     auto& s = recovery::Session::instance();
     CHECK(s.begin(), "begin phiên");

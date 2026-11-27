@@ -43,6 +43,8 @@
 #include <QFile>
 #include <QStandardPaths>
 #include <QInputDialog>
+#include <QShortcut>
+#include <QKeySequence>
 #include "word/WordCommands.h"
 #include "word/WordActions.h"
 #include "templates/TemplateLibrary.h"
@@ -178,6 +180,7 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
         fx->setObjectName(QStringLiteral("Fx"));
         m_formula = new QLineEdit(fb);
         m_formula->setPlaceholderText(tr("Nội dung hoặc công thức của ô"));
+        m_formula->setToolTip(tr("Sửa nội dung một ô; Enter hoặc rời ô nhập để xác nhận, Esc để huỷ. Nếu vị trí đã thay đổi, nội dung sẽ không bị ghi sang ô khác."));
         m_formula->setReadOnly(m_doc->readOnly());
         fh->addWidget(m_nameBox);
         fh->addWidget(fx);
@@ -213,29 +216,36 @@ DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
             edit->cell = dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
                 m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
         });
-        connect(m_formula, &QLineEdit::editingFinished, this, [this, edit] {
-            edit->active = false;
-            // Leaving without Enter discards uncommitted input.
-            if (m_doc) m_formula->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_FORMULA)));
-        });
-        connect(m_formula, &QLineEdit::returnPressed, this, [this, edit] {
+        auto commitFormula = [this, edit](bool focusView) {
             if (!m_doc || !m_view || m_doc->readOnly() || !edit->active) return;
+            const QString draft=m_formula->text();
+            // Clear before invoking a modal dialog or changing focus to avoid double commits.
+            edit->active=false;
             m_doc->waitInputIdle();
-            const auto cell = dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
+            const auto cell=dataassist::bridgeConfirmedCell(ss(m_view->selectedCellRange()),
                 m_doc->lastPayload(LOK_CALLBACK_CELL_ADDRESS));
-            if (edit->cell.empty() || cell != edit->cell ||
-                m_doc->currentPart() != edit->part || m_doc->partName(edit->part) != edit->sheet) {
-                edit->active = false;
+            if (edit->cell.empty() || cell!=edit->cell || m_doc->currentPart()!=edit->part ||
+                m_doc->partName(edit->part)!=edit->sheet) {
                 m_formula->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_FORMULA)));
-                QMessageBox::warning(this, tr("Thanh công thức"),
-                    tr("Không xác minh được ô ban đầu hoặc sheet đã thay đổi. Chưa ghi dữ liệu. Chọn một ô rồi sửa lại."));
+                QMessageBox box(QMessageBox::Warning,tr("Thanh công thức"),
+                    tr("Không xác minh được ô ban đầu. Chưa ghi dữ liệu vào ô khác. Bạn có thể sao chép nội dung vừa nhập trong phần Chi tiết."),
+                    QMessageBox::Ok,this);
+                box.setDetailedText(draft);
+                box.exec();
                 return;
             }
-            const auto value = ss(m_formula->text());
-            edit->active = false;
-            m_doc->command(".uno:EnterString", dung::Document::stringArg("StringName", value));
+            m_doc->command(".uno:EnterString", dung::Document::stringArg("StringName",ss(draft)));
             m_doc->waitInputIdle();
-            m_view->setFocus();
+            if(focusView) m_view->setFocus();
+        };
+        connect(m_formula,&QLineEdit::editingFinished,this,[commitFormula]{commitFormula(false);});
+        connect(m_formula,&QLineEdit::returnPressed,this,[commitFormula]{commitFormula(true);});
+        auto* cancelFormula=new QShortcut(QKeySequence(Qt::Key_Escape),m_formula);
+        cancelFormula->setContext(Qt::WidgetShortcut);
+        connect(cancelFormula,&QShortcut::activated,this,[this,edit]{
+            edit->active=false;
+            m_formula->setText(qs(m_doc->lastPayload(LOK_CALLBACK_CELL_FORMULA)));
+            if(m_view)m_view->setFocus();
         });
     }
 
@@ -648,13 +658,18 @@ void DocumentTab::autosaveTick() {
     if (!rs.hasRoom()) return;  // thư mục phục hồi đã đầy: bỏ qua, không làm gì khác
     const std::string ext = m_doc->recoveryExt();
     if (ext.empty()) return;
+    m_doc->waitInputIdle();
+    if (!m_doc->modified()) return;
+    // Keep retry pending until both data and metadata have been committed.
+    m_dirtySinceAutosave=true;
     if (m_recId.isEmpty()) m_recId = rs.newDocId();
     const QString e = qs(ext);
     std::string err;
-    if (!m_doc->saveRecoveryCopy(toPath(rs.dataPath(m_recId, e)), &err)) return;  // lỗi tự lưu không làm phiền người dùng
+    if (!m_doc->saveRecoveryCopy(toPath(rs.dataPath(m_recId, e)), &err)) return;
     const QString orig = m_doc->isNew() ? QString() : fromPath(m_doc->originalPath());
-    const QString original = m_recOriginSet ? m_recOrigin : orig;
-    if (rs.commit(m_recId, e, qs(m_doc->displayName()), original, original.isEmpty())) {
+    const QString original = recovery::snapshotOrigin(m_savedPath,m_recOriginSet,m_recOrigin,orig);
+    const QString name=m_savedPath.isEmpty()?qs(m_doc->displayName()):QFileInfo(m_savedPath).fileName();
+    if (rs.commit(m_recId, e, name, original, original.isEmpty())) {
         m_dirtySinceAutosave = false;
         if (m_hasAdopted) { recovery::discardEntry(m_adopted); m_hasAdopted = false; }  // đã có bản mới trong phiên này
     }
