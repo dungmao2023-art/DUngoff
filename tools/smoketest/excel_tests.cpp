@@ -235,6 +235,45 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
     check(r.ok, "Lưu thành excel-ket-qua.xlsx: " + r.message);
     doc.reset();
 
+    // Probe actual range replacement with the existing synchronous LOK paste API.
+    // Never expose it in the UI until saved cells and Undo both pass.
+    step("Thăm dò dán TSV trực tiếp và Undo");
+    auto probe = engine->createNew(DocKind::Spreadsheet, &err);
+    check(bool(probe), "Tạo workbook thăm dò " + err);
+    if (probe) {
+        probe->setClientView(512,512,7680,7680,0,0,7680,7680);
+        auto enter = [&](const std::string& cell, const char16_t* value) {
+            gotoCell(*probe, cell);
+            probe->typeText(value);
+            probe->postKey(LOK_KEYEVENT_KEYINPUT,13,1280);
+            probe->postKey(LOK_KEYEVENT_KEYUP,13,1280);
+            probe->waitInputIdle();
+        };
+        enter("A1",u"12"); enter("B1",u"=2+3"); enter("A2",u"7"); enter("B2",u"9");
+        enter("C1",u"OUTSIDE"); enter("A3",u"BELOW");
+        gotoCell(*probe,"A1"); probe->command(".uno:Bold"); probe->waitInputIdle();
+        auto snapshot = [&](const char* name) {
+            auto path=out/name; fs::remove(path,ec);
+            const auto saved=probe->saveAs(path);
+            check(saved.ok, saved.message);
+        };
+        snapshot("direct-paste-before.xlsx");
+        probe->command(".uno:GoToCell",Document::stringArg("ToPoint","A1:B2"));
+        probe->waitInputIdle(); settle();
+        const auto selected=probe->selectionAs("text/plain;charset=utf-8");
+        const bool exact=selected.find("12\t5")!=std::string::npos && selected.find("7\t9")!=std::string::npos;
+        check(exact,"Chọn đúng vùng A1:B2 trước thăm dò");
+        if (exact) {
+            const bool pasted=probe->paste("text/plain;charset=utf-8","Mười hai\tNăm\nBảy\tChín");
+            check(pasted,"LOK paste trả về thành công (chưa chứng minh dữ liệu)");
+            probe->waitInputIdle(); settle();
+            snapshot("direct-paste-after.xlsx");
+            probe->command(".uno:Undo"); probe->waitInputIdle(); settle();
+            snapshot("direct-paste-undo.xlsx");
+        }
+    }
+    probe.reset();
+
     // ======================= Tệp stress 5000 dòng =======================
     if (!stress.empty() && fs::exists(stress)) {
         fs::path s2 = out / "stress-goc.xlsx";
