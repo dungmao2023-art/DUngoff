@@ -8,6 +8,8 @@
 #include <QFileInfo>
 #include <QSet>
 #include <QTemporaryDir>
+#include <QXmlStreamReader>
+#include <QRegularExpression>
 #include <algorithm>
 #include <cmath>
 
@@ -670,6 +672,66 @@ PatchResult patchDocxMargins(const QString& src, const QString& dst, const Margi
     }
     r.ok = true;
     return r;
+}
+
+// Insert a real OOXML complex TOC field, not a static list of heading text.
+// The existing Writer UpdateAllIndexes command populates its result after opening.
+bool createTocXml(const QByteArray& xml,int levels,QByteArray* output,QString* error) {
+    auto fail=[&](const QString& why){if(error)*error=why;return false;};
+    if(!output||levels<1||levels>3)return fail(QStringLiteral("Chọn 1–3 cấp tiêu đề."));
+    const QString text=QString::fromUtf8(xml);
+    if(text.toUtf8()!=xml)return fail(QStringLiteral("Chỉ hỗ trợ XML UTF-8."));
+    QXmlStreamReader scan(text);
+    const QString ns=QStringLiteral("http://schemas.openxmlformats.org/wordprocessingml/2006/main");
+    qsizetype pos=-1;int depth=0;bool root=false;QString instr;
+    while(!scan.atEnd()){
+        const auto token=scan.readNext();
+        if(token==QXmlStreamReader::DTD)return fail(QStringLiteral("DTD không hỗ trợ."));
+        if(scan.isStartElement()){
+            ++depth;
+            if(depth==1)root=scan.namespaceUri()==ns&&scan.name()==QLatin1String("document");
+            if(root&&depth==2&&scan.namespaceUri()==ns&&scan.name()==QLatin1String("body")){
+                if(pos>=0)return fail(QStringLiteral("Thân tài liệu không hợp lệ."));
+                pos=scan.characterOffset();
+            }
+            if(scan.namespaceUri()==ns&&scan.name()==QLatin1String("fldSimple"))
+                instr+=QLatin1Char(' ')+scan.attributes().value(ns,QStringLiteral("instr")).toString();
+        }else if(scan.isEndElement())--depth;
+        else if(scan.isCharacters()&&depth>0){
+            // All text is collected only for the instruction detector below via
+            // the separate namespace-aware pass, not ordinary body text.
+        }
+    }
+    if(scan.hasError()||!root||pos<=0||pos>text.size()||text.at(pos-1)!=QLatin1Char('>')||
+        (pos>=2&&text.at(pos-2)==QLatin1Char('/')))return fail(QStringLiteral("Không tìm được thân DOCX hợp lệ."));
+    QXmlStreamReader fields(text);bool instruction=false;
+    while(!fields.atEnd()){
+        fields.readNext();
+        if(fields.isStartElement()&&fields.namespaceUri()==ns&&fields.name()==QLatin1String("instrText"))instruction=true;
+        else if(fields.isEndElement()&&fields.namespaceUri()==ns&&fields.name()==QLatin1String("instrText"))instruction=false;
+        else if(fields.isCharacters()&&instruction)instr+=fields.text().toString();
+    }
+    if(QRegularExpression(QStringLiteral("\\bTOC\\b"),QRegularExpression::CaseInsensitiveOption).match(instr).hasMatch())
+        return fail(QStringLiteral("Tài liệu đã có mục lục. Hãy dùng Cập nhật mục lục."));
+    const QString field=QStringLiteral(
+        "<w:p xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">"
+        "<w:r><w:fldChar w:fldCharType=\"begin\" w:dirty=\"true\"/></w:r>"
+        "<w:r><w:instrText xml:space=\"preserve\"> TOC \\o \"1-%1\" \\h \\z \\u </w:instrText></w:r>"
+        "<w:r><w:fldChar w:fldCharType=\"separate\"/></w:r>"
+        "<w:r><w:t>Cập nhật mục lục</w:t></w:r>"
+        "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r></w:p>").arg(levels);
+    QString patched=text;patched.insert(pos,field);
+    QXmlStreamReader validate(patched);while(!validate.atEnd())validate.readNext();
+    if(validate.hasError())return fail(QStringLiteral("Không tạo được trường mục lục hợp lệ."));
+    *output=patched.toUtf8();if(error)error->clear();return true;
+}
+bool createTocCopy(const QString& src,const QString& dst,int levels,QString* error){
+    ft::ZipReader z;if(!z.open(src,error))return false;
+    const auto* e=z.find(QStringLiteral("word/document.xml"));
+    if(!e){if(error)*error=QStringLiteral("Không có nội dung DOCX.");return false;}
+    QByteArray xml,patched;
+    if(!z.read(*e,&xml,error,64LL*1024*1024)||!createTocXml(xml,levels,&patched,error))return false;
+    return replaceZipEntry(src,dst,QStringLiteral("word/document.xml"),patched,error);
 }
 
 } // namespace dung::word
