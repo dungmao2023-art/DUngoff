@@ -30,6 +30,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] W03.2 Heading 1–3, tạo TOC thật, sửa heading và cập nhật mục lục; mở lại DOCX.
 - [ ] W03.3 Footnote/endnote, số trang và section; không mất nội dung.
 - [ ] W04.1 Tìm/thay một và tất cả, phân biệt hoa thường, đếm từ; test dấu Việt, hủy thao tác.
+  - 28/11: nút thay vùng tìm thấy, xác minh lại đúng vùng chọn/tài liệu và chữ khớp chính xác, hỗ trợ thay rỗng, giữ đường Undo native. Test Unicode và Undo 4cc5ab5c66ab615ba1a0d5db4223b7c14cec209f; chờ CI/GUI. Chưa có tùy chọn phân biệt hoa thường cho toàn bộ tìm kiếm.
 - [ ] W04.2 Kiểm chính tả tiếng Việt bằng từ điển có license xác minh; phân biệt kiểm âm tiết.
 - [ ] W05.1 Mẫu công văn, đơn, hợp đồng; số tiền thành chữ, ngày, chuyển mã; mail merge từ Excel/CSV có Unicode.
 - [ ] W06.1 Comment thêm/sửa/xóa; Track Changes bật/tắt, chấp nhận/từ chối; giữ review cũ và mở lại MS Word.
