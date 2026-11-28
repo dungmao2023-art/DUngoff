@@ -111,6 +111,7 @@ public:
     }
     std::function<void(QPointF,QPointF)> select;
     std::function<void()> copySelection;
+    std::function<void()> undoEdit,redoEdit,saveEdit,findText;
     std::function<void(QPointF)> placeNote;
     void setNoteMode(bool on){noteMode=on;drag=false;setCursor(on?Qt::CrossCursor:Qt::IBeamCursor);update();}
     bool hasPage() const{return !page.image.isNull();}
@@ -166,6 +167,10 @@ protected:
     }
     void keyPressEvent(QKeyEvent* e)override{
         if(e->matches(QKeySequence::Copy)){if(copySelection)copySelection();e->accept();return;}
+        if(e->matches(QKeySequence::Undo)&&undoEdit){undoEdit();e->accept();return;}
+        if(e->matches(QKeySequence::Redo)&&redoEdit){redoEdit();e->accept();return;}
+        if(e->matches(QKeySequence::Save)&&saveEdit){saveEdit();e->accept();return;}
+        if(e->matches(QKeySequence::Find)&&findText){findText();e->accept();return;}
         QWidget::keyPressEvent(e);
     }
 private:
@@ -1383,8 +1388,10 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* redoSession=new QPushButton(tr("Làm lại"),w);redoSession->setObjectName("pdfSessionRedo");redoSession->hide();
     actions->addWidget(startSession);actions->addWidget(finishSession);actions->addWidget(cancelSession);
     auto* historyBar=new QHBoxLayout;historyBar->addWidget(undoSession);historyBar->addWidget(redoSession);historyBar->addStretch();
-    undoSession->setToolTip(tr("Quay lại bản trước trong phiên (tối đa 5 bước, giới hạn dung lượng)."));
-    redoSession->setToolTip(tr("Áp dụng lại chỉnh sửa vừa hoàn tác."));
+    undoSession->setToolTip(tr("Quay lại bản trước trong phiên (tối đa 5 bước, giới hạn dung lượng). Phím tắt trên trang: %1").arg(QKeySequence(QKeySequence::Undo).toString(QKeySequence::NativeText)));
+    redoSession->setToolTip(tr("Áp dụng lại chỉnh sửa vừa hoàn tác. Phím tắt trên trang: %1").arg(QKeySequence(QKeySequence::Redo).toString(QKeySequence::NativeText)));
+    finishSession->setToolTip(tr("Lưu bản PDF cuối. Phím tắt trên trang: %1").arg(QKeySequence(QKeySequence::Save).toString(QKeySequence::NativeText)));
+    findToggle->setToolTip(tr("Tìm chữ trong PDF. Phím tắt trên trang: %1").arg(QKeySequence(QKeySequence::Find).toString(QKeySequence::NativeText)));
     startSession->setToolTip(tr("Chỉnh sửa trong thư mục tạm, chỉ lưu một bản PDF cuối."));
     range->addWidget(go);
     connect(findToggle,&QPushButton::toggled,w,[=](bool on){
@@ -1631,6 +1638,12 @@ QWidget* PdfToolsDialog::buildSearch() {
     connect(undoSession,&QPushButton::clicked,w,[=]{navigateHistory(-1);});
     connect(redoSession,&QPushButton::clicked,w,[=]{navigateHistory(1);});
     connect(finishSession,&QPushButton::clicked,w,[=]{exportSession();});
+    // Only handle document shortcuts when the page canvas has focus; text
+    // fields keep their native undo/redo and editing behavior.
+    canvas->undoEdit=[=]{if(session->active()&&undoSession->isEnabled())undoSession->click();};
+    canvas->redoEdit=[=]{if(session->active()&&redoSession->isEnabled())redoSession->click();};
+    canvas->saveEdit=[=]{if(session->active()&&finishSession->isEnabled())finishSession->click();};
+    canvas->findText=[=]{findToggle->setChecked(true);query->setFocus();query->selectAll();};
     connect(cancelSession,&QPushButton::clicked,w,[=]{
         if(!session->active())return;
         if(session->changes&&QMessageBox::question(this,tr("Hủy phiên PDF"),tr("Bỏ tất cả chỉnh sửa chưa lưu?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
