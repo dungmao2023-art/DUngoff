@@ -4,6 +4,8 @@
 #include <QImage>
 #include <QPainter>
 #include <QFont>
+#include <QRawFont>
+#include <QPainterPath>
 #include <QTemporaryDir>
 #include <QFile>
 #include <QDir>
@@ -50,9 +52,38 @@ static bool sample(const QString& dest, const QStringList& lines) {
     img.setDotsPerMeterX(11811); img.setDotsPerMeterY(11811);
     QPainter p(&img);
     p.setPen(Qt::black);
+#ifdef Q_OS_WIN
+    // Windows offscreen QPA may substitute its box font for unavailable
+    // DejaVu Sans. Render outlines from an actual runner-installed font,
+    // explicitly checking every glyph, independently of system font matching.
+    const auto fontPath=QDir(qEnvironmentVariable("WINDIR")).filePath(QStringLiteral("Fonts/arial.ttf"));
+    const QRawFont font(fontPath,52.0,QFont::PreferNoHinting);
+    if(!font.isValid()){
+        std::cerr<<"Cannot load OCR fixture font: "<<fontPath.toStdString()<<std::endl;
+        return false;
+    }
+    p.setRenderHint(QPainter::Antialiasing,true);
+    p.setPen(Qt::NoPen);p.setBrush(Qt::black);
+    int y=160;
+    for(const auto& line:lines){
+        const auto glyphs=font.glyphIndexesForString(line.normalized(QString::NormalizationForm_C));
+        const auto advances=font.advancesForGlyphIndexes(glyphs);
+        if(glyphs.isEmpty()||glyphs.size()!=advances.size())return false;
+        qreal x=100;
+        for(qsizetype i=0;i<glyphs.size();++i){
+            if(!glyphs[i]){std::cerr<<"Missing OCR fixture glyph"<<std::endl;return false;}
+            const auto outline=font.pathForGlyph(glyphs[i]);
+            if(!outline.isEmpty())p.drawPath(outline.translated(x,y));
+            x+=advances[i].x();
+        }
+        y+=105;
+    }
+    std::cout<<"OCR fixture font: "<<font.familyName().toStdString()<<std::endl;
+#else
     QFont font(QStringLiteral("DejaVu Sans")); font.setPixelSize(52); p.setFont(font);
     int y = 160;
     for (const auto& line : lines) { p.drawText(100, y, line); y += 105; }
+#endif
     p.end();
     return img.save(dest, "PNG");
 }
