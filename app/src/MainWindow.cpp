@@ -12,8 +12,11 @@
 #include "recovery/RecoveryStore.h"
 #include "word/WordActions.h"
 #include "HomePage.h"
-#include "extras/ProjectsPage.h"
+#include "extras/DonateInfo.h"
 #include "extras/SidePanel.h"
+#include "extras/DriveFolder.h"
+#include <QJsonDocument>
+#include <QSaveFile>
 #include "templates/TemplateLibrary.h"
 #include "templates/TemplatesPage.h"
 #include "toolbox/ToolboxPage.h"
@@ -163,6 +166,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     ch->setContentsMargins(0, 0, 0, 0);
     ch->setSpacing(0);
     rv->addWidget(content, 1);
+    auto* motto=new QLabel(donate::slogan(),right);
+    motto->setObjectName(QStringLiteral("OfficeSlogan"));
+    motto->setTextFormat(Qt::PlainText);motto->setWordWrap(true);motto->setAlignment(Qt::AlignCenter);
+    motto->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Minimum);
+    motto->setStyleSheet(QStringLiteral("background:#F4F8FF;color:#243B60;font-weight:700;font-size:12px;padding:6px 10px;border-top:1px solid #DCE5F2;"));
+    rv->addWidget(motto);
     h->addWidget(right, 1);
 
     m_stack = new QStackedWidget(content);
@@ -208,8 +217,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     });
     m_stack->addWidget(m_home);
     m_stack->addWidget(m_docArea);
-    m_projects = new ProjectsPage(m_stack);
-    m_stack->addWidget(m_projects);
+    m_donate = buildDonatePage();
+    m_stack->addWidget(m_donate);
     tpl::seedFromBundled(QCoreApplication::applicationDirPath()); // cài/cập nhật gói mẫu đi kèm bộ cài (nếu mới hơn)
     m_templates = new TemplatesPage(m_stack);
     m_stack->addWidget(m_templates);
@@ -468,13 +477,12 @@ QWidget* MainWindow::buildSidebar() {
     auto* excel = make(tr("Bảng tính Excel"), app(QStringLiteral("X"), theme::kExcel), false);
     auto* ppt = make(tr("PowerPoint"), app(QStringLiteral("P"), theme::kPowerPoint), false);
     auto* pdf = make(tr("Công cụ PDF"), app(QStringLiteral("PDF"), theme::kPdf), false);
-    section(tr("TẬP TIN & DỰ ÁN"));
+    section(tr("TẬP TIN & CÔNG CỤ"));
     auto* tmpl = make(tr("Kho mẫu"), sym("templates"), true);
-    auto* proj = make(tr("Dự án"), sym("projects"), true);
     auto* tools = make(tr("Công cụ"), sym("tools"), true);
     section(tr("QUẢN TRỊ CÔNG VIỆC"));
     auto* notes=make(tr("Ghi chú"),app(QStringLiteral("N"),QColor("#9C6F2E")),true);
-    auto* calendar=make(tr("Lịch"),app(QStringLiteral("▦"),QColor("#2864BA")),true);
+    auto* calendar=make(tr("Quản lý công việc"),app(QStringLiteral("▦"),QColor("#2864BA")),true);
     auto* contacts=make(tr("Liên hệ"),app(QStringLiteral("LH"),QColor("#267B69")),true);
     const QList<QPushButton*> workButtons{notes,calendar,contacts};
     for(int i=0;i<workButtons.size();++i){
@@ -486,6 +494,9 @@ QWidget* MainWindow::buildSidebar() {
     drive->setToolTip(tr("Chọn thư mục đồng bộ Google Drive trên máy"));
     auto* open = make(tr("Mở tệp"), sym("open"), false);
     auto* about = make(tr("Giới thiệu"), sym("about"), false);
+    auto* donateBtn=make(tr("Ủng hộ tự nguyện"),shell::badge(QStringLiteral("♥"),QColor("#267B69"),Qt::white,30,dpr),true);
+    connect(donateBtn,&QPushButton::clicked,this,&MainWindow::showDonate);
+    side->setProperty("donateBtn",QVariant::fromValue<QObject*>(donateBtn));
     bv->addStretch(1);
 
     // Keep feedback prominent even when the navigation list scrolls.
@@ -525,7 +536,6 @@ QPushButton#FeedbackNav:focus { border:2px solid #B9D0FF; }
     pdf->setToolTip(tr("Mở tệp PDF để xem và dùng công cụ PDF"));
     connect(home, &QPushButton::clicked, this, &MainWindow::showHome);
     connect(docs, &QPushButton::clicked, this, &MainWindow::showDocuments);
-    connect(proj, &QPushButton::clicked, this, &MainWindow::showProjects);
     connect(tmpl, &QPushButton::clicked, this, &MainWindow::showTemplates);
     connect(tools, &QPushButton::clicked, this, &MainWindow::showToolbox);
     connect(word, &QPushButton::clicked, this, [this] { newDoc(DocKind::Text); });
@@ -536,7 +546,6 @@ QPushButton#FeedbackNav:focus { border:2px solid #B9D0FF; }
     connect(about, &QPushButton::clicked, this, &MainWindow::showAbout);
     side->setProperty("homeBtn", QVariant::fromValue<QObject*>(home));
     side->setProperty("docsBtn", QVariant::fromValue<QObject*>(docs));
-    side->setProperty("projBtn", QVariant::fromValue<QObject*>(proj));
     side->setProperty("tmplBtn", QVariant::fromValue<QObject*>(tmpl));
     side->setProperty("toolBtn", QVariant::fromValue<QObject*>(tools));
     setProperty("sidebar", QVariant::fromValue<QObject*>(side));
@@ -663,8 +672,8 @@ void MainWindow::showPalette() {
     add("close", tr("Đóng tài liệu"), QStringLiteral("Ctrl+W"));
     add("templates", tr("Kho mẫu"));
     add("tools", tr("Công cụ"));
-    add("projects", tr("Dự án"));
-    add("work",tr("Ghi chú"));add("calendar",tr("Lịch công việc"));add("contacts",tr("Danh bạ liên hệ"));
+    add("donate",tr("Ủng hộ tự nguyện · VietQR"));
+    add("work",tr("Ghi chú"));add("calendar",tr("Quản lý công việc"));add("contacts",tr("Danh bạ liên hệ"));
     add("drive",tr("Google Drive · thư mục đồng bộ"));
     add("zoomIn", tr("Phóng to"), QStringLiteral("Ctrl+="));
     add("zoomOut", tr("Thu nhỏ"), QStringLiteral("Ctrl+-"));
@@ -682,7 +691,7 @@ void MainWindow::runCommand(const QString& id) {
     else if (id == QLatin1String("docs")) showDocuments();
     else if (id == QLatin1String("templates")) showTemplates();
     else if (id == QLatin1String("tools")) showToolbox();
-    else if (id == QLatin1String("projects")) showProjects();
+    else if (id == QLatin1String("donate")) showDonate();
     else if (id == QLatin1String("work")) showWork(0);
     else if (id == QLatin1String("calendar")) showWork(1);
     else if (id == QLatin1String("contacts")) showWork(2);
@@ -744,82 +753,97 @@ void MainWindow::showToolbox() {
 }
 
 void MainWindow::showDrive() {
-    QDialog dlg(this);
-    dlg.setWindowTitle(tr("Google Drive — thư mục đồng bộ"));
-    dlg.resize(560,360);
+    QDialog dlg(this);dlg.setWindowTitle(tr("Google Drive — Office"));dlg.resize(690,530);
     auto* v=new QVBoxLayout(&dlg);
-    auto* title=new QLabel(tr("Lưu bản sao vào Google Drive"),&dlg);
+    auto* title=new QLabel(tr("Google Drive · Tải lên / Tải xuống"),&dlg);
     title->setStyleSheet(QStringLiteral("font-size:21px;font-weight:700;color:#17294D;"));v->addWidget(title);
-    auto* explanation=new QLabel(tr("Đăng nhập trong Google Drive cho máy tính, không phải Dũng Office. Chọn thư mục Drive đã đồng bộ hoặc ổ Drive trong File Explorer. Ứng dụng chỉ tạo bản sao theo yêu cầu; Google Drive chịu trách nhiệm tải lên. Không có OAuth trực tiếp, không xác minh trạng thái đám mây."),&dlg);
-    explanation->setWordWrap(true);v->addWidget(explanation);
-    auto* help=new QLabel(tr("<a href='https://support.google.com/drive/answer/10838124'>Hướng dẫn Google Drive cho máy tính</a>"),&dlg);
-    help->setOpenExternalLinks(true);v->addWidget(help);
-    auto* folder=new QLabel(&dlg);folder->setTextFormat(Qt::PlainText);folder->setWordWrap(true);
-    folder->setStyleSheet(QStringLiteral("background:#F4F8FF;border:1px solid #DCE5F2;border-radius:8px;padding:12px;"));
-    v->addWidget(folder);
-    auto* row=new QHBoxLayout;
-    auto* choose=new QPushButton(tr("Chọn thư mục"),&dlg);
-    auto* openFolder=new QPushButton(tr("Mở thư mục"),&dlg);
-    auto* clear=new QPushButton(tr("Ngắt kết nối"),&dlg);
-    row->addWidget(choose);row->addWidget(openFolder);row->addWidget(clear);v->addLayout(row);
-    auto* copy=new QPushButton(tr("Lưu bản sao tài liệu đang chọn"),&dlg);
-    copy->setStyleSheet(QStringLiteral("QPushButton{background:#267B69;color:white;border-radius:8px;padding:10px;font-weight:700;} QPushButton:disabled{background:#E8EDF5;color:#6B7A99;}"));
-    v->addWidget(copy);
+    auto* info=new QLabel(tr("Chọn thư mục My Drive đã đồng bộ bằng Google Drive cho máy tính. Dũng Office tạo Office/Word, Excel, PPT, PDF và Kanban. Google Drive thực hiện truyền dữ liệu lên hoặc xuống đám mây; ứng dụng không xác nhận trạng thái đám mây."),&dlg);
+    info->setWordWrap(true);v->addWidget(info);
+    auto* help=new QLabel(tr("<a href='https://support.google.com/drive/answer/10838124'>Cài Drive Desktop</a> · <a href='https://drive.google.com/drive/quota'>Kiểm tra dung lượng Drive</a> · <a href='https://accounts.google.com/'>Kiểm tra đăng nhập</a> · <a href='https://drive.google.com/'>Mở Drive trên web</a>"),&dlg);help->setOpenExternalLinks(true);help->setWordWrap(true);v->addWidget(help);
+    auto* cloudHint=new QLabel(tr("Nếu mất mạng, hết dung lượng Google Drive hoặc hết phiên đăng nhập, hãy kiểm tra biểu tượng Google Drive ở khay hệ thống. Dũng Office chưa nhận được mã lỗi từ máy chủ Google; sao chép thành công không đồng nghĩa tải lên đám mây thành công."),&dlg);cloudHint->setWordWrap(true);cloudHint->setStyleSheet(QStringLiteral("color:#735416;background:#FFF5E2;padding:9px;border-radius:6px;"));v->addWidget(cloudHint);
+    auto* folder=new QLabel(&dlg);folder->setTextFormat(Qt::PlainText);folder->setWordWrap(true);v->addWidget(folder);
+    auto* row=new QHBoxLayout;auto* choose=new QPushButton(tr("Chọn My Drive"),&dlg);
+    auto* openFolder=new QPushButton(tr("Mở Office"),&dlg);auto* check=new QPushButton(tr("Kiểm tra lại"),&dlg);auto* clear=new QPushButton(tr("Ngắt kết nối"),&dlg);
+    row->addWidget(choose);row->addWidget(openFolder);row->addWidget(check);row->addWidget(clear);v->addLayout(row);
+    auto* type=new QComboBox(&dlg);type->addItems(drivefolder::categories());v->addWidget(type);
+    auto* transfer=new QHBoxLayout;auto* upload=new QPushButton(tr("↑ Tải lên"),&dlg);auto* download=new QPushButton(tr("↓ Tải xuống"),&dlg);
+    transfer->addWidget(upload);transfer->addWidget(download);v->addLayout(transfer);
+    auto* currentFile=new QPushButton(tr("Tải lên tài liệu đang mở (đã lưu)"),&dlg);v->addWidget(currentFile);
     auto* status=new QLabel(&dlg);status->setTextFormat(Qt::PlainText);status->setWordWrap(true);v->addWidget(status);
+    v->addStretch();
     auto* buttons=new QDialogButtonBox(QDialogButtonBox::Close,&dlg);v->addWidget(buttons);
     connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
-    QString path=QSettings().value(QStringLiteral("drive/localSyncFolder")).toString();
-    const auto refresh=[&]{
-        const bool available=!path.isEmpty()&&QFileInfo(path).isDir();
-        folder->setText(path.isEmpty()?tr("Chưa chọn thư mục đồng bộ"):QDir::toNativeSeparators(path));
-        clear->setEnabled(!path.isEmpty());openFolder->setEnabled(available);
-        copy->setEnabled(available&&current());
-        if(!path.isEmpty()&&!available)status->setText(tr("Thư mục không còn truy cập được. Hãy bật Drive hoặc chọn lại."));
+    QString root=QSettings().value(QStringLiteral("drive/localSyncFolder")).toString(),office;
+    auto refresh=[&]{
+        office=drivefolder::office(root);const bool ready=!office.isEmpty();
+        folder->setText(ready?tr("Thư mục truy cập được: %1\nTrạng thái đám mây: chưa xác minh").arg(QDir::toNativeSeparators(office)):(root.isEmpty()?tr("Chưa liên kết. Hãy đăng nhập Drive Desktop và chọn My Drive."):tr("Không truy cập hoặc không tạo được Office. Kiểm tra Drive Desktop, đăng nhập, mạng, dung lượng và quyền ghi.")));
+        clear->setEnabled(!root.isEmpty());openFolder->setEnabled(ready);
+        upload->setEnabled(ready);download->setEnabled(ready);currentFile->setEnabled(ready&&current());
     };
+    connect(check,&QPushButton::clicked,&dlg,[&]{refresh();if(office.isEmpty())status->setText(folder->text());else {const auto problem=drivefolder::storageError(office,1);status->setText(problem.isEmpty()?tr("Thư mục Office truy cập được. Kiểm tra Drive Desktop để xác nhận tài khoản, dung lượng đám mây và đồng bộ."):problem);}});
+    auto target=[&](const QString& category){const auto verified=drivefolder::office(root);return verified.isEmpty()?QString():drivefolder::child(verified,category);};
     connect(choose,&QPushButton::clicked,&dlg,[&]{
-        const QString picked=QFileDialog::getExistingDirectory(&dlg,tr("Chọn thư mục Google Drive đã đồng bộ"),path);
+        const auto picked=QFileDialog::getExistingDirectory(&dlg,tr("Chọn thư mục My Drive đang đồng bộ"),root);
         if(picked.isEmpty())return;
-        path=QDir::cleanPath(picked);QSettings().setValue(QStringLiteral("drive/localSyncFolder"),path);
-        status->setText(tr("Đã ghi nhớ thư mục. Chưa tải tài liệu nào."));refresh();
+        const auto created=drivefolder::office(picked);
+        if(created.isEmpty()){status->setText(tr("Không thể tạo đủ thư mục Office. Kiểm tra quyền ghi, dung lượng, Drive Desktop và kết nối."));return;}
+        root=QDir::cleanPath(picked);QSettings().setValue(QStringLiteral("drive/localSyncFolder"),root);refresh();
+        status->setText(tr("Đã tạo cấu trúc Office. Chưa tải tệp nào."));
     });
-    connect(clear,&QPushButton::clicked,&dlg,[&]{
-        path.clear();QSettings().remove(QStringLiteral("drive/localSyncFolder"));refresh();
-        status->setText(tr("Đã quên thư mục. Không xóa tài liệu và không đăng xuất Google Drive."));
-    });
-    connect(openFolder,&QPushButton::clicked,&dlg,[&]{
-        if(!QDesktopServices::openUrl(QUrl::fromLocalFile(path)))status->setText(tr("Không mở được thư mục."));
-    });
-    connect(copy,&QPushButton::clicked,&dlg,[&]{
-        QPointer<DocumentTab> tab=current();
-        if(!tab||!QFileInfo(path).isDir()){refresh();return;}
+    connect(clear,&QPushButton::clicked,&dlg,[&]{root.clear();QSettings().remove(QStringLiteral("drive/localSyncFolder"));refresh();status->setText(tr("Đã ngắt liên kết thư mục. Không xóa dữ liệu."));});
+    connect(openFolder,&QPushButton::clicked,&dlg,[&]{if(!office.isEmpty())QDesktopServices::openUrl(QUrl::fromLocalFile(office));});
+    auto uploadFile=[&](const QString& source){
+        const auto cat=drivefolder::category(source);
+        if(cat.isEmpty()){status->setText(tr("Loại tài liệu chưa được hỗ trợ."));return;}
+        const auto dir=target(cat);if(dir.isEmpty()){status->setText(tr("Thư mục Drive không sẵn sàng."));return;}
+        if(QMessageBox::question(&dlg,tr("Tải lên"),tr("Sao chép %1 vào Office/%2? Google Drive có thể tải lên tài khoản đang đăng nhập.").arg(QFileInfo(source).fileName(),cat),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        QString error;const auto dest=drivefolder::copyFile(source,target(cat),&error);
+        status->setText(dest.isEmpty()?error+tr(" Không ghi đè tệp cũ."):tr("Đã đưa bản sao vào %1. Kiểm tra trạng thái đồng bộ trên Google Drive.").arg(QDir::toNativeSeparators(dest)));
+    };
+    connect(currentFile,&QPushButton::clicked,&dlg,[&]{
+        QPointer<DocumentTab> tab=current();if(!tab)return;
         tab->document()->waitInputIdle();
-        if(tab->document()->modified()||tab->activeFilePath().isEmpty()){
-            status->setText(tr("Tài liệu chưa lưu hoặc có chỉnh sửa mới. Đóng hộp thoại, lưu tài liệu trước rồi thực hiện lại."));
+        if(!tab||tab->document()->modified()||tab->activeFilePath().isEmpty()){status->setText(tr("Hãy lưu tài liệu trước khi tải lên."));return;}
+        uploadFile(tab->activeFilePath());
+    });
+    connect(upload,&QPushButton::clicked,&dlg,[&]{
+        const auto cat=type->currentText();
+        if(cat!=QStringLiteral("Kanban")){
+            const auto source=QFileDialog::getOpenFileName(&dlg,tr("Chọn tài liệu đã lưu"));
+            if(source.isEmpty())return;
+            if(drivefolder::category(source)!=cat){status->setText(tr("Tệp không thuộc loại đang chọn."));return;}
+            uploadFile(source);return;
+        }
+        const auto snapshot=m_side->exportWorkProject();
+        if(snapshot.isEmpty()){status->setText(tr("Hãy chọn dự án tại Quản lý công việc trước."));return;}
+        if(QMessageBox::question(&dlg,tr("Tải lên Kanban"),tr("Tạo bản sao dự án, công việc và thông tin liên hệ thành viên trên Google Drive?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        const auto dir=target(cat);const auto dest=drivefolder::availablePath(dir,QStringLiteral("Kanban-")+QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss-zzz"))+QStringLiteral(".json"));
+        // Exclusive create: never replace an existing remote snapshot.
+        QFile f(dest);const auto bytes=QJsonDocument(snapshot).toJson(QJsonDocument::Indented);
+        const auto problem=drivefolder::storageError(dir,bytes.size());if(!problem.isEmpty()){status->setText(problem);return;}
+        bool ok=!dest.isEmpty()&&f.open(QIODevice::WriteOnly|QIODevice::NewOnly);QString error;
+        if(ok){ok=f.write(bytes)==bytes.size()&&f.flush();if(!ok)error=drivefolder::fileError(f.error(),f.errorString());f.close();if(!ok)QFile::remove(dest);}else error=drivefolder::fileError(f.error(),f.errorString());
+        status->setText(ok?tr("Đã lưu bản sao Kanban vào Office/Kanban. Chưa xác nhận đồng bộ đám mây."):error);
+    });
+    connect(download,&QPushButton::clicked,&dlg,[&]{
+        const auto cat=type->currentText();const auto dir=target(cat);
+        if(dir.isEmpty()){status->setText(tr("Thư mục Drive không sẵn sàng."));return;}
+        const auto source=QFileDialog::getOpenFileName(&dlg,tr("Chọn tệp tải xuống từ Office/%1").arg(cat),dir);
+        if(source.isEmpty())return;
+        if(!drivefolder::inFolder(source,dir)){status->setText(tr("Hãy chọn tệp bên trong đúng thư mục Office."));return;}
+        if(cat==QStringLiteral("Kanban")){
+            QFile f(source);if(QFileInfo(source).suffix().toLower()!=QStringLiteral("json")||!f.open(QIODevice::ReadOnly)||f.size()>32*1024*1024){status->setText(tr("Tệp Kanban không đọc được hoặc quá lớn."));return;}
+            QJsonParseError err;const auto doc=QJsonDocument::fromJson(f.readAll(),&err);
+            if(err.error!=QJsonParseError::NoError||!doc.isObject()){status->setText(tr("Tệp Kanban không hợp lệ."));return;}
+            if(QMessageBox::question(&dlg,tr("Nhập Kanban"),tr("Nhập thành dự án mới trên máy? Dự án cũ sẽ không bị ghi đè."),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+            if(m_side->importWorkProject(doc.object())){status->setText(tr("Đã nhập thành dự án mới."));showWork(1);}else status->setText(tr("Không nhập được dự án. Dữ liệu cũ được giữ nguyên."));
             return;
         }
-        const QString source=tab->activeFilePath();
-        const QFileInfo src(source);
-        if(!src.isFile()||!src.isReadable()||src.isSymLink()){
-            status->setText(tr("Không đọc được bản đã lưu; không sao chép."));return;
-        }
-        const QString targetDir=QDir(path).canonicalPath();
-        if(targetDir.isEmpty()){status->setText(tr("Không xác minh được thư mục đích."));return;}
-        QString destination=QDir(targetDir).filePath(src.fileName());
-        if(QFileInfo::exists(destination)||QFileInfo(destination).isSymLink()){
-            const QString stamp=QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss-zzz"));
-            destination=QDir(targetDir).filePath(src.completeBaseName()+QStringLiteral("-")+stamp+
-                (src.suffix().isEmpty()?QString():QStringLiteral(".")+src.suffix()));
-        }
-        if(QMessageBox::question(&dlg,tr("Xác nhận sao chép"),
-            tr("Tạo bản sao %1 trong thư mục %2? Nếu thư mục được Google Drive đồng bộ, tệp có thể được tải lên tài khoản Google đã đăng nhập trên máy.").arg(src.fileName(),QDir::toNativeSeparators(targetDir)),
-            QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
-        if(!tab||tab->activeFilePath()!=source||tab->document()->modified()||QDir(path).canonicalPath()!=targetDir){
-            status->setText(tr("Nguồn hoặc thư mục đích đã thay đổi. Chưa sao chép."));return;
-        }
-        // QFile::copy refuses an existing destination. No source edits, deletion or overwrite.
-        QFile file(source);
-        if(!file.copy(destination)){status->setText(tr("Không tạo được bản sao: %1").arg(file.errorString()));return;}
-        status->setText(tr("Đã tạo bản sao tại %1. Kiểm tra Google Drive để biết tình trạng tải lên.").arg(QDir::toNativeSeparators(destination)));
+        if(drivefolder::category(source)!=cat){status->setText(tr("Tệp không thuộc loại đang chọn."));return;}
+        const auto local=QFileDialog::getExistingDirectory(&dlg,tr("Chọn thư mục lưu trên máy"));
+        if(local.isEmpty())return;
+        QString error;const auto dest=drivefolder::copyFile(source,local,&error);
+        status->setText(dest.isEmpty()?error:tr("Đã lưu vào %1").arg(QDir::toNativeSeparators(dest)));
     });
     refresh();dlg.exec();
 }
@@ -831,11 +855,32 @@ void MainWindow::showWork(int index) {
     refreshStatus();
 }
 
-void MainWindow::showProjects() {
-    m_stack->setCurrentWidget(m_projects);
-    if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
-        if (auto* b = qobject_cast<QPushButton*>(side->property("projBtn").value<QObject*>())) b->setChecked(true);
+void MainWindow::showDonate() {
+    m_stack->setCurrentWidget(m_donate);
+    if(auto* b=qobject_cast<QPushButton*>(m_sideBar->property("donateBtn").value<QObject*>()))b->setChecked(true);
     refreshStatus();
+}
+
+QWidget* MainWindow::buildDonatePage() {
+    auto* scroll=new QScrollArea(m_stack);scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);
+    auto* body=new QWidget;scroll->setWidget(body);auto* v=new QVBoxLayout(body);
+    v->setContentsMargins(24,20,24,20);v->setSpacing(12);
+    auto* heading=new QLabel(tr("Ủng hộ Dũng Office"),body);
+    heading->setStyleSheet(QStringLiteral("font-size:26px;font-weight:700;color:#17294D;"));heading->setWordWrap(true);v->addWidget(heading);
+    auto* slogan=new QLabel(donate::slogan(),body);slogan->setWordWrap(true);slogan->setTextFormat(Qt::PlainText);
+    slogan->setStyleSheet(QStringLiteral("font-size:19px;font-weight:700;color:#174581;padding:12px;background:#E8F0FF;border-radius:8px;"));v->addWidget(slogan);
+    auto* intro=new QLabel(tr("Dũng Office miễn phí và cập nhật trọn đời. Nếu bạn muốn góp phần duy trì và phát triển phần mềm, bạn có thể ủng hộ tự nguyện. Không ủng hộ vẫn sử dụng đầy đủ các chức năng miễn phí."),body);intro->setWordWrap(true);v->addWidget(intro);
+    auto* card=new QFrame(body);card->setStyleSheet(QStringLiteral("QFrame{background:white;border:1px solid #DCE5F2;border-radius:10px;} QLabel{border:0;}"));
+    auto* cv=new QVBoxLayout(card);cv->setContentsMargins(18,14,18,18);
+    auto* qrTitle=new QLabel(tr("VietQR · Chuyển khoản tự nguyện"),card);qrTitle->setAlignment(Qt::AlignCenter);qrTitle->setStyleSheet(QStringLiteral("font-size:17px;font-weight:700;color:#267B69;"));cv->addWidget(qrTitle);
+    auto* qr=new QLabel(card);qr->setObjectName(QStringLiteral("DonationVietQR"));qr->setPixmap(donate::qrPixmap());qr->setAlignment(Qt::AlignCenter);qr->setAccessibleName(tr("VietQR Techcombank"));cv->addWidget(qr,0,Qt::AlignHCenter);
+    auto* bank=new QLabel(tr("Ngân hàng: <b>TECHCOMBANK</b><br>Chủ tài khoản: <b>Trần Văn Dũng</b><br>Số tài khoản: <b>%1</b>").arg(donate::account()),card);
+    bank->setTextFormat(Qt::RichText);bank->setAlignment(Qt::AlignCenter);bank->setTextInteractionFlags(Qt::TextSelectableByMouse);bank->setStyleSheet(QStringLiteral("font-size:15px;color:#17294D;"));cv->addWidget(bank);
+    auto* copy=new QPushButton(tr("Sao chép số tài khoản"),card);cv->addWidget(copy,0,Qt::AlignHCenter);
+    auto* status=new QLabel(card);status->setAlignment(Qt::AlignCenter);cv->addWidget(status);
+    connect(copy,&QPushButton::clicked,card,[status]{QApplication::clipboard()->setText(donate::account());status->setText(QObject::tr("Đã sao chép số tài khoản."));});
+    auto* hint=new QLabel(tr("Mở ứng dụng ngân hàng, quét QR, tự nhập số tiền và kiểm tra đúng tên người nhận trước khi xác nhận. Mã không chứa số tiền cố định."),card);hint->setWordWrap(true);hint->setAlignment(Qt::AlignCenter);cv->addWidget(hint);
+    v->addWidget(card);v->addStretch(1);return scroll;
 }
 
 QWidget* MainWindow::buildFeedbackPage() {
@@ -872,6 +917,7 @@ QPushButton#FeedbackSend:disabled { background:#DCE5F2; color:#697994; border-co
     promise->setWordWrap(true);
     promise->setStyleSheet(QStringLiteral("font-size:16px;font-weight:700;color:#2864BA;"));
     hl->addWidget(promise);
+    auto* motto=new QLabel(donate::slogan(),hero);motto->setWordWrap(true);motto->setStyleSheet(QStringLiteral("font-size:15px;font-weight:700;color:#174581;"));hl->addWidget(motto);
     auto* intro = new QLabel(tr("Mỗi góp ý của bạn giúp tôi hiểu những khó khăn khi làm việc và cải tiến phần mềm tốt hơn. Hãy chia sẻ điều bạn muốn thay đổi, tính năng cần thêm hoặc lỗi đang gặp."), hero);
     intro->setWordWrap(true); hl->addWidget(intro);
     root->addWidget(hero);
@@ -1152,7 +1198,7 @@ void MainWindow::refreshStatus() {
         } else if (m_stack->currentWidget() != m_home) k.clear();
         m_top->setActive(k);
     }
-    m_status->setText(docs ? t->statusText() : (m_stack->currentWidget() == m_projects ? tr("Dự án") : m_stack->currentWidget() == m_templates ? tr("Thư viện mẫu") : m_stack->currentWidget() == m_toolbox ? tr("Công cụ") : m_stack->currentWidget() == m_feedback ? tr("Góp ý") : tr("Trang chủ")));
+    m_status->setText(docs ? t->statusText() : (m_stack->currentWidget() == m_donate ? tr("Ủng hộ tự nguyện") : m_stack->currentWidget() == m_templates ? tr("Thư viện mẫu") : m_stack->currentWidget() == m_toolbox ? tr("Công cụ") : m_stack->currentWidget() == m_feedback ? tr("Góp ý") : tr("Trang chủ")));
     m_toolLabel->setVisible(docs);
     m_saveLabel->setVisible(docs);
     if (docs) {
@@ -1256,6 +1302,7 @@ void MainWindow::onAppAction(const QString& id) {
     else if (id == QLatin1String("copy")) t->copy();
     else if (id == QLatin1String("cut")) t->cut();
     else if (id == QLatin1String("paste")) t->paste();
+    else if (id == QLatin1String("pasteText")) t->paste(true);
     else if (id == QLatin1String("zoomIn")) t->setZoom(t->zoom() + 10);
     else if (id == QLatin1String("zoomOut")) t->setZoom(t->zoom() - 10);
     else if (id == QLatin1String("zoom100")) t->setZoom(100);
@@ -1275,7 +1322,8 @@ void MainWindow::addRecent(const QString& path) {
 void MainWindow::showAbout() {
     QMessageBox::about(this, tr("Giới thiệu Dũng Office"),
         tr("<h3>Dũng Office %1</h3>"
-           "<p>Bộ ứng dụng văn phòng miễn phí, ngoại tuyến, không cần tài khoản.</p>"
+           "<p>Bộ ứng dụng văn phòng miễn phí, ngoại tuyến, không cần tài khoản. Cập nhật miễn phí trọn đời.</p>"
+           "<p><b>%4</b></p>"
            "<p><b>Nguyên tắc dữ liệu:</b> tệp gốc không bao giờ bị ghi đè mặc định; mọi thay đổi được lưu "
            "vào tệp mới (Lưu thành). Định dạng chưa bảo toàn được sẽ mở ở chế độ chỉ đọc.</p>"
            "<p>Xử lý tài liệu dựa trên các module của LibreOffice (MPL-2.0) qua LibreOfficeKit.<br>%2<br>"
@@ -1283,7 +1331,7 @@ void MainWindow::showAbout() {
            "<p>Dũng Office không liên kết với The Document Foundation. LibreOffice là nhãn hiệu của "
            "The Document Foundation.</p>")
             .arg(QStringLiteral(DUNG_VERSION), EngineHost::instance().versionText().toHtmlEscaped(),
-                 QDir::toNativeSeparators(EngineHost::instance().runtimeDir()).toHtmlEscaped()));
+                 QDir::toNativeSeparators(EngineHost::instance().runtimeDir()).toHtmlEscaped(),donate::slogan().toHtmlEscaped()));
 }
 
 void MainWindow::closeEvent(QCloseEvent* e) {
@@ -1293,7 +1341,6 @@ void MainWindow::closeEvent(QCloseEvent* e) {
         QMessageBox::warning(this,tr("Dũng Office"),tr("Chưa thể đóng ứng dụng: dữ liệu công việc chưa lưu được. Kiểm tra thư mục dữ liệu và thử Lưu ngay."));
         return;
     }
-    m_projects->flush();
     while (m_tabs->count() > 0) {
         selectDocumentTab(0);
         showDocuments();
@@ -1431,7 +1478,7 @@ int MainWindow::captureShots(const QString& dir) {
         {"home", [this] { showHome(); }},
         {"templates", [this] { showTemplates(); }},
         {"toolbox", [this] { showToolbox(); }},
-        {"projects", [this] { showProjects(); }},
+        {"donate", [this] { showDonate(); }},
         {"feedback", [this] { showFeedback(); }},
         {"notes",[this]{showWork(0);}},
         {"calendar",[this]{showWork(1);}},

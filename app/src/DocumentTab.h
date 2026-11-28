@@ -41,7 +41,7 @@ public:
     void runCommand(const QString& uno);
     void copy();
     void cut();
-    void paste();
+    void paste(bool plainText = false);
     bool save();            // Ctrl+S: lưu vào tệp mới đã chọn trước đó, hoặc hỏi Lưu thành
     bool saveAs();          // luôn hỏi đường dẫn
     bool exportPdf();

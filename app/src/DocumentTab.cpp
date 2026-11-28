@@ -1244,13 +1244,13 @@ void DocumentTab::cut() {
     m_doc->command(".uno:Cut");
 }
 
-void DocumentTab::paste() {
+void DocumentTab::paste(bool plainText) {
     if (!m_doc || m_doc->readOnly()) return;
     const QMimeData* mime = QApplication::clipboard()->mimeData();
     if (!mime) return;
     // Capture both representations before calling the engine: clipboard
     // ownership may change during the first paste attempt.
-    const QString html = mime->hasHtml() ? mime->html() : QString();
+    const QString html = !plainText && mime->hasHtml() ? mime->html() : QString();
     const QString text = mime->hasText() ? mime->text() : QString();
     m_doc->waitInputIdle();
     bool ok = false;

@@ -8,6 +8,8 @@
 #include <QComboBox>
 #include <QEvent>
 #include <QTabBar>
+#include <QMenu>
+#include <QAction>
 #include <cstdio>
 
 int main(int argc, char** argv) {
@@ -111,21 +113,31 @@ int main(int argc, char** argv) {
             }
         }
         bool slideNew=false, animation=false, show=false, compactBold=false;
+        const bool office=k==dung::DocKind::Text||k==dung::DocKind::Spreadsheet;
+        bool largePaste=false,numberDrop=false,styleGallery=false;
         for (auto* b : r.findChildren<QToolButton*>(QStringLiteral("RibbonButton"))) {
             ++built;
             if (b->icon().isNull() || b->icon().pixmap(QSize(22, 22)).isNull()) ++noIcon;
             const bool labeled=b->toolButtonStyle()==Qt::ToolButtonTextBesideIcon;
-            if((b->toolButtonStyle()!=Qt::ToolButtonIconOnly && !(k==dung::DocKind::Presentation&&labeled))||
+            if((b->toolButtonStyle()!=Qt::ToolButtonIconOnly && !(k==dung::DocKind::Presentation&&labeled) && !office)||
                b->toolTip().isEmpty()||b->accessibleName().isEmpty()||
                (labeled&&(b->text().isEmpty()||b->width()<b->sizeHint().width()))){
                 printf("[LỖI] nút ribbon thiếu tooltip, sai kiểu hoặc thiếu chỗ cho nhãn\n");++fail;
             }
             const QString id=b->property("commandId").toString();
+            if(office&&id==QLatin1String("paste")) {
+                largePaste=b->toolButtonStyle()==Qt::ToolButtonTextUnderIcon&&b->height()>=70&&b->menu()&&b->menu()->actions().size()==2;
+                if(largePaste){QString emitted;const auto c=QObject::connect(&r,&Ribbon::appAction,&r,[&](const QString& id){emitted=id;});
+                    b->menu()->actions().last()->trigger();if(emitted!=QLatin1String("pasteText"))++fail;QObject::disconnect(c);}
+            }
+            if(id==QLatin1String(".uno:NumberFormatStandard"))numberDrop=b->menu()&&b->menu()->actions().size()>=4;
+            if(id==QLatin1String("word:style1"))styleGallery=b->toolButtonStyle()==Qt::ToolButtonTextOnly&&b->text().contains(QLatin1String("AaBbCc"));
             if(id==QLatin1String(".uno:InsertPage"))slideNew=labeled;
             if(id==QLatin1String("ppt.animationCopy"))animation=labeled;
             if(id==QLatin1String("ppt.showHere"))show=labeled;
             if(id==QLatin1String(".uno:Bold"))compactBold=!labeled;
         }
+        if(office&&(!largePaste||!compactBold||(k==dung::DocKind::Spreadsheet&&!numberDrop)||(k==dung::DocKind::Text&&!styleGallery))){printf("[LỖI] thiếu bố cục Ribbon Office\n");++fail;}
         if(k==dung::DocKind::Presentation&&(!slideNew||!animation||!show||!compactBold)){
             printf("[LỖI] PowerPoint thiếu nhãn thao tác chính hoặc phông chữ không gọn\n");++fail;
         }
