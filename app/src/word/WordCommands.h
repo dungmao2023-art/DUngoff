@@ -34,8 +34,8 @@ Call enablePageBand(bool header, const std::string& pageStyle);
 Call insertFootnote(bool endnote);
 Call insertImage(const std::string& fileUrl);          // file:///...
 Call hyperlink(const std::string& text, const std::string& url);
-Call findNext(const std::string& text, bool backward);
-Call replaceAll(const std::string& find, const std::string& replacement);
+Call findNext(const std::string& text, bool backward, bool matchCase = false);
+Call replaceAll(const std::string& find, const std::string& replacement, bool matchCase = false);
 Call replaceOne(const std::string& find, const std::string& replacement);
 
 // Khối hành chính chèn vào nội dung tài liệu (không phải header/footer lặp).

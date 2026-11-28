@@ -22,6 +22,7 @@
 #include <QSettings>
 #include "../TileView.h"
 #include <QRegularExpression>
+#include <QSignalBlocker>
 #include <QTextDocumentFragment>
 
 #include <QCheckBox>
@@ -140,24 +141,55 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
     if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
-    if(name==QLatin1String("listLevelUp")||name==QLatin1String("listLevelDown")||
-       name==QLatin1String("listRestart")||name==QLatin1String("listContinue")){
+    if(name==QLatin1String("tocCreate")){
+        QPointer<DocumentTab> live(tab);
+        bool ok=false;
+        const int levels=QInputDialog::getInt(parent,QObject::tr("Tạo mục lục"),
+            QObject::tr("Số cấp Heading (1–3). Tạo mục lục ở đầu tài liệu trong bản sao mới; sau khi mở, bấm Cập nhật mục lục."),
+            3,1,3,1,&ok);
+        if(!ok||!live||live->readOnly()||live->document()!=doc)return true;
+        QTemporaryDir temp;
+        if(!temp.isValid()){QMessageBox::warning(parent,QObject::tr("Mục lục"),QObject::tr("Không tạo được thư mục tạm."));return true;}
+        const QString src=temp.filePath(QStringLiteral("source.docx")),dst=temp.filePath(QStringLiteral("toc.docx"));
+        doc->waitInputIdle();std::string err;
+        QString error;
+        if(!doc->saveRecoveryCopy(dung::fromUtf8(ss(src)),&err)||!createTocCopy(src,dst,levels,&error)){
+            QMessageBox::warning(parent,QObject::tr("Mục lục"),error.isEmpty()?QString::fromUtf8(err.c_str()):error);return true;
+        }
+        const QString orig=doc->isNew()?QString():QString::fromUtf8(dung::toUtf8(doc->originalPath()).c_str());
+        const QString name=QFileInfo(QString::fromUtf8(doc->displayName().c_str())).completeBaseName()+QObject::tr(" - Mục lục.docx");
+        emit live->openCopyRequested(dst,orig,name);
+        return true;
+    }
+    if(name==QLatin1String("listLevelUp")||name==QLatin1String("listLevelDown")){
         doc->waitInputIdle();
         const WordInsertTarget target(tab);
-        // Writer uses IncrementLevel for Promote One Level and DecrementLevel
-        // for Demote One Level (WriterCommands.xcu / FN_NUM_BULLET_UP/DOWN).
-        const QString command=name==QLatin1String("listLevelUp")?QStringLiteral(".uno:IncrementLevel"):
-            name==QLatin1String("listLevelDown")?QStringLiteral(".uno:DecrementLevel"):
-            name==QLatin1String("listRestart")?QStringLiteral(".uno:NumberingStart"):QStringLiteral(".uno:ContinueNumbering");
+        const bool up=name==QLatin1String("listLevelUp");
+        const QString command=up?QStringLiteral(".uno:IncrementLevel"):QStringLiteral(".uno:DecrementLevel");
         const auto state=tab->states().value(command);
         if(target.caret.empty()||!target.selected.empty()||
            (state!=QLatin1String("enabled")&&state!=QLatin1String("true")&&state!=QLatin1String("false"))){
             QMessageBox::information(parent,QObject::tr("Danh sách nhiều cấp"),
-                QObject::tr("Đặt con trỏ trong mục danh sách cần đổi; lệnh phải khả dụng. Không chọn nhiều đoạn."));
+                QObject::tr("Đặt con trỏ bên trong một mục danh sách; không chọn nhiều đoạn. Lệnh phải khả dụng."));
             return true;
         }
-        if(name==QLatin1String("listRestart")&&state==QLatin1String("true"))return true;
         if(!target.verify())return true;
+        doc->command(ss(command));doc->waitInputIdle();
+        if(target.tab&&target.tab->view())target.tab->view()->setFocus();
+        return true;
+    }
+    if(name==QLatin1String("listRestart")||name==QLatin1String("listContinue")){
+        doc->waitInputIdle();
+        const WordInsertTarget target(tab);
+        const bool restart=name==QLatin1String("listRestart");
+        const QString command=restart?QStringLiteral(".uno:NumberingStart"):QStringLiteral(".uno:ContinueNumbering");
+        const auto state=tab->states().value(command);
+        if(target.caret.empty()||!target.selected.empty()||
+           (state!=QLatin1String("enabled")&&state!=QLatin1String("true")&&state!=QLatin1String("false"))){
+            QMessageBox::information(parent,restart?QObject::tr("Đánh số lại"):QObject::tr("Tiếp tục đánh số"),QObject::tr("Đặt con trỏ trong mục danh sách cần sửa; không chọn nhiều đoạn. Lệnh phải khả dụng."));
+            return true;
+        }
+        if((restart&&state==QLatin1String("true"))||!target.verify())return true;
         doc->command(ss(command));doc->waitInputIdle();
         if(target.tab&&target.tab->view())target.tab->view()->setFocus();
         return true;
@@ -514,6 +546,61 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             send(target.tab.data(),insertTable(cols->value(),rows->value()));
             target.tab->view()->setFocus();
         }
+    } else if (name == QLatin1String("imageResize")) {
+        doc->waitInputIdle();
+        QPointer<DocumentTab> live(tab);
+        const int part=doc->currentPart();
+        const auto graphic=doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
+        const auto selected=doc->selectionAs("text/plain;charset=utf-8");
+        static const QRegularExpression rect(QStringLiteral("^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*([1-9]\\d*)\\s*,\\s*([1-9]\\d*)(?:\\s*,|\\s*$)"));
+        const auto bounds=rect.match(QString::fromStdString(graphic));
+        bool wOk=false,hOk=false;
+        const int w=bounds.captured(1).toInt(&wOk),h=bounds.captured(2).toInt(&hOk);
+        const double oldW=w*2.54/1440.0,oldH=h*2.54/1440.0;
+        if(!bounds.hasMatch()||!wOk||!hOk||oldW<0.01||oldH<0.01||oldW>100||oldH>100||!selected.empty()){
+            QMessageBox::information(parent,QObject::tr("Kích thước ảnh"),QObject::tr("Chọn ảnh hoặc đối tượng đồ họa, không chọn văn bản."));
+            return true;
+        }
+        QDialog dlg(parent);
+        dlg.setWindowTitle(QObject::tr("Kích thước ảnh"));
+        auto* root=new QVBoxLayout(&dlg);
+        auto* form=new QFormLayout;
+        auto* width=new QDoubleSpinBox(&dlg);
+        auto* height=new QDoubleSpinBox(&dlg);
+        for(auto* field:{width,height}){
+            field->setRange(0.01,100.0);field->setDecimals(2);field->setSuffix(QObject::tr(" cm"));
+        }
+        width->setValue(oldW);height->setValue(oldH);
+        auto* lock=new QCheckBox(QObject::tr("Giữ tỷ lệ"),&dlg);lock->setChecked(true);
+        form->addRow(QObject::tr("Rộng:"),width);form->addRow(QObject::tr("Cao:"),height);
+        root->addLayout(form);root->addWidget(lock);
+        QObject::connect(width,&QDoubleSpinBox::valueChanged,&dlg,[&](double v){
+            if(lock->isChecked()){QSignalBlocker blocker(height);height->setValue(v*oldH/oldW);}
+        });
+        QObject::connect(height,&QDoubleSpinBox::valueChanged,&dlg,[&](double v){
+            if(lock->isChecked()){QSignalBlocker blocker(width);width->setValue(v*oldW/oldH);}
+        });
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);
+        root->addWidget(buttons);
+        QObject::connect(buttons,&QDialogButtonBox::accepted,&dlg,&QDialog::accept);
+        QObject::connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        if(dlg.exec()!=QDialog::Accepted||!live||live->document()!=doc||live->readOnly()||!live->view())return true;
+        doc->waitInputIdle();
+        if(doc->currentPart()!=part||doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION)!=graphic||
+           doc->selectionAs("text/plain;charset=utf-8")!=selected){
+            QMessageBox::warning(live.data(),QObject::tr("Kích thước ảnh"),QObject::tr("Vùng chọn đã thay đổi. Chưa chỉnh sửa."));
+            return true;
+        }
+        const int newW=qRound(width->value()*1440/2.54),newH=qRound(height->value()*1440/2.54);
+        if(lock->isChecked()&&qAbs(double(newW)/w-double(newH)/h)>0.02){
+            QMessageBox::warning(live.data(),QObject::tr("Kích thước ảnh"),QObject::tr("Kích thước vượt giới hạn giữ tỷ lệ."));
+            return true;
+        }
+        if(qAbs(newW-w)<=3&&qAbs(newH-h)<=3)return true;
+        if(live->states().value(QStringLiteral(".uno:TransformDialog"))==QLatin1String("disabled"))return true;
+        doc->command(".uno:TransformDialog",join({argLong("TransformWidth",newW),argLong("TransformHeight",newH)}));
+        doc->waitInputIdle();
+        if(live&&live->document()==doc&&live->view())live->view()->setFocus();
     } else if (name == QLatin1String("imageWrapSquare") || name == QLatin1String("imageWrapTopBottom") ||
                name == QLatin1String("imageAnchorInline") || name == QLatin1String("imageAnchorParagraph")) {
         doc->waitInputIdle();
@@ -592,7 +679,9 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         form->addRow(QObject::tr("Tìm:"),what);
         form->addRow(QObject::tr("Thay bằng:"),with);
         root->addLayout(form);
-        auto* note=new QLabel(QObject::tr("Tìm trước/sau, rồi thay vùng chữ khớp chính xác chữ hoa/thường. Để trống ô Thay bằng nếu muốn xóa. Thay tất cả cần xác nhận."),&dlg);
+        auto* matchCase=new QCheckBox(QObject::tr("Phân biệt chữ hoa/thường"),&dlg);
+        matchCase->setChecked(true);root->addWidget(matchCase);
+        auto* note=new QLabel(QObject::tr("Tìm chữ thuần trước/sau, rồi thay vùng chữ tìm thấy. Để trống ô Thay bằng nếu muốn xóa. Thay tất cả cần xác nhận."),&dlg);
         note->setTextFormat(Qt::PlainText);note->setWordWrap(true);root->addWidget(note);
         auto* buttons=new QDialogButtonBox(QDialogButtonBox::Close,&dlg);
         auto* prev=buttons->addButton(QObject::tr("Tìm trước"),QDialogButtonBox::ActionRole);
@@ -608,15 +697,20 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             replaceSelected->setEnabled(canEdit&&match.has_value());
         };
         QObject::connect(what,&QLineEdit::textChanged,&dlg,[&]{match.reset();refresh();});
+        QObject::connect(matchCase,&QCheckBox::toggled,&dlg,[&]{match.reset();refresh();});
+        auto matches=[&](const std::string& selected){
+            return !selected.empty()&&QString::compare(QString::fromStdString(selected),what->text(),
+                matchCase->isChecked()?Qt::CaseSensitive:Qt::CaseInsensitive)==0;
+        };
         auto find=[&](bool backward){
             match.reset();
             if(!ready()){refresh();return;}
             doc->waitInputIdle();
-            send(live.data(),findNext(ss(what->text()),backward));
+            send(live.data(),findNext(ss(what->text()),backward,matchCase->isChecked()));
             doc->waitInputIdle();
             if(!ready()){refresh();return;}
             WordInsertTarget found(live.data());
-            if(found.selected==ss(what->text()) && !found.selection.empty()){
+            if(matches(found.selected) && !found.selection.empty()){
                 match.emplace(std::move(found));
                 note->setText(QObject::tr("Vùng chữ khớp chính xác: %1. Có thể thay một lần hoặc tiếp tục tìm.").arg(what->text()));
             }else if(found.selected.empty())
@@ -631,7 +725,7 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             if(!ready()||live->readOnly()||!match)return;
             const auto target=*match;
             match.reset();refresh();
-            if(target.selected!=ss(what->text()) || !target.verify())return;
+            if(!matches(target.selected) || !target.verify())return;
             const QString replacement=with->text();
             if(ss(replacement)==target.selected){
                 note->setText(QObject::tr("Nội dung thay thế giống vùng chọn; không sửa tài liệu."));
@@ -650,12 +744,13 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         QObject::connect(replace,&QPushButton::clicked,&dlg,[&]{
             if(!ready()||live->readOnly())return;
             const QString needle=what->text(),replacement=with->text();
+            const bool exact=matchCase->isChecked();
             if(QMessageBox::question(&dlg,QObject::tr("Thay tất cả"),
-                QObject::tr("Thay mọi lần xuất hiện của «%1» bằng «%2» trong tài liệu?").arg(needle,replacement),
+                QObject::tr("Thay mọi lần xuất hiện của «%1» bằng «%2» trong tài liệu?\n%3").arg(needle,replacement,exact?QObject::tr("Có phân biệt hoa/thường"):QObject::tr("Không phân biệt hoa/thường")),
                 QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
             if(!live||live->document()!=doc||live->readOnly())return;
             doc->waitInputIdle();
-            send(live.data(),replaceAll(ss(needle),ss(replacement)));
+            send(live.data(),replaceAll(ss(needle),ss(replacement),exact));
             doc->waitInputIdle();
             dlg.accept();
         });

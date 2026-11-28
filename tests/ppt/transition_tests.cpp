@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "PptTransition.h"
 #include "SlideNavigation.h"
+#include "SimpleEntrance.h"
+#include <QJsonDocument>
 #include <QCoreApplication>
 #include <QFile>
 #include <QTemporaryDir>
@@ -12,6 +14,11 @@ int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     int errors = 0;
     auto check = [&](bool ok, const char* msg) { std::cout << (ok ? "PASS " : "FAIL ") << msg << '\n'; if (!ok) ++errors; };
+    QString target;
+    const auto entrance=QJsonDocument::fromJson(R"({"nodeName":"Seq","children":[{"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape1"}]}]})").object();
+    check(slideshow::findSimpleEntrance(entrance,&target)&&target=="shape1","native single on-click visibility entrance plan");
+    const auto unsupported=QJsonDocument::fromJson(R"({"nodeName":"Seq","children":[{"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Animate","attributeName":"Opacity","to":"1","targetElement":"shape1"}]}]})").object();
+    check(!slideshow::findSimpleEntrance(unsupported,&target),"complex animation not misrepresented as appear");
     const QSize wide=slideshow::thumbnailSize(16000,9000);
     const QSize tall=slideshow::thumbnailSize(100,100000);
     check(wide.width()==128 && wide.height()==72,"thumbnail preserves landscape aspect");
@@ -185,7 +192,21 @@ int main(int argc, char** argv) {
         QString error; const auto entries = slideEntries(src, &error);
         check(!entries.isEmpty(), "read actual PPTX slide order");
         o.effect = Effect::Fade;
-        const auto patched = createCopy(src, dst, 1, o);
+        const auto expected=sourceFingerprint(src);
+        check(expected.size()==32,"capture SHA256 of actual PPTX");
+        const QString changed=temp.filePath("changed-source.pptx");
+        check(QFile::copy(src,changed),"make isolated source-change fixture");
+        QFile changedFile(changed);
+        if(changedFile.open(QIODevice::Append)){
+            check(changedFile.write("changed")==7,"modify isolated source");
+            changedFile.close();
+        }else check(false,"open isolated source");
+        const QString stale=temp.filePath("stale-output.pptx");
+        check(!createRangeCopy(changed,stale,1,1,o,expected).ok&&!QFile::exists(stale),"stale transition source creates no output");
+        check(!createClearAnimationCopy(changed,stale,1,expected).ok&&!QFile::exists(stale),"stale animation clear creates no output");
+        check(!createAnimationSequenceCopy(changed,stale,1,{anim},expected).ok&&!QFile::exists(stale),"stale animation selection creates no output");
+        check(!createMasterBackgroundCopy(changed,stale,QStringLiteral("ppt/slideMasters/slideMaster1.xml"),QStringLiteral("123ABC"),expected).ok&&!QFile::exists(stale),"stale master selection creates no output");
+        const auto patched = createCopy(src, dst, 1, o,expected);
         if (!patched.ok) std::cerr << patched.error.toStdString() << '\n';
         check(patched.ok && slideEntries(dst, &error) == entries, "actual PPTX copy retains slide order");
         check(!createCopy(src, dst, 1, o).ok && !createCopy(src, src, 1, o).ok, "refuse overwrite");
@@ -211,6 +232,17 @@ int main(int argc, char** argv) {
             const auto clearedCopy=createClearAnimationCopy(animDest,clearDest,1);
             check(clearedCopy.ok&&slideEntries(clearDest,&error)==entries&&!slideShapes(clearDest,1,&error).isEmpty(),"actual PPTX clear and enumerate again");
             check(!createClearAnimationCopy(animDest,clearDest,1).ok,"refuse overwriting cleared copy");
+            const auto rangeClear=temp.filePath("clear-range.pptx");
+            const int last=qMin(2,int(entries.size()));
+            const auto animHash=sourceFingerprint(animDest);
+            check(!createClearAnimationRangeCopy(animDest,rangeClear,0,last,animHash).ok&&!QFile::exists(rangeClear),"reject invalid clear range");
+            check(!createClearAnimationRangeCopy(animDest,rangeClear,1,last,expected).ok&&!QFile::exists(rangeClear),"reject stale range clear");
+            const auto batchClear=createClearAnimationRangeCopy(animDest,rangeClear,1,last,animHash);
+            check(batchClear.ok&&slideEntries(rangeClear,&error)==entries&&!slideShapes(rangeClear,1,&error).isEmpty(),"range clear removes animation and retains slide order");
+            check(sourceFingerprint(animDest)==animHash,"range clear preserves source bytes");
+            check(!createClearAnimationRangeCopy(animDest,rangeClear,1,last,animHash).ok,"refuse overwrite range clear");
+            const auto alreadyStatic=temp.filePath("clear-static.pptx");
+            check(createClearAnimationRangeCopy(src,alreadyStatic,1,1,expected).ok,"range clear permits static slide");
             const auto recreated=temp.filePath("recreated-animation.pptx");
             check(clearedCopy.ok&&createAnimationCopy(clearDest,recreated,1,anim).ok,"create new animation after clearing");
         }

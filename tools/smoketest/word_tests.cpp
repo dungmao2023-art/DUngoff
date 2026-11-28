@@ -316,6 +316,30 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     const std::string afterReplace = selText(d);
     check(has(afterReplace, "baz bar baz") && !has(afterReplace, "foo"), "Thay tất cả 'foo' bằng 'baz'", snippet(afterReplace, 80));
 
+    step("tìm/thay chữ thuần phân biệt hoa thường tiếng Việt");
+    run(d,".uno:GoToEndOfDoc");
+    check(d.paste("text/plain;charset=utf-8","\nMẪU_CASE mẫu_case MẪU_CASE [literal.+]"),"Chèn fixture hoa/thường");
+    d.waitInputIdle();selectAll(d);
+    const auto caseBefore=selText(d);
+    run(d,".uno:GoToEndOfDoc");
+    run(d,w::findNext("mẫu_case",true,true));
+    check(selText(d)=="mẫu_case","Tìm có phân biệt hoa/thường");
+    run(d,".uno:GoToEndOfDoc");
+    run(d,w::findNext("mẫu_case",true,false));
+    check(selText(d)=="MẪU_CASE","Tìm không phân biệt hoa/thường");
+    run(d,w::replaceAll("MẪU_CASE","ĐÃ_CASE",true));
+    selectAll(d);
+    check(has(selText(d),"ĐÃ_CASE mẫu_case ĐÃ_CASE [literal.+]"),"Thay đúng hai chữ hoa, giữ chữ thường");
+    run(d,".uno:Undo");selectAll(d);
+    check(selText(d)==caseBefore,"Undo thay phân biệt hoa/thường");
+    run(d,w::replaceAll("mẫu_case","ĐÃ_CASE",false));
+    selectAll(d);
+    check(has(selText(d),"ĐÃ_CASE ĐÃ_CASE ĐÃ_CASE [literal.+]"),"Thay không phân biệt hoa/thường");
+    run(d,".uno:Undo");selectAll(d);
+    check(selText(d)==caseBefore,"Undo thay không phân biệt hoa/thường");
+    run(d,w::findNext("[literal.+]",false,true));
+    check(selText(d)=="[literal.+]","Tìm dấu regex như chữ thuần");
+
     step("thay một vùng chữ tiếng Việt và hoàn tác");
     run(d, ".uno:GoToEndOfDoc");
     check(d.paste("text/plain;charset=utf-8", "\nMẪU_THAY ĐÍCH_GIỮ MẪU_THAY"),"Chèn fixture thay một lần");
@@ -504,10 +528,39 @@ int runWordTests(const fs::path& program, const fs::path& out) {
         check(r.ok, "Lưu tài liệu mẫu thành DOCX: " + r.message);
     }
 
-    step("Word — cấp danh sách và đánh số lại native");
+    step("Word — chỉnh kích thước ảnh native và Undo");
     d2p.reset();
+    auto picture=engine->createNew(DocKind::Text,&err);
+    check(bool(picture),"Tạo fixture resize ảnh "+err);
+    if(picture){
+        picture->setClientView(512,512,7680,7680,0,0,7680,7680);
+        picture->typeText(u"IMAGE_RESIZE_KEEP");
+        picture->waitInputIdle();
+        // Valid deterministic RGB PNG, 80x40, independent of the wrap fixture.
+        static const unsigned char png80[]={0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,0x00,0x00,0x00,0x50,0x00,0x00,0x00,0x28,0x08,0x02,0x00,0x00,0x00,0xe6,0x02,0xea,0x56,0x00,0x00,0x00,0x4b,0x49,0x44,0x41,0x54,0x78,0x9c,0xed,0xcf,0x01,0x09,0x00,0x20,0x10,0xc0,0x40,0x3b,0x19,0xce,0x4e,0xa6,0x34,0x86,0xb0,0x3f,0x58,0x80,0xdd,0xda,0xe7,0x8e,0x6a,0x7d,0x3f,0x00,0x06,0x06,0x06,0x06,0x06,0x06,0x1e,0x13,0x70,0x3d,0xe0,0x7a,0xc0,0xf5,0x80,0xeb,0x01,0xd7,0x03,0xae,0x07,0x5c,0x0f,0xb8,0x1e,0x70,0x3d,0xe0,0x7a,0xc0,0xf5,0x80,0xeb,0x01,0xd7,0x03,0xae,0x07,0x5c,0xef,0x01,0x2f,0x88,0x9a,0xf1,0xc3,0xb3,0x4c,0x53,0x00,0x00,0x00,0x00,0x49,0x45,0x4e,0x44,0xae,0x42,0x60,0x82};
+        const auto image=fs::absolute(out)/"resize-source.png";
+        {std::ofstream f(image,std::ios::binary);f.write((const char*)png80,sizeof png80);}
+        run(*picture,w::insertImage(toFileUrl(image)));
+        run(*picture,".uno:SetAnchorToPara");
+        picture->waitInputIdle();
+        const auto graphic=picture->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
+        check(!graphic.empty()&&graphic!="EMPTY","Native graphic selection for resize",graphic.substr(0,150));
+        auto snap=[&](const char* name){
+            const auto target=out/name;fs::remove(target,ec);
+            auto saved=picture->saveAs(target);check(saved.ok,std::string("Lưu resize ảnh ")+name,saved.message);
+        };
+        snap("word-image-resize-baseline.docx");
+        run(*picture,".uno:TransformDialog",w::join({w::argLong("TransformWidth",2880),w::argLong("TransformHeight",1440)}));
+        picture->waitInputIdle();
+        snap("word-image-resized.docx");
+        run(*picture,".uno:Undo");picture->waitInputIdle();
+        snap("word-image-resize-undone.docx");
+    }
+
+    step("Word — đánh số lại danh sách native và Undo");
+    picture.reset();
     auto list=engine->open(out/"word-list-input.docx",&err);
-    check(bool(list),"Mở fixture danh sách nhiều cấp "+err);
+    check(bool(list),"Mở fixture danh sách "+err);
     if(list){
         list->setClientView(512,512,7680,7680,0,0,7680,7680);
         list->waitInputIdle();
@@ -517,48 +570,80 @@ int runWordTests(const fs::path& program, const fs::path& out) {
             auto saved=list->saveAs(target);
             check(saved.ok,std::string("Lưu danh sách ")+filename+": "+saved.message);
         };
-        auto locate=[&](const std::string& marker){
-            run(*list,".uno:GoToStartOfDoc");run(*list,w::findNext(marker,false));
-            const bool found=selText(*list)==marker;
-            check(found,"Tìm mục "+marker);
-            if(!found)return false;
-            // Match the guarded UI: one caret in a numbered paragraph, not
-            // an active text range from Find. Right collapses at its end.
-            list->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
-            list->postKey(LOK_KEYEVENT_KEYUP,0,1027);
-            list->waitInputIdle();settle();
-            const bool caretOnly=selText(*list).empty();
-            check(caretOnly,"Caret without selection in "+marker);
-            return caretOnly;
-        };
         snap("word-list-baseline.docx");
-        // Never let a no-op undo the fixture's original numbering. Reopen
-        // a clean copy for each independent operation.
-        for(const bool restart:{false,true}){
-            list.reset();
-            list=engine->open(out/"word-list-baseline.docx",&err);
-            check(bool(list),"Mở lại fixture danh sách: "+err);
-            if(!list)break;
-            list->setClientView(512,512,7680,7680,0,0,7680,7680);
-            if(!locate(restart?"LIST_THIRD":"LIST_SECOND"))continue;
-            const std::string command=restart?".uno:NumberingStart":".uno:DecrementLevel";
-            step("Word list: "+command);
-            run(*list,command);
-            snap(restart?"word-list-restarted.docx":"word-list-deeper.docx");
-            run(*list,".uno:Undo");
-            snap(restart?"word-list-restart-undone.docx":"word-list-level-undone.docx");
-        }
-        // Independently open the demoted result and promote the second item.
         list.reset();
-        list=engine->open(out/"word-list-deeper.docx",&err);
-        check(bool(list),"Mở lại fixture đã xuống cấp: "+err);
+        list=engine->open(out/"word-list-baseline.docx",&err);
+        check(bool(list),"Mở lại danh sách: "+err);
         if(list){
             list->setClientView(512,512,7680,7680,0,0,7680,7680);
-            if(locate("LIST_SECOND")){
-                run(*list,".uno:IncrementLevel");
-                snap("word-list-promoted.docx");
-                run(*list,".uno:Undo");
-                snap("word-list-promote-undone.docx");
+            run(*list,".uno:GoToStartOfDoc");run(*list,w::findNext("LIST_THIRD",false));
+            const bool found=selText(*list)=="LIST_THIRD";
+            check(found,"Tìm đúng mục thứ ba");
+            if(found){
+                list->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+                list->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+                list->waitInputIdle();settle();
+                const bool caretOnly=selText(*list).empty();
+                check(caretOnly,"Caret without selection in LIST_THIRD");
+                if(caretOnly){
+                    run(*list,".uno:NumberingStart");
+                    snap("word-list-restarted.docx");
+                    run(*list,".uno:Undo");
+                    snap("word-list-restart-undone.docx");
+                }
+            }
+        }
+        // Level operations must act on a single caret strictly inside the
+        // second paragraph. Collapsing right at the paragraph boundary
+        // can target the next list item on some LOK builds.
+        for(const bool promote:{false,true}){
+            list.reset();
+            list=engine->open(out/(promote?"word-list-deeper.docx":"word-list-baseline.docx"),&err);
+            check(bool(list),"Open list level fixture: "+err);
+            if(!list)break;
+            list->setClientView(512,512,7680,7680,0,0,7680,7680);
+            run(*list,".uno:GoToStartOfDoc");
+            run(*list,w::findNext("LIST_SECOND",false));
+            const bool found=selText(*list)=="LIST_SECOND";
+            check(found,"Find exact second list item");
+            if(!found)continue;
+            // KEY_LEFT collapses to start; then KEY_RIGHT twice puts the
+            // caret inside LIST_SECOND, not at a paragraph boundary.
+            for(int key:{1026,1027,1027}){
+                list->postKey(LOK_KEYEVENT_KEYINPUT,0,key);
+                list->postKey(LOK_KEYEVENT_KEYUP,0,key);
+                list->waitInputIdle();settle();
+            }
+            const bool caretOnly=selText(*list).empty();
+            check(caretOnly,"Single caret for list level");
+            if(!caretOnly)continue;
+            run(*list,promote?".uno:IncrementLevel":".uno:DecrementLevel");
+            snap(promote?"word-list-promoted.docx":"word-list-deeper.docx");
+            run(*list,".uno:Undo");
+            snap(promote?"word-list-promote-undone.docx":"word-list-level-undone.docx");
+        }
+        // Explicitly independent lists, not an engine-dependent restart flag.
+        list.reset();
+        list=engine->open(out/"word-list-separate-input.docx",&err);
+        check(bool(list),"Mở hai danh sách độc lập: "+err);
+        if(list){
+            list->setClientView(512,512,7680,7680,0,0,7680,7680);
+            snap("word-list-separate-baseline.docx");
+            run(*list,".uno:GoToStartOfDoc");run(*list,w::findNext("LIST_THIRD",false));
+            const bool found=selText(*list)=="LIST_THIRD";
+            check(found,"Tìm đúng mục cần tiếp tục số");
+            if(found){
+                list->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+                list->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+                list->waitInputIdle();settle();
+                const bool caretOnly=selText(*list).empty();
+                check(caretOnly,"Continue numbering uses one caret");
+                if(caretOnly){
+                    run(*list,".uno:ContinueNumbering");
+                    snap("word-list-continued.docx");
+                    run(*list,".uno:Undo");
+                    snap("word-list-continue-undone.docx");
+                }
             }
         }
     }

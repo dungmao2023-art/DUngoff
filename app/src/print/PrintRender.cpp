@@ -5,6 +5,8 @@
 #include <QPrinter>
 #include <QPageLayout>
 #include <QCoreApplication>
+#include <QSet>
+#include <QStringList>
 #ifdef DUNG_HAVE_QTPDF
 #include <QPdfDocument>
 #include <QPdfSelection>
@@ -109,6 +111,60 @@ QImage renderPage(const QString& path, int page1, const QSize& box, QString* err
     return out;
 }
 
+static QList<QPolygonF> normalizedBounds(const QPdfSelection& selection,const QSizeF& size){
+    QList<QPolygonF> result;
+    if(size.width()<=0||size.height()<=0||!selection.isValid())return result;
+    for(auto polygon:selection.bounds()){
+        for(auto& p:polygon)p=QPointF(p.x()/size.width(),p.y()/size.height());
+        result.append(polygon);
+    }
+    return result;
+}
+PagePreview previewText(const QString& path,int page,const QSize& box,const QString& query,bool matchCase){
+    PagePreview out;
+    QPdfDocument doc;
+    const auto e=doc.load(path);
+    if(e!=QPdfDocument::Error::None){out.error=pdfErr(e);return out;}
+    if(page<1||page>doc.pageCount()){out.error=QObject::tr("Trang không tồn tại.");return out;}
+    const QSizeF size=doc.pagePointSize(page-1);
+    out.image=renderPage(path,page,box,&out.error);
+    if(out.image.isNull())return out;
+    const QString raw=doc.getAllText(page-1).text();
+    const auto needle=query.trimmed().normalized(QString::NormalizationForm_C);
+    if(needle.isEmpty()||needle.size()>256)return out;
+    const auto cs=matchCase?Qt::CaseSensitive:Qt::CaseInsensitive;
+    // PDF character indices refer to the original text, not its NFC copy.
+    // Verify the actual selected text before painting any match geometry.
+    QStringList forms{needle,needle.normalized(QString::NormalizationForm_D)};forms.removeDuplicates();
+    QSet<qsizetype> seen;
+    for(const auto& form:forms){
+        for(qsizetype pos=raw.indexOf(form,0,cs);pos>=0&&seen.size()<1000;
+            pos=raw.indexOf(form,pos+form.size(),cs)){
+            if(seen.contains(pos))continue;
+            seen.insert(pos);
+            const auto sel=doc.getSelectionAtIndex(page-1,int(pos),int(form.size()));
+            if(sel.text().normalized(QString::NormalizationForm_C).compare(needle,cs)==0)
+                out.matches.append(normalizedBounds(sel,size));
+        }
+    }
+    return out;
+}
+PageSelection selectText(const QString& path,int page,QPointF from,QPointF to){
+    PageSelection out;
+    auto valid=[](QPointF p){return std::isfinite(p.x())&&std::isfinite(p.y())&&p.x()>=0&&p.x()<=1&&p.y()>=0&&p.y()<=1;};
+    if(!valid(from)||!valid(to)){out.error=QObject::tr("Vùng chọn nằm ngoài trang.");return out;}
+    QPdfDocument doc;
+    const auto e=doc.load(path);
+    if(e!=QPdfDocument::Error::None){out.error=pdfErr(e);return out;}
+    if(page<1||page>doc.pageCount()){out.error=QObject::tr("Trang không tồn tại.");return out;}
+    const auto size=doc.pagePointSize(page-1);
+    if(size.width()<=0||size.height()<=0){out.error=QObject::tr("Kích thước trang không hợp lệ.");return out;}
+    const auto sel=doc.getSelection(page-1,QPointF(from.x()*size.width(),from.y()*size.height()),
+        QPointF(to.x()*size.width(),to.y()*size.height()));
+    if(sel.isValid()){out.text=sel.text();out.bounds=normalizedBounds(sel,size);}
+    return out;
+}
+
 bool printPages(const QString& path, QPrinter& printer, const QVector<int>& pages, bool autoOrientation, QString* error) {
     if(error)error->clear();
     QPdfDocument d;
@@ -161,6 +217,8 @@ static const char* kNo = QT_TRANSLATE_NOOP("printrender", "Bản dựng này kh�
 PdfInfo pdfInfo(const QString&) { PdfInfo r; r.error = QCoreApplication::translate("printrender", kNo); return r; }
 TextSearch searchText(const QString&,const QString&,int,int,bool) {TextSearch r;r.error=QCoreApplication::translate("printrender",kNo);return r;}
 QString pageText(const QString&,int,QString* error){if(error)*error=QCoreApplication::translate("printrender",kNo);return {};}
+PagePreview previewText(const QString&,int,const QSize&,const QString&,bool){PagePreview r;r.error=QCoreApplication::translate("printrender",kNo);return r;}
+PageSelection selectText(const QString&,int,QPointF,QPointF){PageSelection r;r.error=QCoreApplication::translate("printrender",kNo);return r;}
 QImage renderPage(const QString&, int, const QSize&, QString* error) { if (error) *error = QCoreApplication::translate("printrender", kNo); return {}; }
 bool printPages(const QString&, QPrinter&, const QVector<int>&, bool, QString* error) { if (error) *error = QCoreApplication::translate("printrender", kNo); return false; }
 

@@ -5,6 +5,14 @@
 #include "../EngineHost.h"
 #include "../TileView.h"
 #include "ExcelCommands.h"
+#include "CreatePivotScript.h"
+#include <QProcess>
+#include <QFile>
+#include <QComboBox>
+#include <QPointer>
+#include "ExcelRules.h"
+#include <QTemporaryDir>
+#include <QFileInfo>
 #ifndef LOK_USE_UNSTABLE_API
 #define LOK_USE_UNSTABLE_API
 #endif
@@ -20,6 +28,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDialog>
+#include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QSpinBox>
@@ -252,6 +261,90 @@ void DocumentTab::excelAction(const QString& id) {
         }
         cmd(descending?".uno:SortDescending":".uno:SortAscending");
         m_doc->waitInputIdle();m_view->setFocus();return;
+    } else if(a==QLatin1String("createDropdown")||a==QLatin1String("protectSheet")){
+        const bool protect=a==QLatin1String("protectSheet");
+        const QString title=protect?tr("Bảo vệ sheet"):tr("Tạo dropdown");
+        const QString range=m_view->selectedCellRange();
+        const QString normalized=qs(dataassist::bridgeRangeAddress(ss(range)));
+        QStringList items;
+        if(protect){
+            if(QMessageBox::question(this,title,tr("Bảo vệ các ô đang khóa trên sheet %1 trong bản sao XLSX mới (không mật khẩu). Đây là bảo vệ thao tác, không phải mã hóa. Tiếp tục?").arg(qs(originalSheet)),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        }else{
+            if(normalized.isEmpty()){QMessageBox::information(this,title,tr("Chọn vùng ô cần dropdown."));return;}
+            bool ok=false;
+            const auto input=QInputDialog::getMultiLineText(this,title,tr("Mỗi lựa chọn một dòng. Tạo dropdown ở vùng %1 trong bản sao XLSX mới.").arg(range),QString(),&ok);
+            if(!ok)return;
+            for(auto item:input.split(QLatin1Char('\n')))if(!item.trimmed().isEmpty())items<<item.trimmed();
+        }
+        if(!sameSheet()||(!protect&&!confirmTarget(range,title)))return;
+        QTemporaryDir temp;
+        if(!temp.isValid()){QMessageBox::warning(this,title,tr("Không tạo được thư mục tạm."));return;}
+        const QString src=temp.filePath(QStringLiteral("source.xlsx")),dst=temp.filePath(QStringLiteral("rules.xlsx"));
+        std::string saveError;QString error;
+        if(!m_doc->saveRecoveryCopy(toPath(src),&saveError)||!excelrules::createCopy(src,dst,cur,qs(originalSheet),normalized,items,protect,&error)){
+            QMessageBox::warning(this,title,tr("Chưa tạo bản sao: %1").arg(error.isEmpty()?qs(saveError):error));return;
+        }
+        const QString orig=m_doc->isNew()?QString():fromPath(m_doc->originalPath());
+        const QString name=QFileInfo(qs(m_doc->displayName())).completeBaseName()+(protect?QStringLiteral(" - protected.xlsx"):QStringLiteral(" - dropdown.xlsx"));
+        emit openCopyRequested(dst,orig,name);
+        return;
+    } else if(a==QLatin1String("createPivot")){
+        const QString title=tr("Tạo PivotTable");
+        const QString range=m_view->selectedCellRange();
+        const auto normalized=dataassist::bridgeRangeAddress(ss(range));
+        const auto ends=qs(normalized).split(QLatin1Char(':'));
+        auto coords=[](const QString& cell){
+            int i=0,col=0;
+            while(i<cell.size()&&cell[i].unicode()>='A'&&cell[i].unicode()<='Z'){col=col*26+cell[i].unicode()-'A'+1;++i;}
+            return QPair<int,int>(cell.mid(i).toInt(),col);
+        };
+        if(ends.size()!=2){QMessageBox::information(this,title,tr("Chọn vùng nguồn có dòng tiêu đề và ít nhất hai cột."));return;}
+        const auto first=coords(ends.first()),last=coords(ends.last());
+        const int rows=last.first-first.first+1,cols=last.second-first.second+1;
+        if(rows<2||cols<2||cols>100||qint64(rows)*cols>50000){QMessageBox::information(this,title,tr("Chọn 2–100 cột và tối đa 50.000 ô."));return;}
+        auto colName=[](int n){QString s;while(n>0){--n;s.prepend(QChar(ushort('A'+n%26)));n/=26;}return s;};
+        QDialog dialog(this);dialog.setWindowTitle(title);
+        auto* layout=new QFormLayout(&dialog);
+        auto* row=new QComboBox(&dialog);auto* col=new QComboBox(&dialog);auto* val=new QComboBox(&dialog);auto* fn=new QComboBox(&dialog);
+        col->addItem(tr("Không dùng"),-1);
+        for(int i=0;i<cols;++i){const auto label=tr("Cột %1").arg(colName(first.second+i));row->addItem(label,i);col->addItem(label,i);val->addItem(label,i);}
+        val->setCurrentIndex(1);fn->addItems({tr("Tổng (SUM)"),tr("Đếm (COUNT)")});
+        auto* note=new QLabel(tr("Nguồn: %1. Dòng đầu là tiêu đề duy nhất. PivotTable thật sẽ nằm trên sheet mới trong bản sao XLSX; bản đang soạn giữ nguyên.").arg(range),&dialog);
+        note->setWordWrap(true);layout->addRow(note);layout->addRow(tr("Hàng"),row);layout->addRow(tr("Cột"),col);layout->addRow(tr("Giá trị"),val);layout->addRow(tr("Tổng hợp"),fn);
+        auto* bb=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);layout->addRow(bb);
+        connect(bb,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);connect(bb,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+        if(dialog.exec()!=QDialog::Accepted||!confirmTarget(range,title))return;
+        const int ri=row->currentData().toInt(),ci=col->currentData().toInt(),vi=val->currentData().toInt();
+        if(ri==vi||ci==ri||ci==vi){QMessageBox::warning(this,title,tr("Chọn các trường khác nhau."));return;}
+        const QString program=EngineHost::instance().runtimeDir();
+#ifdef Q_OS_WIN
+        const QString python=program+QStringLiteral("/python.exe");
+#else
+        const QString python=QStringLiteral("/usr/bin/python3");
+#endif
+        if(!QFileInfo::exists(python)){QMessageBox::warning(this,title,tr("Thiếu Python UNO của engine; chưa tạo PivotTable."));return;}
+        QTemporaryDir temp;
+        if(!temp.isValid()){QMessageBox::warning(this,title,tr("Không tạo được thư mục tạm."));return;}
+        const QString src=temp.filePath("source.xlsx"),dst=temp.filePath("pivot.xlsx"),helper=temp.filePath("pivot.py");
+        std::string error;
+        if(!m_doc->saveRecoveryCopy(toPath(src),&error)){QMessageBox::warning(this,title,qs(error));return;}
+        QFile script(helper);const QByteArray bytes(kCreatePivotScript);
+        if(!script.open(QIODevice::WriteOnly)||script.write(bytes)!=bytes.size()){QMessageBox::warning(this,title,tr("Không ghi được công cụ PivotTable."));return;}script.close();
+        QProcess worker;
+        worker.setProgram(python);
+        worker.setArguments({helper,program,src,dst,QString::number(cur),qs(normalized),QString::number(ri),QString::number(ci),QString::number(vi),fn->currentIndex()==0?QStringLiteral("SUM"):QStringLiteral("COUNT")});
+        QApplication::setOverrideCursor(Qt::BusyCursor);
+        worker.start();
+        const bool finished=worker.waitForStarted(5000)&&worker.waitForFinished(90000);
+        if(!finished){worker.kill();worker.waitForFinished(3000);}
+        QApplication::restoreOverrideCursor();
+        if(!finished||worker.exitStatus()!=QProcess::NormalExit||worker.exitCode()!=0||!worker.readAllStandardOutput().contains("PIVOT_OK")||!QFileInfo::exists(dst)){
+            QMessageBox::warning(this,title,tr("Không tạo được PivotTable. Bản gốc không thay đổi. Kiểm tra tiêu đề, trường và engine.\n%1").arg(QString::fromUtf8(worker.readAllStandardError()).right(500)));return;
+        }
+        const QString orig=m_doc->isNew()?QString():fromPath(m_doc->originalPath());
+        const QString name=QFileInfo(qs(m_doc->displayName())).completeBaseName()+QStringLiteral(" - Pivot.xlsx");
+        emit openCopyRequested(dst,orig,name);
+        return;
     } else if(a==QLatin1String("refreshPivot")){
         const auto range=m_view->selectedCellRange();
         if(dataassist::bridgeCellAddress(ss(range)).empty()){
@@ -450,7 +543,9 @@ void DocumentTab::excelAction(const QString& id) {
         form->addRow(tr("Tìm:"),needle);
         form->addRow(tr("Thay bằng:"),replacement);
         root->addLayout(form);
-        auto* note=new QLabel(tr("Tìm tiếp trong sheet hiện tại. Thay tất cả chỉ dùng chế độ giá trị/văn bản, không sửa công thức; cần xác nhận trước khi thay."),&dlg);
+        auto* matchCase=new QCheckBox(tr("Phân biệt chữ hoa/thường"),&dlg);
+        matchCase->setChecked(false);root->addWidget(matchCase);
+        auto* note=new QLabel(tr("Tìm chữ thuần trong sheet hiện tại, không dùng biểu thức chính quy. Thay tất cả dùng chế độ giá trị/văn bản; cần xác nhận trước khi thay."),&dlg);
         note->setWordWrap(true);root->addWidget(note);
         auto* buttons=new QDialogButtonBox(QDialogButtonBox::Close,&dlg);
         auto* next=buttons->addButton(tr("Tìm tiếp"),QDialogButtonBox::ActionRole);
@@ -466,7 +561,7 @@ void DocumentTab::excelAction(const QString& id) {
         };
         auto find=[&]{
             if(!validate())return;
-            cmd(".uno:ExecuteSearch",ex::findNext(ss(needle->text())));
+            cmd(".uno:ExecuteSearch",ex::findNext(ss(needle->text()),matchCase->isChecked()));
             m_doc->waitInputIdle();
             note->setText(tr("Đã gửi lệnh tìm. Đóng hộp thoại để xem ô được chọn; engine chưa xác nhận số kết quả."));
         };
@@ -475,11 +570,12 @@ void DocumentTab::excelAction(const QString& id) {
         QObject::connect(replace,&QPushButton::clicked,&dlg,[&]{
             if(!validate())return;
             const QString from=needle->text(),to=replacement->text();
+            const bool exact=matchCase->isChecked();
             if(QMessageBox::question(&dlg,tr("Thay tất cả"),
-                tr("Sheet %1: thay mọi lần xuất hiện của «%2» bằng «%3» trong giá trị/văn bản? Công thức không bị sửa.").arg(qs(originalSheet),from,to),
+                tr("Sheet %1: thay mọi lần xuất hiện của «%2» bằng «%3» trong giá trị/văn bản?\n%4").arg(qs(originalSheet),from,to,exact?tr("Có phân biệt hoa/thường"):tr("Không phân biệt hoa/thường")),
                 QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
-            if(!validate())return;
-            cmd(".uno:ExecuteSearch",ex::replaceAll(ss(from),ss(to)));
+            if(!validate()||needle->text()!=from||replacement->text()!=to||matchCase->isChecked()!=exact)return;
+            cmd(".uno:ExecuteSearch",ex::replaceAll(ss(from),ss(to),exact));
             m_doc->waitInputIdle();dlg.accept();
         });
         QObject::connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);

@@ -2,6 +2,7 @@
 #include "PdfOps.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -223,10 +224,25 @@ QString rangeFromIndexes(const QList<int>& idx) {
     return parts.join(QLatin1Char(','));
 }
 
+// Full content fingerprint, not merely timestamp or file size.
+QByteArray sourceSha256(const QString& path) {
+    QFile file(path);
+    if(!file.open(QIODevice::ReadOnly))return {};
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if(!hash.addData(&file))return {};
+    return hash.result();
+}
+
 // Quy trình ghi an toàn dùng chung. `makeArgs(tmp)` dựng đối số qpdf ghi ra `tmp`.
+// Optional confirmed fingerprint applies to the first source only.
 template <class MakeArgs>
-Result writeSafely(const QStringList& sources, const QString& destIn, bool allowReplace, MakeArgs makeArgs) {
+Result writeSafely(const QStringList& sources, const QString& destIn, bool allowReplace, MakeArgs makeArgs,
+                   const QByteArray& expectedSource = {}) {
     Result res;
+    auto sourceUnchanged=[&]{
+        return expectedSource.isEmpty()||(!sources.isEmpty()&&sourceSha256(sources.first())==expectedSource);
+    };
+    if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi. Hãy kiểm tra lại.");return res;}
     const QString dest = QFileInfo(destIn).absoluteFilePath();
     const QFileInfo di(dest);
     if (!QDir(di.absolutePath()).exists()) {
@@ -264,6 +280,7 @@ Result writeSafely(const QStringList& sources, const QString& destIn, bool allow
         res.error = tr("Kết quả không qua bước kiểm tra, đã hủy. Tệp gốc không thay đổi.");
         return res;
     }
+    if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi trong lúc xử lý. Chưa công bố kết quả.");return res;}
     if (exists) {
         auto unchanged=[&] {
             const QFileInfo current(dest);
@@ -281,6 +298,7 @@ Result writeSafely(const QStringList& sources, const QString& destIn, bool allow
         res.backup = backup;
         if(!unchanged()){res.error=tr("Tệp đích thay đổi sau sao lưu; không thay thế.");return res;}
     }
+    if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi trước khi công bố kết quả.");return res;}
     if (!(exists ? replaceFile(tmp, dest) : publishNew(tmp,dest))) {
         res.error = tr("Không ghi được tệp đích (đang mở ở chương trình khác hoặc không đủ quyền).");
         return res;
@@ -978,24 +996,32 @@ Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& d
 // Reuse Qt's PDF text and font-subsetting engine; qpdf overlays only the
 // new page content, leaving the original PDF's vector/image content intact.
 bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const StampOptions& opt,
-                    QByteArray* output,QString* error) {
+                    QByteArray* output,QString* error,const QHash<int,QString>& pageText = {}) {
     if (!qobject_cast<QGuiApplication*>(QCoreApplication::instance())) {
         *error=tr("Cần môi trường Qt GUI để vẽ chữ Unicode.");return false;
     }
-    const QString text=opt.text.normalized(QString::NormalizationForm_C);
-    for(const auto cp:text.toUcs4()) {
-        if(cp<32 || (cp>=127 && cp<=159) || cp==0x2028 || cp==0x2029) {
-            *error=tr("Chỉ hỗ trợ chữ trên một dòng.");return false;
+    if(geo.isEmpty() || geo.size()>2000){*error=tr("Lớp chữ Unicode hỗ trợ tối đa 2.000 trang mỗi tệp.");return false;}
+    QHash<int,QString> texts;
+    QSet<uint> chars;
+    for(int i:selected){
+        const QString text=(pageText.isEmpty()?opt.text:pageText.value(i)).normalized(QString::NormalizationForm_C);
+        if(i<0||i>=geo.size()||text.trimmed().isEmpty()||text.size()>1000){
+            *error=tr("Nội dung chữ trên trang không hợp lệ.");return false;
         }
+        for(const auto cp:text.toUcs4()){
+            if(cp<32 || (cp>=127 && cp<=159) || cp==0x2028 || cp==0x2029){
+                *error=tr("Chỉ hỗ trợ chữ trên một dòng.");return false;
+            }
+            chars.insert(cp);
+        }
+        texts.insert(i,text);
     }
     for(const auto& g:geo) if(g.defaulted || !std::isfinite(g.w) || !std::isfinite(g.h) ||
         g.w<1 || g.h<1 || g.w>14400 || g.h>14400) {
         *error=tr("Không xác minh được kích thước trang cho lớp chữ Unicode.");return false;
     }
-    if(geo.isEmpty() || geo.size()>2000){*error=tr("Lớp chữ Unicode hỗ trợ tối đa 2.000 trang mỗi tệp.");return false;}
     // Offscreen and native Qt platform plugins can expose different font inventories.
     // Choose a real installed family with coverage for the whole string.
-    const auto chars=text.toUcs4();
     QStringList families{QStringLiteral("Arial"),QStringLiteral("Segoe UI"),QStringLiteral("DejaVu Sans"),
                          QStringLiteral("Noto Sans"),QFontDatabase::systemFont(QFontDatabase::GeneralFont).family()};
     families.append(QFontDatabase::families());families.removeDuplicates();
@@ -1014,8 +1040,6 @@ bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const S
         return false;
     }
     const QFontMetricsF metrics(font);
-    QRectF bounds=metrics.boundingRect(text);
-    if(bounds.isEmpty()) {*error=tr("Chữ đóng dấu rỗng.");return false;}
     QByteArray bytes;
     QBuffer buffer(&bytes);
     if(!buffer.open(QIODevice::WriteOnly)){*error=tr("Không mở được bộ đệm PDF.");return false;}
@@ -1034,6 +1058,9 @@ bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const S
                 p.end();*error=tr("Không tạo được trang phủ tiếp theo.");return false;
             }
             if(!selected.contains(i))continue;
+            const QString text=texts.value(i);
+            const QRectF bounds=metrics.boundingRect(text);
+            if(bounds.isEmpty()){p.end();*error=tr("Chữ trên trang rỗng.");return false;}
             const double W=g.w*2,H=g.h*2;
             const double bw=bounds.width(),bh=bounds.height();
             p.save();p.setFont(font);p.setPen(QColor::fromRgbF(opt.gray,opt.gray,opt.gray));p.setOpacity(opt.opacity);
@@ -1071,17 +1098,17 @@ bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const S
 
 Result addPageNumbers(const Input& in, const NumberOptions& opt, const QString& dest, bool allowReplace) {
     Result res;
-    if (opt.format.isEmpty() || opt.format.size() > 200 || !isPrintableAscii(opt.format)) {
-        res.error = tr("Mẫu số trang chỉ nhận chữ không dấu (ASCII), tối đa 200 ký tự. "
-                       "Chữ có dấu tiếng Việt chưa hỗ trợ khi đánh số trang.");
+    if (opt.format.trimmed().isEmpty() || opt.format.size() > 200) {
+        res.error = tr("Mẫu số trang phải có nội dung, tối đa 200 ký tự.");
         return res;
     }
-    if (opt.fontSize < 4 || opt.fontSize > 72 || opt.gray < 0 || opt.gray > 1) {
+    if (!std::isfinite(opt.fontSize)||!std::isfinite(opt.gray)||opt.start<0||opt.start>100000||
+        opt.fontSize < 4 || opt.fontSize > 72 || opt.gray < 0 || opt.gray > 1) {
         res.error = tr("Cỡ chữ phải từ 4 đến 72 và độ xám từ 0 đến 1.");
         return res;
     }
-    if (opt.pos == Position::Diagonal) {
-        res.error = tr("Số trang không đặt theo đường chéo; hãy chọn một trong sáu vị trí góc/giữa.");
+    if (opt.pos < Position::TopLeft || opt.pos > Position::BottomRight) {
+        res.error = tr("Hãy chọn một trong sáu vị trí đánh số trang.");
         return res;
     }
     const Info inf = info(in.path, in.password);
@@ -1104,20 +1131,40 @@ Result addPageNumbers(const Input& in, const NumberOptions& opt, const QString& 
     }
     QHash<int, int> order;  // chỉ số trang -> thứ tự trong phần được chọn
     for (int i = 0; i < idx.size(); ++i) order.insert(idx[i], i);
-    const int lastNumber = opt.start + idx.size() - 1;
+    const qint64 lastNumber = qint64(opt.start) + idx.size() - 1;
+    auto numberText=[&](int i){
+        QString t=opt.format;
+        t.replace(QLatin1String("{n}"),QString::number(qint64(opt.start)+order.value(i)));
+        t.replace(QLatin1String("{total}"),QString::number(lastNumber));
+        return t;
+    };
+    if(!isPrintableAscii(opt.format)){
+        if(geo.size()>2000){res.error=tr("Đánh số Unicode hỗ trợ tối đa 2.000 trang.");return res;}
+        StampOptions style;style.pos=opt.pos;style.fontSize=opt.fontSize;style.gray=opt.gray;style.opacity=1;
+        QHash<int,QString> texts;QSet<int> selected;
+        for(int i:idx){selected.insert(i);texts.insert(i,numberText(i));}
+        QByteArray overlay;
+        if(!unicodeOverlay(geo,selected,style,&overlay,&res.error,texts))return res;
+        return applyOverlay(in,overlay,dest,allowReplace);
+    }
     QList<OverlayPage> ops;
     QStringList defaulted;
     for (int i = 0; i < geo.size(); ++i) {
         OverlayPage op{geo[i].w, geo[i].h, QByteArray()};
         if (geo[i].defaulted) defaulted << QString::number(i + 1);
         if (order.contains(i)) {
-            QString t = opt.format;
-            t.replace(QLatin1String("{n}"), QString::number(opt.start + order.value(i)));
-            t.replace(QLatin1String("{total}"), QString::number(lastNumber));
-            const QByteArray text = t.toLatin1();
+            const QByteArray text = numberText(i).toLatin1();
             const double tw = textWidth(text, opt.fontSize);
+            // Reserve descent and ascent around the Helvetica baseline. Reject
+            // oversize content instead of successfully exporting clipped labels.
+            const double bh=opt.fontSize*1.25;
+            if(!std::isfinite(tw)||tw>op.w||bh>op.h){
+                res.error=tr("Số trang không vừa trang %1; hãy giảm cỡ chữ hoặc rút ngắn mẫu.").arg(i+1);return res;
+            }
             double x, y;
-            placeBox(opt.pos, op.w, op.h, tw, opt.fontSize, &x, &y);
+            placeBox(opt.pos, op.w, op.h, tw, bh, &x, &y);
+            x=qBound(0.0,x,op.w-tw);
+            y=qBound(0.0,y,op.h-bh)+opt.fontSize*0.25;
             op.content = num(opt.gray) + " g BT /F1 " + num(opt.fontSize) + " Tf " + num(x) + " " + num(y) + " Td " + pdfString(text) + " Tj ET";
         }
         ops.append(op);
@@ -1191,6 +1238,12 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
             if (!useImage) {
                 const QByteArray text = opt.text.toLatin1();
                 const double tw = textWidth(text, opt.fontSize);
+                const double bh=opt.fontSize*1.25;
+                const double diagonal=(tw+bh)/std::sqrt(2.0);
+                if(!std::isfinite(tw)|| (opt.pos==Position::Diagonal
+                    ? diagonal>qMin(op.w,op.h) : tw>op.w||bh>op.h)){
+                    res.error=tr("Chữ đóng dấu không vừa trang %1; hãy giảm cỡ chữ.").arg(i+1);return res;
+                }
                 const QByteArray color = num(opt.gray) + " g /GS1 gs ";
                 if (opt.pos == Position::Diagonal) {
                     op.content = "q " + color + num(c45) + " " + num(s45) + " " + num(-s45) + " " + num(c45) + " " + num(op.w / 2) + " " + num(op.h / 2) +
@@ -1198,10 +1251,14 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
                 } else {
                     double x, y;
                     if (opt.pos == Position::Custom) {
-                        if (tw > op.w || opt.fontSize > op.h || geo[i].defaulted) { res.error = tr("Chữ không vừa trang hoặc không xác minh được kích thước trang."); return res; }
+                        if (geo[i].defaulted) { res.error = tr("Không xác minh được kích thước trang."); return res; }
                         x = (op.w - tw) * opt.xPercent / 100.0;
-                        y = (op.h - opt.fontSize) * (1.0 - opt.yPercent / 100.0);
-                    } else placeBox(opt.pos, op.w, op.h, tw, opt.fontSize, &x, &y);
+                        y = (op.h - bh) * (1.0 - opt.yPercent / 100.0);
+                    } else {
+                        placeBox(opt.pos, op.w, op.h, tw, bh, &x, &y);
+                        x=qBound(0.0,x,op.w-tw);y=qBound(0.0,y,op.h-bh);
+                    }
+                    y+=opt.fontSize*0.25;
                     op.content = "q " + color + "BT /F1 " + num(opt.fontSize) + " Tf " + num(x) + " " + num(y) + " Td " + pdfString(text) + " Tj ET Q";
                 }
             } else {
@@ -1365,6 +1422,8 @@ int objNumber(const QString& ref) { return ref.section(QLatin1Char(' '), 0, 0).t
 
 BlankReport findBlankPages(const Input& in) {
     BlankReport br;
+    br.sourceSha256=sourceSha256(in.path);
+    if(br.sourceSha256.isEmpty()){br.error=tr("Không đọc được tệp nguồn để xác minh nội dung.");return br;}
     br.notes << tr("Chỉ phát hiện trang không có nội dung. Trang trông trắng nhưng có ảnh quét hoặc ô tô nền trắng "
                    "KHÔNG được phát hiện.");
     const Info inf = info(in.path, in.password);
@@ -1442,6 +1501,9 @@ BlankReport findBlankPages(const Input& in) {
         }
         if (!hasPaintingOps(all)) br.blank << i;
     }
+    if(sourceSha256(in.path)!=br.sourceSha256){
+        br.error=tr("Tệp nguồn thay đổi trong lúc phân tích trang trắng.");return br;
+    }
     br.ok = true;
     return br;
 }
@@ -1454,8 +1516,9 @@ Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace,
         res.needPassword = br.needPassword;
         return res;
     }
-    if (confirmed && (!confirmed->ok || br.pages != confirmed->pages || br.blank != confirmed->blank)) {
-        res.error = tr("Danh sách trang trắng đã thay đổi kể từ lúc xác nhận. Hãy kiểm tra lại.");
+    if (confirmed && (!confirmed->ok || confirmed->sourceSha256.size()!=32 ||
+        br.sourceSha256!=confirmed->sourceSha256 || br.pages != confirmed->pages || br.blank != confirmed->blank)) {
+        res.error = tr("Tệp nguồn hoặc danh sách trang trắng đã thay đổi kể từ lúc xác nhận. Hãy kiểm tra lại.");
         return res;
     }
     if (br.blank.isEmpty()) {
@@ -1475,13 +1538,132 @@ Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace,
         QStringList a = pw.args();
         a << in.path << QStringLiteral("--pages") << QStringLiteral(".") << rangeFromIndexes(keep) << QStringLiteral("--") << tmp;
         return a;
-    });
+    },br.sourceSha256);
     if (res.ok) {
         res.warnings << tr("Đã bỏ %1 trang không có nội dung.").arg(br.blank.size());
         res.warnings << br.notes.first();
         if (!in.password.isEmpty()) res.warnings << tr("Kết quả không còn mật khẩu.");
     }
     return res;
+}
+
+namespace {
+struct EditablePdf {
+    QJsonObject meta,objects,catalog,form;
+    QJsonArray pages;
+    QString catalogRef,formRef;
+    QByteArray sha;
+};
+bool loadEditable(const Input& in,EditablePdf* e,Result* r){
+    e->sha=sourceSha256(in.path);
+    if(e->sha.isEmpty()){r->error=tr("Không đọc được nguồn.");return false;}
+    const auto inf=info(in.path,in.password);
+    if(!inf.ok){r->error=inf.error;r->needPassword=inf.needPassword;return false;}
+    if(inf.encrypted){r->error=tr("Chưa hỗ trợ sửa PDF mã hóa.");return false;}
+    QJsonDocument doc;
+    if(!runJson(in,{QStringLiteral("--json-key=pages"),QStringLiteral("--json-key=qpdf")},&doc,r))return false;
+    const auto q=doc.object().value(QStringLiteral("qpdf")).toArray();
+    if(q.size()!=2||sourceSha256(in.path)!=e->sha){r->error=tr("Cấu trúc hoặc nguồn PDF đã thay đổi.");return false;}
+    e->meta=q.at(0).toObject();e->objects=q.at(1).toObject();e->pages=doc.object().value(QStringLiteral("pages")).toArray();
+    for(auto it=e->objects.constBegin();it!=e->objects.constEnd();++it){
+        const auto d=it.value().toObject().value(QStringLiteral("value")).toObject();
+        if(d.contains(QStringLiteral("/ByteRange"))||d.value(QStringLiteral("/Type")).toString()==QLatin1String("/Sig")){
+            r->error=tr("PDF có chữ ký số; không chỉnh sửa.");return false;
+        }
+    }
+    const auto trailer=e->objects.value(QStringLiteral("trailer")).toObject().value(QStringLiteral("value")).toObject();
+    e->catalogRef=trailer.value(QStringLiteral("/Root")).toString();e->catalog=dictOf(e->objects,e->catalogRef);
+    if(e->catalog.isEmpty()||e->catalog.contains(QStringLiteral("/Perms"))){r->error=tr("Catalog hoặc quyền PDF chưa hỗ trợ.");return false;}
+    const auto form=e->catalog.value(QStringLiteral("/AcroForm"));
+    if(form.isString())e->formRef=form.toString();
+    e->form=resolveRef(e->objects,form).toObject();return true;
+}
+QJsonObject wrapped(const QJsonValue& v){return {{QStringLiteral("value"),v}};}
+Result updatePdf(const Input& in,const EditablePdf& e,const QJsonObject& updates,const QString& dest,bool appearances=false){
+    Result r;QTemporaryDir tmp;
+    if(!tmp.isValid()){r.error=tr("Không tạo được thư mục tạm.");return r;}
+    const QString patch=tmp.filePath(QStringLiteral("update.json"));
+    const auto data=QJsonDocument(QJsonObject{{QStringLiteral("qpdf"),QJsonArray{e.meta,updates}}}).toJson(QJsonDocument::Compact);
+    QFile file(patch);
+    if(!file.open(QIODevice::WriteOnly)||file.write(data)!=data.size()){r.error=tr("Không ghi được cập nhật PDF.");return r;}
+    file.close();
+    return writeSafely({in.path},dest,false,[&](const QString& out){
+        QStringList args{in.path,QStringLiteral("--update-from-json=")+patch};
+        if(appearances)args<<QStringLiteral("--generate-appearances");
+        args<<out;return args;
+    },e.sha);
+}
+QString pdfString(const QJsonValue& v){const auto s=v.toString();return s.startsWith(QLatin1String("u:"))?s.mid(2):QString();}
+bool simpleFields(const EditablePdf& e,TextForm* out,QHash<QString,QString>* refs){
+    if(e.form.isEmpty()||e.form.contains(QStringLiteral("/XFA"))){out->error=tr("Không có AcroForm đơn giản hoặc form XFA chưa hỗ trợ.");return false;}
+    const auto list=resolveRef(e.objects,e.form.value(QStringLiteral("/Fields"))).toArray();
+    for(const auto& item:list){
+        const QString ref=item.toString();const auto d=dictOf(e.objects,ref);
+        const int flags=d.value(QStringLiteral("/Ff")).toInt();
+        const QString name=pdfString(d.value(QStringLiteral("/T"))),value=pdfString(d.value(QStringLiteral("/V")));
+        if(d.value(QStringLiteral("/FT")).toString()!=QLatin1String("/Tx")||d.contains(QStringLiteral("/Kids"))||
+           d.value(QStringLiteral("/Subtype")).toString()!=QLatin1String("/Widget")||(flags&~6)!=0||
+           d.contains(QStringLiteral("/AA"))||d.contains(QStringLiteral("/RV"))||name.isEmpty()||refs->contains(name)||
+           !isAsciiText(value)||(d.contains(QStringLiteral("/V"))&&!d.value(QStringLiteral("/V")).toString().startsWith(QLatin1String("u:")))){
+            out->error=tr("Chỉ hỗ trợ form phẳng gồm trường chữ ASCII một dòng, không có trường phức tạp.");return false;
+        }
+        refs->insert(name,ref);out->names<<name;out->values<<value;
+    }
+    if(out->names.isEmpty()){out->error=tr("Không có trường chữ hỗ trợ.");return false;}
+    return true;
+}
+}
+Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest){
+    Result r;
+    if(text.trimmed().isEmpty()||text.size()>2000||!std::isfinite(xPercent)||!std::isfinite(yPercent)||xPercent<0||xPercent>100||yPercent<0||yPercent>100){
+        r.error=tr("Nội dung hoặc vị trí chú thích không hợp lệ.");return r;}
+    EditablePdf e;if(!loadEditable(in,&e,&r))return r;
+    if(page<1||page>e.pages.size()){r.error=tr("Trang không hợp lệ.");return r;}
+    const QString ref=e.pages.at(page-1).toObject().value(QStringLiteral("object")).toString();
+    auto d=dictOf(e.objects,ref);double b[4];
+    const int rot=resolveRef(e.objects,inheritedKey(e.objects,d,QStringLiteral("/Rotate"))).toInt();
+    if(rot%360!=0||(!boxOf(e.objects,d,QStringLiteral("/CropBox"),b)&&!boxOf(e.objects,d,QStringLiteral("/MediaBox"),b))||
+       b[2]-b[0]<24||b[3]-b[1]<24){r.error=tr("Chưa hỗ trợ trang xoay hoặc kích thước không hợp lệ.");return r;}
+    for(double n:b)if(!std::isfinite(n)){r.error=tr("Kích thước trang không hợp lệ.");return r;}
+    QJsonArray annots;
+    if(d.contains(QStringLiteral("/Annots"))){
+        const auto existing=resolveRef(e.objects,d.value(QStringLiteral("/Annots")));
+        if(!existing.isArray()){r.error=tr("Danh sách chú thích không hợp lệ.");return r;}
+        annots=existing.toArray();
+    }
+    const int max=e.meta.value(QStringLiteral("maxobjectid")).toInt(-1);
+    if(max<1||max>=2000000000){r.error=tr("Không xác minh được số đối tượng PDF.");return r;}
+    const QString noteRef=QString::number(max+1)+QStringLiteral(" 0 R");
+    const double x=b[0]+(b[2]-b[0]-24)*xPercent/100,y=b[3]-24-(b[3]-b[1]-24)*yPercent/100;
+    const QJsonObject note{{QStringLiteral("/Type"),QStringLiteral("/Annot")},{QStringLiteral("/Subtype"),QStringLiteral("/Text")},
+        {QStringLiteral("/Rect"),QJsonArray{x,y,x+24,y+24}},{QStringLiteral("/Contents"),QStringLiteral("u:")+text},
+        {QStringLiteral("/Name"),QStringLiteral("/Note")},{QStringLiteral("/C"),QJsonArray{1.0,0.8,0.0}},
+        {QStringLiteral("/Open"),false},{QStringLiteral("/P"),ref}};
+    annots.append(noteRef);d.insert(QStringLiteral("/Annots"),annots);
+    return updatePdf(in,e,QJsonObject{{QStringLiteral("obj:")+ref,wrapped(d)},{QStringLiteral("obj:")+noteRef,wrapped(note)}},dest);
+}
+TextForm textFormFields(const Input& in){
+    TextForm out;EditablePdf e;Result r;
+    if(!loadEditable(in,&e,&r)){out.error=r.error;return out;}
+    QHash<QString,QString> refs;out.ok=simpleFields(e,&out,&refs);return out;
+}
+Result fillTextField(const Input& in,const QString& name,const QString& value,const QString& dest){
+    Result r;
+    if(!isAsciiText(value)||value.size()>500){r.error=tr("Chỉ hỗ trợ chữ ASCII một dòng.");return r;}
+    EditablePdf e;if(!loadEditable(in,&e,&r))return r;
+    TextForm fields;QHash<QString,QString> refs;
+    if(!simpleFields(e,&fields,&refs)){r.error=fields.error;return r;}
+    if(!refs.contains(name)){r.error=tr("Không tìm thấy trường.");return r;}
+    const auto ref=refs.value(name);auto d=dictOf(e.objects,ref);
+    if(value.size()>d.value(QStringLiteral("/MaxLen")).toInt(500)){r.error=tr("Giá trị quá dài.");return r;}
+    d.insert(QStringLiteral("/V"),QStringLiteral("u:")+value);
+    e.form.insert(QStringLiteral("/NeedAppearances"),true);
+    QJsonObject updates{{QStringLiteral("obj:")+ref,wrapped(d)}};
+    if(e.formRef.isEmpty()){e.catalog.insert(QStringLiteral("/AcroForm"),e.form);updates.insert(QStringLiteral("obj:")+e.catalogRef,wrapped(e.catalog));}
+    else updates.insert(QStringLiteral("obj:")+e.formRef,wrapped(e.form));
+    r=updatePdf(in,e,updates,dest,true);
+    if(r.ok)r.warnings<<tr("Kiểm tra hình thức hiển thị trong trình đọc PDF. Chưa hỗ trợ điền chữ Việt có dấu.");
+    return r;
 }
 
 QString suggestOutputPath(const QString& sourcePath, const QString& label) {

@@ -24,3 +24,14 @@ for x,y,w,h,marker in ((1,1,2,2,"LAYER_A"),(4,3,3,1,"LAYER_B")):
     shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(x), Inches(y), Inches(w), Inches(h))
     shape.text = marker
 deck.save(path.with_name("ppt-align-input.pptx"))
+
+# Playback requires a non-overlapping neighbour so pixel counts isolate
+# animation from correct occlusion changes. Keep z-order fixture unchanged.
+deck = Presentation()
+slide = deck.slides.add_slide(deck.slide_layouts[6])
+for x, marker, rgb in ((1, "LAYER_A", (35, 90, 180)), (5, "LAYER_B", (180, 60, 30))):
+    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(x), Inches(1), Inches(2), Inches(2))
+    shape.text = marker
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = RGBColor(*rgb)
+deck.save(path.with_name("ppt-playback-input.pptx"))

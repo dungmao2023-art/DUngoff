@@ -152,6 +152,16 @@ int main(int argc, char** argv) {
     check(printrender::pageText(src,2,&err).contains(QStringLiteral("Trang 2"))&&err.isEmpty(),"Đọc chữ thật từ trang");
     check(!printrender::searchText(src,QString(),1,3).ok&&!printrender::searchText(src,QStringLiteral("Trang"),1,4).ok,"Từ chối từ khóa hoặc khoảng sai");
     check(printrender::pageText(src,9,&err).isEmpty()&&!err.isEmpty(),"Trang chữ ngoài phạm vi");
+    const auto preview=printrender::previewText(src,2,QSize(500,500),QStringLiteral("Trang 2"),true);
+    check(preview.error.isEmpty()&&!preview.image.isNull()&&!preview.matches.isEmpty(),"PDF preview paints actual match geometry");
+    if(!preview.matches.isEmpty()){
+        const auto rect=preview.matches.first().boundingRect();
+        check(rect.isValid()&&rect.left()>=0&&rect.top()>=0&&rect.right()<=1&&rect.bottom()<=1,"match geometry normalized to page");
+        const auto selected=printrender::selectText(src,2,QPointF(rect.left()+0.001,rect.center().y()),QPointF(rect.right()-0.001,rect.center().y()));
+        check(selected.error.isEmpty()&&!selected.text.trimmed().isEmpty()&&!selected.bounds.isEmpty(),"PDF drag coordinates return actual text and geometry",selected.text);
+    }
+    check(printrender::previewText(src,2,QSize(500,500),QStringLiteral("trang 2"),true).matches.isEmpty(),"case-sensitive page highlights");
+    check(!printrender::selectText(src,2,QPointF(-1,0),QPointF(0,0)).error.isEmpty(),"reject out-of-page selection");
     const QImage a = printrender::renderPage(src, 1, QSize(400, 400), &err);
     const QImage b = printrender::renderPage(src, 3, QSize(400, 400), &err);
     check(!a.isNull() && a.width() <= 400 && a.height() <= 400, "vẽ trang 1 vừa khung", err);

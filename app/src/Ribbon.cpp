@@ -219,7 +219,12 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     B("xl:sortDescending", tr("Giảm dần"), 0xE8CB, "Z↓", false),
                     B(".uno:DataFilterAutoFilter", tr("Bộ lọc"), 0xE71C, "⏷", true),
                 }},
+                {tr("Xác thực & bảo vệ"), {
+                    B("xl:createDropdown", tr("Dropdown"), 0xE70D, "▼", false),
+                    B("xl:protectSheet", tr("Bảo vệ sheet"), 0xE72E, "🔒", false),
+                }},
                 {tr("PivotTable"), {
+                    B("xl:createPivot", tr("Tạo PivotTable"), 0xE8B9, "▦", false),
                     B("xl:refreshPivot", tr("Cập nhật Pivot"), 0xE72C, "↻", false),
                 }},
                 {tr("Tiện ích bảng"), {
@@ -290,6 +295,8 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     {QStringLiteral("ppt.group"), tr("Nhóm đối tượng"), 0xE8B9, QStringLiteral("▣"), false},
                     {QStringLiteral("ppt.ungroup"), tr("Bỏ nhóm"), 0xE8B9, QStringLiteral("▢"), false},
                     {QStringLiteral("ppt.alignObjects"), tr("Căn đối tượng…"), 0xE8E4, QStringLiteral("≡"), false},
+                    {QStringLiteral("ppt.resizeObject"), tr("Đổi kích thước…"), 0xE8A7, QStringLiteral("↔"), false},
+                    {QStringLiteral("ppt.rotateObject"), tr("Xoay…"), 0xE7AD, QStringLiteral("↻"), false},
                     {QStringLiteral(".uno:InsertTable#{\"Columns\":{\"type\":\"long\",\"value\":\"3\"},\"Rows\":{\"type\":\"long\",\"value\":\"2\"}}"), tr("Bảng 3×2"), 0xE80A, QStringLiteral("▦"), false},
                 }}}},
             {tr("Trình chiếu"), {{tr("Trình chiếu"), {
@@ -379,8 +386,10 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             m_fontBox=family;m_sizeBox=points;
             const bool excel=m_lastKind==int(DocKind::Spreadsheet);
             connect(family,qOverload<int>(&QComboBox::activated),this,[this,family,excel](int index){
-                if(index<0||family->itemText(index).isEmpty())return;
-                if(m_fontInventoryVerified&&!m_documentFonts.contains(family->itemText(index))){
+                if(family!=m_fontBox.data()||!family->isEnabled()||index<0||
+                   index>=family->count()||family->itemText(index).isEmpty())return;
+                if(family->itemData(index,Qt::UserRole+1).toBool()||
+                   (m_fontInventoryVerified&&!m_documentFonts.contains(family->itemText(index)))){
                     // Display a missing font from the document, never request it
                     // as a new choice. Restore the last engine-reported value.
                     QSignalBlocker block(family);
@@ -393,6 +402,7 @@ QWidget* Ribbon::buildPage(const Tab& t) {
                 emit unoCommand(QStringLiteral(".uno:CharFontName#")+QString::fromStdString(json));
             });
             connect(points,qOverload<int>(&QComboBox::activated),this,[this,points,excel](int index){
+                if(points!=m_sizeBox.data()||!points->isEnabled()||index<0||index>=points->count())return;
                 bool ok=false;const double pt=points->itemText(index).toDouble(&ok);
                 if(!ok||pt<1||pt>400)return;
                 const auto json=excel?dung::excel::fontHeight(qRound(pt)):dung::word::fontSize(pt).second;
@@ -511,7 +521,15 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
             selector->setEnabled(true);
             if(value!=QLatin1String("enabled")) {
                 QString text=value.trimmed();
-                if(selector==m_fontBox.data())m_lastReportedFont=text;
+                if(selector==m_fontBox.data()){
+                    m_lastReportedFont=text;
+                    // Keep only the currently reported display-only font.
+                    // A missing name from another caret must not become a
+                    // selectable font, even when only Qt fallback is available.
+                    for(int i=selector->count()-1;i>=0;--i)
+                        if(selector->itemData(i,Qt::UserRole+1).toBool()&&selector->itemText(i)!=text)
+                            selector->removeItem(i);
+                }
                 bool addMissing=false;
                 if(selector==m_sizeBox.data()) {
                     bool ok=false;const double pt=text.toDouble(&ok);
@@ -526,8 +544,11 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
                     if(index<0&&addMissing) {
                         selector->addItem(text);
                         index=selector->count()-1;
-                        if(selector==m_fontBox.data()&&m_fontInventoryVerified){
-                            selector->setItemData(index,tr("Phông trong tài liệu nhưng không có trong danh sách engine"),Qt::ToolTipRole);
+                        if(selector==m_fontBox.data()){
+                            selector->setItemData(index,true,Qt::UserRole+1);
+                            selector->setItemData(index,m_fontInventoryVerified
+                                ?tr("Phông trong tài liệu nhưng không có trong danh sách engine")
+                                :tr("Phông gốc trong tài liệu; chưa xác minh khả năng sử dụng"),Qt::ToolTipRole);
                         }
                     }
                     if(selector->currentIndex()!=index)selector->setCurrentIndex(index);

@@ -126,13 +126,20 @@ public:
     void paintTile(uint8_t* buffer, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH);
     // Vẽ MỘT TRANG/SLIDE bất kỳ (không đổi trang hiện tại) vào bộ đệm BGRA premultiplied.
     // Dùng cho hình thu nhỏ và trình chiếu. mode: 0 = bình thường.
-    void paintPartTile(uint8_t* buffer, int part, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH);
+    // False: invalid input or optional LOK ABI unavailable; buffer untouched.
+    bool paintPartTile(uint8_t* buffer, int part, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH);
     // Chế độ hiển thị của trang chiếu: 0 = trang chiếu, 1 = trang ghi chú (chỉ Impress).
     void setPartMode(int mode);
     // Thông tin trang dạng JSON của engine (vd. {"visible":"1","mode":0,...}); rỗng nếu engine không hỗ trợ.
     std::string partInfo(int part);
     // Băm nội dung trang (đổi khi nội dung trang đổi); rỗng nếu engine không hỗ trợ.
     std::string partHash(int part);
+    // Native Impress presentation and isolated slide layers, bounded bitmap memory.
+    struct SlideLayer { std::string json; std::vector<uint8_t> pixels; };
+    struct SlideLayers { int width=0,height=0; bool rgba=false; std::vector<SlideLayer> layers; };
+    bool supportsSlideLayers();
+    std::string presentationInfo();
+    bool renderSlideLayers(int part,const std::string& hash,int width,int height,SlideLayers& result);
     // Báo engine vùng đang hiển thị và tỉ lệ zoom (giúp Calc tính đúng con trỏ, tiêu đề hàng/cột).
     void setClientView(int pxTileW, int pxTileH, int twipTileW, int twipTileH,
                        int visX, int visY, int visW, int visH);

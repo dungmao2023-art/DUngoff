@@ -79,15 +79,21 @@ Call hyperlink(const std::string& text, const std::string& url) {
     return {".uno:SetHyperlink", join({argString("Hyperlink.Text", text), argString("Hyperlink.URL", url)})};
 }
 // SearchItem.Command theo SvxSearchCmd: 0=Tìm, 1=Tìm tất cả, 2=Thay, 3=Thay tất cả.
-static Call search(const std::string& find, const std::string& rep, int cmd, bool backward) {
+static Call search(const std::string& find, const std::string& rep, int cmd, bool backward, bool matchCase) {
+    // sfx2/sdi/sfxitems.sdi: TransliterateFlags is INT32.
+    // i18n::TransliterationModules::IGNORE_CASE = 0x100.
+    // Explicit ABSOLUTE literal search and no selection-only/word-only flags.
     return {".uno:ExecuteSearch", join({argString("SearchItem.SearchString", find),
                                         argString("SearchItem.ReplaceString", rep),
                                         argLong("SearchItem.Command", cmd),
+                                        argLong("SearchItem.AlgorithmType", 0),
+                                        argLong("SearchItem.SearchFlags", 0),
+                                        argLong("SearchItem.TransliterateFlags", matchCase ? 0 : 0x100),
                                         argBool("SearchItem.Backward", backward)})};
 }
-Call findNext(const std::string& t, bool backward) { return search(t, "", 0, backward); }
-Call replaceAll(const std::string& f, const std::string& r) { return search(f, r, 3, false); }
-Call replaceOne(const std::string& f, const std::string& r) { return search(f, r, 2, false); }
+Call findNext(const std::string& t, bool backward, bool matchCase) { return search(t, "", 0, backward, matchCase); }
+Call replaceAll(const std::string& f, const std::string& r, bool matchCase) { return search(f, r, 3, false, matchCase); }
+Call replaceOne(const std::string& f, const std::string& r) { return search(f, r, 2, false, true); }
 
 static std::string htmlEscape(const std::string& s) {
     std::string out;

@@ -25,15 +25,13 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
         {QStringLiteral(".uno:SpacePara15"), tr("Dòng 1,5"), 0xE9E9, QStringLiteral("1.5"), false},
         {QStringLiteral(".uno:SpacePara2"), tr("Dòng đôi"), 0xE9E9, QStringLiteral("2.0"), false},
         {QStringLiteral(".uno:DefaultBullet"), tr("Gạch đầu dòng"), 0xE8FD, QStringLiteral("•"), true},
-        {QStringLiteral(".uno:DefaultNumbering"), tr("Đánh số"), 0xE9D5, QStringLiteral("1."), true},
-        {QStringLiteral(".uno:DecrementIndent"), tr("Giảm lề"), 0xE290, QStringLiteral("◀≡"), false},
-        {QStringLiteral(".uno:IncrementIndent"), tr("Tăng lề"), 0xE291, QStringLiteral("≡▶"), false},
-    }};
-    const Group list{tr("Danh sách nhiều cấp"), {
         {QStringLiteral("word:listLevelUp"), tr("Lên một cấp"), 0xE290, QStringLiteral("◀≡"), false},
         {QStringLiteral("word:listLevelDown"), tr("Xuống một cấp"), 0xE291, QStringLiteral("≡▶"), false},
         {QStringLiteral("word:listRestart"), tr("Đánh số lại"), 0xE72C, QStringLiteral("1↻"), false},
         {QStringLiteral("word:listContinue"), tr("Tiếp tục số"), 0xE72C, QStringLiteral("→1"), false},
+        {QStringLiteral(".uno:DefaultNumbering"), tr("Đánh số"), 0xE9D5, QStringLiteral("1."), true},
+        {QStringLiteral(".uno:DecrementIndent"), tr("Giảm lề"), 0xE290, QStringLiteral("◀≡"), false},
+        {QStringLiteral(".uno:IncrementIndent"), tr("Tăng lề"), 0xE291, QStringLiteral("≡▶"), false},
     }};
     const Group styles{tr("Kiểu"), {
         {QStringLiteral("word:style0"), tr("Thường"), 0xE8A5, QStringLiteral("T"), false},
@@ -54,7 +52,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
         {QStringLiteral("word:count"), tr("Đếm từ"), 0xE8EF, QStringLiteral("#"), false},
     }};
     return {
-        {tr("Trang đầu"), {file, undo, clip, font, changeCase, para, list, styles, find}},
+        {tr("Trang đầu"), {file, undo, clip, font, changeCase, para, styles, find}},
         {tr("Chèn"), {
             {tr("Phần tử"), {
                 {QStringLiteral("word:table"), tr("Bảng"), 0xE80A, QStringLiteral("▦"), false},
@@ -64,6 +62,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral(".uno:InsertPageNumberField"), tr("Số trang"), 0xE8A5, QStringLiteral("#"), false},
             }},
             {tr("Bố trí ảnh"), {
+                {QStringLiteral("word:imageResize"), tr("Kích thước ảnh…"), 0xE8A7, QStringLiteral("↔"), false},
                 {QStringLiteral("word:imageAnchorInline"), tr("Cùng dòng chữ"), 0xE8B9, QStringLiteral("▤"), false},
                 {QStringLiteral("word:imageAnchorParagraph"), tr("Neo theo đoạn"), 0xE8B9, QStringLiteral("▣"), false},
                 {QStringLiteral("word:imageWrapSquare"), tr("Chữ quanh ảnh"), 0xE8B9, QStringLiteral("▣"), false},
@@ -108,7 +107,8 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
             }},
         }},
         {tr("Tham chiếu"), {
-            {tr("Mục lục có sẵn"), {
+            {tr("Mục lục"), {
+                {QStringLiteral("word:tocCreate"), tr("Tạo mục lục"), 0xE8A5, QStringLiteral("≡"), false},
                 {QStringLiteral(".uno:UpdateAllIndexes"), tr("Cập nhật mục lục"), 0xE72C, QStringLiteral("↻"), false},
             }},
             {tr("Chú thích"), {

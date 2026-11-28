@@ -3,6 +3,13 @@
 // Chạy: dung-pdftest   (đặt DUNG_QPDF nếu qpdf không nằm trong PATH)
 #include "pdf/PdfOps.h"
 #include "pdf/PdfOcr.h"
+#include "pdf/PdfTextEdit.h"
+#ifdef DUNG_HAVE_PDFIUM_EDIT
+#include <fpdfview.h>
+#include <fpdf_edit.h>
+#include <fpdf_text.h>
+#include <fpdf_save.h>
+#endif
 
 #include <QGuiApplication>
 #include <QCoreApplication>
@@ -11,6 +18,9 @@
 #include <QColor>
 #include <QFileInfo>
 #include <QImage>
+#include <QRawFont>
+#include <QMap>
+#include <QVector>
 #include <QStandardPaths>
 #include <QProcess>
 #include <QTemporaryDir>
@@ -37,6 +47,101 @@ static int g_pass = 0;
         if (cond) { ++g_pass; std::cout << "[ĐẠT]  " << QString(msg).toStdString() << "\n"; } \
         else { ++g_fail; std::cout << "[LỖI]  " << QString(msg).toStdString() << "  (" #cond ")\n"; } \
     } while (0)
+
+#ifdef DUNG_HAVE_PDFIUM_EDIT
+// Full embedded TrueType CID font, no Python PDF dependency and no font bundled.
+static QByteArray unicodePdfFixture(){
+#ifdef Q_OS_WIN
+    QFile font(QDir(qEnvironmentVariable("WINDIR","C:/Windows")).filePath("Fonts/arial.ttf"));
+#else
+    QFile font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+#endif
+    if(!font.open(QIODevice::ReadOnly))return {};
+    const QByteArray data=font.readAll();
+    // Explicit Unicode-to-CID-to-glyph map: the fixture must not depend on
+    // platform-specific aliases in PDFium's automatic TrueType cmap inversion.
+    const QRawFont raw(data,24.0,QFont::PreferNoHinting);
+    if(!raw.isValid())return {};
+    const QStringList labels{QStringLiteral("Tiếng Việt"),QStringLiteral("Dũng Office")};
+    const QString alphabet=labels.join(QString())+QStringLiteral("Việt Nam");
+    QMap<ushort,uint32_t> cids;
+    QByteArray cidMap(2,'\0'), pairs;
+    for(const auto ch:alphabet){
+        const ushort u=ch.unicode();
+        if(cids.contains(u))continue;
+        const auto glyphs=raw.glyphIndexesForString(QString(ch));
+        if(glyphs.size()!=1||glyphs.first()==0||glyphs.first()>65535)return {};
+        const uint32_t cid=uint32_t(cids.size()+1);
+        cids.insert(u,cid);
+        const auto glyph=glyphs.first();
+        cidMap.append(char((glyph>>8)&255));cidMap.append(char(glyph&255));
+        pairs+="<"+QByteArray::number(cid,16).rightJustified(4,'0')+"> <"+
+            QByteArray::number(u,16).rightJustified(4,'0')+">\n";
+    }
+    const QByteArray cmap="/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n"
+        "/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
+        "/CMapName /DungUnicodeFixture def\n/CMapType 2 def\n"
+        "1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n"+
+        QByteArray::number(cids.size())+" beginbfchar\n"+pairs+
+        "endbfchar\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n";
+    FPDF_InitLibrary();
+    auto doc=FPDF_CreateNewDocument();
+    auto page=doc?FPDFPage_New(doc,0,595,842):nullptr;
+    auto face=doc?FPDFText_LoadCidType2Font(doc,reinterpret_cast<const uint8_t*>(data.constData()),
+                    uint32_t(data.size()),cmap.constData(),
+                    reinterpret_cast<const uint8_t*>(cidMap.constData()),uint32_t(cidMap.size())):nullptr;
+    bool ok=doc&&page&&face;
+    if(ok){
+        int y=700;
+        for(const auto& label:labels){
+            auto obj=FPDFPageObj_CreateTextObj(doc,face,24);
+            if(!obj){ok=false;break;}
+            QVector<uint32_t> codes;
+            for(const auto ch:label)codes.append(cids.value(ch.unicode()));
+            if(!FPDFText_SetCharcodes(obj,codes.constData(),size_t(codes.size()))){
+                FPDFPageObj_Destroy(obj);ok=false;break;
+            }
+            FPDFPageObj_Transform(obj,1,0,0,1,72,y);y-=50;
+            FPDFPage_InsertObject(page,obj);
+        }
+        if(ok)ok=FPDFPage_GenerateContent(page);
+    }
+    struct BytesWriter:FPDF_FILEWRITE{
+        QByteArray bytes;
+        BytesWriter(){version=1;WriteBlock=[](FPDF_FILEWRITE* self,const void* data,unsigned long size)->int{
+            static_cast<BytesWriter*>(self)->bytes.append(static_cast<const char*>(data),qsizetype(size));return 1;
+        };}
+    } writer;
+    if(ok)ok=FPDF_SaveAsCopy(doc,&writer,0);
+    if(page)FPDF_ClosePage(page);
+    if(face)FPDFFont_Close(face);
+    if(doc)FPDF_CloseDocument(doc);
+    // Independently reopen the source and require exact Unicode BEFORE the
+    // edit. Log only synthetic fixture data to make failure actionable.
+    if(ok){
+        auto saved=FPDF_LoadMemDocument64(writer.bytes.constData(),size_t(writer.bytes.size()),nullptr);
+        auto pg=saved?FPDF_LoadPage(saved,0):nullptr;
+        auto tp=pg?FPDFText_LoadPage(pg):nullptr;
+        ok=tp&&FPDFPage_CountObjects(pg)==labels.size();
+        for(int i=0;ok&&i<labels.size();++i){
+            auto obj=FPDFPage_GetObject(pg,i);
+            const auto n=FPDFTextObj_GetText(obj,tp,nullptr,0);
+            if(n<2||n>4096||n%2){ok=false;break;}
+            QVector<FPDF_WCHAR> text(int(n/2));
+            const auto got=FPDFTextObj_GetText(obj,tp,text.data(),n);
+            const auto actual=QString::fromUtf16(reinterpret_cast<const char16_t*>(text.constData()),text.size()-1);
+            ok=got==n&&text.last()==0&&actual==labels[i];
+            if(!ok)std::cerr<<"Unicode fixture mismatch: expected "<<labels[i].toUtf8().toHex().constData()
+                <<" got "<<actual.toUtf8().toHex().constData()<<std::endl;
+        }
+        if(tp)FPDFText_ClosePage(tp);
+        if(pg)FPDF_ClosePage(pg);
+        if(saved)FPDF_CloseDocument(saved);
+    }
+    FPDF_DestroyLibrary();
+    return ok?writer.bytes:QByteArray();
+}
+#endif
 
 // PDF tối thiểu hợp lệ (bảng xref đúng), `pages` trang, chữ có nhãn từng trang.
 static QByteArray makePdf(int pages, const QString& label) {
@@ -446,9 +551,35 @@ int main(int argc, char** argv) {
         const QByteArray q2 = r.ok ? qdfOf(P(QStringLiteral("so2.pdf"))) : QByteArray();
         CHECK(r.ok && q2.contains("(1) Tj") && q2.contains("(2) Tj") && !q2.contains("(3) Tj"), "đánh số trang '2-': trang 2 là số 1, trang 3 là số 2, không có số 3");
         NumberOptions vn;
-        vn.format = QString::fromUtf8("Trang số {n}");
-        r = addPageNumbers({a, {}}, vn, P(QStringLiteral("so-vn.pdf")));
-        CHECK(!r.ok && !QFileInfo::exists(P(QStringLiteral("so-vn.pdf"))), "đánh số trang: chữ có dấu bị từ chối, không tạo tệp");
+        vn.format = QString::fromUtf8("Trang số {n}/{total}");
+        vn.pages=QStringLiteral("2-3");vn.start=7;
+        const auto vnPath=P(QStringLiteral("so-vn.pdf"));
+        r=addPageNumbers({a,{}},vn,vnPath);
+        const auto vnQ=r.ok?qdfOf(vnPath):QByteArray();
+        CHECK(r.ok&&info(vnPath).pages==3,QStringLiteral("đánh số tiếng Việt: đủ trang — ")+r.error);
+        CHECK(vnQ.contains("/ToUnicode")&&(vnQ.contains("/FontFile2")||vnQ.contains("/FontFile3")),"số trang Unicode có font nhúng");
+        CHECK(vnQ.contains("(A 1) Tj")&&vnQ.contains("(A 2) Tj")&&vnQ.contains("(A 3) Tj"),"số trang Unicode giữ chữ vector gốc");
+        const auto reader=QStandardPaths::findExecutable(QStringLiteral("pdftotext"));
+        if(!reader.isEmpty()&&r.ok){
+            for(int page=1;page<=3;++page){
+                QProcess proc;
+                proc.start(reader,{QStringLiteral("-enc"),QStringLiteral("UTF-8"),QStringLiteral("-f"),QString::number(page),
+                    QStringLiteral("-l"),QString::number(page),vnPath,QStringLiteral("-")});
+                const bool ok=proc.waitForStarted(3000)&&proc.waitForFinished(15000)&&proc.exitStatus()==QProcess::NormalExit&&proc.exitCode()==0;
+                const auto txt=QString::fromUtf8(proc.readAllStandardOutput()).normalized(QString::NormalizationForm_C).simplified();
+                const bool correct=page==1?!txt.contains(QStringLiteral("Trang số")):txt.count(QStringLiteral("Trang số %1/8").arg(page+5))==1;
+                CHECK(ok&&correct,QStringLiteral("đọc số trang Unicode %1: %2").arg(page).arg(txt));
+            }
+        }
+        CHECK(readFile(a)==aBytes,"đánh số Unicode giữ nguyên nguồn");
+        vn.format=QStringLiteral("Trang\n{n}");
+        const auto badVN=P(QStringLiteral("so-vn-loi.pdf"));
+        CHECK(!addPageNumbers({a,{}},vn,badVN).ok&&!QFileInfo::exists(badVN),"từ chối số trang nhiều dòng");
+        NumberOptions oversized;
+        oversized.format=QString(200,QLatin1Char('W'));oversized.fontSize=72;
+        const auto tooWide=P(QStringLiteral("so-qua-rong.pdf"));
+        CHECK(!addPageNumbers({a,{}},oversized,tooWide).ok&&!QFileInfo::exists(tooWide),"từ chối số trang ASCII quá rộng");
+        CHECK(readFile(a)==aBytes,"từ chối số trang quá rộng giữ nguyên nguồn");
         NumberOptions diag;
         diag.pos = Position::Diagonal;
         CHECK(!addPageNumbers({a, {}}, diag, P(QStringLiteral("so-cheo.pdf"))).ok, "đánh số trang: vị trí đường chéo bị từ chối");
@@ -526,6 +657,14 @@ int main(int argc, char** argv) {
         sv.text=QStringLiteral("Dòng 1\nDòng 2");
         CHECK(!stamp({a,{}},sv,P(QStringLiteral("dau-vn-loi.pdf"))).ok,"từ chối dấu nhiều dòng");
         CHECK(!stamp({a, {}}, StampOptions(), P(QStringLiteral("dau-rong.pdf"))).ok, "đóng dấu: thiếu chữ và ảnh bị từ chối");
+        StampOptions oversized;
+        oversized.text=QString(200,QLatin1Char('W'));oversized.fontSize=400;
+        for(const auto pos:{Position::Diagonal,Position::TopLeft,Position::Custom}){
+            oversized.pos=pos;
+            const auto tooWide=P(QStringLiteral("dau-qua-rong-%1.pdf").arg(int(pos)));
+            CHECK(!stamp({a,{}},oversized,tooWide).ok&&!QFileInfo::exists(tooWide),"từ chối dấu chữ ASCII quá rộng");
+        }
+        CHECK(readFile(a)==aBytes,"từ chối dấu quá rộng giữ nguyên nguồn");
         StampOptions one;
         one.text = QStringLiteral("CHI TRANG 2");
         one.pages = QStringLiteral("2");
@@ -614,6 +753,23 @@ int main(int argc, char** argv) {
         const BlankReport br = findBlankPages({bl, {}});
         CHECK(br.ok && br.blank == (QList<int>{1, 2, 5, 6}), "trang trắng: nhận ra trang 2, 3, 6, 7 (không nhận trang có chữ, ô tô nền, chú thích)");
         CHECK(!br.notes.isEmpty(), "trang trắng: báo kèm giới hạn của phép kiểm tra");
+        CHECK(br.sourceSha256.size()==32,"blank preview stores full SHA256");
+        // Same page count, same blank indexes, same byte length, different content.
+        QByteArray changedBytes=blBytes;
+        changedBytes.replace("Co chu","Co so ");
+        const auto changed=P(QStringLiteral("blank-changed-source.pdf"));
+        writeFile(changed,changedBytes);
+        const auto changedReport=findBlankPages({changed,{}});
+        CHECK(changedBytes.size()==blBytes.size()&&changedBytes!=blBytes&&changedReport.ok&&
+              changedReport.pages==br.pages&&changedReport.blank==br.blank&&changedReport.sourceSha256!=br.sourceSha256,
+              "changed source retains same page topology and size");
+        const auto staleContent=P(QStringLiteral("blank-stale-content.pdf"));
+        CHECK(!removeBlankPages({changed,{}},staleContent,false,&br).ok&&!QFileInfo::exists(staleContent),
+              "blank removal rejects changed source even when blank indexes match");
+        CHECK(readFile(changed)==changedBytes&&readFile(bl)==blBytes,"stale preview rejection preserves both sources");
+        BlankReport unverified=br;unverified.sourceSha256.clear();
+        CHECK(!removeBlankPages({bl,{}},staleContent,false,&unverified).ok&&!QFileInfo::exists(staleContent),
+              "blank removal rejects confirmed preview without source identity");
         const BlankReport none = findBlankPages({a, {}});
         CHECK(none.ok && none.blank.isEmpty(), "trang trắng: tệp không có trang trắng cho danh sách rỗng");
         BlankReport wrong=br;wrong.blank.removeLast();
@@ -638,6 +794,59 @@ int main(int argc, char** argv) {
         CHECK(be2.ok && be2.blank.isEmpty(), "trang trắng: tệp mật khẩu với mật khẩu đúng đọc được");
     }
 
+    {
+        const auto target=P(QStringLiteral("note.pdf"));
+        const auto text=QStringLiteral("Ghi chú tiếng Việt");
+        const auto note=addTextNote({a,{}},2,90,10,text,target);
+        CHECK(note.ok&&info(target).pages==3&&readFile(a)==aBytes,"real annotation keeps page count and source");
+        if(note.ok){
+            QProcess p;p.start(findQpdf(),{QStringLiteral("--json=2"),QStringLiteral("--json-key=qpdf"),target});
+            p.waitForFinished(30000);const auto json=p.readAllStandardOutput();
+            CHECK(p.exitCode()==0&&json.contains("/Text")&&json.contains(text.toUtf8()),"annotation contains real Unicode /Text contents");
+        }
+        CHECK(!addTextNote({a,{}},99,50,50,text,P("bad-note.pdf")).ok&&!QFileInfo::exists(P("bad-note.pdf")),"invalid note page rejected");
+        CHECK(!fillTextField({a,{}},"Name","Test",P("no-form.pdf")).ok&&!QFileInfo::exists(P("no-form.pdf")),"no form does not publish result");
+        // Real single-widget text form with standard Helvetica resources.
+        QByteArray bytes="%PDF-1.4\n";QList<int> offsets;
+        auto obj=[&](const QByteArray& body){offsets<<bytes.size();bytes+=QByteArray::number(offsets.size())+" 0 obj\n"+body+"\nendobj\n";};
+        obj("<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /DA (/Helv 12 Tf 0 g) /DR << /Font << /Helv 5 0 R >> >> >> >>");
+        obj("<< /Type /Pages /Count 1 /Kids [3 0 R] >>");
+        obj("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Annots [4 0 R] >>");
+        obj("<< /Type /Annot /Subtype /Widget /FT /Tx /T (Name) /V (Old) /Rect [50 600 250 630] /P 3 0 R /DA (/Helv 12 Tf 0 g) >>");
+        obj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+        const int xref=bytes.size();bytes+="xref\n0 6\n0000000000 65535 f \n";
+        for(int n:offsets){char line[32];std::snprintf(line,sizeof line,"%010d 00000 n \n",n);bytes+=line;}
+        bytes+="trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n"+QByteArray::number(xref)+"\n%%EOF\n";
+        const auto source=P("simple-form.pdf"),filled=P("filled-form.pdf");writeFile(source,bytes);
+        const auto fields=textFormFields({source,{}});
+        CHECK(fields.ok&&fields.names==QStringList{"Name"}&&fields.values==QStringList{"Old"},"read actual AcroForm field");
+        const auto result=fillTextField({source,{}},"Name","New value",filled);
+        CHECK(result.ok&&readFile(source)==bytes,"fill form without changing original");
+        if(result.ok){const auto re=textFormFields({filled,{}});CHECK(re.ok&&re.values==QStringList{"New value"},"read filled value after reopening");CHECK(qdfOf(filled).contains("/AP"),"filled form has widget appearance");}
+    }
+    if(pdfedit::available()){
+        const auto source=P("native-edit-source.pdf"),dest=P("native-edited.pdf");
+        const QByteArray original=makePdf(2,QStringLiteral("ORIGINAL"));
+        writeFile(source,original);
+        const auto edited=pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",dest);
+        CHECK(edited.ok&&readFile(source)==original&&info(dest).pages==2,"PDFium edits original text object");
+        CHECK(!pdfedit::replaceObject(source,1,"ORIGINAL","REPLACED",P("native-partial.pdf")).ok,"reject partial object");
+#ifdef DUNG_HAVE_PDFIUM_EDIT
+        const auto vnSource=P("native-vietnamese.pdf"),vnDest=P("native-vietnamese-edited.pdf");
+        const auto vn=unicodePdfFixture();
+        CHECK(!vn.isEmpty(),"build Vietnamese CID font fixture");
+        if(!vn.isEmpty()){
+            writeFile(vnSource,vn);
+            const auto changed=pdfedit::replaceObject(vnSource,1,QStringLiteral("Tiếng Việt"),QStringLiteral("Việt Nam"),vnDest);
+            if(!changed.ok)std::cerr<<changed.error.toStdString()<<'\n';
+            CHECK(changed.ok&&readFile(vnSource)==vn&&info(vnDest).pages==1,"PDFium replaces real Vietnamese text with matching embedded font");
+            const auto bad=pdfedit::replaceObject(vnSource,1,QStringLiteral("Tiếng Việt"),QStringLiteral("Việt\nNam"),P("native-vn-linebreak.pdf"));
+            CHECK(!bad.ok&&!QFileInfo::exists(P("native-vn-linebreak.pdf")),"reject multiline PDF edit");
+        }
+#endif
+    }else{
+        CHECK(!pdfedit::replaceObject(a,1,"A","B",P("no-sdk.pdf")).ok&&!QFileInfo::exists(P("no-sdk.pdf")),"missing optional SDK fails visibly");
+    }
     // --- helper kiểm tra chữ ASCII (dùng trong giao diện để báo trước)
     CHECK(isAsciiText(QStringLiteral("Trang {n}/{total} - CONFIDENTIAL")), "isAsciiText: chữ không dấu hợp lệ");
     CHECK(!isAsciiText(QStringLiteral("Trang {n} - Bảo mật")), "isAsciiText: chữ có dấu bị nhận ra");

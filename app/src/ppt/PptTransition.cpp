@@ -3,6 +3,7 @@
 #include "../tools/filetools/ZipLite.h"
 #include "../word/PageMargins.h"
 #include <QDir>
+#include <QCryptographicHash>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
@@ -24,6 +25,19 @@ bool read(ft::ZipReader& z, const QString& name, QByteArray* out, QString* error
     if (!e) { if (error) *error = QStringLiteral("Thiếu mục: ") + name; return false; }
     return z.read(*e, out, error, 32LL * 1024 * 1024);
 }
+}
+QByteArray sourceFingerprint(const QString& source) {
+    QFile file(source);
+    if (!file.open(QIODevice::ReadOnly)) return {};
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if (!hash.addData(&file) || file.error()!=QFileDevice::NoError) return {};
+    return hash.result();
+}
+static bool unchanged(const QString& source,const QByteArray& expected) {
+    return expected.size()==32 && sourceFingerprint(source)==expected;
+}
+static Result staleSource() {
+    return fail(QStringLiteral("Tệp PPTX nguồn đã thay đổi hoặc không đọc được. Hãy chọn lại; chưa xuất bản sao."));
 }
 QStringList slideEntries(const QString& source, QString* error) {
     auto bad = [&](const QString& e) { if (error) *error = e; return QStringList{}; };
@@ -449,7 +463,9 @@ Result patchMasterBackground(const QByteArray& xml, const QString& rgb, QByteArr
     *output=text.toUtf8(); return {true,{}};
 }
 static Result createPatchedEntryCopy(const QString& source, const QString& destination, const QString& entry,
-                                const std::function<Result(const QByteArray&, QByteArray*)>& patch) {
+                                const std::function<Result(const QByteArray&, QByteArray*)>& patch,
+                                const QByteArray& expected) {
+    if(!unchanged(source,expected))return staleSource();
     const QFileInfo dst(destination);
     if (!source.endsWith(QLatin1String(".pptx"), Qt::CaseInsensitive) || !destination.endsWith(QLatin1String(".pptx"), Qt::CaseInsensitive) ||
         dst.exists() || dst.isSymLink() || !QDir(dst.absolutePath()).exists())
@@ -476,26 +492,35 @@ static Result createPatchedEntryCopy(const QString& source, const QString& desti
         } else if (old.crc != now->crc || old.usize != now->usize || old.csize != now->csize || old.method != now->method)
             return fail(QStringLiteral("Mục khác slide bị thay đổi: ") + old.name);
     }
+    if (!unchanged(source,expected)) return staleSource();
     if (!QFile::rename(tmp, destination)) return fail(QStringLiteral("Không đặt được tên đích; không ghi đè."));
     return {true, {}};
 }
 static Result createPatchedCopy(const QString& source, const QString& destination, int slide1,
-                                const std::function<Result(const QByteArray&, QByteArray*)>& patch) {
+                                const std::function<Result(const QByteArray&, QByteArray*)>& patch,
+                                const QByteArray& expectedSource) {
+    const auto expected=expectedSource.isEmpty()?sourceFingerprint(source):expectedSource;
+    if(!unchanged(source,expected))return staleSource();
     QString error;
     const auto slides=slideEntries(source,&error);
     if (slide1<1 || slide1>slides.size()) return fail(error.isEmpty()?QStringLiteral("Slide không tồn tại."):error);
-    return createPatchedEntryCopy(source,destination,slides.at(slide1-1),patch);
+    return createPatchedEntryCopy(source,destination,slides.at(slide1-1),patch,expected);
 }
-Result createMasterBackgroundCopy(const QString& source,const QString& destination,const QString& entry,const QString& rgb) {
+Result createMasterBackgroundCopy(const QString& source,const QString& destination,const QString& entry,const QString& rgb,const QByteArray& expectedSource) {
+    const auto expected=expectedSource.isEmpty()?sourceFingerprint(source):expectedSource;
+    if(!unchanged(source,expected))return staleSource();
     QString error;
     const auto masters=masterEntries(source,&error);
     if (!masters.contains(entry)) return fail(error.isEmpty()?QStringLiteral("Master không tồn tại."):error);
-    return createPatchedEntryCopy(source,destination,entry,[&](const QByteArray& xml,QByteArray* out){return patchMasterBackground(xml,rgb,out);});
+    return createPatchedEntryCopy(source,destination,entry,[&](const QByteArray& xml,QByteArray* out){return patchMasterBackground(xml,rgb,out);},expected);
 }
-Result createCopy(const QString& source, const QString& destination, int slide1, const Options& options) {
-    return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchXml(xml, options, out); });
+Result createCopy(const QString& source, const QString& destination, int slide1, const Options& options,const QByteArray& expectedSource) {
+    return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchXml(xml, options, out); },expectedSource);
 }
-Result createRangeCopy(const QString& source,const QString& destination,int first,int last,const Options& options){
+static Result createPatchedRangeCopy(const QString& source,const QString& destination,int first,int last,
+    const std::function<Result(const QByteArray&,QByteArray*)>& patch,const QByteArray& expectedSource){
+    const auto expected=expectedSource.isEmpty()?sourceFingerprint(source):expectedSource;
+    if(!unchanged(source,expected))return staleSource();
     const QFileInfo dst(destination),src(source);
     if(!source.endsWith(QLatin1String(".pptx"),Qt::CaseInsensitive)||!destination.endsWith(QLatin1String(".pptx"),Qt::CaseInsensitive)||
        dst.exists()||dst.isSymLink()||!QDir(dst.absolutePath()).exists()||!src.isFile())
@@ -503,16 +528,16 @@ Result createRangeCopy(const QString& source,const QString& destination,int firs
     QString error;const auto slides=slideEntries(source,&error);
     if(first<1||last<first||last>slides.size()||last-first+1>100)
         return fail(error.isEmpty()?QStringLiteral("Chọn khoảng slide hợp lệ, tối đa 100 slide mỗi lần."):error);
-    if(first==last)return createCopy(source,destination,first,options);
+    if(first==last)return createPatchedCopy(source,destination,first,patch,expected);
     // Bound repeated package rewrites; a future single-pass ZIP writer can raise this.
     if(src.size()>100LL*1024*1024 || src.size()*(last-first+1)>1024LL*1024*1024)
-        return fail(QStringLiteral("Gói quá lớn cho chuyển cảnh hàng loạt; hãy chọn ít slide hơn."));
+        return fail(QStringLiteral("Gói quá lớn cho chỉnh sửa hàng loạt; hãy chọn ít slide hơn."));
     ft::ZipReader original;if(!original.open(source,&error))return fail(error);
     QHash<QString,QByteArray> patches;qint64 totalXml=0;
     for(int i=first;i<=last;++i){
         QByteArray xml,patched;const auto entry=slides.at(i-1);
         if(!read(original,entry,&xml,&error))return fail(error);
-        const auto result=patchXml(xml,options,&patched);
+        const auto result=patch(xml,&patched);
         if(!result.ok)return fail(QStringLiteral("Slide %1: ").arg(i)+result.error);
         totalXml+=patched.size();
         if(totalXml>64LL*1024*1024)return fail(QStringLiteral("Tổng XML slide quá lớn; hãy chia nhỏ khoảng."));
@@ -543,16 +568,32 @@ Result createRangeCopy(const QString& source,const QString& destination,int firs
                 return fail(QStringLiteral("Mục ngoài khoảng chọn bị thay đổi: ")+old.name);
         }
     }
+    if(!unchanged(source,expected))return staleSource();
     if(!QFile::rename(current,destination))return fail(QStringLiteral("Không đặt được tên đích; không ghi đè."));
     return {true,{}};
 }
-Result createClearAnimationCopy(const QString& source,const QString& destination,int slide1){
-    return createPatchedCopy(source,destination,slide1,[](const QByteArray& xml,QByteArray* out){return clearAnimationXml(xml,out);});
+Result createRangeCopy(const QString& source,const QString& destination,int first,int last,const Options& options,const QByteArray& expectedSource){
+    return createPatchedRangeCopy(source,destination,first,last,[&](const QByteArray& xml,QByteArray* out){return patchXml(xml,options,out);},expectedSource);
 }
-Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options) {
-    return createAnimationSequenceCopy(source, destination, slide1, {options});
+Result createClearAnimationRangeCopy(const QString& source,const QString& destination,int first,int last,const QByteArray& expectedSource){
+    // An already static slide in a batch is safe to keep byte-for-byte;
+    // malformed or ambiguous timing still aborts the entire transaction.
+    return createPatchedRangeCopy(source,destination,first,last,[](const QByteArray& xml,QByteArray* out){
+        const QString text=QString::fromUtf8(xml);
+        if(text.toUtf8()!=xml)return fail(QStringLiteral("Chỉ hỗ trợ XML UTF-8."));
+        const auto scan=scanAnimation(text);
+        if(!scan.error.isEmpty())return fail(scan.error);
+        if(!scan.hasTiming){*out=xml;return Result{true,{}};}
+        return clearAnimationXml(xml,out);
+    },expectedSource);
 }
-Result createAnimationSequenceCopy(const QString& source, const QString& destination, int slide1, const QList<AnimationOptions>& effects) {
-    return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchAnimationSequenceXml(xml, effects, out); });
+Result createClearAnimationCopy(const QString& source,const QString& destination,int slide1,const QByteArray& expectedSource){
+    return createPatchedCopy(source,destination,slide1,[](const QByteArray& xml,QByteArray* out){return clearAnimationXml(xml,out);},expectedSource);
+}
+Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options,const QByteArray& expectedSource) {
+    return createAnimationSequenceCopy(source, destination, slide1, {options},expectedSource);
+}
+Result createAnimationSequenceCopy(const QString& source, const QString& destination, int slide1, const QList<AnimationOptions>& effects,const QByteArray& expectedSource) {
+    return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchAnimationSequenceXml(xml, effects, out); },expectedSource);
 }
 }

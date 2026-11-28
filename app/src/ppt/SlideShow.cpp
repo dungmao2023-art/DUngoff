@@ -1,5 +1,11 @@
 #include "SlideShow.h"
 #include "SlideNavigation.h"
+#include "SimpleEntrance.h"
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QHash>
+#include <QSet>
+#include <iostream>
 #include <QToolTip>
 #include <QCursor>
 #include <QKeyEvent>
@@ -61,6 +67,12 @@ void SlideShow::restartAdvance() {
 void SlideShow::go(int delta) {
     if (m_blank != 0) { m_blank = 0; update(); restartAdvance(); return; }
     if (m_part < 0 || m_count <= 0) return;
+    if(delta>0&&m_entrancePending&&!m_afterEntrance.isNull()){
+        m_entrancePending=false;m_img=m_afterEntrance;update();restartAdvance();return;
+    }
+    if(delta<0&&m_entrancePart==m_part&&!m_entrancePending&&!m_beforeEntrance.isNull()){
+        m_entrancePending=true;m_img=m_beforeEntrance;update();restartAdvance();return;
+    }
     const int p=slideshow::adjacentVisible(m_visible,m_part,delta);
     if(p<0){
         if(delta==1){m_advance.stop();close();} // manual next ends the show
@@ -74,7 +86,12 @@ void SlideShow::go(int delta) {
 }
 
 void SlideShow::render() {
+    const bool alreadyShown=m_entrancePart==m_part&&!m_entrancePending&&!m_afterEntrance.isNull();
+    resetEntrance();
     m_img = QImage();
+    if(m_w<=0||m_h<=0)m_doc->documentSize(m_w,m_h);
+    if(qEnvironmentVariableIsSet("DUNG_PPT_LAYER_TRACE"))
+        std::cerr<<"Render part="<<m_part<<" count="<<m_count<<" doc="<<m_w<<"x"<<m_h<<" window="<<width()<<"x"<<height()<<std::endl;
     if (m_part < 0 || m_part >= m_count || m_w <= 0 || m_h <= 0 ||
         m_w > std::numeric_limits<int>::max() || m_h > std::numeric_limits<int>::max() ||
         width() <= 0 || height() <= 0) return;
@@ -87,7 +104,113 @@ void SlideShow::render() {
     m_img = QImage(pw, ph, QImage::Format_ARGB32_Premultiplied);
     if (m_img.isNull()) return;
     m_img.fill(Qt::white);
-    m_doc->paintPartTile(m_img.bits(), m_part, pw, ph, 0, 0, int(m_w), int(m_h));
+    // Prefer native layers for supported animations; never require the
+    // unrelated static tile renderer to succeed first.
+    if(prepareEntrance()){
+        if(alreadyShown){m_entrancePending=false;m_img=m_afterEntrance;}
+        else m_img=m_beforeEntrance;
+        return;
+    }
+    if(!m_doc->paintPartTile(m_img.bits(), m_part, pw, ph, 0, 0, int(m_w), int(m_h)))
+        m_img=QImage(); // Stop autoplay; paintEvent shows a render-unavailable message.
+}
+void SlideShow::resetEntrance(){
+    m_beforeEntrance={};m_afterEntrance={};m_entrancePending=false;m_entrancePart=-1;
+}
+bool SlideShow::prepareEntrance(){
+    // Avoid native layer API for unsupported animation trees.
+    if(!m_doc->supportsSlideLayers())return false;
+    const bool trace=qEnvironmentVariableIsSet("DUNG_PPT_LAYER_TRACE");
+    const auto info=QJsonDocument::fromJson(QByteArray::fromStdString(m_doc->presentationInfo())).object();
+    if(trace)std::cerr<<"Entrance prepare part="<<m_part<<" image="<<m_img.width()<<"x"<<m_img.height()<<std::endl;
+    QJsonObject slide;
+    for(const auto& item:info.value("slides").toArray()){
+        const auto candidate=item.toObject();if(candidate.value("index").toInt(-1)==m_part){slide=candidate;break;}
+    }
+    QString target;
+    if(!slideshow::findSimpleEntrance(slide.value("animations").toObject().value("root").toObject(),&target)){
+        if(trace)std::cerr<<"Entrance metadata not supported"<<std::endl;
+        return false;
+    }
+    const auto hash=slide.value("hash").toString();
+    dung::Document::SlideLayers layers;
+    if(!m_doc->renderSlideLayers(m_part,hash.toStdString(),qMin(1280,m_img.width()),qMin(1280,m_img.height()),layers)){
+        if(trace)std::cerr<<"Native slide renderer failed"<<std::endl;
+        return false;
+    }
+    if(trace)std::cerr<<"Native layers "<<layers.width<<"x"<<layers.height<<" rgba="<<layers.rgba<<" count="<<layers.layers.size()<<std::endl;
+    // Log all synthetic-fixture metadata before applying conservative policy.
+    if(trace)for(const auto& layer:layers.layers)std::cerr<<layer.json<<" bytes="<<layer.pixels.size()<<std::endl;
+    QImage before(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
+    QImage after(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
+    if(before.isNull()||after.isNull())return false;
+    before.fill(Qt::white);after.fill(Qt::white);
+    // TextFields are rendered separately, before their master placeholders.
+    // A placeholder with no matching field bitmap represents a hidden field.
+    // Resolve visible fields at their original z-order, not as top overlays.
+    QHash<QString,const dung::Document::SlideLayer*> fields;
+    QSet<QString> usedFields;
+    const auto bytes=size_t(layers.width)*layers.height*4;
+    auto parse=[](const dung::Document::SlideLayer& layer){
+        return QJsonDocument::fromJson(QByteArray::fromStdString(layer.json)).object();
+    };
+    auto imageOf=[&](const dung::Document::SlideLayer& layer){
+        return QImage(layer.pixels.data(),layers.width,layers.height,layers.width*4,
+                      layers.rgba?QImage::Format_RGBA8888_Premultiplied:QImage::Format_ARGB32_Premultiplied);
+    };
+    for(const auto& layer:layers.layers){
+        const auto o=parse(layer);
+        if(o.value("slideHash").toString()!=hash)return false;
+        if(o.value("group").toString()!="TextFields")continue;
+        const auto content=o.value("content").toObject();
+        const auto fieldHash=content.value("hash").toString();
+        if(fieldHash.isEmpty()||fields.contains(fieldHash)||layer.pixels.size()!=bytes)return false;
+        fields.insert(fieldHash,&layer);
+    }
+    QPainter p(&before),q(&after);int entrance=0;bool background=false;
+    for(const auto& layer:layers.layers){
+        const auto o=parse(layer);
+        const auto type=o.value("type").toString(),group=o.value("group").toString();
+        const auto content=o.value("content").toObject();
+        if(group=="TextFields")continue;
+        if(group=="MasterPage"&&type=="placeholder"){
+            const auto fieldHash=content.value("hash").toString(),fieldType=content.value("type").toString();
+            if(fieldHash.isEmpty()||!layer.pixels.empty()||usedFields.contains(fieldHash))return false;
+            usedFields.insert(fieldHash);
+            const auto* field=fields.value(fieldHash,nullptr);
+            if(field){
+                if(parse(*field).value("content").toObject().value("type").toString()!=fieldType)return false;
+                const auto img=imageOf(*field);p.drawImage(0,0,img);q.drawImage(0,0,img);
+            }else if(fieldType!="DateTime"&&fieldType!="Footer"&&fieldType!="SlideNumber"){
+                // Unknown missing field: refuse rather than silently lose content.
+                return false;
+            }
+            continue;
+        }
+        if(layer.pixels.size()!=bytes||(type!="bitmap"&&type!="animated")){
+            if(trace)std::cerr<<"Unsupported native layer type or size "<<type.toStdString()<<" "<<group.toStdString()<<std::endl;
+            return false;
+        }
+        if(group=="Background")background=true;
+        if(group!="Background"&&group!="MasterPage"&&group!="DrawPage")return false;
+        const auto img=imageOf(layer);
+        if(type=="animated"){
+            if(group!="DrawPage"||content.value("hash").toString()!=target||!content.value("initVisible").isBool()||content.value("initVisible").toBool()){
+                if(trace)std::cerr<<"Native animation target or visibility mismatch "<<target.toStdString()<<" "<<QJsonDocument(content).toJson(QJsonDocument::Compact).constData()<<std::endl;
+                return false;
+            }
+            ++entrance;
+        }else p.drawImage(0,0,img);
+        q.drawImage(0,0,img);
+    }
+    for(auto it=fields.constBegin();it!=fields.constEnd();++it)if(!usedFields.contains(it.key()))return false;
+    p.end();q.end();
+    if(!background||entrance!=1||before==after){
+        if(trace)std::cerr<<"Invalid entrance composition "<<background<<" "<<entrance<<" "<<(before==after)<<std::endl;
+        return false;
+    }
+    m_beforeEntrance=before;m_afterEntrance=after;m_entrancePending=true;m_entrancePart=m_part;
+    return true;
 }
 
 void SlideShow::paintEvent(QPaintEvent*) {

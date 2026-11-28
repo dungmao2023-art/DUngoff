@@ -83,57 +83,66 @@ for filename, mode in (
           filename+": native "+mode+" topology")
     check(media==original_media,filename+": original embedded image bytes")
     check(content==original_text,filename+": full body preserved")
-# Verify native list levels and restart through real DOCX numbering metadata.
+# Actual OOXML drawing extent, source media, text, anchor and Undo.
+def resize_snapshot(filename):
+    root, media, content = picture_snapshot(filename)
+    anchors = list(root.iter(WP+"anchor"))
+    check(len(anchors)==1 and len(list(root.iter(WP+"inline")))==0, filename+": one floating picture")
+    extent = anchors[0].find(WP+"extent") if len(anchors)==1 else None
+    dims = tuple(int(extent.get(k,"0")) for k in ("cx","cy")) if extent is not None else (0,0)
+    return dims, media, content
+base_dims, base_media, base_text = resize_snapshot("word-image-resize-baseline.docx")
+dims, media, content = resize_snapshot("word-image-resized.docx")
+check(bool(base_media) and "IMAGE_RESIZE_KEEP" in base_text and min(base_dims)>0, "resize fixture contains real image and marker")
+check(abs(dims[0]-1828800)<=1270 and abs(dims[1]-914400)<=1270 and dims!=base_dims, "native resize changes actual extent to 2 x 1 inch")
+check(media==base_media and content==base_text, "resize retains embedded image bytes and document text")
+check(resize_snapshot("word-image-resize-undone.docx")== (base_dims,base_media,base_text), "Undo restores exact picture dimensions and content")
+# Restart is independently supported; multilevel promote/demote stays blocked in #186.
 def list_snapshot(filename):
     with zipfile.ZipFile(Path(path).parent / filename) as package:
-        root = ET.fromstring(package.read("word/document.xml"))
-        if "word/numbering.xml" not in package.namelist():
-            check(False, filename + ": missing numbering metadata")
-            return {}, None
-        numbering = ET.fromstring(package.read("word/numbering.xml"))
-        entries = {}
+        root=ET.fromstring(package.read("word/document.xml"))
+        entries={}
         for para in root.iter(W+"p"):
-            text = "".join(n.text or "" for n in para.iter(W+"t"))
+            text="".join(n.text or "" for n in para.iter(W+"t"))
             if text not in ("LIST_FIRST","LIST_SECOND","LIST_THIRD"):
                 continue
-            props = para.find(W+"pPr")
-            num = props.find(W+"numPr") if props is not None else None
+            props=para.find(W+"pPr")
+            num=props.find(W+"numPr") if props is not None else None
             if num is None or num.find(W+"numId") is None:
                 continue
-            level = num.find(W+"ilvl")
-            entries[text] = (num.find(W+"numId").get(W+"val"), int(level.get(W+"val")) if level is not None else 0)
-        return entries, numbering
-base, definitions = list_snapshot("word-list-baseline.docx")
-check(set(base)=={"LIST_FIRST","LIST_SECOND","LIST_THIRD"}, "list baseline contains all three numbered paragraphs")
-if len(base)==3 and definitions is not None:
-    numid=base["LIST_FIRST"][0]
-    nums=[n for n in definitions.findall(W+"num") if n.get(W+"numId")==numid]
-    abstract_id=nums[0].find(W+"abstractNumId").get(W+"val") if len(nums)==1 else None
-    abstract=[n for n in definitions.findall(W+"abstractNum") if n.get(W+"abstractNumId")==abstract_id]
-    levels={int(n.get(W+"ilvl")) for n in abstract[0].findall(W+"lvl")} if len(abstract)==1 else set()
-    check({0,1,2}.issubset(levels),"baseline has explicit multilevel numbering definitions")
-    check(all(v==(numid,0) for v in base.values()),"all markers share one initial level-zero sequence")
-deeper, _ = list_snapshot("word-list-deeper.docx")
-if set(base)==set(deeper)=={"LIST_FIRST","LIST_SECOND","LIST_THIRD"}:
-    check(deeper["LIST_SECOND"][1]==base["LIST_SECOND"][1]+1, "list level increased only for selected paragraph")
-    check(all(deeper[k][1]==base[k][1] for k in ("LIST_FIRST","LIST_THIRD")), "other list levels unchanged")
-else:
-    check(False,"all numbered paragraphs survive level change")
-undone, _ = list_snapshot("word-list-level-undone.docx")
-def topology(entries):
-    return [(entries[k][1], entries[k][0]==entries["LIST_FIRST"][0]) for k in ("LIST_FIRST","LIST_SECOND","LIST_THIRD")] if len(entries)==3 else []
-check(bool(topology(base)) and topology(undone)==topology(base), "Undo restores original list structure")
-promoted, _ = list_snapshot("word-list-promoted.docx")
-check(bool(topology(base)) and topology(promoted)==topology(base),"Promote restores original level and sequence")
-promote_undone, _ = list_snapshot("word-list-promote-undone.docx")
-check(bool(topology(deeper)) and topology(promote_undone)==topology(deeper),"Undo promote restores demoted level and sequence")
-restarted, numbering = list_snapshot("word-list-restarted.docx")
-if len(restarted)==3:
-    first, third=restarted["LIST_FIRST"],restarted["LIST_THIRD"]
-    check(first[0]!=third[0] and first[1]==third[1], "restart creates independent numbering sequence at same level")
-else:
-    check(False,"restart retains all numbered paragraphs")
-undone, _ = list_snapshot("word-list-restart-undone.docx")
-check(bool(topology(base)) and topology(undone)==topology(base), "Undo restores numbering sequence")
+            level=num.find(W+"ilvl")
+            entries[text]=(num.find(W+"numId").get(W+"val"),int(level.get(W+"val")) if level is not None else 0)
+        return entries
+def list_topology(entries):
+    keys=("LIST_FIRST","LIST_SECOND","LIST_THIRD")
+    if set(entries)!=set(keys):
+        return []
+    return [(entries[k][1],entries[k][0]==entries[keys[0]][0]) for k in keys]
+baseline=list_topology(list_snapshot("word-list-baseline.docx"))
+check(baseline==[(0,True),(0,True),(0,True)],"all three list items start in one sequence")
+check(list_topology(list_snapshot("word-list-restarted.docx"))==[(0,True),(0,True),(0,False)],"restart only third item, other items and levels unchanged")
+check(bool(baseline) and list_topology(list_snapshot("word-list-restart-undone.docx"))==baseline,"Undo restores list sequence")
+deeper=list_topology(list_snapshot("word-list-deeper.docx"))
+print("Native list level topology:", deeper)
+check(deeper==[(0,True),(1,True),(0,True)],"Demote only middle item without changing sequence")
+check(list_topology(list_snapshot("word-list-level-undone.docx"))==baseline,"Undo demote restores original levels")
+check(list_topology(list_snapshot("word-list-promoted.docx"))==baseline,"Promote restores middle item")
+check(list_topology(list_snapshot("word-list-promote-undone.docx"))==deeper,"Undo promote restores level one")
+check(list_topology(list_snapshot("word-list-separate-baseline.docx"))==[(0,True),(0,True),(0,False)],"two independent lists before Continue")
+check(list_topology(list_snapshot("word-list-continued.docx"))==[(0,True),(0,True),(0,True)],"Continue numbering rejoins third item to original sequence without changing levels")
+check(list_topology(list_snapshot("word-list-continue-undone.docx"))==[(0,True),(0,True),(0,False)],"Undo continue restores independent third sequence")
+for filename in ("word-list-separate-baseline.docx","word-list-continued.docx","word-list-continue-undone.docx"):
+    with zipfile.ZipFile(Path(path).parent / filename) as package:
+        root=ET.fromstring(package.read("word/document.xml"))
+        content=["".join(n.text or "" for n in para.iter(W+"t")) for para in root.iter(W+"p")]
+        check(content==["LIST_FIRST","LIST_SECOND","LIST_SEPARATOR","LIST_THIRD"],filename+": preserve all text and list order")
+        numbering=ET.fromstring(package.read("word/numbering.xml"))
+        ids={node.get(W+"numId"):node.find(W+"abstractNumId").get(W+"val") for node in numbering.findall(W+"num")}
+        formats={node.get(W+"abstractNumId"):node.find(W+"lvl").find(W+"numFmt").get(W+"val")
+                 for node in numbering.findall(W+"abstractNum") if node.find(W+"lvl") is not None and node.find(W+"lvl").find(W+"numFmt") is not None}
+        items=list_snapshot(filename)
+        expected=["decimal","decimal","decimal" if filename=="word-list-continued.docx" else "lowerLetter"]
+        actual=[formats.get(ids.get(items.get(key, ("",0))[0])) for key in ("LIST_FIRST","LIST_SECOND","LIST_THIRD")]
+        check(actual==expected,filename+": actual list formats "+str(actual))
 print("\nKẾT QUẢ DOCX:", "CÓ LỖI" if fails else "TẤT CẢ ĐẠT")
 sys.exit(1 if fails else 0)
