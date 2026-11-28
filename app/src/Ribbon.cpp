@@ -252,11 +252,14 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
     }
     case DocKind::Presentation:
         return {fileTab,
-            {tr("Trang đầu"), {file, undo, clip,
+            {tr("Trang đầu"), {
                 {tr("Trang chiếu"), {
-                    {QStringLiteral(".uno:InsertPage"), tr("Trang mới"), 0xE710, QStringLiteral("+"), false},
+                    {QStringLiteral(".uno:InsertPage"), tr("Slide mới"), 0xE710, QStringLiteral("+"), false},
                     {QStringLiteral(".uno:DuplicatePage"), tr("Nhân bản"), 0xE8C8, QStringLiteral("⧉"), false},
-                    {QStringLiteral("ppt.deleteSlide"), tr("Xoá trang…"), 0xE74D, QStringLiteral("−"), false},
+                    {QStringLiteral("ppt.deleteSlide"), tr("Xóa slide…"), 0xE74D, QStringLiteral("−"), false},
+                }},
+                font, file, undo, clip,
+                {tr("Sắp xếp slide"), {
                     {QStringLiteral(".uno:MovePageUp"), tr("Dời lên"), 0xE74A, QStringLiteral("↑"), false},
                     {QStringLiteral(".uno:MovePageDown"), tr("Dời xuống"), 0xE74B, QStringLiteral("↓"), false},
                     {QStringLiteral(".uno:HideSlide"), tr("Ẩn trang"), 0xED1A, QStringLiteral("⊘"), false},
@@ -266,7 +269,6 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     {QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"0\"}}"), tr("Tiêu đề"), 0xE8A1, QStringLiteral("T"), false},
                     {QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"20\"}}"), tr("Trống"), 0xE7C3, QStringLiteral("□"), false},
                 }},
-                font,
                 {tr("Cỡ chữ"), {
                     {QStringLiteral(".uno:FontHeight#{\"FontHeight.Height\":{\"type\":\"float\",\"value\":\"18\"}}"), tr("Cỡ 18"), 0xE8E9, QStringLiteral("18"), false},
                     {QStringLiteral(".uno:FontHeight#{\"FontHeight.Height\":{\"type\":\"float\",\"value\":\"24\"}}"), tr("Cỡ 24"), 0xE8E9, QStringLiteral("24"), false},
@@ -301,13 +303,13 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 }}}},
             {tr("Trình chiếu"), {{tr("Trình chiếu"), {
                     {QStringLiteral("ppt.show"), tr("Từ đầu"), 0xE768, QStringLiteral("▶"), false},
-                    {QStringLiteral("ppt.showHere"), tr("Từ trang này"), 0xE768, QStringLiteral("▷"), false},
+                    {QStringLiteral("ppt.showHere"), tr("Từ slide này"), 0xE768, QStringLiteral("▷"), false},
                     {QStringLiteral("ppt.preview"), tr("Xem trước slide"), 0xE768, QStringLiteral("▷"), false},
                     {QStringLiteral("ppt.showTimed"), tr("Tự chuyển slide"), 0xE768, QStringLiteral("▶"), false},
 
                 }}}},
             {tr("Hoạt ảnh"), {{tr("Xuất PPTX"), {
-                {QStringLiteral("ppt.animationCopy"), tr("Thêm hoạt ảnh"), 0xE7B8, QStringLiteral("▷"), false},
+                {QStringLiteral("ppt.animationCopy"), tr("Bảng hoạt ảnh"), 0xE7B8, QStringLiteral("▷"), false},
                 {QStringLiteral("ppt.clearAnimationCopy"), tr("Xóa hoạt ảnh"), 0xE74D, QStringLiteral("×"), false},
             }}}},
             {tr("Chuyển cảnh"), {{tr("Xuất PPTX"), {
@@ -351,8 +353,9 @@ QWidget* Ribbon::buildPage(const Tab& t) {
     h->setContentsMargins(0, 4, 0, 0);
     h->setSpacing(6);
     auto groups=t.groups;
-    // Put font controls first on Home so they remain visible on smaller screens.
-    if(t.title==tr("Trang đầu")&&!m_lastReadOnly) {
+    // PPT starts with slide creation and then font. Word/Excel retain compact font-first Home.
+    const bool presentation=m_lastKind==int(DocKind::Presentation);
+    if(t.title==tr("Trang đầu")&&!m_lastReadOnly&&!presentation) {
         for(int i=0;i<groups.size();++i)
             if(groups[i].title==tr("Phông chữ")) { groups.move(i,0);break; }
     }
@@ -415,13 +418,17 @@ QWidget* Ribbon::buildPage(const Tab& t) {
         auto* row = new QGridLayout;
         row->setContentsMargins(0,0,0,0);row->setSpacing(2);
         int buttonIndex=0;
-        const int rows=fontGroup?1:(g.buttons.size()>3?2:1);
+        // Labels on task-specific PPT controls; keep common formatting compact.
+        const bool labeled=presentation && !fontGroup &&
+            (t.title!=tr("Trang đầu") || g.title==tr("Trang chiếu") ||
+             g.title==tr("Sắp xếp slide") || g.title==tr("Bố cục"));
+        const int rows=fontGroup?1:(labeled||g.buttons.size()>3?2:1);
         for (const Btn& b : g.buttons) {
             if(fontGroup && b.id==QLatin1String("word:font"))continue;
             if(m_lastKind==int(DocKind::Spreadsheet)&&b.id==QLatin1String("xl:fontName"))continue;
             auto* tb = new QToolButton(gw);
             tb->setObjectName(QStringLiteral("RibbonButton"));
-            tb->setToolButtonStyle(Qt::ToolButtonIconOnly);
+            tb->setToolButtonStyle(labeled?Qt::ToolButtonTextBesideIcon:Qt::ToolButtonIconOnly);
             tb->setCheckable(b.checkable);
             tb->setAutoRaise(true);
             tb->setFocusPolicy(Qt::NoFocus); // không lấy focus khỏi tài liệu
@@ -430,7 +437,11 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             tb->setText(b.label);
             tb->setToolTip(b.label);
             tb->setAccessibleName(b.label);
-            tb->setFixedSize(32,29);
+            tb->setProperty("commandId",b.id);
+            if(labeled){
+                tb->ensurePolished();
+                tb->setFixedSize(qMax(78,tb->sizeHint().width()+8),29);
+            }else tb->setFixedSize(32,29);
             const QString id = b.id;
             connect(tb, &QToolButton::clicked, this, [this, id, tb] {
                 if (id.startsWith(QLatin1String(".uno:"))) {
