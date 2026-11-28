@@ -22,6 +22,31 @@ struct AnimationOptions { unsigned shapeId = 0; bool fade = false; int durationM
 struct AnimationTiming { int click=0, startMs=0, endMs=0; };
 // Deterministic per-click timeline. The first row must be click; no auto-start on slide entry yet.
 Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTiming>* timing);
+// Student-friendly presets: one click per object, one click for a cascade, or all together.
+enum class AnimationPreset { ClickEach, Cascade, Together };
+inline Result makeAnimationPreset(const QList<Shape>& shapes, AnimationPreset preset,
+                                  QList<AnimationOptions>* output) {
+    if(!output || shapes.isEmpty() || shapes.size()>100)
+        return {false,QStringLiteral("Chọn từ 1 đến 100 đối tượng; không cắt bớt danh sách.")};
+    if(preset!=AnimationPreset::ClickEach && preset!=AnimationPreset::Cascade && preset!=AnimationPreset::Together)
+        return {false,QStringLiteral("Kiểu hoạt ảnh không hợp lệ.")};
+    QList<AnimationOptions> candidate;
+    for(const auto& shape:shapes){
+        AnimationOptions effect;
+        effect.shapeId=shape.id;
+        effect.fade=true;
+        if(!candidate.isEmpty()){
+            if(preset==AnimationPreset::Cascade)effect.trigger=AnimationTrigger::AfterPrevious;
+            else if(preset==AnimationPreset::Together)effect.trigger=AnimationTrigger::WithPrevious;
+        }
+        candidate.append(effect);
+    }
+    QList<AnimationTiming> timing;
+    const auto valid=planAnimation(candidate,&timing);
+    if(!valid.ok)return valid;
+    *output=candidate;
+    return {true,{}};
+}
 QList<Shape> slideShapes(const QString& source, int slide1, QString* error);
 // Remove only a verified direct slide timing element, never transition or shape content.
 Result clearAnimationXml(const QByteArray& xml,QByteArray* output);

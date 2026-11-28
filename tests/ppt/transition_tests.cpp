@@ -14,6 +14,28 @@ int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     int errors = 0;
     auto check = [&](bool ok, const char* msg) { std::cout << (ok ? "PASS " : "FAIL ") << msg << '\n'; if (!ok) ++errors; };
+    const QList<Shape> presetShapes{{1,"Title"},{2,"Text"},{3,"Picture"}};
+    QList<AnimationOptions> presetEffects;
+    QList<AnimationTiming> presetTiming;
+    check(makeAnimationPreset(presetShapes,AnimationPreset::ClickEach,&presetEffects).ok &&
+          planAnimation(presetEffects,&presetTiming).ok && presetTiming.size()==3 &&
+          presetTiming[0].click==1 && presetTiming[2].click==3 &&
+          presetEffects[2].shapeId==3 && presetEffects[2].fade,"preset: each object on its own click");
+    check(makeAnimationPreset(presetShapes,AnimationPreset::Cascade,&presetEffects).ok &&
+          planAnimation(presetEffects,&presetTiming).ok && presetTiming.size()==3 &&
+          presetTiming[2].click==1 && presetTiming[2].startMs==1000 &&
+          presetTiming[2].endMs==1500,"preset: cascade after one click");
+    check(makeAnimationPreset(presetShapes,AnimationPreset::Together,&presetEffects).ok &&
+          planAnimation(presetEffects,&presetTiming).ok && presetTiming.size()==3 &&
+          presetTiming[2].click==1 && presetTiming[2].startMs==0 &&
+          presetTiming[2].endMs==500,"preset: simultaneous after one click");
+    QList<Shape> tooMany;for(unsigned i=1;i<=101;++i)tooMany.append(Shape{i,QString::number(i)});
+    check(!makeAnimationPreset(tooMany,AnimationPreset::Together,&presetEffects).ok &&
+          !makeAnimationPreset({{1,"A"},{1,"B"}},AnimationPreset::Cascade,&presetEffects).ok &&
+          !makeAnimationPreset({},AnimationPreset::ClickEach,&presetEffects).ok &&
+          !makeAnimationPreset({{0,"Invalid"}},AnimationPreset::Together,&presetEffects).ok &&
+          presetEffects.size()==3 && presetEffects[2].trigger==AnimationTrigger::WithPrevious,
+          "preset rejects invalid lists without altering previous effects");
     QString target;
     const auto entrance=QJsonDocument::fromJson(R"({"nodeName":"Seq","children":[{"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape1"}]}]})").object();
     check(slideshow::findSimpleEntrance(entrance,&target)&&target=="shape1","native single on-click visibility entrance plan");

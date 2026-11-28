@@ -442,8 +442,16 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         auto* buttons = new QHBoxLayout;
         auto* add = new QPushButton(QObject::tr("+ Thêm"), &dialog); add->setObjectName(QStringLiteral("AnimationPrimary"));
         auto* edit = new QPushButton(QObject::tr("Cập nhật dòng"), &dialog);
-        auto* quick = new QPushButton(QObject::tr("Mờ dần lần lượt tất cả"), &dialog);
-        buttons->addWidget(add); buttons->addWidget(edit); buttons->addWidget(quick); root->addLayout(buttons);
+        buttons->addWidget(add); buttons->addWidget(edit); buttons->addStretch(); root->addLayout(buttons);
+        auto* presetRow=new QHBoxLayout;
+        auto* preset=new QComboBox(&dialog);
+        preset->addItems({QObject::tr("Từng đối tượng · mỗi lần nhấp"),QObject::tr("Lần lượt tự động · một lần nhấp"),QObject::tr("Đồng thời · một lần nhấp")});
+        preset->setToolTip(QObject::tr("Mờ dần 0,5 giây cho mỗi đối tượng. Sau khi áp dụng có thể chỉnh riêng từng dòng."));
+        auto* quick=new QPushButton(QObject::tr("Áp dụng mẫu"),&dialog);
+        quick->setEnabled(shapes.size()<=100);
+        if(shapes.size()>100)quick->setToolTip(QObject::tr("Slide có hơn 100 đối tượng. Hãy thêm từng đối tượng cần thiết."));
+        presetRow->addWidget(new QLabel(QObject::tr("Hoạt ảnh nhanh:"),&dialog));
+        presetRow->addWidget(preset,1);presetRow->addWidget(quick);root->addLayout(presetRow);
         auto* list = new AnimationOrderList(&dialog); list->setSelectionMode(QAbstractItemView::SingleSelection);
         list->setDragDropMode(QAbstractItemView::InternalMove);
         list->setDefaultDropAction(Qt::MoveAction);
@@ -527,8 +535,13 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             effects[row]=o; refresh(row);
         });
         QObject::connect(quick,&QPushButton::clicked,&dialog,[&] {
-            if(!effects.isEmpty() && QMessageBox::question(&dialog,QObject::tr("Hoạt ảnh nhanh"),QObject::tr("Thay danh sách đang soạn bằng bộ mờ dần lần lượt?"))!=QMessageBox::Yes) return;
-            effects.clear(); for(const auto& item:shapes) { if(effects.size()>=100) break; ppttransition::AnimationOptions o; o.shapeId=item.id; o.fade=true; effects.append(o); }
+            QList<ppttransition::AnimationOptions> candidate;
+            const auto valid=ppttransition::makeAnimationPreset(shapes,ppttransition::AnimationPreset(preset->currentIndex()),&candidate);
+            if(!valid.ok){QMessageBox::warning(&dialog,QObject::tr("Hoạt ảnh nhanh"),valid.error);return;}
+            if(!effects.isEmpty() && QMessageBox::question(&dialog,QObject::tr("Hoạt ảnh nhanh"),
+                QObject::tr("Thay danh sách đang soạn bằng mẫu %1?").arg(preset->currentText()),
+                QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+            effects=candidate;
             refresh(0);
         });
         QObject::connect(up,&QPushButton::clicked,&dialog,[&] {const int row=list->currentRow();if(row>0){effects.swapItemsAt(row,row-1);refresh(row-1);}});
