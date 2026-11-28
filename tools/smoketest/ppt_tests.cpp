@@ -642,15 +642,34 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
             // native current master/layout instead of guessing master index 0.
             const int active=master->currentPart();
             check(active>=0&&active<count,"Current master/layout index: "+std::to_string(active));
-            const auto before=renderHash(*master,active);
+            // paintPartTile is an independent normal-slide renderer and may
+            // switch view mode internally. Exercise the active editor tile
+            // API instead, exactly as the canvas does in master mode.
+            auto activeRender=[&](){
+                long w=0,h=0;master->documentSize(w,h);
+                if(w<=0||h<=0)return 0ULL;
+                std::vector<uint8_t> pixels(640*480*4,0);
+                master->paintTile(pixels.data(),640,480,0,0,int(w),int(h));
+                unsigned long long digest=1469598103934665603ULL;
+                bool nonzero=false;
+                for(auto c:pixels){nonzero|=c!=0;digest^=c;digest*=1099511628211ULL;}
+                return nonzero?digest:0ULL;
+            };
+            const auto before=activeRender();
+            const auto activeId=master->partHash(active);
+            check(before!=0&&master->currentPart()==active&&!activeId.empty(),"Active master editor tile renders without switching page");
             master->command(".uno:Text");master->waitInputIdle(350,4000);
             master->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,4000,3500,1,1,0);
+            master->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,5250,3900,1,1,0);
             master->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,6500,4300,1,1,0);
+            master->waitInputIdle(350,4000);
             master->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,6500,4300,1,1,0);
             master->waitInputIdle(350,4000);master->typeText(u"DUNG_MASTER_MARKER");master->waitInputIdle(350,4000);
             master->postKey(LOK_KEYEVENT_KEYINPUT,0,1281);master->postKey(LOK_KEYEVENT_KEYUP,0,1281);master->waitInputIdle();
-            const auto after=renderHash(*master,active);
-            check(before!=after,"Native master/layout render changed before leaving mode");
+            master->waitInputIdle(350,4000);
+            const auto after=activeRender();
+            check(before!=0&&after!=0&&before!=after&&master->currentPart()==active&&master->partHash(active)==activeId,
+                  "Native master editor tile changed without switching page; before="+std::to_string(before)+" after="+std::to_string(after));
             master->command(".uno:CloseMasterView");master->waitInputIdle(350,4000);
             check(master->partCount()==2&&master->partHash(0)==first&&master->partHash(1)==second,"Return to both original normal slides in order");
             auto dest=out/"ppt-master-edited.pptx";fs::remove(dest,ec);
