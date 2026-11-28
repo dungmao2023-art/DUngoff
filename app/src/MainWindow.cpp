@@ -1127,6 +1127,7 @@ void MainWindow::onCurrentTabChanged() {
     refreshDocumentGroups();
     if (!t) { refreshStatus(); return; }
     m_ribbon->setKind(t->kind(), t->readOnly());
+    m_ribbon->setDocumentFonts(t->documentFontFamilies());
     m_ribbon->resetStates(t->states());
     QSignalBlocker b(m_zoom);
     m_zoom->setValue(t->zoom());

@@ -317,3 +317,8 @@ X10: chuyển partial → integrated vì chuỗi xử lý CSV/XLSX đã được
 ## 28/11/2026 — tích hợp nhóm bản vá trên engine v2
 
 Port nguyên các hunk mã nguồn và test từ #154 (xóa hàng/cột Excel xác nhận + undo), #155 (xóa slide an toàn + undo/redo), #156 (tô sáng chữ kết quả PDF, không phải canvas), #157 (chuẩn hóa tiền tệ không làm mất dữ liệu) và #159 (Review Word + undo). CI cũ mỗi PR Windows/Linux PASS, nhưng xung đột main; cần chạy lại CI tích hợp trên v2 Windows, Linux engine hệ thống. Không thay stage/trọng số. #158 không port do Linux fail chính sách validation. Không thay pin engine, không rebuild, không phát hành. Chỉ đóng PR cũ sau khi bản tích hợp đạt và merge.
+
+
+## 28/11/2026 — font theo tài liệu trên v2
+
+Tách phần triển khai font UI và test của #160 khỏi preflight thử nghiệm. Head 4800ba3 đã PASS CI Windows v2/Linux hệ thống (46087683024); port nguyên 8 file mã/test lên main sau #161, cần CI mới. Ribbon Word/Excel/PPT lấy inventory JSON của engine theo tab, giữ tên font gốc khi thiếu, không tự chọn font khi chuyển tab. Word/Excel dialog refresh. Không coi đây là font embedding, sửa Fontconfig/Aptos hay nghiệm thu máy thật; không tăng stage/trọng số. #160 vẫn mở cho probe và audit độc lập.

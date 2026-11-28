@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 #define LOK_USE_UNSTABLE_API
 #include "DocumentTab.h"
+#include <QJsonDocument>
+#include <QJsonObject>
 #include "SavePathPolicy.h"
 #include "print/PrintDialog.h"
 #include "print/PrintRender.h"
@@ -121,6 +123,22 @@ QPushButton:checked { background:#2864BA; color:white; border-color:#2864BA; }
 }
 } // namespace
 
+
+QStringList DocumentTab::documentFontFamilies(bool refresh) {
+    if (!m_doc || m_doc->readOnly() || m_doc->kind()==dung::DocKind::Drawing) return {};
+    if (!refresh && !m_documentFonts.isEmpty()) return m_documentFonts;
+    const auto raw=m_doc->commandValues(".uno:CharFontName");
+    const auto json=QJsonDocument::fromJson(QByteArray::fromStdString(raw));
+    const auto values=json.object().value(QStringLiteral("commandValues")).toObject();
+    QStringList names;
+    for(auto it=values.begin();it!=values.end();++it)
+        if(!it.key().trimmed().isEmpty() && it.value().isArray()) names.append(it.key());
+    names.removeDuplicates();
+    names.sort(Qt::CaseInsensitive);
+    // Do not silently reuse an inventory after an explicit failed refresh.
+    m_documentFonts=names;
+    return m_documentFonts;
+}
 
 DocumentTab::DocumentTab(std::unique_ptr<dung::Document> doc, QWidget* parent)
     : QWidget(parent), m_doc(std::move(doc)) {
