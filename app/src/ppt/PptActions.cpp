@@ -142,12 +142,17 @@ static QString choosePptxSource(DocumentTab* tab){
     }
     return {};
 }
-// The result is already persisted at the selected destination. Offer the
-// native file association rather than loading a second engine instance.
+// A successful copy is a normal saved file. Reuse MainWindow::openPath
+// (deduplication, recent files and error handling) and leave source untouched.
 static void reportPptxCopy(DocumentTab* tab,const QString& dest,const QString& summary){
-    QMessageBox box(QMessageBox::Information,QObject::tr("Đã tạo bản PPTX"),summary,QMessageBox::Ok,tab);
+    QPointer<DocumentTab> safe(tab);
+    QMessageBox box(QMessageBox::Information,QObject::tr("Đã tạo bản PPTX"),summary,QMessageBox::NoButton,tab);
     box.setInformativeText(QDir::toNativeSeparators(dest));
+    auto* open=box.addButton(QObject::tr("Mở và chỉnh sửa"),QMessageBox::AcceptRole);
+    auto* stay=box.addButton(QObject::tr("Ở lại bản hiện tại"),QMessageBox::RejectRole);
+    box.setDefaultButton(open);box.setEscapeButton(stay);
     box.exec();
+    if(safe&&box.clickedButton()==open)emit safe->openSavedPresentationRequested(dest);
 }
 bool handlePptAction(DocumentTab* tab, const QString& id) {
     if (!id.startsWith(QLatin1String("ppt."))) return false;
@@ -205,6 +210,7 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             auto* preview=new QLabel(&gallery);preview->setAlignment(Qt::AlignCenter);
             preview->setAccessibleName(QObject::tr("Xem thử hiệu ứng trên slide minh họa"));
             preview->setMinimumSize(320,180);
+            preview->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Ignored);
             previewColumn->addWidget(preview,1);
             auto* description=new QLabel(&gallery);description->setWordWrap(true);
             previewColumn->addWidget(description);
@@ -633,7 +639,7 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         if (dest.isEmpty()) return true;
         const auto result=ppttransition::createMasterBackgroundCopy(source,dest,entry,color.name(QColor::HexRgb).mid(1),expectedSource);
         if (!result.ok) QMessageBox::warning(tab,QObject::tr("Slide Master"),result.error);
-        else QMessageBox::information(tab,QObject::tr("Slide Master"),QObject::tr("Đã tạo PPTX mới. Mở lại để kiểm tra các slide kế thừa màu nền; nguồn không bị sửa."));
+        else reportPptxCopy(tab,dest,QObject::tr("Đã đổi nền master trong bản mới. Nguồn giữ nguyên."));
     } else if(id==QLatin1String("ppt.clearAnimationCopy")){
         const QString source=choosePptxSource(tab);
         if(source.isEmpty())return true;
@@ -658,7 +664,7 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         if(dest.isEmpty())return true;
         const auto result=ppttransition::createClearAnimationRangeCopy(source,dest,page,last,expectedSource);
         if(!result.ok)QMessageBox::warning(tab,QObject::tr("Xóa hoạt ảnh"),result.error);
-        else QMessageBox::information(tab,QObject::tr("Xóa hoạt ảnh"),QObject::tr("Đã tạo bản sao không có timing trên slide %1–%2. Có thể dùng Thêm hoạt ảnh để thiết lập lại.").arg(page).arg(last));
+        else reportPptxCopy(tab,dest,QObject::tr("Đã xóa hoạt ảnh trên slide %1–%2 trong bản mới.").arg(page).arg(last));
     } else if (id == QLatin1String("ppt.animationCopy")) {
         const QString source = choosePptxSource(tab);
         if (source.isEmpty()) return true;
@@ -902,7 +908,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         if (dest.isEmpty()) return true;
         const auto result=ppttransition::createAnimationSequenceCopy(source,dest,page,effects,expectedSource);
         if (!result.ok) QMessageBox::warning(tab,QObject::tr("Hoạt ảnh"),result.error);
-        else QMessageBox::information(tab,QObject::tr("Hoạt ảnh"),QObject::tr("Đã tạo bản PPTX mới với %1 hiệu ứng. Hãy kiểm tra trình chiếu trong PowerPoint. Nguồn không bị sửa.").arg(effects.size()));
+        else reportPptxCopy(tab,dest,QObject::tr("Bản mới có %1 hiệu ứng. Hãy xem thử trình chiếu; các kiểu chưa được hỗ trợ trong ứng dụng cần kiểm tra bằng PowerPoint. Nguồn giữ nguyên.").arg(effects.size()));
     } else if (id == QLatin1String("ppt.transitionNote")) {
          const QString source = choosePptxSource(tab);
         if (source.isEmpty()) return true;
@@ -947,7 +953,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         ppttransition::Options o; o.effect = ppttransition::Effect(effect->currentIndex()); o.speed = speed->currentIndex(); o.onClick = click->isChecked(); o.autoAdvanceMs = seconds->value()*1000;
         const auto result = ppttransition::createRangeCopy(source,dest,page->value(),rangeEnd->value(),o,expectedSource);
         if (!result.ok) QMessageBox::warning(tab, QObject::tr("Chuyển cảnh"), result.error);
-        else QMessageBox::information(tab, QObject::tr("Chuyển cảnh"), QObject::tr("Đã lưu PPTX mới và kiểm cấu trúc gói:\n%1\nHãy thử trình chiếu trong PowerPoint; nguồn không bị sửa.").arg(dest));
+        else reportPptxCopy(tab,dest,QObject::tr("Đã lưu và kiểm cấu trúc bản PPTX mới. Hãy xem thử chuyển cảnh; nguồn giữ nguyên."));
     }
     return true;
 }

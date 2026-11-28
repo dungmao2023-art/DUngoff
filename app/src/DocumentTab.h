@@ -66,6 +66,8 @@ signals:
     void commandStateChanged(const QString& cmd, const QString& value);
     void savedTo(const QString& path);
     void templateCopyRequested(const QString& path);
+    // Open a persisted output as a regular editable document, not a temporary recovery copy.
+    void openSavedPresentationRequested(const QString& path);
     // Yêu cầu MainWindow mở tệp `patchedPath` (bản sao đã vá) trong thẻ mới; tệp tạm được xoá sau khi tín hiệu trả về.
     void openCopyRequested(const QString& patchedPath, const QString& originalPath, const QString& displayName);
 
