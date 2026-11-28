@@ -59,11 +59,16 @@ with zipfile.ZipFile(dest) as package:
     if any(n.lower().startswith("customxml/") for n in package.namelist()):
         raise RuntimeError("Unexpected unrelated custom XML in synthetic fixture")
 
-# Two truly independent lists with the same abstract numbering definition.
-# This differs from a restart marker within one list, which older Writer
-# versions handle differently in the native ContinueNumbering API.
+# Independent numbered lists with distinct abstract styles. Some Writer
+# versions coalesce identical abstract definitions even with two numIds.
+# The third item begins alphabetic; Continue adopts the preceding decimal list.
+from copy import deepcopy
+separate_abstract = deepcopy(abstract)
+separate_abstract.set(qn("w:abstractNumId"), str(aid + 1))
+separate_abstract.find(qn("w:lvl")).find(qn("w:numFmt")).set(qn("w:val"), "lowerLetter")
+numbering.find(qn("w:num")).addprevious(separate_abstract)
 separate_num = elem("num", numId=nid + 1)
-separate_num.append(elem("abstractNumId", val=aid))
+separate_num.append(elem("abstractNumId", val=aid + 1))
 numbering.append(separate_num)
 third = doc.paragraphs[-1]
 third._p.pPr.find(qn("w:numPr")).find(qn("w:numId")).set(qn("w:val"), str(nid + 1))

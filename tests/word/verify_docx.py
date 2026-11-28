@@ -130,5 +130,13 @@ for filename in ("word-list-separate-baseline.docx","word-list-continued.docx","
         root=ET.fromstring(package.read("word/document.xml"))
         content=["".join(n.text or "" for n in para.iter(W+"t")) for para in root.iter(W+"p")]
         check(content==["LIST_FIRST","LIST_SECOND","LIST_SEPARATOR","LIST_THIRD"],filename+": preserve all text and list order")
+        numbering=ET.fromstring(package.read("word/numbering.xml"))
+        ids={node.get(W+"numId"):node.find(W+"abstractNumId").get(W+"val") for node in numbering.findall(W+"num")}
+        formats={node.get(W+"abstractNumId"):node.find(W+"lvl").find(W+"numFmt").get(W+"val")
+                 for node in numbering.findall(W+"abstractNum") if node.find(W+"lvl") is not None and node.find(W+"lvl").find(W+"numFmt") is not None}
+        items=list_snapshot(filename)
+        expected=["decimal","decimal","decimal" if filename=="word-list-continued.docx" else "lowerLetter"]
+        actual=[formats.get(ids.get(items.get(key, ("",0))[0])) for key in ("LIST_FIRST","LIST_SECOND","LIST_THIRD")]
+        check(actual==expected,filename+": actual list formats "+str(actual))
 print("\nKẾT QUẢ DOCX:", "CÓ LỖI" if fails else "TẤT CẢ ĐẠT")
 sys.exit(1 if fails else 0)
