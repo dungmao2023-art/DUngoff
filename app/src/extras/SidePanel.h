@@ -17,6 +17,7 @@ class QStackedWidget;
 class QPushButton;
 class QLabel;
 class QTimer;
+class QTabWidget;
 
 class SidePanel : public QWidget {
     Q_OBJECT
@@ -28,7 +29,23 @@ public:
 
 private:
     QWidget* buildNotes();
+    QWidget* buildWorkManager();
     QWidget* buildCalendar();
+    void refreshProjects(const QString& select = {});
+    void refreshBoard();
+    void editProject(bool create);
+    void editTask(const QString& id, int status = 0);
+    void moveTask(const QString& id, int status);
+    int projectIndex() const;
+    int taskIndex(const QString& id) const;
+    QJsonArray m_workProjects;
+    QJsonArray m_tasks;
+    QComboBox* m_projectPicker = nullptr;
+    QPushButton* m_editProject = nullptr;
+    QTabWidget* m_workViews = nullptr;
+    QListWidget* m_board[4]{};
+    QLabel* m_columnTitles[4]{};
+    QPushButton* m_addTask[4]{};
     QWidget* buildContacts();
     void load();
     void scheduleSave();

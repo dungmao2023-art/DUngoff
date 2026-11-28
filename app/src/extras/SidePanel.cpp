@@ -28,8 +28,61 @@
 #include <QEasingCurve>
 #include <QSplitter>
 #include <QLocale>
+#include <QTabWidget>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QDateEdit>
+#include <QCheckBox>
+#include <QDrag>
+#include <QMimeData>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QUuid>
+#include <functional>
 
 namespace {
+const QStringList kWorkStatus{QObject::tr("Chưa làm"), QObject::tr("Đang làm"), QObject::tr("Chờ duyệt"), QObject::tr("Hoàn thành")};
+const QStringList kPriority{QObject::tr("Thấp"), QObject::tr("Vừa"), QObject::tr("Cao")};
+QString uid() { return QUuid::createUuid().toString(QUuid::WithoutBraces); }
+QString field(const QJsonObject& o, const char* k) { return o.value(QLatin1String(k)).toString(); }
+QString personName(const QJsonObject& p, const QString& id) {
+    for(const auto& v:p.value(QStringLiteral("people")).toArray()) {
+        const auto person=v.toObject();
+        if(field(person,"id")==id) return field(person,"name");
+    }
+    return {};
+}
+const char* kTaskMime="application/x-dungoffice-work-task";
+class BoardList : public QListWidget {
+public:
+    explicit BoardList(QWidget* parent):QListWidget(parent) {
+        setDragEnabled(true);setAcceptDrops(true);viewport()->setAcceptDrops(true);
+        setDragDropMode(QAbstractItemView::DragDrop);
+        setDefaultDropAction(Qt::MoveAction);setDropIndicatorShown(false);
+        setWordWrap(true);setSpacing(5);setMinimumWidth(188);
+    }
+    std::function<void(const QString&)> dropped;
+protected:
+    void startDrag(Qt::DropActions) override {
+        auto* item=currentItem();if(!item)return;
+        auto* mime=new QMimeData;mime->setData(kTaskMime,item->data(Qt::UserRole).toString().toUtf8());
+        auto* drag=new QDrag(this);drag->setMimeData(mime);drag->exec(Qt::MoveAction);drag->deleteLater();
+    }
+    void dragEnterEvent(QDragEnterEvent* e) override {
+        if(qobject_cast<QListWidget*>(e->source()) && e->mimeData()->hasFormat(kTaskMime)) e->acceptProposedAction();else e->ignore();
+    }
+    void dragMoveEvent(QDragMoveEvent* e) override {
+        if(qobject_cast<QListWidget*>(e->source()) && e->mimeData()->hasFormat(kTaskMime)) e->acceptProposedAction();else e->ignore();
+    }
+    void dropEvent(QDropEvent* e) override {
+        if(!qobject_cast<QListWidget*>(e->source())||!e->mimeData()->hasFormat(kTaskMime)){e->ignore();return;}
+        const QString id=QString::fromUtf8(e->mimeData()->data(kTaskMime));
+        e->acceptProposedAction();
+        if(dropped)dropped(id);
+    }
+};
 const QStringList kStatuses = {QObject::tr("Mới"), QObject::tr("Đang liên hệ"), QObject::tr("Chờ phản hồi"),
                                QObject::tr("Hoàn tất"), QObject::tr("Ngừng")};
 }
@@ -49,7 +102,7 @@ SidePanel::SidePanel(QWidget* parent) : QWidget(parent) {
     m_title=new QLabel(tr("Ghi chú"),m_content);m_title->setObjectName(QStringLiteral("WorkTitle"));
     v->addWidget(m_title);
     m_tabs=new QStackedWidget(m_content);
-    for(QWidget* page:{buildNotes(),buildCalendar(),buildContacts()}){
+    for(QWidget* page:{buildNotes(),buildWorkManager(),buildContacts()}){
         auto* scroll=new QScrollArea(m_tabs);scroll->setWidgetResizable(true);
         scroll->setFrameShape(QFrame::NoFrame);scroll->setWidget(page);m_tabs->addWidget(scroll);
     }
@@ -109,7 +162,7 @@ QWidget#WorkContent QCalendarWidget QAbstractItemView { selection-background-col
 
 void SidePanel::showPage(int index) {
     if(index<0||index>=m_tabs->count())return;
-    static const QStringList titles{tr("Ghi chú"),tr("Lịch công việc"),tr("Danh bạ liên hệ")};
+    static const QStringList titles{tr("Ghi chú"),tr("Quản lý công việc"),tr("Danh bạ liên hệ")};
     m_tabs->setCurrentIndex(index);
     m_title->setText(titles[index]);
     m_lastPage=index;
@@ -139,6 +192,8 @@ bool SidePanel::saveNow() {
     o.insert(QStringLiteral("events"), m_events);
     o.insert(QStringLiteral("dayNotes"), m_dayNotes);
     o.insert(QStringLiteral("contacts"), m_contacts);
+    o.insert(QStringLiteral("workProjects"), m_workProjects);
+    o.insert(QStringLiteral("workTasks"), m_tasks);
     o.insert(QStringLiteral("version"), 1);
     if (!workspace::save(QStringLiteral("workspace"), o)) {
         m_saveStatus->setText(tr("Lưu thất bại — nội dung vẫn còn. Kiểm tra thư mục dữ liệu và bấm Lưu ngay."));
@@ -161,6 +216,9 @@ void SidePanel::load() {
     m_events = o.value(QStringLiteral("events")).toArray();
     m_dayNotes = o.value(QStringLiteral("dayNotes")).toObject();
     m_contacts = o.value(QStringLiteral("contacts")).toArray();
+    m_workProjects = o.value(QStringLiteral("workProjects")).toArray();
+    m_tasks = o.value(QStringLiteral("workTasks")).toArray();
+    refreshProjects();
     refreshNoteList();
     refreshEvents();
     refreshContacts();
@@ -252,6 +310,176 @@ void SidePanel::refreshNoteList() {
     }
 }
 
+// ---------------------------------------------------------------- Quản lý công việc
+int SidePanel::projectIndex() const {
+    const auto id=m_projectPicker->currentData().toString();
+    for(int i=0;i<m_workProjects.size();++i) if(field(m_workProjects[i].toObject(),"id")==id)return i;
+    return -1;
+}
+int SidePanel::taskIndex(const QString& id) const {
+    const int pi=projectIndex();if(pi<0||id.isEmpty())return -1;
+    const auto project=field(m_workProjects[pi].toObject(),"id");
+    for(int i=0;i<m_tasks.size();++i) {
+        const auto task=m_tasks[i].toObject();
+        if(field(task,"id")==id&&field(task,"project")==project)return i;
+    }
+    return -1;
+}
+QWidget* SidePanel::buildWorkManager() {
+    auto* w=new QWidget(this);auto* v=new QVBoxLayout(w);
+    auto* row=new QHBoxLayout;
+    row->addWidget(new QLabel(tr("Dự án"),w));
+    m_projectPicker=new QComboBox(w);m_projectPicker->setObjectName(QStringLiteral("WorkProjectPicker"));
+    row->addWidget(m_projectPicker,1);
+    auto* add=new QPushButton(tr("+ Dự án"),w);add->setObjectName(QStringLiteral("WorkPrimary"));row->addWidget(add);
+    m_editProject=new QPushButton(tr("Sửa dự án / Thành viên"),w);row->addWidget(m_editProject);
+    v->addLayout(row);
+    m_workViews=new QTabWidget(w);m_workViews->setObjectName(QStringLiteral("WorkViews"));
+    auto* boardPage=new QWidget(w);auto* bv=new QVBoxLayout(boardPage);
+    auto* hint=new QLabel(tr("Kéo thẻ sang cột khác để đổi trạng thái. Nhấp đúp để sửa, chọn người phụ trách và hạn chót."),boardPage);
+    hint->setWordWrap(true);bv->addWidget(hint);
+    auto* sc=new QScrollArea(boardPage);sc->setWidgetResizable(true);sc->setFrameShape(QFrame::NoFrame);
+    auto* columns=new QWidget;auto* ch=new QHBoxLayout(columns);ch->setContentsMargins(0,0,0,0);
+    const QStringList colors{QStringLiteral("#58697F"),QStringLiteral("#365CB5"),QStringLiteral("#A36B13"),QStringLiteral("#20795F")};
+    for(int i=0;i<4;++i){
+        auto* col=new QFrame(columns);col->setStyleSheet(QStringLiteral("QFrame { background:#EDF1F4; border-radius:9px; }"));
+        auto* cv=new QVBoxLayout(col);auto* head=new QHBoxLayout;
+        m_columnTitles[i]=new QLabel(kWorkStatus[i],col);
+        m_columnTitles[i]->setStyleSheet(QStringLiteral("font-weight:600;color:%1;").arg(colors[i]));
+        head->addWidget(m_columnTitles[i],1);
+        m_addTask[i]=new QPushButton(QStringLiteral("+"),col);
+        m_addTask[i]->setAccessibleName(tr("Thêm việc: %1").arg(kWorkStatus[i]));
+        head->addWidget(m_addTask[i]);cv->addLayout(head);
+        auto* list=new BoardList(col);list->setObjectName(QStringLiteral("WorkColumn%1").arg(i));
+        list->setStyleSheet(QStringLiteral("QListWidget {background:#EDF1F4;border:0;} QListWidget::item {background:white;border:1px solid #DCE5F2;border-radius:8px;padding:10px;} QListWidget::item:selected {background:#E8F0FF;border:1px solid #2864BA;color:#17294D;}"));
+        m_board[i]=list;cv->addWidget(list,1);ch->addWidget(col,1);
+        list->dropped=[this,i](const QString& id){moveTask(id,i);};
+        connect(list,&QListWidget::itemDoubleClicked,this,[this](QListWidgetItem* it){const auto id=it->data(Qt::UserRole).toString();editTask(id);});
+        connect(m_addTask[i],&QPushButton::clicked,this,[this,i]{editTask({},i);});
+    }
+    sc->setWidget(columns);bv->addWidget(sc,1);
+    m_workViews->addTab(boardPage,tr("Kanban"));
+    m_workViews->addTab(buildCalendar(),tr("Lịch"));
+    v->addWidget(m_workViews,1);
+    connect(add,&QPushButton::clicked,this,[this]{editProject(true);});
+    connect(m_editProject,&QPushButton::clicked,this,[this]{editProject(false);});
+    connect(m_projectPicker,&QComboBox::currentIndexChanged,this,[this]{refreshBoard();refreshEvents();markCalendar();});
+    return w;
+}
+void SidePanel::refreshProjects(const QString& select) {
+    const QString keep=select.isEmpty()?m_projectPicker->currentData().toString():select;
+    {QSignalBlocker b(m_projectPicker);m_projectPicker->clear();
+    m_projectPicker->addItem(tr("Chọn dự án"));
+    for(const auto& v:m_workProjects){const auto p=v.toObject();m_projectPicker->addItem(field(p,"name"),field(p,"id"));}
+    const int idx=m_projectPicker->findData(keep);m_projectPicker->setCurrentIndex(idx>0?idx:(m_projectPicker->count()>1?1:0));}
+    refreshBoard();refreshEvents();markCalendar();
+}
+void SidePanel::refreshBoard() {
+    const int pi=projectIndex();m_editProject->setEnabled(pi>=0);
+    for(int i=0;i<4;++i){m_board[i]->clear();m_addTask[i]->setEnabled(pi>=0);}
+    if(pi>=0){
+        const auto p=m_workProjects[pi].toObject();
+        for(const auto& v:m_tasks){
+            const auto task=v.toObject();if(field(task,"project")!=field(p,"id"))continue;
+            const int state=qBound(0,task.value(QStringLiteral("status")).toInt(),3);
+            const int priority=qBound(0,task.value(QStringLiteral("priority")).toInt(1),2);
+            const auto who=personName(p,field(task,"person"));
+            const auto date=QDate::fromString(field(task,"due"),Qt::ISODate);
+            const QString due=date.isValid()?date.toString(QStringLiteral("dd/MM/yyyy")):tr("Chưa đặt hạn");
+            const bool overdue=state!=3&&date.isValid()&&date<QDate::currentDate();
+            auto* it=new QListWidgetItem(QStringLiteral("%1\n%2: %3\n%4%5   •   %6")
+                .arg(field(task,"title"),tr("Ưu tiên"),kPriority[priority],overdue?tr("Quá hạn: "):QString(),due,who.isEmpty()?tr("Chưa giao"):who));
+            it->setData(Qt::UserRole,field(task,"id"));
+            it->setSizeHint(QSize(180,96));
+            it->setToolTip(field(task,"description"));
+            if(overdue)it->setForeground(QColor("#A33626"));
+            m_board[state]->addItem(it);
+        }
+    }
+    for(int i=0;i<4;++i)m_columnTitles[i]->setText(QStringLiteral("%1  %2").arg(kWorkStatus[i]).arg(m_board[i]->count()));
+}
+void SidePanel::editProject(bool create) {
+    const int pi=create?-1:projectIndex();if(!create&&pi<0)return;
+    auto p=pi<0?QJsonObject{}:m_workProjects[pi].toObject();
+    QDialog d(this);d.setWindowTitle(create?tr("Tạo dự án"):tr("Sửa dự án"));d.resize(640,440);
+    auto* v=new QVBoxLayout(&d);auto* form=new QFormLayout;
+    auto* name=new QLineEdit(field(p,"name"),&d);name->setMaxLength(200);form->addRow(tr("Tên dự án"),name);
+    v->addLayout(form);v->addWidget(new QLabel(tr("Người liên quan — mỗi người một dòng, liên hệ không bắt buộc"),&d));
+    auto* table=new QTableWidget(0,2,&d);table->setHorizontalHeaderLabels({tr("Tên"),tr("Điện thoại / Email / Liên hệ")});
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    auto addPerson=[table](const QJsonObject& person){
+        const int row=table->rowCount();table->insertRow(row);
+        auto* n=new QTableWidgetItem(field(person,"name"));n->setData(Qt::UserRole,field(person,"id").isEmpty()?uid():field(person,"id"));
+        table->setItem(row,0,n);table->setItem(row,1,new QTableWidgetItem(field(person,"contact")));
+    };
+    for(const auto& x:p.value(QStringLiteral("people")).toArray())addPerson(x.toObject());
+    v->addWidget(table,1);auto* row=new QHBoxLayout;
+    auto* add=new QPushButton(tr("+ Thêm người"),&d);auto* del=new QPushButton(tr("Bỏ dòng"),&d);
+    row->addWidget(add);row->addWidget(del);row->addStretch();v->addLayout(row);
+    connect(add,&QPushButton::clicked,&d,[&]{addPerson({});table->editItem(table->item(table->rowCount()-1,0));});
+    connect(del,&QPushButton::clicked,&d,[&]{if(table->currentRow()>=0)table->removeRow(table->currentRow());});
+    auto* buttons=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&d);v->addWidget(buttons);
+    connect(buttons,&QDialogButtonBox::rejected,&d,&QDialog::reject);
+    connect(buttons,&QDialogButtonBox::accepted,&d,[&]{
+        if(name->text().trimmed().isEmpty()){name->setFocus();return;}
+        QJsonArray people;
+        for(int i=0;i<table->rowCount();++i){
+            auto* n=table->item(i,0);const auto contact=table->item(i,1)->text().trimmed();
+            if(n->text().trimmed().isEmpty()){if(contact.isEmpty())continue;table->setCurrentCell(i,0);table->editItem(n);return;}
+            people.append(QJsonObject{{QStringLiteral("id"),n->data(Qt::UserRole).toString()},{QStringLiteral("name"),n->text().trimmed()},{QStringLiteral("contact"),contact}});
+        }
+        auto next=p;next.insert(QStringLiteral("people"),people);
+        int removed=0;
+        for(const auto& x:m_tasks){const auto task=x.toObject();if(field(task,"project")==field(p,"id")&&!field(task,"person").isEmpty()&&personName(next,field(task,"person")).isEmpty())++removed;}
+        if(removed&&QMessageBox::question(&d,tr("Cập nhật thành viên"),tr("%1 việc sẽ chuyển về Chưa giao vì người phụ trách bị bỏ khỏi dự án. Tiếp tục?").arg(removed),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        p=next;p.insert(QStringLiteral("name"),name->text().trimmed());if(pi<0)p.insert(QStringLiteral("id"),uid());
+        for(int i=0;i<m_tasks.size();++i){auto task=m_tasks[i].toObject();if(field(task,"project")==field(p,"id")&&!field(task,"person").isEmpty()&&personName(p,field(task,"person")).isEmpty()){task.insert(QStringLiteral("person"),QString());m_tasks[i]=task;}}
+        if(pi<0)m_workProjects.append(p);else m_workProjects[pi]=p;
+        d.accept();
+    });
+    if(d.exec()==QDialog::Accepted){refreshProjects(field(p,"id"));scheduleSave();}
+}
+void SidePanel::editTask(const QString& id,int status) {
+    const int pi=projectIndex();if(pi<0)return;
+    const int ti=taskIndex(id);if(!id.isEmpty()&&ti<0)return;
+    const auto p=m_workProjects[pi].toObject();
+    auto task=ti<0?QJsonObject{}:m_tasks[ti].toObject();
+    QDialog d(this);d.setWindowTitle(ti<0?tr("Thêm công việc"):tr("Sửa công việc"));d.resize(480,380);
+    auto* v=new QVBoxLayout(&d);auto* f=new QFormLayout;
+    auto* title=new QLineEdit(field(task,"title"),&d);title->setMaxLength(300);f->addRow(tr("Tên công việc"),title);
+    auto* desc=new QPlainTextEdit(&d);desc->setPlainText(field(task,"description"));desc->setMaximumHeight(100);f->addRow(tr("Nội dung"),desc);
+    auto* st=new QComboBox(&d);st->addItems(kWorkStatus);st->setCurrentIndex(qBound(0,task.value(QStringLiteral("status")).toInt(status),3));f->addRow(tr("Trạng thái"),st);
+    auto* pr=new QComboBox(&d);pr->addItems(kPriority);pr->setCurrentIndex(qBound(0,task.value(QStringLiteral("priority")).toInt(1),2));f->addRow(tr("Ưu tiên"),pr);
+    auto* who=new QComboBox(&d);who->addItem(tr("Chưa giao"),QString());
+    for(const auto& x:p.value(QStringLiteral("people")).toArray()){const auto person=x.toObject();who->addItem(field(person,"name"),field(person,"id"));who->setItemData(who->count()-1,field(person,"contact"),Qt::ToolTipRole);}
+    who->setCurrentIndex(qMax(0,who->findData(field(task,"person"))));f->addRow(tr("Người phụ trách"),who);
+    auto* dueRow=new QWidget(&d);auto* dr=new QHBoxLayout(dueRow);dr->setContentsMargins(0,0,0,0);
+    auto* hasDue=new QCheckBox(tr("Có hạn chót"),dueRow);auto* due=new QDateEdit(dueRow);due->setCalendarPopup(true);due->setDisplayFormat(QStringLiteral("dd/MM/yyyy"));
+    const auto date=QDate::fromString(field(task,"due"),Qt::ISODate);hasDue->setChecked(date.isValid());due->setDate(date.isValid()?date:QDate::currentDate());due->setEnabled(hasDue->isChecked());
+    connect(hasDue,&QCheckBox::toggled,due,&QDateEdit::setEnabled);dr->addWidget(hasDue);dr->addWidget(due);f->addRow(tr("Hạn chót"),dueRow);
+    v->addLayout(f);auto* buttons=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&d);v->addWidget(buttons);
+    connect(buttons,&QDialogButtonBox::rejected,&d,&QDialog::reject);
+    connect(buttons,&QDialogButtonBox::accepted,&d,[&]{
+        if(title->text().trimmed().isEmpty()){title->setFocus();return;}
+        if(ti<0)task.insert(QStringLiteral("id"),uid());
+        task.insert(QStringLiteral("project"),field(p,"id"));task.insert(QStringLiteral("title"),title->text().trimmed());
+        task.insert(QStringLiteral("description"),desc->toPlainText());task.insert(QStringLiteral("status"),st->currentIndex());
+        task.insert(QStringLiteral("priority"),pr->currentIndex());task.insert(QStringLiteral("person"),who->currentData().toString());
+        task.insert(QStringLiteral("due"),hasDue->isChecked()?due->date().toString(Qt::ISODate):QString());
+        if(ti<0)m_tasks.append(task);else m_tasks[ti]=task;
+        d.accept();
+    });
+    if(ti>=0){auto* del=buttons->addButton(tr("Xóa việc"),QDialogButtonBox::DestructiveRole);
+        connect(del,&QPushButton::clicked,&d,[&]{if(QMessageBox::question(&d,tr("Xóa việc"),tr("Xóa công việc này?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)==QMessageBox::Yes){m_tasks.removeAt(ti);d.accept();}});}
+    if(d.exec()==QDialog::Accepted){refreshBoard();refreshEvents();markCalendar();scheduleSave();}
+}
+void SidePanel::moveTask(const QString& id,int status) {
+    const int i=taskIndex(id);if(i<0||status<0||status>3)return;
+    auto task=m_tasks[i].toObject();if(task.value(QStringLiteral("status")).toInt()==status)return;
+    task.insert(QStringLiteral("status"),status);m_tasks[i]=task;
+    refreshBoard();refreshEvents();markCalendar();scheduleSave();
+}
+
 // ---------------------------------------------------------------- Lịch
 QWidget* SidePanel::buildCalendar() {
     auto* w = new QWidget(this);
@@ -286,7 +514,7 @@ QWidget* SidePanel::buildCalendar() {
     });
     auto* row = new QHBoxLayout;
     m_eventTitle = new QLineEdit(w);
-    m_eventTitle->setPlaceholderText(tr("Việc / hạn chót cho ngày đang chọn"));
+    m_eventTitle->setPlaceholderText(tr("Thêm việc cá nhân cho ngày đang chọn"));
     auto* add = new QPushButton(tr("Thêm"), w);
     add->setObjectName(QStringLiteral("WorkPrimary"));
     row->addWidget(m_eventTitle, 1);
@@ -296,7 +524,7 @@ QWidget* SidePanel::buildCalendar() {
     detail->addWidget(m_eventList,1);
     auto* del = new QPushButton(tr("Xoá mục đang chọn"), w);
     detail->addWidget(del);
-    auto* hint = new QLabel(tr("Nhấp đúp vào một việc để đánh dấu xong / chưa xong."), details);
+    auto* hint = new QLabel(tr("Lịch gồm việc cá nhân và hạn chót của dự án đang chọn. Nhấp đúp để sửa việc dự án hoặc đánh dấu việc cá nhân."), details);
     hint->setStyleSheet(QStringLiteral("color:#697992;font-size:11px;"));
     hint->setWordWrap(true);
     detail->addWidget(hint);
@@ -320,6 +548,7 @@ QWidget* SidePanel::buildCalendar() {
     connect(m_eventTitle, &QLineEdit::returnPressed, this, addEvent);
     connect(m_cal, &QCalendarWidget::selectionChanged, this, &SidePanel::refreshEvents);
     connect(m_eventList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* it) {
+        if(it->data(Qt::UserRole+1).isValid()){const auto id=it->data(Qt::UserRole+1).toString();editTask(id);return;}
         const int idx = it->data(Qt::UserRole).toInt();
         if (idx < 0 || idx >= m_events.size()) return;
         QJsonObject e = m_events[idx].toObject();
@@ -331,6 +560,7 @@ QWidget* SidePanel::buildCalendar() {
     connect(del, &QPushButton::clicked, this, [this] {
         auto* it = m_eventList->currentItem();
         if (!it) return;
+        if(it->data(Qt::UserRole+1).isValid()){const auto id=it->data(Qt::UserRole+1).toString();editTask(id);return;}
         const int idx = it->data(Qt::UserRole).toInt();
         if (idx < 0 || idx >= m_events.size()) return;
         m_events.removeAt(idx);
@@ -359,6 +589,15 @@ void SidePanel::refreshEvents() {
         }
         m_eventList->addItem(it);
     }
+    const int pi=projectIndex();if(pi<0)return;
+    const auto p=m_workProjects[pi].toObject();
+    for(const auto& x:m_tasks){
+        const auto task=x.toObject();
+        if(field(task,"project")!=field(p,"id")||field(task,"due")!=day)continue;
+        const int st=qBound(0,task.value(QStringLiteral("status")).toInt(),3);
+        auto* it=new QListWidgetItem(QStringLiteral("[%1] %2 — %3").arg(kWorkStatus[st],field(task,"title"),personName(p,field(task,"person"))));
+        it->setData(Qt::UserRole+1,field(task,"id"));m_eventList->addItem(it);
+    }
 }
 
 void SidePanel::markCalendar() {
@@ -374,6 +613,10 @@ void SidePanel::markCalendar() {
         const QDate d = QDate::fromString(v.toObject().value(QStringLiteral("date")).toString(), Qt::ISODate);
         if (d.isValid()) m_cal->setDateTextFormat(d, fmt);
     }
+    const int pi=projectIndex();if(pi<0)return;
+    const auto project=field(m_workProjects[pi].toObject(),"id");
+    for(const auto& x:m_tasks){const auto task=x.toObject();if(field(task,"project")!=project)continue;
+        const auto date=QDate::fromString(field(task,"due"),Qt::ISODate);if(date.isValid())m_cal->setDateTextFormat(date,fmt);}
 }
 
 // ---------------------------------------------------------------- Liên hệ

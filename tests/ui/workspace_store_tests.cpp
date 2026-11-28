@@ -2,6 +2,9 @@
 #include "../../app/src/extras/WorkspaceStore.h"
 #include <QApplication>
 #include <QLabel>
+#include <QComboBox>
+#include <QListWidget>
+#include <QTabWidget>
 #include <QPushButton>
 #include <QPlainTextEdit>
 #include <QJsonArray>
@@ -70,6 +73,26 @@ int main(int argc,char** argv) {
                         result=14;
                 }
             }
+        }
+    }
+    if(!result){
+        const QJsonObject p1{{"id","p1"},{"name","Dự án A"},{"people",QJsonArray{QJsonObject{{"id","u1"},{"name","Nguyễn An"},{"contact",""}}}}};
+        const QJsonObject p2{{"id","p2"},{"name","Dự án B"}};
+        const QJsonObject task1{{"id","t1"},{"project","p1"},{"title","Việc A"},{"person","u1"},{"status",0},{"due",QDate::currentDate().toString(Qt::ISODate)}};
+        const QJsonObject task2{{"id","t2"},{"project","p2"},{"title","Việc B"},{"status",3}};
+        auto data=workspace::load(QStringLiteral("workspace"));
+        data.insert("workProjects",QJsonArray{p1,p2});data.insert("workTasks",QJsonArray{task1,task2});
+        if(!workspace::save(QStringLiteral("workspace"),data))result=15;
+        else {
+            SidePanel panel;panel.showPage(1);
+            auto* picker=panel.findChild<QComboBox*>(QStringLiteral("WorkProjectPicker"));
+            auto* views=panel.findChild<QTabWidget*>(QStringLiteral("WorkViews"));
+            auto* c0=panel.findChild<QListWidget*>(QStringLiteral("WorkColumn0"));
+            auto* c3=panel.findChild<QListWidget*>(QStringLiteral("WorkColumn3"));
+            if(!picker||!views||views->count()!=2||!c0||!c3||picker->count()!=3||c0->count()!=1||c3->count()!=0||!c0->item(0)->text().contains(QStringLiteral("Nguyễn An")))result=16;
+            else {picker->setCurrentIndex(2);if(c0->count()!=0||c3->count()!=1||!c3->item(0)->text().contains(QStringLiteral("Việc B")))result=17;
+                else {auto* editor=panel.findChild<QPlainTextEdit*>(QStringLiteral("WorkspaceNoteEditor"));editor->setPlainText(QStringLiteral("keep projects"));
+                    if(!panel.flush()||workspace::load(QStringLiteral("workspace")).value("workTasks")!=data.value("workTasks"))result=18;}}
         }
     }
     QDir(dir).removeRecursively();

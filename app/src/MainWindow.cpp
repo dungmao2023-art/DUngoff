@@ -474,7 +474,7 @@ QWidget* MainWindow::buildSidebar() {
     auto* tools = make(tr("Công cụ"), sym("tools"), true);
     section(tr("QUẢN TRỊ CÔNG VIỆC"));
     auto* notes=make(tr("Ghi chú"),app(QStringLiteral("N"),QColor("#9C6F2E")),true);
-    auto* calendar=make(tr("Lịch"),app(QStringLiteral("▦"),QColor("#2864BA")),true);
+    auto* calendar=make(tr("Quản lý công việc"),app(QStringLiteral("▦"),QColor("#2864BA")),true);
     auto* contacts=make(tr("Liên hệ"),app(QStringLiteral("LH"),QColor("#267B69")),true);
     const QList<QPushButton*> workButtons{notes,calendar,contacts};
     for(int i=0;i<workButtons.size();++i){
@@ -664,7 +664,7 @@ void MainWindow::showPalette() {
     add("templates", tr("Kho mẫu"));
     add("tools", tr("Công cụ"));
     add("projects", tr("Dự án"));
-    add("work",tr("Ghi chú"));add("calendar",tr("Lịch công việc"));add("contacts",tr("Danh bạ liên hệ"));
+    add("work",tr("Ghi chú"));add("calendar",tr("Quản lý công việc"));add("contacts",tr("Danh bạ liên hệ"));
     add("drive",tr("Google Drive · thư mục đồng bộ"));
     add("zoomIn", tr("Phóng to"), QStringLiteral("Ctrl+="));
     add("zoomOut", tr("Thu nhỏ"), QStringLiteral("Ctrl+-"));
