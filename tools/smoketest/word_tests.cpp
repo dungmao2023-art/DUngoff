@@ -316,6 +316,30 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     const std::string afterReplace = selText(d);
     check(has(afterReplace, "baz bar baz") && !has(afterReplace, "foo"), "Thay tất cả 'foo' bằng 'baz'", snippet(afterReplace, 80));
 
+    step("tìm/thay chữ thuần phân biệt hoa thường tiếng Việt");
+    run(d,".uno:GoToEndOfDoc");
+    check(d.paste("text/plain;charset=utf-8","\nMẪU_CASE mẫu_case MẪU_CASE [literal.+]"),"Chèn fixture hoa/thường");
+    d.waitInputIdle();selectAll(d);
+    const auto caseBefore=selText(d);
+    run(d,".uno:GoToEndOfDoc");
+    run(d,w::findNext("mẫu_case",true,true));
+    check(selText(d)=="mẫu_case","Tìm có phân biệt hoa/thường");
+    run(d,".uno:GoToEndOfDoc");
+    run(d,w::findNext("mẫu_case",true,false));
+    check(selText(d)=="MẪU_CASE","Tìm không phân biệt hoa/thường");
+    run(d,w::replaceAll("MẪU_CASE","ĐÃ_CASE",true));
+    selectAll(d);
+    check(has(selText(d),"ĐÃ_CASE mẫu_case ĐÃ_CASE [literal.+]"),"Thay đúng hai chữ hoa, giữ chữ thường");
+    run(d,".uno:Undo");selectAll(d);
+    check(selText(d)==caseBefore,"Undo thay phân biệt hoa/thường");
+    run(d,w::replaceAll("mẫu_case","ĐÃ_CASE",false));
+    selectAll(d);
+    check(has(selText(d),"ĐÃ_CASE ĐÃ_CASE ĐÃ_CASE [literal.+]"),"Thay không phân biệt hoa/thường");
+    run(d,".uno:Undo");selectAll(d);
+    check(selText(d)==caseBefore,"Undo thay không phân biệt hoa/thường");
+    run(d,w::findNext("[literal.+]",false,true));
+    check(selText(d)=="[literal.+]","Tìm dấu regex như chữ thuần");
+
     step("thay một vùng chữ tiếng Việt và hoàn tác");
     run(d, ".uno:GoToEndOfDoc");
     check(d.paste("text/plain;charset=utf-8", "\nMẪU_THAY ĐÍCH_GIỮ MẪU_THAY"),"Chèn fixture thay một lần");

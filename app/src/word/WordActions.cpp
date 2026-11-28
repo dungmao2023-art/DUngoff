@@ -570,7 +570,9 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         form->addRow(QObject::tr("Tìm:"),what);
         form->addRow(QObject::tr("Thay bằng:"),with);
         root->addLayout(form);
-        auto* note=new QLabel(QObject::tr("Tìm trước/sau, rồi thay vùng chữ khớp chính xác chữ hoa/thường. Để trống ô Thay bằng nếu muốn xóa. Thay tất cả cần xác nhận."),&dlg);
+        auto* matchCase=new QCheckBox(QObject::tr("Phân biệt chữ hoa/thường"),&dlg);
+        matchCase->setChecked(true);root->addWidget(matchCase);
+        auto* note=new QLabel(QObject::tr("Tìm chữ thuần trước/sau, rồi thay vùng chữ tìm thấy. Để trống ô Thay bằng nếu muốn xóa. Thay tất cả cần xác nhận."),&dlg);
         note->setTextFormat(Qt::PlainText);note->setWordWrap(true);root->addWidget(note);
         auto* buttons=new QDialogButtonBox(QDialogButtonBox::Close,&dlg);
         auto* prev=buttons->addButton(QObject::tr("Tìm trước"),QDialogButtonBox::ActionRole);
@@ -586,15 +588,20 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             replaceSelected->setEnabled(canEdit&&match.has_value());
         };
         QObject::connect(what,&QLineEdit::textChanged,&dlg,[&]{match.reset();refresh();});
+        QObject::connect(matchCase,&QCheckBox::toggled,&dlg,[&]{match.reset();refresh();});
+        auto matches=[&](const std::string& selected){
+            return !selected.empty()&&QString::compare(QString::fromStdString(selected),what->text(),
+                matchCase->isChecked()?Qt::CaseSensitive:Qt::CaseInsensitive)==0;
+        };
         auto find=[&](bool backward){
             match.reset();
             if(!ready()){refresh();return;}
             doc->waitInputIdle();
-            send(live.data(),findNext(ss(what->text()),backward));
+            send(live.data(),findNext(ss(what->text()),backward,matchCase->isChecked()));
             doc->waitInputIdle();
             if(!ready()){refresh();return;}
             WordInsertTarget found(live.data());
-            if(found.selected==ss(what->text()) && !found.selection.empty()){
+            if(matches(found.selected) && !found.selection.empty()){
                 match.emplace(std::move(found));
                 note->setText(QObject::tr("Vùng chữ khớp chính xác: %1. Có thể thay một lần hoặc tiếp tục tìm.").arg(what->text()));
             }else if(found.selected.empty())
@@ -609,7 +616,7 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             if(!ready()||live->readOnly()||!match)return;
             const auto target=*match;
             match.reset();refresh();
-            if(target.selected!=ss(what->text()) || !target.verify())return;
+            if(!matches(target.selected) || !target.verify())return;
             const QString replacement=with->text();
             if(ss(replacement)==target.selected){
                 note->setText(QObject::tr("Nội dung thay thế giống vùng chọn; không sửa tài liệu."));
@@ -628,12 +635,13 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         QObject::connect(replace,&QPushButton::clicked,&dlg,[&]{
             if(!ready()||live->readOnly())return;
             const QString needle=what->text(),replacement=with->text();
+            const bool exact=matchCase->isChecked();
             if(QMessageBox::question(&dlg,QObject::tr("Thay tất cả"),
-                QObject::tr("Thay mọi lần xuất hiện của «%1» bằng «%2» trong tài liệu?").arg(needle,replacement),
+                QObject::tr("Thay mọi lần xuất hiện của «%1» bằng «%2» trong tài liệu?\n%3").arg(needle,replacement,exact?QObject::tr("Có phân biệt hoa/thường"):QObject::tr("Không phân biệt hoa/thường")),
                 QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
             if(!live||live->document()!=doc||live->readOnly())return;
             doc->waitInputIdle();
-            send(live.data(),replaceAll(ss(needle),ss(replacement)));
+            send(live.data(),replaceAll(ss(needle),ss(replacement),exact));
             doc->waitInputIdle();
             dlg.accept();
         });
