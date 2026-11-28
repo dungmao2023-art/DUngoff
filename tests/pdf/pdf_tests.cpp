@@ -868,6 +868,16 @@ int main(int argc, char** argv) {
         if(!imageResult.ok)std::cerr<<imageResult.error.toStdString()<<'\n';
         CHECK(imageResult.ok&&info(withImage).pages==2&&qdfOf(withImage).contains("/Subtype /Image")&&
               readFile(source)==original,"insert real image object without replacing page text or source");
+        if(imageResult.ok){
+            const auto moved=P("native-moved.pdf"),beforeMove=readFile(withImage);
+            const auto movedResult=pdfedit::moveImage(withImage,2,QPointF(.5,.5),QPointF(.75,.8),15,fingerprint(withImage),moved);
+            if(!movedResult.ok)std::cerr<<movedResult.error.toStdString()<<'\n';
+            CHECK(movedResult.ok&&info(moved).pages==2&&readFile(withImage)==beforeMove&&readFile(source)==original,
+                "move and resize a native image while retaining previous versions");
+            const auto missed=P("native-missed.pdf");
+            CHECK(!pdfedit::moveImage(withImage,2,QPointF(.01,.01),QPointF(.5,.5),0,fingerprint(withImage),missed).ok&&
+                  !QFile::exists(missed),"reject click outside image");
+        }
         const auto badImage=P("bad-image.pdf");
         CHECK(!pdfedit::insertImage(source,1,png,QPointF(1.5,.5),25,fingerprint(source),badImage).ok&&
               !pdfedit::insertImage(source,1,png,QPointF(.5,.5),25,QByteArray(32,'x'),badImage).ok&&

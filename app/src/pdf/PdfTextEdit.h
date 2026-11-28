@@ -8,6 +8,10 @@ bool available();
 // widthPercent is a percentage of page width, aspect ratio is preserved.
 dungpdf::Result insertImage(const QString& source,int page,const QString& imagePath,QPointF center,
                            double widthPercent,const QByteArray& expectedSource,const QString& dest);
+// Select one unambiguous top-level image by a point, then move/resize it.
+// widthPercent=0 retains the existing size.
+dungpdf::Result moveImage(const QString& source,int page,QPointF selected,QPointF center,
+                          double widthPercent,const QByteArray& expectedSource,const QString& dest);
 dungpdf::Result replaceObject(const QString& source,int page,const QString& oldText,const QString& newText,const QString& dest,
                              const QByteArray& expectedSource = {});
 }

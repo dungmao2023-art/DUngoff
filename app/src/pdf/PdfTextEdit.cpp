@@ -12,6 +12,7 @@
 #include <QImage>
 #include <cmath>
 #include <cstring>
+#include <optional>
 #ifdef DUNG_HAVE_PDFIUM_EDIT
 #include <fpdfview.h>
 #include <fpdf_edit.h>
@@ -73,32 +74,42 @@ QStringList texts(FPDF_PAGE p,FPDF_TEXTPAGE t){
 }
 }
 #endif
-dungpdf::Result insertImage(const QString& source,int page,const QString& imagePath,QPointF center,
+static dungpdf::Result editImage(const QString& source,int page,const QString& imagePath,
+                           std::optional<QPointF> selected,QPointF center,
                            double widthPercent,const QByteArray& expectedSource,const QString& dest){
 #ifndef DUNG_HAVE_PDFIUM_EDIT
     return fail(QStringLiteral("Bản cài chưa có PDFium Editing SDK."));
 #else
     if(expectedSource.size()!=32||!std::isfinite(center.x())||!std::isfinite(center.y())||
        center.x()<0||center.x()>1||center.y()<0||center.y()>1||
-       !std::isfinite(widthPercent)||widthPercent<5||widthPercent>100)
+       !std::isfinite(widthPercent)||widthPercent>100||(widthPercent<5&&!(selected&&widthPercent==0)))
         return fail(QStringLiteral("Vị trí hoặc kích thước ảnh không hợp lệ."));
+    const bool moving=selected.has_value();
+    if(moving&&(!std::isfinite(selected->x())||!std::isfinite(selected->y())||
+        selected->x()<0||selected->x()>1||selected->y()<0||selected->y()>1))
+        return fail(QStringLiteral("Vùng chọn ảnh không hợp lệ."));
     const QFileInfo target(dest),imgInfo(imagePath);
     if(target.exists()||target.isSymLink()||!QDir(target.absolutePath()).exists())
         return fail(QStringLiteral("Chọn tên tệp mới."));
-    if(!imgInfo.isFile()||imgInfo.size()<=0||imgInfo.size()>32LL*1024*1024)
-        return fail(QStringLiteral("Ảnh không hợp lệ hoặc vượt 32 MiB."));
-    QImageReader reader(imagePath);reader.setAutoTransform(true);
-    const QSize declared=reader.size();
-    if(declared.isEmpty()||qint64(declared.width())*declared.height()>16000000)
-        return fail(QStringLiteral("Ảnh vượt 16 triệu điểm ảnh hoặc không đọc được."));
-    const QImage image=reader.read().convertToFormat(QImage::Format_ARGB32);
-    if(image.isNull()||qint64(image.width())*image.height()>16000000)
-        return fail(QStringLiteral("Không đọc được ảnh."));
+    QImage image;
+    if(!moving){
+        if(!imgInfo.isFile()||imgInfo.size()<=0||imgInfo.size()>32LL*1024*1024)
+            return fail(QStringLiteral("Ảnh không hợp lệ hoặc vượt 32 MiB."));
+        QImageReader reader(imagePath);reader.setAutoTransform(true);
+        const QSize declared=reader.size();
+        if(declared.isEmpty()||qint64(declared.width())*declared.height()>16000000)
+            return fail(QStringLiteral("Ảnh vượt 16 triệu điểm ảnh hoặc không đọc được."));
+        image=reader.read().convertToFormat(QImage::Format_ARGB32);
+        if(image.isNull()||qint64(image.width())*image.height()>16000000)
+            return fail(QStringLiteral("Không đọc được ảnh."));
+    }
     QFile input(source);
     if(!input.open(QIODevice::ReadOnly)||input.size()<=0||input.size()>128LL*1024*1024)
         return fail(QStringLiteral("Nguồn không hợp lệ hoặc vượt 128 MiB."));
-    const auto bytes=input.readAll();input.close();
-    if(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256)!=expectedSource)
+    const auto bytes=input.readAll();
+    const bool readOk=input.error()==QFileDevice::NoError&&bytes.size()==input.size();
+    input.close();
+    if(!readOk||QCryptographicHash::hash(bytes,QCryptographicHash::Sha256)!=expectedSource)
         return fail(QStringLiteral("PDF nguồn đã thay đổi."));
     QMutexLocker lock(&mutex);Session session;
     Doc doc{FPDF_LoadMemDocument64(bytes.constData(),size_t(bytes.size()),nullptr)};
@@ -107,7 +118,7 @@ dungpdf::Result insertImage(const QString& source,int page,const QString& imageP
         return fail(QStringLiteral("Chưa hỗ trợ PDF mã hóa, chữ ký số hoặc form khi chèn ảnh."));
     const int pages=FPDF_GetPageCount(doc.p);
     if(page<1||page>pages)return fail(QStringLiteral("Trang không hợp lệ."));
-    QStringList originalText;int originalCount=0;double x=0,y=0,w=0,h=0;
+    QStringList originalText;int originalCount=0,originalImages=0;double x=0,y=0,w=0,h=0;
     {
         Page pg{FPDF_LoadPage(doc.p,page-1)};
         if(!pg.p)return fail(QStringLiteral("Không mở được trang."));
@@ -121,22 +132,51 @@ dungpdf::Result insertImage(const QString& source,int page,const QString& imageP
         originalCount=FPDFPage_CountObjects(pg.p);
         if(originalCount<0||originalCount>50000)return fail(QStringLiteral("Trang quá phức tạp."));
         {Text text{FPDFText_LoadPage(pg.p)};if(!text.p)return fail(QStringLiteral("Không đọc được lớp chữ."));originalText=texts(pg.p,text.p);}
-        w=pw*widthPercent/100;h=w*image.height()/image.width();
-        if(h>ph){w*=ph/h;h=ph;}
+        FPDF_PAGEOBJECT object=nullptr;
+        for(int i=0;i<originalCount;++i){
+            auto candidate=FPDFPage_GetObject(pg.p,i);
+            if(!candidate||FPDFPageObj_GetType(candidate)!=FPDF_PAGEOBJ_IMAGE)continue;
+            ++originalImages;
+            if(!moving)continue;
+            float l=0,b=0,r=0,t=0;
+            if(!FPDFPageObj_GetBounds(candidate,&l,&b,&r,&t))continue;
+            const double sx=selected->x()*pw,sy=(1-selected->y())*ph;
+            if(sx>=l&&sx<=r&&sy>=b&&sy<=t){
+                if(object)return fail(QStringLiteral("Có nhiều ảnh chồng nhau tại vị trí chọn."));
+                object=candidate;
+            }
+        }
+        if(moving){
+            if(!object)return fail(QStringLiteral("Không tìm thấy ảnh độc lập ở vị trí chọn."));
+            FS_MATRIX matrix{};
+            if(!FPDFPageObj_GetMatrix(object,&matrix)||!std::isfinite(matrix.a)||!std::isfinite(matrix.d)||
+                matrix.a<=0||matrix.d<=0||std::abs(matrix.b)>.0001||std::abs(matrix.c)>.0001)
+                return fail(QStringLiteral("Chưa hỗ trợ chỉnh ảnh xoay, nghiêng hoặc lật."));
+            w=widthPercent==0?double(matrix.a):pw*widthPercent/100;
+            h=w*matrix.d/matrix.a;
+        }else{
+            w=pw*widthPercent/100;h=w*image.height()/image.width();
+        }
+        const double scale=qMin(1.0,qMin(pw/w,ph/h));w*=scale;h*=scale;
+        if(!std::isfinite(w)||!std::isfinite(h)||w<=0||h<=0)return fail(QStringLiteral("Kích thước ảnh không hợp lệ."));
         x=qBound(0.0,center.x()*pw-w/2,qMax(0.0,pw-w));
         y=qBound(0.0,(1-center.y())*ph-h/2,qMax(0.0,ph-h));
-        auto object=FPDFPageObj_NewImageObj(doc.p);
-        if(!object)return fail(QStringLiteral("Không tạo được đối tượng ảnh."));
-        // PDFium copies the supplied BGRA bitmap into the image object.
-        auto bitmap=FPDFBitmap_CreateEx(image.width(),image.height(),FPDFBitmap_BGRA,
-            const_cast<uchar*>(image.constBits()),image.bytesPerLine());
-        if(!bitmap){FPDFPageObj_Destroy(object);return fail(QStringLiteral("Không tạo được bitmap."));}
-        const bool set=FPDFImageObj_SetBitmap(nullptr,0,object,bitmap);
-        FPDFBitmap_Destroy(bitmap);
-        if(!set||!FPDFImageObj_SetMatrix(object,w,0,0,h,x,y)){
-            FPDFPageObj_Destroy(object);return fail(QStringLiteral("Không đặt được ảnh."));
+        if(!moving){
+            object=FPDFPageObj_NewImageObj(doc.p);
+            if(!object)return fail(QStringLiteral("Không tạo được đối tượng ảnh."));
+            // PDFium copies the supplied BGRA bitmap into the image object.
+            auto bitmap=FPDFBitmap_CreateEx(image.width(),image.height(),FPDFBitmap_BGRA,
+                const_cast<uchar*>(image.constBits()),image.bytesPerLine());
+            if(!bitmap){FPDFPageObj_Destroy(object);return fail(QStringLiteral("Không tạo được bitmap."));}
+            const bool set=FPDFImageObj_SetBitmap(nullptr,0,object,bitmap);
+            FPDFBitmap_Destroy(bitmap);
+            if(!set){FPDFPageObj_Destroy(object);return fail(QStringLiteral("Không đọc được nội dung ảnh."));}
         }
-        FPDFPage_InsertObject(pg.p,object);
+        if(!FPDFImageObj_SetMatrix(object,w,0,0,h,x,y)){
+            if(!moving)FPDFPageObj_Destroy(object);
+            return fail(QStringLiteral("Không đặt được ảnh."));
+        }
+        if(!moving)FPDFPage_InsertObject(pg.p,object);
         if(!FPDFPage_GenerateContent(pg.p))return fail(QStringLiteral("Không cập nhật được nội dung trang."));
     }
     QTemporaryDir temp(QDir(target.absolutePath()).filePath(QStringLiteral("~dung-image-XXXXXX")));
@@ -152,18 +192,19 @@ dungpdf::Result insertImage(const QString& source,int page,const QString& imageP
         Doc verify{FPDF_LoadMemDocument64(data.constData(),size_t(data.size()),nullptr)};
         if(!verify.p||FPDF_GetPageCount(verify.p)!=pages)return fail(QStringLiteral("Số trang sau khi lưu không khớp."));
         Page pg{FPDF_LoadPage(verify.p,page-1)};
-        if(!pg.p||FPDFPage_CountObjects(pg.p)!=originalCount+1)return fail(QStringLiteral("Không xác minh được đối tượng ảnh mới."));
+        if(!pg.p||FPDFPage_CountObjects(pg.p)!=originalCount+(moving?0:1))return fail(QStringLiteral("Không xác minh được số đối tượng."));
         Text text{FPDFText_LoadPage(pg.p)};
         if(!text.p||texts(pg.p,text.p)!=originalText)return fail(QStringLiteral("Lớp chữ sau khi lưu không khớp."));
-        bool found=false;
+        int found=0,images=0;
         for(int i=0;i<FPDFPage_CountObjects(pg.p);++i){
             auto obj=FPDFPage_GetObject(pg.p,i);
             if(!obj||FPDFPageObj_GetType(obj)!=FPDF_PAGEOBJ_IMAGE)continue;
+            ++images;
             float l=0,b=0,r=0,t=0;
             if(FPDFPageObj_GetBounds(obj,&l,&b,&r,&t)&&std::abs(l-x)<.1&&std::abs(b-y)<.1&&
-                std::abs(r-x-w)<.1&&std::abs(t-y-h)<.1){found=true;break;}
+                std::abs(r-x-w)<.1&&std::abs(t-y-h)<.1)++found;
         }
-        if(!found)return fail(QStringLiteral("Ảnh sau khi lưu không đúng vị trí."));
+        if(found!=1||images!=originalImages+(moving?0:1))return fail(QStringLiteral("Không xác minh được vị trí ảnh sau khi lưu."));
     }
     const auto inf=dungpdf::info(path);
     if(!inf.ok||inf.pages!=pages||dungpdf::fingerprint(source)!=expectedSource||
@@ -173,6 +214,14 @@ dungpdf::Result insertImage(const QString& source,int page,const QString& imageP
     r.warnings<<QStringLiteral("Ảnh nằm trên nội dung hiện có; hãy kiểm tra bố cục. Đây không phải xóa thông tin mật.");
     return r;
 #endif
+}
+dungpdf::Result insertImage(const QString& source,int page,const QString& imagePath,QPointF center,
+                           double widthPercent,const QByteArray& expectedSource,const QString& dest){
+    return editImage(source,page,imagePath,std::nullopt,center,widthPercent,expectedSource,dest);
+}
+dungpdf::Result moveImage(const QString& source,int page,QPointF selected,QPointF center,
+                          double widthPercent,const QByteArray& expectedSource,const QString& dest){
+    return editImage(source,page,QString(),selected,center,widthPercent,expectedSource,dest);
 }
 dungpdf::Result replaceObject(const QString& source,int page,const QString& oldText,const QString& newText,const QString& dest,const QByteArray& expectedSource){
 #ifndef DUNG_HAVE_PDFIUM_EDIT
