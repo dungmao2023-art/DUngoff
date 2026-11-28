@@ -66,7 +66,9 @@ Call splitCell(int amount, bool horizontal) {
 }
 Call tableDimension(bool row, unsigned twips) {
     const std::string name=row?"TableRowHeight":"TableColumWidth";
-    return {".uno:"+name,"{"+wrap(name,"unsigned long",std::to_string(twips))+"}"};
+    // CntUInt32Item::PutValue in svl/source/items/cintitem.cxx
+    // extracts sal_Int32, despite the property's UInt32 item name.
+    return {".uno:"+name,argLong(name,twips)};
 }
 Call enablePageBand(bool header, const std::string& pageStyle) {
     return {header ? ".uno:InsertPageHeader" : ".uno:InsertPageFooter", join({argString("PageStyle", pageStyle), argBool("On", true)})};
