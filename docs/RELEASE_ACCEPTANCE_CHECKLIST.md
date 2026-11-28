@@ -338,3 +338,6 @@ Port nguyên các hunk mã nguồn và test từ #154 (xóa hàng/cột Excel x�
 ## 28/11/2026 — font theo tài liệu trên v2
 
 Tách phần triển khai font UI và test của #160 khỏi preflight thử nghiệm. Head 4800ba3 đã PASS CI Windows v2/Linux hệ thống (46087683024); port nguyên 8 file mã/test lên main sau #161, cần CI mới. Ribbon Word/Excel/PPT lấy inventory JSON của engine theo tab, giữ tên font gốc khi thiếu, không tự chọn font khi chuyển tab. Word/Excel dialog refresh. Không coi đây là font embedding, sửa Fontconfig/Aptos hay nghiệm thu máy thật; không tăng stage/trọng số. #160 vẫn mở cho probe và audit độc lập.
+
+## 28/11/2026 — tích hợp nhánh đã qua CI trên main mới
+- Port mã/test từ #177, #165, #166 trên c6282af43fee5a05f1874717b6ae4d0a437f74bc. CI nguồn PASS; cần CI tích hợp mới và GUI Windows thật. Không tăng stage, không đổi pin, không rebuild hoặc release.
