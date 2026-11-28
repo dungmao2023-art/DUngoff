@@ -89,13 +89,19 @@ int main(int argc, char** argv) {
     {
         const QByteArray blank="<p:sld xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld></p:sld>";
         pptdiagram::Options diagram;diagram.title="Ý tưởng & <kết quả>";diagram.items={"Một","Hai","Ba","Bốn"};
-        for(int l=0;l<4;++l)for(int palette=0;palette<3;++palette){
+        for(int l=0;l<6;++l)for(int palette=0;palette<3;++palette){
             diagram.layout=static_cast<pptdiagram::Layout>(l);diagram.palette=palette;
             QList<pptdiagram::Node> nodes;QByteArray output;
             check(pptdiagram::plan(diagram,&nodes)&&patchDiagramXml(blank,12192000,6858000,diagram,&output).ok&&
                   output.count("<p:sp ")==nodes.size()&&output.contains("&amp;")&&output.contains("&lt;")&&
                   !patchDiagramXml(output,12192000,6858000,diagram,&out).ok,
                   "editable diagram shapes, escaping and refusal to overwrite");
+            const auto edges=pptdiagram::edges(diagram,nodes);
+            const int expectedEdges=l==0?3:l==1?7:l==2?4:l==3?0:l==4?3:4;
+            check(edges.size()==expectedEdges&&output.count("<p:cxnSp ")==expectedEdges&&
+                  output.count("<a:stCxn ")==expectedEdges&&output.count("<a:endCxn ")==expectedEdges,"attached diagram connectors");
+            for(const auto& edge:edges)check(edge.from!=edge.to&&edge.from>=0&&edge.to>=0&&
+                edge.from<nodes.size()&&edge.to<nodes.size()&&edge.start!=edge.end,"valid connector endpoints");
             for(const auto& node:nodes)check(QRectF(0,0,1,1).contains(node.rect),"diagram bounds");
         }
         check(!patchDiagramXml(animXml,12192000,6858000,diagram,&out).ok,"reject occupied slide");

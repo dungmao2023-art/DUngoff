@@ -590,9 +590,31 @@ Result patchDiagramXml(const QByteArray& xml,qint64 width,qint64 height,const pp
     const auto start=[&](const char* name){w.writeStartElement(QString::fromLatin1(name));};
     const auto attr=[&](const char* name,const QString& value){w.writeAttribute(QString::fromLatin1(name),value);};
     const auto color=[&](const QString& value){start("a:solidFill");start("a:srgbClr");attr("val",value);w.writeEndElement();w.writeEndElement();};
+    const unsigned firstNodeId=maxId+1;
+    const auto links=pptdiagram::edges(options,nodes);
+    maxId+=unsigned(nodes.size());
+    // Connectors are real attached DrawingML objects, drawn behind the boxes.
+    for(const auto& edge:links){
+        start("p:cxnSp");attr("xmlns:p",P);attr("xmlns:a","http://schemas.openxmlformats.org/drawingml/2006/main");
+        start("p:nvCxnSpPr");start("p:cNvPr");attr("id",QString::number(++maxId));attr("name",QStringLiteral("Đường nối %1").arg(maxId));w.writeEndElement();
+        start("p:cNvCxnSpPr");
+        start("a:stCxn");attr("id",QString::number(firstNodeId+edge.from));attr("idx",QString::number(edge.startSite));w.writeEndElement();
+        start("a:endCxn");attr("id",QString::number(firstNodeId+edge.to));attr("idx",QString::number(edge.endSite));w.writeEndElement();
+        w.writeEndElement();start("p:nvPr");w.writeEndElement();w.writeEndElement();
+        start("p:spPr");start("a:xfrm");
+        if(edge.end.x()<edge.start.x())attr("flipH","1");
+        if(edge.end.y()<edge.start.y())attr("flipV","1");
+        start("a:off");attr("x",QString::number(qRound64(qMin(edge.start.x(),edge.end.x())*width)));attr("y",QString::number(qRound64(qMin(edge.start.y(),edge.end.y())*height)));w.writeEndElement();
+        start("a:ext");attr("cx",QString::number(qRound64(qAbs(edge.end.x()-edge.start.x())*width)));attr("cy",QString::number(qRound64(qAbs(edge.end.y()-edge.start.y())*height)));w.writeEndElement();w.writeEndElement();
+        start("a:prstGeom");attr("prst","line");start("a:avLst");w.writeEndElement();w.writeEndElement();
+        start("a:ln");attr("w","25400");color("64748B");
+        if(edge.arrow){start("a:tailEnd");attr("type","triangle");w.writeEndElement();}
+        w.writeEndElement();w.writeEndElement();w.writeEndElement();
+    }
+    unsigned nodeId=firstNodeId;
     for(const auto& node:nodes){
         start("p:sp");attr("xmlns:p",P);attr("xmlns:a","http://schemas.openxmlformats.org/drawingml/2006/main");
-        start("p:nvSpPr");start("p:cNvPr");attr("id",QString::number(++maxId));attr("name",node.text.left(60));w.writeEndElement();
+        start("p:nvSpPr");start("p:cNvPr");attr("id",QString::number(nodeId++));attr("name",node.text.left(60));w.writeEndElement();
         start("p:cNvSpPr");w.writeEndElement();start("p:nvPr");w.writeEndElement();w.writeEndElement();
         start("p:spPr");start("a:xfrm");start("a:off");attr("x",QString::number(qRound64(node.rect.x()*width)));attr("y",QString::number(qRound64(node.rect.y()*height)));w.writeEndElement();
         start("a:ext");attr("cx",QString::number(qRound64(node.rect.width()*width)));attr("cy",QString::number(qRound64(node.rect.height()*height)));w.writeEndElement();w.writeEndElement();
@@ -607,9 +629,11 @@ Result patchDiagramXml(const QByteArray& xml,qint64 width,qint64 height,const pp
         w.writeTextElement("a:t",node.text);w.writeEndElement();w.writeEndElement();w.writeEndElement();w.writeEndElement();
     }
     text.insert(insertion,fragment);
-    QXmlStreamReader verify(text);int shapes=0;
-    while(!verify.atEnd()){verify.readNext();if(verify.isStartElement()&&verify.namespaceUri()==P&&verify.name()=="sp")++shapes;}
-    if(verify.hasError()||shapes!=nodes.size())return fail(QStringLiteral("Không xác minh được sơ đồ đầu ra."));
+    QXmlStreamReader verify(text);int shapes=0,connectors=0;
+    while(!verify.atEnd()){verify.readNext();if(verify.isStartElement()&&verify.namespaceUri()==P){
+        if(verify.name()=="sp")++shapes;else if(verify.name()=="cxnSp")++connectors;
+    }}
+    if(verify.hasError()||shapes!=nodes.size()||connectors!=links.size())return fail(QStringLiteral("Không xác minh được sơ đồ đầu ra."));
     *output=text.toUtf8();return {true,{}};
 }
 Result createDiagramCopy(const QString& source,const QString& destination,int slide1,const pptdiagram::Options& options,const QByteArray& expectedSource){

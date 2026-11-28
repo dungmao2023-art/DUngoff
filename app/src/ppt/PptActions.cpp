@@ -454,7 +454,7 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         auto* page=new QSpinBox(&dialog);page->setRange(1,int(slides.size()));page->setValue(qBound(1,d->currentPart()+1,int(slides.size())));
         auto* title=new QLineEdit(QObject::tr("Kế hoạch dự án"),&dialog);title->setMaxLength(80);
         auto* items=new QPlainTextEdit(&dialog);items->setPlainText(QObject::tr("Ý tưởng\nChuẩn bị\nThực hiện\nKết quả"));items->setMaximumHeight(140);
-        auto* layout=new QComboBox(&dialog);layout->addItems({QObject::tr("Quy trình"),QObject::tr("Timeline"),QObject::tr("Sơ đồ tư duy"),QObject::tr("Thẻ nội dung")});
+        auto* layout=new QComboBox(&dialog);layout->addItems({QObject::tr("Quy trình"),QObject::tr("Timeline"),QObject::tr("Sơ đồ tư duy"),QObject::tr("Thẻ nội dung"),QObject::tr("Phân cấp"),QObject::tr("Vòng tuần hoàn")});
         auto* palette=new QComboBox(&dialog);palette->addItems({QObject::tr("Hiện đại"),QObject::tr("Học thuật"),QObject::tr("Ấm áp")});
         form->addRow(QObject::tr("Slide trống"),page);form->addRow(QObject::tr("Tiêu đề"),title);
         form->addRow(QObject::tr("2–6 ý, mỗi dòng một ý"),items);form->addRow(QObject::tr("Bố cục"),layout);form->addRow(QObject::tr("Màu sắc"),palette);
@@ -470,6 +470,16 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             bb->button(QDialogButtonBox::Ok)->setEnabled(valid);
             status->setText(valid?QObject::tr("Xem trước minh họa 16:9. Chọn slide trống để xuất."):QObject::tr("Nhập tiêu đề và 2–6 ý, mỗi ý tối đa 64 ký tự."));
             QPixmap pix(320,180);pix.fill(QColor("#F8FAFC"));QPainter p(&pix);p.setRenderHint(QPainter::Antialiasing);
+            for(const auto& edge:pptdiagram::edges(options(),nodes)){
+                const QPointF start(edge.start.x()*320,edge.start.y()*180),end(edge.end.x()*320,edge.end.y()*180);
+                p.setPen(QPen(QColor("#64748B"),1.4));p.drawLine(start,end);
+                if(edge.arrow){
+                    const auto d=end-start;const qreal len=std::hypot(d.x(),d.y());
+                    if(len>1){const auto u=d/len;const QPointF side(-u.y(),u.x());
+                        p.setPen(Qt::NoPen);p.setBrush(QColor("#64748B"));
+                        QPolygonF arrow;arrow<<end<<end-u*5+side*2.5<<end-u*5-side*2.5;p.drawPolygon(arrow);}
+                }
+            }
             for(const auto& node:nodes){
                 const QRectF rect(node.rect.x()*320,node.rect.y()*180,node.rect.width()*320,node.rect.height()*180);
                 p.setPen(Qt::NoPen);p.setBrush(QColor("#"+node.fill));p.drawRoundedRect(rect,5,5);
