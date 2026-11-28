@@ -289,6 +289,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     {QStringLiteral("ppt.layerDown"), tr("Đưa lớp xuống"), 0xE74B, QStringLiteral("↓"), false},
                     {QStringLiteral("ppt.group"), tr("Nhóm đối tượng"), 0xE8B9, QStringLiteral("▣"), false},
                     {QStringLiteral("ppt.ungroup"), tr("Bỏ nhóm"), 0xE8B9, QStringLiteral("▢"), false},
+                    {QStringLiteral("ppt.alignObjects"), tr("Căn đối tượng…"), 0xE8E4, QStringLiteral("≡"), false},
                     {QStringLiteral(".uno:InsertTable#{\"Columns\":{\"type\":\"long\",\"value\":\"3\"},\"Rows\":{\"type\":\"long\",\"value\":\"2\"}}"), tr("Bảng 3×2"), 0xE80A, QStringLiteral("▦"), false},
                 }}}},
             {tr("Trình chiếu"), {{tr("Trình chiếu"), {

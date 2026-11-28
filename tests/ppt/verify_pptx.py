@@ -118,5 +118,23 @@ for filename, expected_group in (
     check(positions.keys()==geometry.keys() and all(
         abs(a-b)<=360 for k in positions for a,b in zip(positions[k],geometry[k])),
         filename+": absolute geometry preserved within 0.01 mm")
+# Verify six native alignments and exact undo against independent source.
+align_order, original = layer_shapes("ppt-align-baseline.pptx")
+check(align_order==["LAYER_A","LAYER_B"],"alignment source order")
+for mode, axis, factor in (
+    ("left",0,0),("center",0,0.5),("right",0,1),
+    ("top",1,0),("middle",1,0.5),("bottom",1,1),
+):
+    filename="ppt-align-"+mode+".pptx"
+    order, actual=layer_shapes(filename)
+    check(order==align_order and actual.keys()==original.keys(),filename+": object identity/order")
+    if actual.keys()==original.keys() and len(actual)==2:
+        edges=[v[axis]+factor*v[axis+2] for v in actual.values()]
+        check(abs(edges[0]-edges[1])<=720,filename+": requested edges aligned")
+        check(any(abs(actual[k][axis]-original[k][axis])>720 for k in actual),filename+": actual position changed")
+        check(all(abs(actual[k][j]-original[k][j])<=360 for k in actual
+                  for j in (1-axis,2,3)),filename+": other axis and dimensions preserved")
+    undo_order, undo=layer_shapes("ppt-align-"+mode+"-undone.pptx")
+    check(undo_order==align_order and undo==original,filename+": Undo restores original geometry")
 print("\nKẾT QUẢ XÁC MINH PPTX:", "CÓ LỖI" if fail else "TẤT CẢ ĐẠT")
 sys.exit(1 if fail else 0)
