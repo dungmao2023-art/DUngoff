@@ -224,6 +224,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     B("xl:protectSheet", tr("Bảo vệ sheet"), 0xE72E, "🔒", false),
                 }},
                 {tr("PivotTable"), {
+                    B("xl:createPivot", tr("Tạo PivotTable"), 0xE8B9, "▦", false),
                     B("xl:refreshPivot", tr("Cập nhật Pivot"), 0xE72C, "↻", false),
                 }},
                 {tr("Tiện ích bảng"), {
