@@ -39,6 +39,8 @@
 #include <QDate>
 #include <QDir>
 #include <QFileInfo>
+#include <QImageReader>
+#include <QPixmap>
 #include <QGuiApplication>
 #include <QTemporaryDir>
 #include <QFileDialog>
@@ -611,15 +613,69 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         const WordInsertTarget target(tab);
         const QString f = QFileDialog::getOpenFileName(parent, QObject::tr("Chèn ảnh"), QString(),
                                                        QObject::tr("Ảnh (*.png *.jpg *.jpeg *.gif *.bmp *.svg)"));
-        if(!f.isEmpty() && target.verify()) {
-            const QFileInfo info(f);
-            if(!info.isFile() || !info.isReadable()) {
-                QMessageBox::warning(target.tab.data(),QObject::tr("Chèn ảnh"),QObject::tr("Tệp ảnh không còn đọc được."));
-                return true;
-            }
-            send(target.tab.data(),insertImage(ss(QUrl::fromLocalFile(f).toString())));
-            target.tab->view()->setFocus();
+        if(f.isEmpty())return true;
+        const QFileInfo info(f);
+        QImageReader reader(f);reader.setAutoTransform(true);
+        const QSize original=reader.size();
+        if(!info.isFile()||!info.isReadable()||info.size()<=0||info.size()>64LL*1024*1024||
+           !original.isValid()||qint64(original.width())*original.height()>40000000){
+            QMessageBox::warning(parent,QObject::tr("Chèn ảnh"),QObject::tr("Ảnh không đọc được hoặc vượt giới hạn 64 MB / 40 triệu điểm ảnh."));
+            return true;
         }
+        reader.setScaledSize(original.scaled(QSize(340,210),Qt::KeepAspectRatio));
+        const auto thumb=reader.read();
+        if(thumb.isNull()){QMessageBox::warning(parent,QObject::tr("Chèn ảnh"),reader.errorString());return true;}
+        QDialog dlg(parent);dlg.setWindowTitle(QObject::tr("Chèn ảnh · xem trước"));
+        auto* root=new QVBoxLayout(&dlg);
+        auto* preview=new QLabel(&dlg);preview->setAlignment(Qt::AlignCenter);preview->setPixmap(QPixmap::fromImage(thumb));root->addWidget(preview);
+        auto* detail=new QLabel(QObject::tr("%1 × %2 px").arg(original.width()).arg(original.height()),&dlg);root->addWidget(detail);
+        auto* mode=new QComboBox(&dlg);
+        mode->addItem(QObject::tr("Giữ mặc định của tài liệu"),0);
+        mode->addItem(QObject::tr("Cùng dòng chữ — ổn định khi gõ"),1);
+        mode->addItem(QObject::tr("Chữ quanh ảnh — dễ bố trí"),2);
+        mode->addItem(QObject::tr("Chữ trên và dưới ảnh"),3);
+        auto* form=new QFormLayout;form->addRow(QObject::tr("Bố trí:"),mode);root->addLayout(form);
+        auto* hint=new QLabel(QObject::tr("Ảnh được nhúng vào tài liệu. Có thể chỉnh kích thước và giữ tỷ lệ trong nhóm Bố trí ảnh sau khi chèn."),&dlg);hint->setWordWrap(true);root->addWidget(hint);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);
+        buttons->button(QDialogButtonBox::Ok)->setText(QObject::tr("Chèn ảnh"));root->addWidget(buttons);
+        QObject::connect(buttons,&QDialogButtonBox::accepted,&dlg,&QDialog::accept);
+        QObject::connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        if(dlg.exec()!=QDialog::Accepted||!target.verify())return true;
+        const QFileInfo after(f);
+        if(!after.isFile()||!after.isReadable()||after.size()!=info.size()||after.lastModified()!=info.lastModified()){
+            QMessageBox::warning(parent,QObject::tr("Chèn ảnh"),QObject::tr("Tệp ảnh đã thay đổi. Hãy chọn lại."));return true;
+        }
+        // Never apply layout to an older graphic if the insertion did not select a new one.
+        const auto before=doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
+        send(target.tab.data(),insertImage(ss(QUrl::fromLocalFile(f).toString())));
+        doc->waitInputIdle();
+        if(!target.tab||target.tab->document()!=doc||!target.tab->view())return true;
+        const auto graphic=doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
+        static const QRegularExpression rect(QStringLiteral("^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*[1-9]\\d*\\s*,\\s*[1-9]\\d*(?:\\s*,|\\s*$)"));
+        const int selectedMode=mode->currentData().toInt();
+        auto supported=[&](const QString& command){
+            const auto state=target.tab->states().value(command);
+            return state==QLatin1String("true")||state==QLatin1String("false")||state==QLatin1String("enabled");
+        };
+        if(selectedMode!=0){
+            bool applied=false;
+            if(graphic!=before&&rect.match(QString::fromStdString(graphic)).hasMatch()){
+                const QString anchor=selectedMode==1?QStringLiteral(".uno:SetAnchorToChar"):QStringLiteral(".uno:SetAnchorToPara");
+                if(supported(anchor)){
+                    if(target.tab->states().value(anchor)!=QLatin1String("true")){doc->command(ss(anchor));doc->waitInputIdle();}
+                    applied=selectedMode==1;
+                    if(selectedMode!=1){
+                        const QString wrap=selectedMode==2?QStringLiteral(".uno:WrapOn"):QStringLiteral(".uno:WrapOff");
+                        if(rect.match(QString::fromStdString(doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION))).hasMatch()&&supported(wrap)){
+                            if(target.tab->states().value(wrap)!=QLatin1String("true")){doc->command(ss(wrap));doc->waitInputIdle();}
+                            applied=true;
+                        }
+                    }
+                }
+            }
+            if(!applied)QMessageBox::information(target.tab.data(),QObject::tr("Bố trí ảnh"),QObject::tr("Không xác nhận được bố trí đã chọn. Hãy chọn ảnh rồi dùng nhóm Bố trí ảnh."));
+        }
+        if(target.tab&&target.tab->view())target.tab->view()->setFocus();
     } else if (name == QLatin1String("link")) {
         doc->waitInputIdle();
         QPointer<DocumentTab> live(tab);
