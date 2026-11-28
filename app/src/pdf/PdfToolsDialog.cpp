@@ -138,7 +138,7 @@ void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
     PdfToolsDialog dlg(parent);
     dlg.m_tabs->setCurrentIndex(tab);
     if (!initialPath.isEmpty()) {
-        for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile, dlg.m_numFile, dlg.m_stampFile, dlg.m_blankFile, dlg.m_orderFile, dlg.m_ocrFile, dlg.m_searchFile})
+        for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile, dlg.m_numFile, dlg.m_stampFile, dlg.m_blankFile, dlg.m_orderFile, dlg.m_ocrFile, dlg.m_searchFile, dlg.m_noteFormFile})
             if (e) e->setText(initialPath);
         dlg.refreshPageCount(initialPath, dlg.m_splitInfo);
         dlg.refreshPageCount(initialPath, dlg.m_rotInfo);
@@ -168,6 +168,7 @@ PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     m_tabs->addTab(buildReorder(), tr("Sắp xếp / xóa trang"));
     m_tabs->addTab(buildOcr(), tr("OCR · TXT / PDF"));
     m_tabs->addTab(buildSearch(),tr("Tìm chữ PDF"));
+    m_tabs->addTab(buildNoteForm(),tr("Chú thích / Form"));
     lay->addWidget(m_tabs);
     auto* note = new QLabel(tr("Tệp gốc không bao giờ bị sửa: kết quả luôn lưu thành tệp mới."), this);
     note->setStyleSheet("color:#555");
@@ -1215,6 +1216,43 @@ QWidget* PdfToolsDialog::buildSearch() {
         text->setExtraSelections(highlights);
         if(!highlights.isEmpty()){text->setTextCursor(highlights.first().cursor);text->ensureCursorVisible();}
         else text->moveCursor(QTextCursor::Start);
+    });
+    return w;
+}
+
+QWidget* PdfToolsDialog::buildNoteForm(){
+    auto* w=new QWidget(this);auto* f=new QFormLayout(w);
+    f->addRow(tr("PDF nguồn:"),fileRow(&m_noteFormFile,{}));
+    auto* page=new QSpinBox(w);page->setRange(1,100000);
+    auto* x=new QSpinBox(w);x->setRange(0,100);x->setValue(90);x->setSuffix("%");
+    auto* y=new QSpinBox(w);y->setRange(0,100);y->setValue(10);y->setSuffix("%");
+    auto* note=new QPlainTextEdit(w);note->setPlaceholderText(tr("Nội dung ghi chú tiếng Việt"));note->setMaximumHeight(100);
+    f->addRow(tr("Trang"),page);f->addRow(tr("Vị trí ngang từ trái"),x);f->addRow(tr("Vị trí dọc từ trên"),y);f->addRow(tr("Ghi chú"),note);
+    auto* add=new QPushButton(tr("Lưu chú thích PDF"),w);f->addRow(add);
+    connect(add,&QPushButton::clicked,this,[=]{
+        const QString src=m_noteFormFile->text();if(src.isEmpty())return;
+        const auto dest=pickDest(this,src,tr("Chú thích"));if(dest.isEmpty())return;
+        const int p=page->value(),xx=x->value(),yy=y->value();const auto content=note->toPlainText();
+        showResult(runWithPasswords({src},[=]{return addTextNote(inputFor(src),p,xx,yy,content,dest);}),tr("Chú thích PDF"));
+    });
+    auto* fields=new QComboBox(w);auto* value=new QLineEdit(w);value->setMaxLength(500);
+    auto* scan=new QPushButton(tr("Đọc trường form"),w);f->addRow(scan);f->addRow(tr("Trường"),fields);f->addRow(tr("Giá trị mới"),value);
+    auto* fill=new QPushButton(tr("Lưu form PDF"),w);fill->setEnabled(false);f->addRow(fill);
+    auto* status=new QLabel(tr("Chú thích thật; form chữ ASCII một dòng. Chưa hỗ trợ XFA, chữ ký, PDF mã hóa. Xuất bản sao mới."),w);status->setWordWrap(true);f->addRow(status);
+    connect(m_noteFormFile,&QLineEdit::textChanged,w,[=]{fields->clear();value->clear();fill->setEnabled(false);});
+    connect(fields,&QComboBox::currentIndexChanged,w,[=](int i){value->setText(i>=0?fields->itemData(i).toString():QString());});
+    connect(scan,&QPushButton::clicked,this,[=]{
+        fields->clear();fill->setEnabled(false);if(m_noteFormFile->text().isEmpty())return;
+        const auto result=textFormFields(inputFor(m_noteFormFile->text()));
+        if(!result.ok){QMessageBox::warning(this,tr("Form PDF"),result.error);return;}
+        for(int i=0;i<result.names.size();++i)fields->addItem(result.names.at(i),result.values.at(i));
+        fill->setEnabled(fields->count()>0);
+    });
+    connect(fill,&QPushButton::clicked,this,[=]{
+        const auto src=m_noteFormFile->text(),name=fields->currentText(),v=value->text();
+        if(src.isEmpty()||name.isEmpty())return;
+        const auto dest=pickDest(this,src,tr("Điền form"));if(dest.isEmpty())return;
+        showResult(runWithPasswords({src},[=]{return fillTextField(inputFor(src),name,v,dest);}),tr("Form PDF"));
     });
     return w;
 }
