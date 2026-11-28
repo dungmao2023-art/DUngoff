@@ -650,6 +650,13 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
         }
     }
     const QPoint t = toTwips(pos);
+    if(m_nativeFillDrag && type==LOK_MOUSEEVENT_MOUSEBUTTONUP && t!=m_nativeFillLastTwips){
+        // Calc commits the range from its last processed move, not the
+        // mouse-up position. Preserve the final pointer location and button.
+        m_doc->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,t.x(),t.y(),1,m_pressButtons,toLokModifiers(e->modifiers()));
+        m_doc->waitInputIdle(80,500);
+    }
+    if(m_nativeFillDrag)m_nativeFillLastTwips=t;
     int buttons = toLokButtons(e->buttons() | e->button());
     if (type == LOK_MOUSEEVENT_MOUSEBUTTONUP) buttons = m_pressButtons;
     m_doc->postMouse(type, t.x(), t.y(), count, buttons, toLokModifiers(e->modifiers()));
@@ -659,7 +666,7 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 void TileView::mousePressEvent(QMouseEvent* e) {
     flushDragMove();
     m_nativeFillDrag=false;
-    if(m_isCalc&&e->button()==Qt::LeftButton&&!m_autoFillArea.isEmpty()&&
+    if(m_isCalc&&e->button()==Qt::LeftButton&&!(m_hasCaret&&m_caretVisible)&&!m_autoFillArea.isEmpty()&&
        m_autoFillArea.contains(toTwips(e->position().toPoint()))&&
        e->position().x()>=headerSize().x()&&e->position().y()>=headerSize().y()){
         m_pickValid=false;m_pickComplete=false;
