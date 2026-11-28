@@ -42,6 +42,11 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QPixmap>
+#include <QPainter>
+#include <QMouseEvent>
+#include <QKeyEvent>
+#include <QKeySequence>
+#include <QSplitter>
 #include <QScrollArea>
 #include "../print/PrintRender.h"
 
@@ -67,6 +72,54 @@ struct PdfSourceSnapshot {
             f.isFile() && f.isReadable() && f.canonicalFilePath() == canonical &&
             f.size() == size && f.lastModified() == modified && f.birthTime() == birth;
     }
+};
+// A single rendered page with true PDF text geometry. No document edits.
+class PdfTextCanvas final : public QWidget {
+public:
+    explicit PdfTextCanvas(QWidget* parent=nullptr):QWidget(parent){
+        setFocusPolicy(Qt::StrongFocus);setMinimumSize(220,240);setCursor(Qt::IBeamCursor);
+    }
+    std::function<void(QPointF,QPointF)> select;
+    QString selectedText;
+    void setPage(printrender::PagePreview p){page=std::move(p);selectedText.clear();selection.clear();drag=false;update();}
+    void setSelection(const printrender::PageSelection& s){selection=s.bounds;selectedText=s.text;update();}
+protected:
+    QRectF imageRect()const{
+        if(page.image.isNull())return {};
+        const auto size=QSizeF(page.image.size()).scaled(QSizeF(this->size()),Qt::KeepAspectRatio);
+        return QRectF(QPointF((width()-size.width())/2,(height()-size.height())/2),size);
+    }
+    QPointF point(QPointF p)const{
+        const auto r=imageRect();
+        return QPointF(qBound(0.0,(p.x()-r.left())/r.width(),1.0),qBound(0.0,(p.y()-r.top())/r.height(),1.0));
+    }
+    void paintEvent(QPaintEvent*)override{
+        QPainter p(this);p.fillRect(rect(),QColor(235,238,243));
+        const auto r=imageRect();if(r.isEmpty())return;
+        p.drawImage(r,page.image);
+        p.save();p.translate(r.topLeft());p.scale(r.width(),r.height());p.setPen(Qt::NoPen);
+        p.setBrush(QColor(255,195,0,100));for(const auto& polygon:page.matches)p.drawPolygon(polygon);
+        p.setBrush(QColor(35,115,235,110));for(const auto& polygon:selection)p.drawPolygon(polygon);
+        p.restore();
+        if(drag){p.setBrush(QColor(35,115,235,35));p.setPen(QColor(35,115,235));p.drawRect(QRectF(start,current).normalized());}
+    }
+    void mousePressEvent(QMouseEvent* e)override{
+        if(e->button()!=Qt::LeftButton||!imageRect().contains(e->position()))return;
+        setFocus();start=current=e->position();drag=true;selectedText.clear();selection.clear();update();
+    }
+    void mouseMoveEvent(QMouseEvent* e)override{if(drag){current=e->position();update();}}
+    void mouseReleaseEvent(QMouseEvent* e)override{
+        if(!drag||e->button()!=Qt::LeftButton)return;
+        drag=false;update();if(select&&!imageRect().isEmpty())select(point(start),point(e->position()));
+    }
+    void keyPressEvent(QKeyEvent* e)override{
+        if(e->matches(QKeySequence::Copy)&&!selectedText.isEmpty()){QApplication::clipboard()->setText(selectedText);e->accept();return;}
+        QWidget::keyPressEvent(e);
+    }
+private:
+    printrender::PagePreview page;
+    QList<QPolygonF> selection;
+    QPointF start,current;bool drag=false;
 };
 QString human(qint64 b) {
     if (b < 1024) return QStringLiteral("%1 B").arg(b);
@@ -1079,9 +1132,19 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* text=new QPlainTextEdit(w);text->setReadOnly(true);
     text->setPlaceholderText(tr("Chọn kết quả để đọc và sao chép chữ trên trang."));
     text->setToolTip(tr("Chữ trích xuất được chuẩn hóa Unicode NFC; tô sáng tối đa 1.000 vị trí trên trang, không sửa PDF."));
-    root->addWidget(text,2);
+    auto* canvas=new PdfTextCanvas(w);
+    auto* split=new QSplitter(Qt::Horizontal,w);split->addWidget(canvas);split->addWidget(text);split->setStretchFactor(0,2);split->setStretchFactor(1,1);root->addWidget(split,3);
+    auto* copy=new QPushButton(tr("Sao chép chữ đã chọn trên trang"),w);copy->setEnabled(false);root->addWidget(copy);
+    connect(copy,&QPushButton::clicked,w,[=]{if(!canvas->selectedText.isEmpty())QApplication::clipboard()->setText(canvas->selectedText);});
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
-    auto clear=[=]{snapshot->reset();list->clear();text->setExtraSelections({});text->clear();status->clear();};
+    auto clear=[=]{snapshot->reset();list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);status->clear();};
+    canvas->select=[=](QPointF from,QPointF to){
+        const auto* item=list->currentItem();
+        if(!item||!snapshot->has_value()||!snapshot->value().unchanged()){canvas->setSelection({});copy->setEnabled(false);return;}
+        const auto selected=printrender::selectText(snapshot->value().path,item->data(Qt::UserRole).toInt(),from,to);
+        canvas->setSelection(selected);copy->setEnabled(!selected.text.isEmpty());
+        if(!selected.error.isEmpty())status->setText(selected.error);
+    };
     connect(m_searchFile,&QLineEdit::textChanged,w,[=]{
         clear();
         const auto info=printrender::pdfInfo(m_searchFile->text());
@@ -1118,10 +1181,11 @@ QWidget* PdfToolsDialog::buildSearch() {
         }
         status->setText(tr("%1 trang có kết quả / %2 trang đã đọc. %3 trang có lớp chữ.").arg(result.hits.size()).arg(result.scanned).arg(result.textPages));
         if(!result.textPages)status->setText(status->text()+tr(" Hãy thử OCR."));
+        if(list->count())list->setCurrentRow(0);
     });
     connect(query,&QLineEdit::returnPressed,go,&QPushButton::click);
     connect(list,&QListWidget::currentItemChanged,w,[=](QListWidgetItem* item,QListWidgetItem*){
-        text->setExtraSelections({});text->clear();if(!item)return;
+        text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);if(!item)return;
         if(!snapshot->has_value()||!snapshot->value().unchanged()){
             status->setText(tr("PDF nguồn đã thay đổi. Hãy tìm lại."));return;
         }
@@ -1131,6 +1195,9 @@ QWidget* PdfToolsDialog::buildSearch() {
             status->setText(tr("PDF nguồn đã thay đổi trong lúc đọc. Hãy tìm lại."));return;
         }
         if(!error.isEmpty()){status->setText(error);return;}
+        auto preview=printrender::previewText(snapshot->value().path,item->data(Qt::UserRole).toInt(),QSize(1000,1400),query->text(),match->isChecked());
+        if(!preview.error.isEmpty())status->setText(preview.error);
+        else canvas->setPage(std::move(preview));
         text->setPlainText(extracted.normalized(QString::NormalizationForm_C));
         const auto needle=query->text().trimmed().normalized(QString::NormalizationForm_C);
         const auto offsets=printrender::highlightOffsets(text->toPlainText(),needle,match->isChecked());

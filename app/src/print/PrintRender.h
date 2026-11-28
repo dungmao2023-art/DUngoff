@@ -1,6 +1,8 @@
 #pragma once
 // Vẽ PDF ra ảnh và gửi PDF tới QPrinter. Cần Qt6::Pdf (DUNG_HAVE_QTPDF); nếu không có, các hàm báo lỗi rõ ràng.
 #include <QImage>
+#include <QPolygonF>
+#include <QPointF>
 #include <QString>
 #include <QVector>
 
@@ -22,6 +24,11 @@ struct TextHit { int page=0, occurrences=0; QString snippet; };
 struct TextSearch { bool ok=false; QString error; QVector<TextHit> hits; int scanned=0, textPages=0; };
 TextSearch searchText(const QString& path,const QString& query,int first,int last,bool matchCase=false);
 QString pageText(const QString& path,int page,QString* error=nullptr);
+// Page image and actual text geometry in normalized page coordinates (0..1).
+struct PagePreview { QImage image; QList<QPolygonF> matches; QString error; };
+struct PageSelection { QString text; QList<QPolygonF> bounds; QString error; };
+PagePreview previewText(const QString& path,int page,const QSize& box,const QString& query,bool matchCase=false);
+PageSelection selectText(const QString& path,int page,QPointF from,QPointF to);
 
 // Match offsets in NFC display text, in UTF-16 units (QTextCursor).
 // Caller normalizes display text first. Limit only the UI highlight count;
