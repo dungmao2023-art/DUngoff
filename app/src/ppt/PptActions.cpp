@@ -100,10 +100,19 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
     if (!id.startsWith(QLatin1String("ppt."))) return false;
     if (!tab || tab->kind() != dung::DocKind::Presentation) return true;
     dung::Document* d = tab->document();
-    if (id == QLatin1String("ppt.show") || id == QLatin1String("ppt.showHere") || id == QLatin1String("ppt.preview")) {
+    if (id == QLatin1String("ppt.show") || id == QLatin1String("ppt.showHere") || id == QLatin1String("ppt.preview") || id == QLatin1String("ppt.showTimed")) {
         const bool fullscreen=id!=QLatin1String("ppt.preview");
         QPointer<DocumentTab> safeTab(tab);
-        QPointer<QScreen> screen=tab->screen();
+        int intervalMs=0;
+        if(id==QLatin1String("ppt.showTimed")){
+            bool ok=false;
+            const int seconds=QInputDialog::getInt(tab,QObject::tr("Tự chuyển slide"),
+                QObject::tr("Số giây mỗi slide (không đổi thời gian trong PPTX). T: tạm dừng/tiếp tục, B/W: màn trống, Esc: thoát. Dừng ở slide cuối."),
+                5,1,600,1,&ok);
+            if(!ok||!safeTab||safeTab->document()!=d)return true;
+            intervalMs=seconds*1000;
+        }
+        QPointer<QScreen> screen=safeTab->screen();
         const auto screens=QGuiApplication::screens();
         if(fullscreen && screens.size()>1) {
             QStringList labels;
@@ -129,8 +138,8 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         if(!safeTab || safeTab->document()!=d) return true;
         safeTab->setPptNotesMode(false);
         d->waitInputIdle();
-        const int start=id==QLatin1String("ppt.show")?0:d->currentPart();
-        new SlideShow(d,start,safeTab.data(),fullscreen,screen.data());
+        const int start=(id==QLatin1String("ppt.show")||id==QLatin1String("ppt.showTimed"))?0:d->currentPart();
+        new SlideShow(d,start,safeTab.data(),fullscreen,screen.data(),intervalMs);
     } else if (id == QLatin1String("ppt.notes") || id == QLatin1String("ppt.normal")) {
         tab->setPptNotesMode(id == QLatin1String("ppt.notes"));
     } else if (id == QLatin1String("ppt.deleteSlide")) {
