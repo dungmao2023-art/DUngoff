@@ -1,0 +1,39 @@
+This plugin does not support propagateSizeHints()
+PASS automatically open first page
+PASS compact reading layout by default
+PASS show page list on demand
+PASS hide page list without losing document
+PASS navigate to real second page
+PASS OCR opens current page only
+PASS return from OCR preserves reader page
+PASS typing search does not clear reading page
+This plugin does not support propagateSizeHints()
+PASS search miss keeps reading page
+PASS search hits reveal results list
+PASS changing query keeps current reading page
+PASS toggle extracted text panel
+PASS session snapshot and lock other tools
+PASS cancel returns to original without changing it
+PASS placement mode focuses page
+PASS Escape cancels placement without closing or modifying PDF
+PASS keyboard navigates document pages
+PASS keyboard returns to previous page
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+PASS find shortcut opens and focuses search
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+PASS place real note and stage modified PDF
+PASS undo real note
+PASS redo real note
+This plugin does not support propagateSizeHints()
+PASS cancel close preserves unsaved changes
+This plugin does not support propagateSizeHints()
+PASS save dialog resolves requested final filename
+PASS save dialog completed
+PASS final PDF exists at chosen path
+PASS final PDF bytes match edited revision
+PASS original PDF bytes unchanged
+PASS reader switches to exported PDF
+PASS session exits and tools unlock

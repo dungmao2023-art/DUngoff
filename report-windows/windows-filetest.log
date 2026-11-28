@@ -1,0 +1,162 @@
+[ĐẠT]  create existing save target
+[ĐẠT]  extension completion must require confirmation of existing workbook
+[ĐẠT]  explicit extension preserved
+[ĐẠT]  create existing export target
+[ĐẠT]  PDF extension completion checks existing export
+[ĐẠT]  case-insensitive PDF suffix
+[ĐẠT]  cancel remains empty
+[ĐẠT]  path policy never modifies existing data
+[ĐẠT]  create two distinct workbook paths
+[ĐẠT]  same canonical file reuses document tab
+[ĐẠT]  different workbook remains separate
+[ĐẠT]  Save As detects file open in another tab
+[ĐẠT]  Save As ignores unrelated and unsaved tabs
+[ĐẠT]  missing but open path remains protected
+[ĐẠT]  source protection handles aliases, distinct and empty paths
+[ĐẠT]  missing paths compared by normalized absolute path
+[ĐẠT]  Windows path comparison handles Unicode case
+[ĐẠT]  empty/missing paths never match a tab
+[ĐẠT]  editable extension accepted case-insensitively
+[ĐẠT]  Save As rejects PDF, wrong kind and empty path
+[ĐẠT]  bỏ dấu tiếng Việt (đ→d, Đ→D)
+[ĐẠT]  kế hoạch đổi tên 3 tệp không có vấn đề
+[ĐẠT]  mẫu {n} bắt đầu/bước/độ rộng + bỏ dấu + giữ đuôi
+[ĐẠT]  xem trước không đụng tới đĩa
+[ĐẠT]  áp dụng đổi tên, không để tệp tạm
+[ĐẠT]  đã ghi nhật ký hoàn tác
+[ĐẠT]  hoàn tác trả đúng tên cũ (tên tiếng Việt)
+[ĐẠT]  nội dung tệp không đổi
+[ĐẠT]  hai tệp cùng tên mới → xung đột
+[ĐẠT]  kế hoạch có xung đột → không đổi gì
+[ĐẠT]  tên mới trùng tệp đang có không nằm trong danh sách → xung đột
+[ĐẠT]  ký tự không hợp lệ bị chặn
+[ĐẠT]  tên dành riêng của Windows (con) bị chặn
+[ĐẠT]  tên kết thúc bằng dấu chấm bị chặn
+[ĐẠT]  tên quá dài bị chặn
+[ĐẠT]  mẫu rỗng = giữ tên (không đổi)
+[ĐẠT]  hoán đổi 1.txt ↔ 2.txt an toàn (2 pha)
+[ĐẠT]  hoàn tác hoán đổi
+[ĐẠT]  đánh số 2,3 lên các tên 1,2 không bị coi là xung đột (chuỗi đổi tên)
+[ĐẠT]  chuỗi đổi tên áp đúng
+[ĐẠT]  đổi tên thư mục (bỏ dấu), nội dung bên trong còn nguyên
+[ĐẠT]  đổi hoa/thường tên (giữ đuôi) không bị coi là xung đột với chính nó
+[ĐẠT]  áp dụng đổi hoa/thường
+[ĐẠT]  tệp đang mở: hoặc đổi hết hoặc khôi phục hết, không để tệp tạm
+[ĐẠT]  Windows: tệp bị khoá → báo lỗi và khôi phục tên cũ
+[ĐẠT]  hoàn tác bỏ qua mục bị chiếm chỗ, không ghi đè dữ liệu mới
+[ĐẠT]  nhật ký không tồn tại → báo lỗi, không sập
+[ĐẠT]  tìm đúng 2 nhóm trùng (cùng kích thước nhưng khác nội dung không bị gộp, tệp rỗng bị bỏ)
+[ĐẠT]  dung lượng giải phóng được tính đúng
+[ĐẠT]  thư mục chồng nhau không đếm một tệp hai lần
+[ĐẠT]  từ chối chuyển hết mọi bản của một nhóm
+[ĐẠT]  từ chối tệp không nằm trong kết quả quét
+[ĐẠT]  chuyển một bản vào _to_delete, bản còn lại giữ nguyên
+[ĐẠT]  tệp trong _to_delete còn nguyên nội dung (không xoá)
+[ĐẠT]  quét lại không tính tệp trong _to_delete
+[ĐẠT]  hoàn tác đưa tệp về chỗ cũ
+[ĐẠT]  tệp đổi sau khi quét → từ chối, yêu cầu quét lại
+[ĐẠT]  tên trùng ở đích được đánh số, không ghi đè
+[GHI CHÚ]  Tiến trình có quyền đọc mọi tệp (chạy bằng quản trị): bỏ qua ca tệp không đọc được.
+[ĐẠT]  huỷ giữa chừng: trả kết quả rỗng, đánh dấu cancelled
+[ĐẠT]  tạo được đường dẫn dài 330 ký tự
+[ĐẠT]  ghi tệp trong đường dẫn dài
+[ĐẠT]  tìm tệp trùng trong đường dẫn dài
+[ĐẠT]  đổi tên trong đường dẫn dài
+[ĐẠT]  hoàn tác trong đường dẫn dài
+[ĐẠT]  so sánh/duyệt thư mục đường dẫn dài
+[ĐẠT]  đếm dung lượng trong đường dẫn dài
+[ĐẠT]  so sánh: giống / chỉ A / chỉ B
+[ĐẠT]  so sánh: khác kích thước (tên tiếng Việt)
+[ĐẠT]  so sánh: B mới hơn theo giờ sửa
+[ĐẠT]  không so nội dung: cùng kích thước + giờ sửa → coi là giống (điểm mù đã biết)
+[ĐẠT]  so sánh nội dung bắt được khác biệt cùng kích thước
+[ĐẠT]  so sánh nội dung: giống nhau vẫn giống
+[ĐẠT]  xuất báo cáo CSV UTF-8 có BOM
+[ĐẠT]  CSV chống chèn công thức từ tên tệp bắt đầu bằng =
+[ĐẠT]  xuất báo cáo: từ chối ghi đè tệp có sẵn
+[ĐẠT]  huỷ so sánh giữa chừng
+[ĐẠT]  tổng dung lượng và số tệp đúng
+[ĐẠT]  mục con sắp giảm dần (gồm tệp lẻ ở gốc)
+[ĐẠT]  N tệp lớn nhất toàn cây
+[ĐẠT]  định dạng dung lượng
+[ĐẠT]  thư mục không tồn tại → kết quả rỗng, không sập
+[ĐẠT]  gom được 4 liên kết từ văn bản (được 4)
+[ĐẠT]  bỏ dấu chấm cuối câu
+[ĐẠT]  giữ ngoặc cân bằng trong URL, bỏ ngoặc đóng thừa
+[ĐẠT]  www. được bổ sung https://, bỏ dấu chấm phẩy
+[ĐẠT]  bỏ dấu phẩy cuối, giữ #phan
+[ĐẠT]  bỏ utm_/fbclid, giữ id, hạ chữ thường tên miền nhưng giữ đường dẫn
+[ĐẠT]  bỏ hết tham số → bỏ cả dấu ?
+[ĐẠT]  giữ nguyên mã hoá phần tham số còn lại
+[ĐẠT]  không bỏ tham số có thể có chức năng (ref, source)
+[ĐẠT]  tuỳ chọn bỏ #fragment
+[ĐẠT]  tắt bỏ tham số theo dõi
+[ĐẠT]  không đụng tới thứ không phải http/https
+[ĐẠT]  làm sạch rồi bỏ trùng, giữ thứ tự, cảnh báo dòng lạ
+[ĐẠT]  xuất CSV UTF-8 BOM, chống chèn công thức
+[ĐẠT]  xuất danh sách: từ chối ghi đè
+[ĐẠT]  xuất .txt mỗi dòng một liên kết
+[ĐẠT]  phân loại theo đuôi (không phân biệt hoa/thường)
+[ĐẠT]  chỉ tệp trực tiếp; tệp ẩn và ~$ bị bỏ qua có ghi lý do
+[ĐẠT]  xem trước không đụng tới đĩa
+[ĐẠT]  chuyển vào thư mục theo loại, tên Unicode
+[ĐẠT]  không đụng tới tệp ẩn và thư mục con
+[ĐẠT]  chạy lại với 'cả thư mục con': chỉ 2 tệp trong 'con' cần chuyển, tệp đã đúng chỗ giữ nguyên
+[ĐẠT]  trùng tên ở thư mục đích → thêm ' (2)'
+[ĐẠT]  không ghi đè tệp gốc có sẵn ở đích
+[ĐẠT]  hoàn tác lần chuyển thứ hai
+[ĐẠT]  hoàn tác lần chuyển đầu: tệp về chỗ cũ
+[ĐẠT]  đích bị chiếm sau khi xem trước → từ chối, không ghi đè
+[ĐẠT]  tệp nguồn biến mất sau xem trước → từ chối
+[ĐẠT]  theo năm/tháng sửa
+[ĐẠT]  bỏ qua tệp ẩn khi lập lại kế hoạch
+[ĐẠT]  dạng có ngoặc kép, tên tệp
+[ĐẠT]  đếm ký tự theo UTF-16, đường dẫn ngắn không cảnh báo
+[ĐẠT]  địa chỉ file:// mã hoá phần trăm
+[ĐẠT]  dạng dùng / và dạng dài \\?\
+[ĐẠT]  đường dẫn mạng → \\?\UNC\
+[ĐẠT]  đường dẫn ≥ 260 ký tự được cảnh báo
+[ĐẠT]  dò thư mục: liệt kê đúng các đường dẫn quá dài
+[ĐẠT]  ngưỡng cao hơn → không có kết quả
+[ĐẠT]  inflate đúng: lặp lại (Huffman động)
+[ĐẠT]  inflate đúng: ngắn (Huffman cố định)
+[ĐẠT]  inflate đúng: ngẫu nhiên (không nén được)
+[ĐẠT]  inflate đúng: khối lưu nguyên
+[ĐẠT]  inflate đúng: mức nén 1
+[ĐẠT]  dữ liệu nén bị cụt → lỗi, không trả dữ liệu dở
+[ĐẠT]  giải nén vượt kích thước khai báo → lỗi (chống bom nén)
+[ĐẠT]  kích thước khai báo lớn hơn thực tế → lỗi
+[ĐẠT]  vượt giới hạn tối đa → lỗi
+[ĐẠT]  dữ liệu rác → lỗi, không treo/không đổ
+[ĐẠT]  CRC32 chuẩn
+[ĐẠT]  mở ZIP, đọc bảng thư mục
+[ĐẠT]  đọc mục deflate, tên Unicode
+[ĐẠT]  đọc mục lưu nguyên
+[ĐẠT]  đọc mục ngắn
+[ĐẠT]  mục lớn hơn giới hạn → từ chối
+[ĐẠT]  CRC sai → báo lỗi, không đưa dữ liệu
+[ĐẠT]  không phải ZIP / không có tệp → lỗi rõ ràng
+[ĐẠT]  ZIP bị cắt cụt → lỗi
+[ĐẠT]  dữ liệu nén bị hỏng → lỗi (CRC/giải nén), không trả dữ liệu sai
+[ĐẠT]  quét đúng 8 tệp (url×2, lnk×2, docx×2 gồm tệp hỏng, xlsx×2; bỏ ~$ và .txt) — thực tế 8
+[ĐẠT]  docx: liên kết web chỉ liệt kê, chưa kiểm tra mạng
+[ĐẠT]  docx: tệp liên kết (đường dẫn tương đối) đã mất → HỎNG
+[ĐẠT]  docx: tệp liên kết còn → Còn
+[ĐẠT]  docx: mailto không kiểm tra
+[ĐẠT]  liên kết nội bộ (ảnh nhúng, mục lục) không bị liệt kê
+[ĐẠT]  mẫu đính kèm ở ổ C: không được báo là còn
+[ĐẠT]  xlsx: sổ tính ngoài (tương đối từ thư mục của tệp) còn → Còn; mục lưu nguyên đọc được
+[ĐẠT]  xlsx: sổ tính ngoài đã mất → HỎNG (dạng sai công thức #REF khi mở)
+[ĐẠT]  xlsx: siêu liên kết ô tính (deflate)
+[ĐẠT]  .url: đọc địa chỉ
+[ĐẠT]  .lnk: đích còn → Còn
+[ĐẠT]  .lnk: đích đã xoá → HỎNG
+[ĐẠT]  số liên kết hỏng = 4 (docx 1, xlsx 1, lnk 1, + mẫu ổ C: chỉ trên Windows) — thực tế 4
+[ĐẠT]  tệp hỏng được báo trong danh sách bỏ qua, các tệp khác vẫn quét tiếp
+[ĐẠT]  xuất báo cáo CSV có BOM
+[ĐẠT]  xuất báo cáo: từ chối ghi đè
+[ĐẠT]  huỷ quét ngay lập tức
+[ĐẠT]  quét danh sách tệp riêng lẻ, báo tệp không tồn tại
+[ĐẠT]  phân loại đích liên kết
+
+KẾT QUẢ: TẤT CẢ ĐẠT  (đạt 159, lỗi 0)

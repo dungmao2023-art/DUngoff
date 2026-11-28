@@ -1,0 +1,20 @@
+OCR executable: D:/a/DUngoff/DUngoff/build/out/app/tesseract/tesseract.exe
+
+DUNG OFFICE 12345
+
+DOCUMENT TEST 67890
+
+HELLO WORLD
+
+CỘNG HÒA XÃ HỘI
+
+ĐỘC LẬP TỰ DO
+
+VIỆT NAM 12345
+Qt PDF extracted: CỘNG HÒA XÃ HỘI 
+
+ĐỘC LẬP TỰ DO 
+
+VIỆT NAM 12345
+Searchable PDF:  text layer=1
+OCR checks: languages=1 singleLine=1 generated=1 header=1 overwriteGuard=1 dpiGuard=1 layoutGuard=1 searchable=1

@@ -1,0 +1,131 @@
+[ĐẠT]  25,4 mm = 1440 twip
+[ĐẠT]  30/15/20 mm = 1701/850/1134 twip  {1701/850/1134}
+[ĐẠT]  12,7 mm = 720 twip
+[ĐẠT]  cm/inch → twip
+[ĐẠT]  1440 twip = 25,4 mm
+[ĐẠT]  0 mm = 0 twip
+[ĐẠT]  đọc 3 phần, bỏ qua sectPr lồng trong sectPrChange và trong chú thích XML  {ok=1 n=3 }
+[ĐẠT]  phần 1: lề/khổ giấy đúng
+[ĐẠT]  phần 2: đọc được thuộc tính nháy đơn
+[ĐẠT]  phần 3: chưa có pgMar
+[ĐẠT]  nhận ra sectPr cuối thân tài liệu
+[ĐẠT]  vá 2 phần có sẵn + tạo 1 phần thiếu pgMar  {ok=1 patched=2 created=1 }
+[ĐẠT]  đọc lại: cả 3 phần đều đúng lề mới (30/15/20/20 mm)
+[ĐẠT]  giữ nguyên header/footer/gutter của phần 1
+[ĐẠT]  KHÔNG đụng sectPr lồng trong sectPrChange
+[ĐẠT]  KHÔNG đụng nội dung chú thích XML
+[ĐẠT]  pgMar tạo mới nằm ngay sau pgSz, trước cols (đúng thứ tự lược đồ)
+[ĐẠT]  giữ nguyên thuộc tính khác và nội dung chữ
+[ĐẠT]  giữ kiểu nháy đơn của thuộc tính gốc
+[ĐẠT]  XML mới dài hơn (có pgMar tạo thêm)
+[ĐẠT]  lề tùy chỉnh lẻ mm: tất cả section đúng, giữ nội dung
+[ĐẠT]  chỉ đặt trên/dưới: trái/phải giữ nguyên
+[ĐẠT]  sectPr tự đóng <w:sectPr/> được mở ra và thêm pgMar
+[ĐẠT]  tài liệu không có sectPr: tạo sectPr cuối thân kèm cảnh báo
+[ĐẠT]  tiền tố ns0: thuộc tính thiếu được thêm đúng tiền tố
+[ĐẠT]  không gian tên mặc định cho phần tử + w: cho thuộc tính
+[ĐẠT]  không gian tên mặc định mà không có tiền tố thuộc tính: từ chối rõ ràng  {tài liệu dùng không gian tên mặc định cho phần tử và không khai báo tiền tố cho thuộc tính: chưa hỗ trợ}
+[ĐẠT]  XML không phải WordprocessingML: từ chối
+[ĐẠT]  XML thiếu thẻ đóng: từ chối  {XML thiếu thẻ đóng: w:p}
+[ĐẠT]  lề âm: từ chối
+[ĐẠT]  lề trái+phải ≥ bề rộng giấy: từ chối kèm lý do  {lề trái + phải (9000 + 9000 twip) và lề gáy quá lớn so với bề rộng giấy 11906 twip ở phần 1}
+[ĐẠT]  lề gáy lớn: từ chối khi vùng chữ không còn đủ
+[ĐẠT]  không có cạnh nào để đặt: từ chối
+[ĐẠT]  lề vượt 22 inch: từ chối
+[ĐẠT]  giá trị có đơn vị (2cm) đọc là chưa rõ; vá thay bằng twip
+[ĐẠT]  create real TOC field, preserve body and section
+[ĐẠT]  existing TOC not duplicated
+[ĐẠT]  reject unsupported level
+[ĐẠT]  Excel dropdown real XML, preserve formulas
+[ĐẠT]  reject replacing existing dropdown rules
+[ĐẠT]  reject ambiguous dropdown labels
+[ĐẠT]  Excel protection retains dropdown and correct XML order
+[ĐẠT]  Excel rules package fixture
+[ĐẠT]  refuse mismatched sheet identity
+[ĐẠT]  create dropdown in referenced worksheet
+[ĐẠT]  only chosen sheet modified
+[ĐẠT]  dựng gói DOCX thử
+[ĐẠT]  vá DOCX thử
+[ĐẠT]  tệp nguồn KHÔNG đổi một byte
+[ĐẠT]  mở cả hai gói
+[ĐẠT]  mọi mục khác document.xml đọc lại đúng nội dung
+[ĐẠT]  mọi mục khác document.xml được sao chép NGUYÊN BYTE (kể cả mục có data descriptor)
+[ĐẠT]  giữ nguyên chú thích của gói ZIP
+[ĐẠT]  readDocxMargins đọc lại lề từ tệp đã vá
+[ĐẠT]  vá chuỗi: lề mới thay lề cũ
+[ĐẠT]  tạo đích đã có
+[ĐẠT]  tạo tệp tạm cũ
+[ĐẠT]  đích có sẵn: không ghi đè đích, nguồn hoặc tệp tạm
+[ĐẠT]  hàm ZIP dùng chung Word/PPT cũng từ chối đích đã có
+[ĐẠT]  tạo tệp tạm trùng tên cũ
+[ĐẠT]  đích mới: không xóa tệp tạm tồn tại trước
+[ĐẠT]  đích trùng nguồn: từ chối, nguồn nguyên vẹn
+[ĐẠT]  không phải ZIP: từ chối, không để lại tệp đích
+[ĐẠT]  thiếu word/document.xml: từ chối, không để lại tệp đích
+[ĐẠT]  lề vô lý: từ chối, không để lại tệp đích hay tệp tạm
+[ĐẠT]  đường dẫn có dấu tiếng Việt và dấu cách
+[ĐẠT]  có tệp .docx thật để thử trong templates  {156}
+[ĐẠT]  vá và đọc lại đúng lề trên 156/156 tệp .docx thật
+ĐƠN VỊ + GÓI ZIP: 68 đạt, 0 lỗi
+[ĐẠT]  khởi động engine
+No language allowlisted, turning off the language support.
+[ĐẠT]  tạo tài liệu Word mới
+[ĐẠT]  [VN] bản phục hồi của tài liệu đang mở
+[ĐẠT]  [VN] đọc được lề trong bản phục hồi
+[ĐẠT]  [VN] vá lề
+[ĐẠT]  [VN] nạp bản đã vá lại vào engine
+[ĐẠT]  [VN] Lưu thành DOCX từ bản đã nạp  {Đã lưu: ketqua-VN.docx}
+[ĐẠT]  [VN] đọc lề ở tệp đã lưu
+[ĐẠT]  [VN] LỀ Ở TỆP ĐÃ LƯU = lề đã đặt (dung sai 2 twip)  {[0: T1134 P850 D1134 Tr1701] mong đợi T1134 P850 D1134 Tr1701}
+[ĐẠT]  [VN] chữ trong tài liệu còn nguyên sau khi đặt lề  {Xin chào Dũng Office — kiểm thử đặt lề}
+[ĐẠT]  [VN] toàn bộ chữ trước/sau khi đặt lề giống hệt  {38 / 38 ký tự}
+[ĐẠT]  [binhthuong] bản phục hồi của tài liệu đang mở
+[ĐẠT]  [binhthuong] đọc được lề trong bản phục hồi
+[ĐẠT]  [binhthuong] vá lề
+[ĐẠT]  [binhthuong] nạp bản đã vá lại vào engine
+[ĐẠT]  [binhthuong] Lưu thành DOCX từ bản đã nạp  {Đã lưu: ketqua-binhthuong.docx}
+[ĐẠT]  [binhthuong] đọc lề ở tệp đã lưu
+[ĐẠT]  [binhthuong] LỀ Ở TỆP ĐÃ LƯU = lề đã đặt (dung sai 2 twip)  {[0: T1440 P1440 D1440 Tr1440] mong đợi T1440 P1440 D1440 Tr1440}
+[ĐẠT]  [binhthuong] chữ trong tài liệu còn nguyên sau khi đặt lề  {Xin chào Dũng Office — kiểm thử đặt lề}
+[ĐẠT]  [binhthuong] toàn bộ chữ trước/sau khi đặt lề giống hệt  {38 / 38 ký tự}
+[ĐẠT]  [hep] bản phục hồi của tài liệu đang mở
+[ĐẠT]  [hep] đọc được lề trong bản phục hồi
+[ĐẠT]  [hep] vá lề
+[ĐẠT]  [hep] nạp bản đã vá lại vào engine
+[ĐẠT]  [hep] Lưu thành DOCX từ bản đã nạp  {Đã lưu: ketqua-hep.docx}
+[ĐẠT]  [hep] đọc lề ở tệp đã lưu
+[ĐẠT]  [hep] LỀ Ở TỆP ĐÃ LƯU = lề đã đặt (dung sai 2 twip)  {[0: T720 P720 D720 Tr720] mong đợi T720 P720 D720 Tr720}
+[ĐẠT]  [hep] chữ trong tài liệu còn nguyên sau khi đặt lề  {Xin chào Dũng Office — kiểm thử đặt lề}
+[ĐẠT]  [hep] toàn bộ chữ trước/sau khi đặt lề giống hệt  {38 / 38 ký tự}
+[ĐẠT]  [tuychinh] bản phục hồi của tài liệu đang mở
+[ĐẠT]  [tuychinh] đọc được lề trong bản phục hồi
+[ĐẠT]  [tuychinh] vá lề
+[ĐẠT]  [tuychinh] nạp bản đã vá lại vào engine
+[ĐẠT]  [tuychinh] Lưu thành DOCX từ bản đã nạp  {Đã lưu: ketqua-tuychinh.docx}
+[ĐẠT]  [tuychinh] đọc lề ở tệp đã lưu
+[ĐẠT]  [tuychinh] LỀ Ở TỆP ĐÃ LƯU = lề đã đặt (dung sai 2 twip)  {[0: T1264 P975 D1123 Tr1786] mong đợi T1264 P975 D1123 Tr1786}
+[ĐẠT]  [tuychinh] chữ trong tài liệu còn nguyên sau khi đặt lề  {Xin chào Dũng Office — kiểm thử đặt lề}
+[ĐẠT]  [tuychinh] toàn bộ chữ trước/sau khi đặt lề giống hệt  {38 / 38 ký tự}
+[ĐẠT]  [chitrenduoi] bản phục hồi của tài liệu đang mở
+[ĐẠT]  [chitrenduoi] đọc được lề trong bản phục hồi
+[ĐẠT]  [chitrenduoi] vá lề
+[ĐẠT]  [chitrenduoi] nạp bản đã vá lại vào engine
+[ĐẠT]  [chitrenduoi] Lưu thành DOCX từ bản đã nạp  {Đã lưu: ketqua-chitrenduoi.docx}
+[ĐẠT]  [chitrenduoi] đọc lề ở tệp đã lưu
+[ĐẠT]  [chitrenduoi] LỀ Ở TỆP ĐÃ LƯU = lề đã đặt (dung sai 2 twip)  {[0: T1984 P1134 D567 Tr1134] mong đợi T1984 P-1 D567 Tr-1}
+[ĐẠT]  [chitrenduoi] chữ trong tài liệu còn nguyên sau khi đặt lề  {Xin chào Dũng Office — kiểm thử đặt lề}
+[ĐẠT]  [chitrenduoi] toàn bộ chữ trước/sau khi đặt lề giống hệt  {38 / 38 ký tự}
+[ĐẠT]  mở tệp .docx thật 001_Phiếu đề xuất tuyển dụng.docx
+[ĐẠT]  [tephat] bản phục hồi của tài liệu đang mở
+[ĐẠT]  [tephat] đọc được lề trong bản phục hồi
+[ĐẠT]  [tephat] vá lề
+[ĐẠT]  [tephat] nạp bản đã vá lại vào engine
+[ĐẠT]  [tephat] chặn lưu khi chưa xác nhận XML tùy biến  {Bản lưu sẽ KHÔNG giữ các thành phần sau của tệp gốc:
+• Dữ liệu XML tùy biến (1, có thể): Có thể chứa dữ liệu biểu mẫu hoặc liên kết nội dung. Chưa kiểm chứng khả năng giữ nguyên khi lưu; giữ bản gốc.
+Cần xác nhận trước khi lưu. Tệp gốc sẽ không bị thay đổi.}
+[ĐẠT]  [tephat] Lưu thành DOCX từ bản đã nạp  {Đã lưu: ketqua-tephat.docx}
+[ĐẠT]  [tephat] đọc lề ở tệp đã lưu
+[ĐẠT]  [tephat] LỀ Ở TỆP ĐÃ LƯU = lề đã đặt (dung sai 2 twip)  {[0: T1134 P850 D1134 Tr1701] mong đợi T1134 P850 D1134 Tr1701}
+[ĐẠT]  [tephat] toàn bộ chữ trước/sau khi đặt lề giống hệt  {1120 / 1120 ký tự}
+
+KẾT QUẢ ĐẶT LỀ: TẤT CẢ ĐẠT

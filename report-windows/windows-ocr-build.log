@@ -1,0 +1,668 @@
+Initialized empty Git repository in D:/a/DUngoff/DUngoff/build/vcpkg-ocr/.git/
+From https://github.com/microsoft/vcpkg
+ * branch            74e6536215718009aae747d86d84b78376bf9e09 -> FETCH_HEAD
+HEAD is now at 74e6536 [lexilla] add port (#47852)
+Downloading https://github.com/microsoft/vcpkg-tool/releases/download/2025-10-16/vcpkg.exe -> D:\a\DUngoff\DUngoff\build\vcpkg-ocr\vcpkg.exe... done.
+Validating signature... done.
+
+vcpkg package management program version 2025-10-16-71538f2694db93da4668782d094768ba74c45991
+
+See LICENSE.txt for license information.
+warning: The vcpkg D:\a\DUngoff\DUngoff\build\vcpkg-ocr\vcpkg.exe is using detected vcpkg root D:\a\DUngoff\DUngoff\build\vcpkg-ocr and ignoring mismatched VCPKG_ROOT environment value C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\vcpkg. To suppress this message, unset the environment variable or use the --vcpkg-root command line switch.
+Computing installation plan...
+The following packages will be built and installed:
+  * bzip2[core,tool]:x64-windows-ocr@1.0.8#6
+  * curl[core,non-http,ssl,sspi]:x64-windows-ocr@8.16.0
+  * giflib:x64-windows-ocr@5.2.2#2
+  * leptonica:x64-windows-ocr@1.85.0
+  * libarchive[bzip2,core,crypto,lz4,lzma,xar,zstd]:x64-windows-ocr@3.8.2
+  * libjpeg-turbo:x64-windows-ocr@3.1.2
+  * liblzma:x64-windows-ocr@5.8.1
+  * libpng:x64-windows-ocr@1.6.50
+  * libwebp[core,libwebpmux,nearlossless,simd,unicode]:x64-windows-ocr@1.6.0#1
+  * lz4:x64-windows-ocr@1.10.0
+  * openjpeg:x64-windows-ocr@2.5.4
+  * openssl:x64-windows-ocr@3.6.0#2
+    tesseract:x64-windows-ocr@5.5.1#1
+  * tiff[core,jpeg,lzma,zip]:x64-windows-ocr@4.7.1
+  * vcpkg-cmake:x64-windows@2024-04-23
+  * vcpkg-cmake-config:x64-windows@2024-05-23
+  * vcpkg-cmake-get-vars:x64-windows@2025-05-29
+  * zlib:x64-windows-ocr@1.3.1
+  * zstd:x64-windows-ocr@1.5.7
+Additional packages (*) will be modified to complete this operation.
+Detecting compiler hash for triplet x64-windows...
+Compiler found: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe
+Detecting compiler hash for triplet x64-windows-ocr...
+Compiler found: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe
+Restored 0 package(s) from C:\Users\runneradmin\AppData\Local\vcpkg\archives in 272 us. Use --debug to see more details.
+Installing 1/19 vcpkg-cmake:x64-windows@2024-04-23...
+Building vcpkg-cmake:x64-windows@2024-04-23...
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake_x64-windows/share/vcpkg-cmake/vcpkg_cmake_configure.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake_x64-windows/share/vcpkg-cmake/vcpkg_cmake_build.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake_x64-windows/share/vcpkg-cmake/vcpkg_cmake_install.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake_x64-windows/share/vcpkg-cmake/vcpkg-port-config.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake_x64-windows/share/vcpkg-cmake/copyright
+-- Performing post-build validation
+Starting submission of vcpkg-cmake:x64-windows@2024-04-23 to 1 binary cache(s) in the background
+Elapsed time to handle vcpkg-cmake:x64-windows: 36.8 ms
+vcpkg-cmake:x64-windows package ABI: 513ccbfa73f8561db5c4de6edbd8bfc074d127ca2aa9c47b195aab2801d8be44
+Installing 2/19 bzip2[core,tool]:x64-windows-ocr@1.0.8#6...
+Building bzip2[core,tool]:x64-windows-ocr@1.0.8#6...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading bzip2-1.0.8.tar.gz, trying https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
+Successfully downloaded bzip2-1.0.8.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/bzip2-1.0.8.tar.gz
+-- Applying patch fix-import-export-macros.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/bzip2/src/bzip2-1-336d4794a3.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/bzip2_x64-windows-ocr/lib/pkgconfig/bzip2.pc
+Downloading msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst, trying https://mirror.msys2.org/mingw/mingw64/mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+Successfully downloaded msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+Downloading msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst, trying https://mirror.msys2.org/msys/x86_64/msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+Successfully downloaded msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/bzip2_x64-windows-ocr/share/bzip2/copyright
+-- Performing post-build validation
+Starting submission of bzip2[core,tool]:x64-windows-ocr@1.0.8#6 to 1 binary cache(s) in the background
+Elapsed time to handle bzip2:x64-windows-ocr: 6.2 s
+bzip2:x64-windows-ocr package ABI: 1120c5180a3cc9391df65920176e2ec86482e0367ec94a1871f5e4c5e0274faa
+Completed submission of vcpkg-cmake:x64-windows@2024-04-23 to 1 binary cache(s) in 184 ms
+Installing 3/19 vcpkg-cmake-config:x64-windows@2024-05-23...
+Building vcpkg-cmake-config:x64-windows@2024-05-23...
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake-config_x64-windows/share/vcpkg-cmake-config/vcpkg_cmake_config_fixup.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake-config_x64-windows/share/vcpkg-cmake-config/vcpkg-port-config.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake-config_x64-windows/share/vcpkg-cmake-config/copyright
+-- Skipping post-build validation due to VCPKG_POLICY_EMPTY_PACKAGE
+Starting submission of vcpkg-cmake-config:x64-windows@2024-05-23 to 1 binary cache(s) in the background
+Elapsed time to handle vcpkg-cmake-config:x64-windows: 35.3 ms
+vcpkg-cmake-config:x64-windows package ABI: ee44d9d2ef3cd76ddbe00345b16a2337928d5bd4aa07b49a8cf5db7bac066887
+Installing 4/19 zlib:x64-windows-ocr@1.3.1...
+Building zlib:x64-windows-ocr@1.3.1...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/madler/zlib/archive/v1.3.1.tar.gz -> madler-zlib-v1.3.1.tar.gz
+Successfully downloaded madler-zlib-v1.3.1.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/madler-zlib-v1.3.1.tar.gz
+-- Applying patch 0001-Prevent-invalid-inclusions-when-HAVE_-is-set-to-0.patch
+-- Applying patch 0002-build-static-or-shared-not-both.patch
+-- Applying patch 0003-android-and-mingw-fixes.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/zlib/src/v1.3.1-2e5db616bf.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/zlib_x64-windows-ocr/share/zlib/vcpkg-cmake-wrapper.cmake
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/zlib_x64-windows-ocr/lib/pkgconfig/zlib.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/zlib_x64-windows-ocr/share/zlib/copyright
+-- Performing post-build validation
+Starting submission of zlib:x64-windows-ocr@1.3.1 to 1 binary cache(s) in the background
+Elapsed time to handle zlib:x64-windows-ocr: 2.7 s
+zlib:x64-windows-ocr package ABI: b9da63554091b65daed95424173177b2f469d99a2c7a5de95be0fb0df146a217
+Completed submission of bzip2[core,tool]:x64-windows-ocr@1.0.8#6 to 1 binary cache(s) in 78.7 ms
+Completed submission of vcpkg-cmake-config:x64-windows@2024-05-23 to 1 binary cache(s) in 42.4 ms
+Installing 5/19 curl[core,non-http,ssl,sspi]:x64-windows-ocr@8.16.0...
+Building curl[core,non-http,ssl,sspi]:x64-windows-ocr@8.16.0...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/curl/curl/archive/curl-8_16_0.tar.gz -> curl-curl-curl-8_16_0.tar.gz
+Successfully downloaded curl-curl-curl-8_16_0.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/curl-curl-curl-8_16_0.tar.gz
+-- Applying patch dependencies.patch
+-- Applying patch pkgconfig-curl-config.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/curl/src/url-8_16_0-5a5b13de3a.clean
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/curl_x64-windows-ocr/lib/pkgconfig/libcurl.pc
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/curl_x64-windows-ocr/share/curl/vcpkg-cmake-wrapper.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/curl_x64-windows-ocr/share/curl/usage
+-- Performing post-build validation
+Starting submission of curl[core,non-http,ssl,sspi]:x64-windows-ocr@8.16.0 to 1 binary cache(s) in the background
+Elapsed time to handle curl:x64-windows-ocr: 17 s
+curl:x64-windows-ocr package ABI: 3b953ab80fca0ae5402097a91400c66f86827c8e8e2df16123af27dc16a16872
+Completed submission of zlib:x64-windows-ocr@1.3.1 to 1 binary cache(s) in 79.9 ms
+Installing 6/19 giflib:x64-windows-ocr@5.2.2#2...
+Building giflib:x64-windows-ocr@5.2.2#2...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading giflib-5.2.2.tar.gz, trying https://sourceforge.net/projects/giflib/files///giflib-5.2.2.tar.gz/download
+Successfully downloaded giflib-5.2.2.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/giflib-5.2.2.tar.gz
+-- Applying patch msvc.diff
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/giflib/src/-71ecd5227a.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/giflib_x64-windows-ocr/share/gif/vcpkg-cmake-wrapper.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/giflib_x64-windows-ocr/share/giflib/usage
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/giflib_x64-windows-ocr/share/giflib/copyright
+-- Performing post-build validation
+Starting submission of giflib:x64-windows-ocr@5.2.2#2 to 1 binary cache(s) in the background
+Elapsed time to handle giflib:x64-windows-ocr: 5.6 s
+giflib:x64-windows-ocr package ABI: 13c118395f3b0888363728cd70babe95d1c7ddfe14970ea55388e54ed6ced4bc
+Completed submission of curl[core,non-http,ssl,sspi]:x64-windows-ocr@8.16.0 to 1 binary cache(s) in 326 ms
+Installing 7/19 libjpeg-turbo:x64-windows-ocr@3.1.2...
+Building libjpeg-turbo:x64-windows-ocr@3.1.2...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/libjpeg-turbo/libjpeg-turbo/archive/3.1.2.tar.gz -> libjpeg-turbo-libjpeg-turbo-3.1.2.tar.gz
+Successfully downloaded libjpeg-turbo-libjpeg-turbo-3.1.2.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/libjpeg-turbo-libjpeg-turbo-3.1.2.tar.gz
+-- Applying patch add-options-for-docs-headers.patch
+-- Applying patch workaround_cmake_system_processor.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/libjpeg-turbo/src/3.1.2-8e222f7626.clean
+Downloading nasm-2.16.03-win64.zip, trying https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip
+Successfully downloaded nasm-2.16.03-win64.zip
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libjpeg-turbo_x64-windows-ocr/lib/pkgconfig/libjpeg.pc
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libjpeg-turbo_x64-windows-ocr/lib/pkgconfig/libturbojpeg.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libjpeg-turbo_x64-windows-ocr/share/libjpeg-turbo/copyright
+-- Performing post-build validation
+Starting submission of libjpeg-turbo:x64-windows-ocr@3.1.2 to 1 binary cache(s) in the background
+Elapsed time to handle libjpeg-turbo:x64-windows-ocr: 20 s
+libjpeg-turbo:x64-windows-ocr package ABI: 89febbe71ae9a197289e59d9d2cb4741dfb15922beb1a48612e570a25412f0a4
+Completed submission of giflib:x64-windows-ocr@5.2.2#2 to 1 binary cache(s) in 69.8 ms
+Installing 8/19 libpng:x64-windows-ocr@1.6.50...
+Building libpng:x64-windows-ocr@1.6.50...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/pnggroup/libpng/archive/v1.6.50.tar.gz -> pnggroup-libpng-v1.6.50.tar.gz
+Successfully downloaded pnggroup-libpng-v1.6.50.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/pnggroup-libpng-v1.6.50.tar.gz
+-- Applying patch cmake.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/libpng/src/v1.6.50-13b6aa9451.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libpng_x64-windows-ocr/share/png/vcpkg-cmake-wrapper.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libpng_x64-windows-ocr/share/libpng/libpng-config.cmake
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libpng_x64-windows-ocr/lib/pkgconfig/libpng16.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libpng_x64-windows-ocr/lib/pkgconfig/libpng.pc
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libpng_x64-windows-ocr/share/libpng/usage
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libpng_x64-windows-ocr/share/libpng/copyright
+-- Performing post-build validation
+Starting submission of libpng:x64-windows-ocr@1.6.50 to 1 binary cache(s) in the background
+Elapsed time to handle libpng:x64-windows-ocr: 3.9 s
+libpng:x64-windows-ocr package ABI: 1210bdfcb87570c6b4a9b1e637a429a3e4cffb7f433c4d7c9d973cc9b5acc8df
+Completed submission of libjpeg-turbo:x64-windows-ocr@3.1.2 to 1 binary cache(s) in 232 ms
+Installing 9/19 libwebp[core,libwebpmux,nearlossless,simd,unicode]:x64-windows-ocr@1.6.0#1...
+Building libwebp[core,libwebpmux,nearlossless,simd,unicode]:x64-windows-ocr@1.6.0#1...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/webmproject/libwebp/archive/v1.6.0.tar.gz -> webmproject-libwebp-v1.6.0.tar.gz
+Successfully downloaded webmproject-libwebp-v1.6.0.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/webmproject-libwebp-v1.6.0.tar.gz
+-- Applying patch 0002-cmake-config.patch
+-- Applying patch 0003-simd.patch
+-- Applying patch 0008-sdl.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/libwebp/src/v1.6.0-7e52d1be79.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libwebp_x64-windows-ocr/lib/pkgconfig/libsharpyuv.pc
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libwebp_x64-windows-ocr/lib/pkgconfig/libwebp.pc
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libwebp_x64-windows-ocr/lib/pkgconfig/libwebpdecoder.pc
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libwebp_x64-windows-ocr/lib/pkgconfig/libwebpdemux.pc
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libwebp_x64-windows-ocr/lib/pkgconfig/libwebpmux.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libwebp_x64-windows-ocr/share/libwebp/usage
+-- Performing post-build validation
+Starting submission of libwebp[core,libwebpmux,nearlossless,simd,unicode]:x64-windows-ocr@1.6.0#1 to 1 binary cache(s) in the background
+Elapsed time to handle libwebp:x64-windows-ocr: 11 s
+libwebp:x64-windows-ocr package ABI: 340fce443eb8505ee6bd6478711fff836a01ee645e40a2b0bd400d4ed51ab439
+Completed submission of libpng:x64-windows-ocr@1.6.50 to 1 binary cache(s) in 128 ms
+Installing 10/19 openjpeg:x64-windows-ocr@2.5.4...
+Building openjpeg:x64-windows-ocr@2.5.4...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/uclouvain/openjpeg/archive/v2.5.4.tar.gz -> uclouvain-openjpeg-v2.5.4.tar.gz
+Successfully downloaded uclouvain-openjpeg-v2.5.4.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/uclouvain-openjpeg-v2.5.4.tar.gz
+-- Applying patch pkgconfig.diff
+-- Applying patch third-party.diff
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/openjpeg/src/v2.5.4-eb11fd487f.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/openjpeg_x64-windows-ocr/lib/pkgconfig/libopenjp2.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/openjpeg_x64-windows-ocr/share/openjpeg/usage
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/openjpeg_x64-windows-ocr/share/openjpeg/copyright
+-- Performing post-build validation
+Starting submission of openjpeg:x64-windows-ocr@2.5.4 to 1 binary cache(s) in the background
+Elapsed time to handle openjpeg:x64-windows-ocr: 9.4 s
+openjpeg:x64-windows-ocr package ABI: dc47358810f74a8531268418ddd8c6dfeb96221c7237a6b62b04b9d30ec4e370
+Completed submission of libwebp[core,libwebpmux,nearlossless,simd,unicode]:x64-windows-ocr@1.6.0#1 to 1 binary cache(s) in 204 ms
+Installing 11/19 liblzma:x64-windows-ocr@5.8.1...
+Building liblzma:x64-windows-ocr@5.8.1...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/tukaani-project/xz/archive/v5.8.1.tar.gz -> tukaani-project-xz-v5.8.1.tar.gz
+Successfully downloaded tukaani-project-xz-v5.8.1.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tukaani-project-xz-v5.8.1.tar.gz
+-- Applying patch build-tools.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/liblzma/src/v5.8.1-7ed4ee158b.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/liblzma_x64-windows-ocr/lib/pkgconfig/liblzma.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/liblzma_x64-windows-ocr/share/liblzma/copyright
+-- Performing post-build validation
+Starting submission of liblzma:x64-windows-ocr@5.8.1 to 1 binary cache(s) in the background
+Elapsed time to handle liblzma:x64-windows-ocr: 11 s
+liblzma:x64-windows-ocr package ABI: d86fee93c1d631661e50b7f8886d059ef0a36455c196fa8ab7663d75940f1183
+Completed submission of openjpeg:x64-windows-ocr@2.5.4 to 1 binary cache(s) in 140 ms
+Installing 12/19 tiff[core,jpeg,lzma,zip]:x64-windows-ocr@4.7.1...
+Building tiff[core,jpeg,lzma,zip]:x64-windows-ocr@4.7.1...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://gitlab.com/libtiff/libtiff/-/archive/v4.7.1/libtiff-v4.7.1.tar.gz -> libtiff-libtiff-v4.7.1.tar.gz
+Successfully downloaded libtiff-libtiff-v4.7.1.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/libtiff-libtiff-v4.7.1.tar.gz
+-- Applying patch FindCMath.patch
+-- Applying patch prefer-config.diff
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/tiff/src/v4.7.1-dfffa27dcf.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tiff_x64-windows-ocr/lib/pkgconfig/libtiff-4.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tiff_x64-windows-ocr/share/tiff/copyright
+-- Performing post-build validation
+Starting submission of tiff[core,jpeg,lzma,zip]:x64-windows-ocr@4.7.1 to 1 binary cache(s) in the background
+Elapsed time to handle tiff:x64-windows-ocr: 10 s
+tiff:x64-windows-ocr package ABI: 610a3e9002714966d40a6af4801e29f6d88fff01bef54eb1b168fccb81fae87a
+Completed submission of liblzma:x64-windows-ocr@5.8.1 to 1 binary cache(s) in 137 ms
+Installing 13/19 leptonica:x64-windows-ocr@1.85.0...
+Building leptonica:x64-windows-ocr@1.85.0...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/DanBloomberg/leptonica/archive/1.85.0.tar.gz -> DanBloomberg-leptonica-1.85.0.tar.gz
+Successfully downloaded DanBloomberg-leptonica-1.85.0.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/DanBloomberg-leptonica-1.85.0.tar.gz
+-- Applying patch fix-pc-and-config.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/leptonica/src/1.85.0-7512b3749c.clean
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/leptonica_x64-windows-ocr/lib/pkgconfig/lept.pc
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/leptonica_x64-windows-ocr/share/leptonica/copyright
+-- Performing post-build validation
+Starting submission of leptonica:x64-windows-ocr@1.85.0 to 1 binary cache(s) in the background
+Elapsed time to handle leptonica:x64-windows-ocr: 19 s
+leptonica:x64-windows-ocr package ABI: 15e7484c37e26b31b74118827317131ba10ce7ad49773febecc2a51794336c66
+Completed submission of tiff[core,jpeg,lzma,zip]:x64-windows-ocr@4.7.1 to 1 binary cache(s) in 165 ms
+Installing 14/19 lz4:x64-windows-ocr@1.10.0...
+Building lz4:x64-windows-ocr@1.10.0...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/lz4/lz4/archive/v1.10.0.tar.gz -> lz4-lz4-v1.10.0.tar.gz
+Successfully downloaded lz4-lz4-v1.10.0.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/lz4-lz4-v1.10.0.tar.gz
+-- Applying patch target-lz4-lz4.diff
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/lz4/src/v1.10.0-61bd08d80e.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/lz4_x64-windows-ocr/lib/pkgconfig/liblz4.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/lz4_x64-windows-ocr/share/lz4/usage
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/lz4_x64-windows-ocr/share/lz4/copyright
+-- Performing post-build validation
+Starting submission of lz4:x64-windows-ocr@1.10.0 to 1 binary cache(s) in the background
+Elapsed time to handle lz4:x64-windows-ocr: 3.8 s
+lz4:x64-windows-ocr package ABI: a960126415b448de2d8db803cc2f51eaf4aae66b4d6522d45e112e20e277c5f3
+Completed submission of leptonica:x64-windows-ocr@1.85.0 to 1 binary cache(s) in 661 ms
+Installing 15/19 vcpkg-cmake-get-vars:x64-windows@2025-05-29...
+Building vcpkg-cmake-get-vars:x64-windows@2025-05-29...
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake-get-vars_x64-windows/share/vcpkg-cmake-get-vars/vcpkg_cmake_get_vars.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake-get-vars_x64-windows/share/vcpkg-cmake-get-vars/cmake_get_vars
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake-get-vars_x64-windows/share/vcpkg-cmake-get-vars/cmake_get_vars/CMakeLists.txt
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake-get-vars_x64-windows/share/vcpkg-cmake-get-vars/cmake-get-vars.cmake.in
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake-get-vars_x64-windows/share/vcpkg-cmake-get-vars/vcpkg-port-config.cmake
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/vcpkg-cmake-get-vars_x64-windows/share/vcpkg-cmake-get-vars/copyright
+-- Performing post-build validation
+Starting submission of vcpkg-cmake-get-vars:x64-windows@2025-05-29 to 1 binary cache(s) in the background
+Elapsed time to handle vcpkg-cmake-get-vars:x64-windows: 47.7 ms
+vcpkg-cmake-get-vars:x64-windows package ABI: 1b571ecb91f54e3a86f6f48655d561a0855fb546f7608a5331cb317209f650f9
+Installing 16/19 openssl:x64-windows-ocr@3.6.0#2...
+Building openssl:x64-windows-ocr@3.6.0#2...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/openssl/openssl/archive/openssl-3.6.0.tar.gz -> openssl-openssl-openssl-3.6.0.tar.gz
+Successfully downloaded openssl-openssl-openssl-3.6.0.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/openssl-openssl-openssl-3.6.0.tar.gz
+-- Applying patch cmake-config.patch
+-- Applying patch command-line-length.patch
+-- Applying patch script-prefix.patch
+-- Applying patch aes_cfb128_vaes_encdec_wrapper.diff
+-- Applying patch windows/install-layout.patch
+-- Applying patch windows/install-pdbs.patch
+-- Applying patch windows/install-programs.diff
+-- Applying patch unix/android-cc.patch
+-- Applying patch unix/move-openssldir.patch
+-- Applying patch unix/no-empty-dirs.patch
+-- Applying patch unix/no-static-libs-for-shared.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/openssl/src/nssl-3.6.0-e5f21250ea.clean
+-- Getting CMake variables for x64-windows-ocr
+-- Loading CMake variables from D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/openssl/cmake-get-vars_C_CXX-x64-windows-ocr.cmake.log
+Downloading https://github.com/StrawberryPerl/Perl-Dist-Strawberry/releases/download/SP_54201_64bit/strawberry-perl-5.42.0.1-64bit-portable.zip -> strawberry-perl-5.42.0.1-64bit-portable.zip
+Successfully downloaded strawberry-perl-5.42.0.1-64bit-portable.zip
+-- Getting CMake variables for x64-windows-ocr
+Downloading jom_1_1_4.zip, trying https://download.qt.io/official_releases/jom/jom_1_1_4.zip
+Successfully downloaded jom_1_1_4.zip
+-- Prerunning x64-windows-ocr-rel
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/openssl_x64-windows-ocr/lib/pkgconfig/libcrypto.pc
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/openssl_x64-windows-ocr/lib/pkgconfig/libssl.pc
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/openssl_x64-windows-ocr/lib/pkgconfig/openssl.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/openssl_x64-windows-ocr/share/openssl/usage
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/openssl_x64-windows-ocr/share/openssl/copyright
+-- Performing post-build validation
+Starting submission of openssl:x64-windows-ocr@3.6.0#2 to 1 binary cache(s) in the background
+Elapsed time to handle openssl:x64-windows-ocr: 2.9 min
+openssl:x64-windows-ocr package ABI: 10457990e7d8550989344009207e7f08c37f776db60d1fe3c8f43c3d0ea1a9aa
+Completed submission of lz4:x64-windows-ocr@1.10.0 to 1 binary cache(s) in 94 ms
+Completed submission of vcpkg-cmake-get-vars:x64-windows@2025-05-29 to 1 binary cache(s) in 38.8 ms
+Installing 17/19 zstd:x64-windows-ocr@1.5.7...
+Building zstd:x64-windows-ocr@1.5.7...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/facebook/zstd/archive/v1.5.7.tar.gz -> facebook-zstd-v1.5.7.tar.gz
+Successfully downloaded facebook-zstd-v1.5.7.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/facebook-zstd-v1.5.7.tar.gz
+-- Applying patch no-static-suffix.patch
+-- Applying patch fix-emscripten-and-clang-cl.patch
+-- Applying patch fix-windows-rc-compile.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/zstd/src/v1.5.7-bb6cae2b2e.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/zstd_x64-windows-ocr/lib/pkgconfig/libzstd.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/zstd_x64-windows-ocr/share/zstd/usage
+-- Performing post-build validation
+Starting submission of zstd:x64-windows-ocr@1.5.7 to 1 binary cache(s) in the background
+Elapsed time to handle zstd:x64-windows-ocr: 9.8 s
+zstd:x64-windows-ocr package ABI: a92978956886f464bff491966dc8abcb544105e5d8fc56f009dd27d1135feb3f
+Completed submission of openssl:x64-windows-ocr@3.6.0#2 to 1 binary cache(s) in 1.7 s
+Installing 18/19 libarchive[bzip2,core,crypto,lz4,lzma,xar,zstd]:x64-windows-ocr@3.8.2...
+Building libarchive[bzip2,core,crypto,lz4,lzma,xar,zstd]:x64-windows-ocr@3.8.2...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/libarchive/libarchive/archive/v3.8.2.tar.gz -> libarchive-libarchive-v3.8.2.tar.gz
+Successfully downloaded libarchive-libarchive-v3.8.2.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/libarchive-libarchive-v3.8.2.tar.gz
+-- Applying patch fix-buildsystem.patch
+-- Applying patch fix-deps.patch
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/libarchive/src/v3.8.2-4ab340fc06.clean
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libarchive_x64-windows-ocr/lib/pkgconfig/libarchive.pc
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libarchive_x64-windows-ocr/share/libarchive/usage
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/libarchive_x64-windows-ocr/share/libarchive/copyright
+-- Performing post-build validation
+Starting submission of libarchive[bzip2,core,crypto,lz4,lzma,xar,zstd]:x64-windows-ocr@3.8.2 to 1 binary cache(s) in the background
+Elapsed time to handle libarchive:x64-windows-ocr: 1.3 min
+libarchive:x64-windows-ocr package ABI: b9bce6a6ca4c29cd0858f60df67ad951ecbe76a3a78968330c5e6dd43974f0c3
+Completed submission of zstd:x64-windows-ocr@1.5.7 to 1 binary cache(s) in 278 ms
+Installing 19/19 tesseract:x64-windows-ocr@5.5.1#1...
+Building tesseract:x64-windows-ocr@5.5.1#1...
+D:\a\DUngoff\DUngoff\build\vcpkg-ocr\dung-triplets\x64-windows-ocr.cmake: info: loaded overlay triplet from here
+Downloading https://github.com/tesseract-ocr/tesseract/archive/5.5.1.tar.gz -> tesseract-ocr-tesseract-5.5.1.tar.gz
+Successfully downloaded tesseract-ocr-tesseract-5.5.1.tar.gz
+-- Extracting source D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tesseract-ocr-tesseract-5.5.1.tar.gz
+-- Applying patch fix_static_link_icu.patch
+-- Applying patch fix-link-include-path.patch
+-- Applying patch target-curl.diff
+-- Using source at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/buildtrees/tesseract/src/5.5.1-29f78e72d6.clean
+-- Using cached msys2-mingw-w64-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst
+-- Using cached msys2-msys2-runtime-3.6.2-2-x86_64.pkg.tar.zst
+-- Using msys root at D:/a/DUngoff/DUngoff/build/vcpkg-ocr/downloads/tools/msys2/9272adbcaf19caef
+-- Configuring x64-windows-ocr
+-- Building x64-windows-ocr-rel
+-- Fixing pkgconfig file: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/lib/pkgconfig/tesseract.pc
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/api/pdf_ttf.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/arch/dotproduct.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/arch/intsimdmatrix.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/arch/simddetect.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/control.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/docqual.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/equationdetect.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/fixspace.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/mutableiterator.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/output.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/paragraphs.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/paragraphs_internal.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/paramsd.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/pgedit.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/reject.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/tesseractclass.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/tessvars.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/thresholder.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccmain/werdit.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/blamer.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/blobbox.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/blobs.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/blread.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/boxread.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/boxword.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/ccstruct.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/coutln.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/crakedge.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/debugpixa.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/detlinefit.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/dppoint.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/fontinfo.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/image.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/imagedata.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/linlsq.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/matrix.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/mod128.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/normalis.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/ocrblock.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/ocrpara.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/ocrrow.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/otsuthr.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/pageres.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/params_training_featdef.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/pdblock.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/points.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/polyaprx.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/polyblk.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/quadlsq.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/quadratc.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/quspline.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/ratngs.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/rect.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/rejctmap.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/seam.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/split.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/statistc.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/stepblob.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccstruct/werd.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/ambigs.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/bitvector.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/ccutil.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/clst.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/elst.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/elst2.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/errcode.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/fileerr.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/genericheap.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/genericvector.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/helpers.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/host.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/indexmapbidi.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/kdpair.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/lsterr.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/object_cache.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/params.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/qrsequence.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/scanutils.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/serialis.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/sorthelper.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/tessdatamanager.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/tesserrstream.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/tesstypes.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/tprintf.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/unicharcompress.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/unicharmap.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/unicharset.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/unicity_table.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/ccutil/universalambigs.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/adaptive.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/classify.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/cluster.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/clusttool.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/featdefs.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/float2int.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/fpoint.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/intfeaturespace.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/intfx.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/intmatcher.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/intproto.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/kdtree.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/mf.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/mfdefs.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/mfoutline.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/mfx.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/normfeat.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/normmatch.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/ocrfeatures.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/outfeat.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/picofeat.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/protos.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/shapeclassifier.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/shapetable.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/tessclassifier.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/classify/trainingsample.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/cutil/bitvec.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/cutil/oldlist.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/dict/dawg.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/dict/dawg_cache.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/dict/dict.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/dict/matchdefs.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/dict/stopper.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/dict/trie.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/convolve.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/fullyconnected.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/functions.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/input.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/lstm.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/lstmrecognizer.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/maxpool.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/network.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/networkio.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/networkscratch.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/parallel.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/plumbing.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/recodebeam.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/reconfig.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/reversed.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/series.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/static_shape.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/stridemap.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/lstm/weightmatrix.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/alignedblob.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/baselinedetect.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/bbgrid.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/blkocc.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/blobgrid.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/ccnontextdetect.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/cjkpitch.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/colfind.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/colpartition.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/colpartitiongrid.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/colpartitionset.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/devanagari_processing.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/drawtord.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/edgblob.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/edgloop.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/equationdetectbase.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/fpchop.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/gap_map.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/imagefind.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/linefind.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/makerow.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/oldbasel.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/pithsync.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/pitsync1.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/scanedg.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/sortflts.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/strokewidth.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/tabfind.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/tablefind.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/tablerecog.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/tabvector.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/textlineprojection.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/textord.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/topitch.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/tordmain.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/tovars.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/underlin.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/wordseg.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/textord/workingpartset.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/viewer/scrollview.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/viewer/svmnode.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/viewer/svutil.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/associate.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/chop.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/drawfx.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/findseam.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/language_model.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/lm_consistency.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/lm_pain_points.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/lm_state.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/outlines.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/params_model.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/plotedges.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/render.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/include/tesseract/wordrec/wordrec.h
+-- Installing: D:/a/DUngoff/DUngoff/build/vcpkg-ocr/packages/tesseract_x64-windows-ocr/share/tesseract/copyright
+-- Performing post-build validation
+Starting submission of tesseract:x64-windows-ocr@5.5.1#1 to 1 binary cache(s) in the background
+Elapsed time to handle tesseract:x64-windows-ocr: 3.1 min
+tesseract:x64-windows-ocr package ABI: a59f200f947ac709e230fc3f82e766c874b22f046cf717933d78177a487ab180
+Total install time: 9.5 min
+Installed contents are licensed to you by owners. Microsoft is not responsible for, nor does it grant any licenses to, third-party packages.
+Some packages did not declare an SPDX license. Check the `copyright` file for each package for more information about their licensing.
+Packages installed in this vcpkg installation declare the following licenses:
+(BSD-3-Clause OR GPL-2.0-only)
+Apache-2.0
+BSD-2-Clause
+BSD-3-Clause
+ISC
+MIT
+Zlib
+bzip2-1.0.6
+curl
+libpng-2.0
+libtiff
+tesseract provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(Tesseract CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE Tesseract::libtesseract)
+
+tesseract provides pkg-config modules:
+
+  # An OCR Engine that was developed at HP Labs (1985-1995) and Google (2006-2018).
+  tesseract
+
+Completed submission of libarchive[bzip2,core,crypto,lz4,lzma,xar,zstd]:x64-windows-ocr@3.8.2 to 1 binary cache(s) in 316 ms
+Waiting for 1 remaining binary cache submissions...
+Completed submission of tesseract:x64-windows-ocr@5.5.1#1 to 1 binary cache(s) in 1.9 s (1/1)
+All requested installations completed successfully in: 9.5 min
+Verified OCR runtime: D:\a\DUngoff\DUngoff\build\ocr-runtime

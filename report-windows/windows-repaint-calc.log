@@ -1,0 +1,10 @@
+REPAINT calc: engine tự báo làm mới tile sau khi gõ: KHÔNG
+REPAINT calc: tầng engine bù sự kiện làm mới (SYNTH): có
+REPAINT calc: sự kiện vị trí con trỏ: có 7699, 304, 0, 223
+REPAINT calc: sự kiện hiện/ẩn con trỏ: có true
+REPAINT calc: sự kiện khung ô (CELL_CURSOR): có EMPTY
+REPAINT calc: sự kiện vùng chọn ô (CELL_SELECTION_AREA): có EMPTY
+REPAINT calc: con trỏ rộng 0 (hợp lệ khi vẽ): có — đây là nguyên nhân gốc lỗi cũ
+REPAINT calc (đang gõ): điểm ảnh đổi=523 vùng=[147,25]-[196,48]
+REPAINT calc (sau Enter): điểm ảnh đổi=540 vùng=[147,31]-[197,47]
+REPAINT calc: ĐẠT (giao diện thay đổi sau khi gõ)

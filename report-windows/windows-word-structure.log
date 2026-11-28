@@ -1,0 +1,67 @@
+  -> đầu trang và chân trang
+  -> chú thích cuối trang
+[ĐẠT]  Tìm đúng đoạn BODY_MARKER trước khi chèn chú thích  {BODY_MARKER}
+[ĐẠT]  Đã bỏ chọn trước khi chèn neo chú thích
+  -> chú thích cuối văn bản
+[ĐẠT]  Tìm đúng đoạn BODY_MARKER trước khi chèn chú thích  {BODY_MARKER}
+[ĐẠT]  Đã bỏ chọn trước khi chèn neo chú thích
+  -> lưu DOCX để kiểm cấu trúc
+[ĐẠT]  Lưu cấu trúc Word: Đã lưu: word-structure.docx
+  -> Word — chèn bảng tùy chọn 4 cột 5 hàng
+[ĐẠT]  Tạo tài liệu bảng: 
+[ĐẠT]  Lưu DOCX bảng tùy chọn: Đã lưu: word-table-custom.docx
+[ĐẠT]  Mở lại DOCX bảng tùy chọn: 
+[ĐẠT]  Roundtrip bảng tùy chọn: Đã lưu: word-table-custom-roundtrip.docx
+  -> Word — thêm hàng và cột trong bảng hiện có
+[ĐẠT]  Chọn đúng ô trong bảng
+[ĐẠT]  Giữ nội dung ô sau khi thêm hàng
+[ĐẠT]  Lưu bảng sau thêm hàng/cột: Đã lưu: word-table-edited.docx
+  -> Word — xóa hàng/cột và hoàn tác
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Lưu bảng word-table-row-deleted.docx: Đã lưu: word-table-row-deleted.docx
+[ĐẠT]  Lưu bảng word-table-row-restored.docx: Đã lưu: word-table-row-restored.docx
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Lưu bảng word-table-column-deleted.docx: Đã lưu: word-table-column-deleted.docx
+[ĐẠT]  Lưu bảng word-table-column-restored.docx: Đã lưu: word-table-column-restored.docx
+  -> Word — gộp các ô trong hàng và giữ nội dung
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Lưu bảng word-table-merged.docx: Đã lưu: word-table-merged.docx
+[ĐẠT]  Lưu bảng word-table-merge-restored.docx: Đã lưu: word-table-merge-restored.docx
+  -> Word — tách ô dọc và ngang, hoàn tác
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Lưu bảng word-table-split-vertical.docx: Đã lưu: word-table-split-vertical.docx
+[ĐẠT]  Lưu bảng word-table-split-vertical-undone.docx: Đã lưu: word-table-split-vertical-undone.docx
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Lưu bảng word-table-split-horizontal.docx: Đã lưu: word-table-split-horizontal.docx
+[ĐẠT]  Lưu bảng word-table-split-horizontal-undone.docx: Đã lưu: word-table-split-horizontal-undone.docx
+  -> Word — chỉnh chiều cao hàng và chiều rộng cột
+[ĐẠT]  Lưu bảng word-table-resize-before.docx: Đã lưu: word-table-resize-before.docx
+[ĐẠT]  Mở nguồn resize độc lập: 
+[ĐẠT]  Tìm đúng ô trong nguồn resize
+[ĐẠT]  Lưu resize word-table-resize-height.docx: Đã lưu: word-table-resize-height.docx
+[ĐẠT]  Lưu resize word-table-resize-height-undone.docx: Đã lưu: word-table-resize-height-undone.docx
+[ĐẠT]  Mở nguồn resize độc lập: 
+[ĐẠT]  Tìm đúng ô trong nguồn resize
+[ĐẠT]  Lưu resize word-table-resize-width-before.docx: Đã lưu: word-table-resize-width-before.docx
+[ĐẠT]  Lưu resize word-table-resize-width.docx: Đã lưu: word-table-resize-width.docx
+[ĐẠT]  Lưu resize word-table-resize-width-undone.docx: Đã lưu: word-table-resize-width-undone.docx
+  -> Word Review — ghi thay đổi và bình luận native
+[ĐẠT]  Chọn đúng chữ để bình luận
+[ĐẠT]  Lưu DOCX có review thật: Đã lưu: word-review.docx
+  -> Mở lại DOCX có review
+[ĐẠT]  Mở lại Word review: 
+[ĐẠT]  Roundtrip review DOCX: Đã lưu: word-review-roundtrip.docx
+  -> Word Review — chấp nhận toàn bộ
+[ĐẠT]  Mở nguồn review: 
+[ĐẠT]  Lưu kết quả review: Đã lưu: word-review-accepted.docx
+[ĐẠT]  Lưu kết quả Undo review: Đã lưu: word-review-accept-undone.docx
+  -> Word Review — từ chối toàn bộ
+[ĐẠT]  Mở nguồn review: 
+[ĐẠT]  Lưu kết quả review: Đã lưu: word-review-rejected.docx
+[ĐẠT]  Lưu kết quả Undo review: Đã lưu: word-review-reject-undone.docx
+  -> Word mục lục native — cập nhật index hiện có
+[ĐẠT]  Mở fixture có mục lục: 
+[ĐẠT]  Tìm tiêu đề nguồn
+[ĐẠT]  Mục lục: chặn lưu khi chưa xác nhận XML tùy biến
+[ĐẠT]  Lưu mục lục đã cập nhật: Đã lưu: word-toc-updated.docx

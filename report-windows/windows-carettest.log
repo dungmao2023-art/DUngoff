@@ -1,0 +1,94 @@
+[ĐẠT]  HỒI QUY: con trỏ rộng 0 vẫn hợp lệ  {valid=1}
+[ĐẠT]  xác nhận nguyên nhân gốc: QRect rộng 0 báo isEmpty()==true
+[ĐẠT]  chấp nhận payload có cột/hàng kèm theo
+[ĐẠT]  JSON rectangle
+[ĐẠT]  EMPTY → không có con trỏ
+[ĐẠT]  chuỗi rỗng → không có
+[ĐẠT]  không phải số → không hợp lệ
+[ĐẠT]  0x0 → không hợp lệ
+[ĐẠT]  rộng âm → không hợp lệ
+[ĐẠT]  độ dày con trỏ theo DPI 100/125/150/200%
+[ĐẠT]  hình chữ nhật con trỏ khớp lưới điểm ảnh vật lý ở 100%
+[ĐẠT]  hình chữ nhật con trỏ khớp lưới điểm ảnh vật lý ở 125%
+[ĐẠT]  hình chữ nhật con trỏ khớp lưới điểm ảnh vật lý ở 150%
+[ĐẠT]  hình chữ nhật con trỏ khớp lưới điểm ảnh vật lý ở 175%
+[ĐẠT]  hình chữ nhật con trỏ khớp lưới điểm ảnh vật lý ở 200%
+Fontconfig error: Cannot load default config file: No such file: (null)
+Fontconfig: Successfully opened file D:\a\DUngoff\DUngoff\build\lo\engine\program\../share/fonts/truetype/fc_local.conf
+[ĐẠT]  khởi động engine
+---- docx ----
+[ĐẠT]  docx: mở tài liệu
+Fontconfig warning: using without calling FcInit()
+[GHI]   docx: focus=1
+[ĐẠT]  docx: render phân lô tối đa 4 tile/lượt, hoàn tất khung nhìn  {peak=4 drain=111 ms}
+[ĐẠT]  docx: thay đổi zoom gửi vùng nhìn mới tới engine
+[ĐẠT]  docx: thông báo resize trùng hình học không gọi lại engine
+[ĐẠT]  docx: engine báo con trỏ chữ và TileView ghi nhận (kể cả rộng 0)  {rect=154,158,1,23}
+[ĐẠT]  docx: con trỏ có chiều cao và nằm trong vùng nhìn
+[ĐẠT]  docx: pha BẬT + có focus → caretShownNow()
+[ĐẠT]  docx: pha TẮT → caretShownNow() sai
+[ĐẠT]  docx: điểm ảnh ở vị trí con trỏ KHÁC nhau giữa BẬT và TẮT  {khác trong hcn=23}
+[ĐẠT]  docx: ảnh BẬT có điểm ảnh màu tối của con trỏ
+[ĐẠT]  docx: ngoài vị trí con trỏ ảnh BẬT/TẮT giống hệt  {khác ngoài=0}
+[ĐẠT]  docx: mất focus → con trỏ ẩn
+[ĐẠT]  docx: lấy lại focus → con trỏ hiện ngay (pha BẬT)
+[ĐẠT]  docx: gõ chữ → con trỏ dịch sang phải  {154 → 164}
+[ĐẠT]  docx: ngay sau khi gõ/di chuyển con trỏ đặc (hiện, chưa vào pha tắt)
+[ĐẠT]  docx: tab ẩn giải phóng cache, dừng render và mất focus
+[ĐẠT]  docx: chuyển lại tab trong cùng cửa sổ khôi phục render
+[ĐẠT]  docx: chuyển lại tab khôi phục focus bàn phím
+[ĐẠT]  docx: con trỏ chữ sau khi trở lại tab
+[ĐẠT]  docx: con trỏ thực sự hiện sau khi trở lại tab
+---- xlsx ----
+[ĐẠT]  xlsx: mở tài liệu
+[GHI]   xlsx: focus=1
+[ĐẠT]  xlsx: render phân lô tối đa 4 tile/lượt, hoàn tất khung nhìn  {peak=4 drain=105 ms}
+[ĐẠT]  xlsx: thay đổi zoom gửi vùng nhìn mới tới engine
+[ĐẠT]  xlsx: thông báo resize trùng hình học không gọi lại engine
+[ĐẠT]  xlsx: engine báo khung ô (CELL_CURSOR) và TileView ghi nhận  {rect=46,42,133,20}
+[ĐẠT]  xlsx: khung ô có kích thước và nằm trong vùng nhìn
+[GHI]   xlsx: viền khung ô: 133/133 cột có điểm ảnh màu Excel ở cạnh trên
+[ĐẠT]  xlsx: khung ô Excel được VẼ ra điểm ảnh ở đúng toạ độ
+[ĐẠT]  xlsx: thao tác chuột được ghi nhận là input gần đây
+[ĐẠT]  xlsx: không lấy vùng làm tham chiếu khi chưa thả chuột
+[ĐẠT]  xlsx: burst 30 move chưa gửi lặp vào engine
+[ĐẠT]  xlsx: gửi đúng một move cuối trước khi thả chuột
+[GHI]   xlsx: PERF drag dispatch 1 ms (press/move/release)
+[ĐẠT]  xlsx: viền chọn phủ cả điểm bắt đầu và kết thúc kéo, không chỉ ô đầu  {46,42 325x100}
+[ĐẠT]  xlsx: viền xanh ở cạnh phải và dưới vùng kéo thật  {bottom=316 right=91}
+[ĐẠT]  xlsx: click một ô xóa viền vùng cũ
+[ĐẠT]  xlsx: thả trên tiêu đề vẫn gửi mouse-up
+[ĐẠT]  xlsx: không gửi mouse-up cho thao tác bắt đầu tại tiêu đề
+[ĐẠT]  xlsx: click tiếp theo sau kéo qua tiêu đề hoạt động bình thường
+[ĐẠT]  xlsx: tab ẩn giải phóng cache, dừng render và mất focus
+[ĐẠT]  xlsx: chuyển lại tab trong cùng cửa sổ khôi phục render
+[ĐẠT]  xlsx: chuyển lại tab khôi phục focus bàn phím
+---- pptx ----
+[ĐẠT]  pptx: mở tài liệu
+[GHI]   pptx: focus=1
+[ĐẠT]  pptx: render phân lô tối đa 4 tile/lượt, hoàn tất khung nhìn  {peak=4 drain=104 ms}
+[ĐẠT]  pptx: thay đổi zoom gửi vùng nhìn mới tới engine
+[ĐẠT]  pptx: thông báo resize trùng hình học không gọi lại engine
+[GHI]   pptx: vào được ô chữ ở (340,280)
+[ĐẠT]  pptx: engine báo con trỏ chữ và TileView ghi nhận (kể cả rộng 0)  {rect=328,243,1,62}
+[ĐẠT]  pptx: con trỏ có chiều cao và nằm trong vùng nhìn
+[ĐẠT]  pptx: pha BẬT + có focus → caretShownNow()
+[ĐẠT]  pptx: pha TẮT → caretShownNow() sai
+[ĐẠT]  pptx: điểm ảnh ở vị trí con trỏ KHÁC nhau giữa BẬT và TẮT  {khác trong hcn=62}
+[ĐẠT]  pptx: ảnh BẬT có điểm ảnh màu tối của con trỏ
+[ĐẠT]  pptx: ngoài vị trí con trỏ ảnh BẬT/TẮT giống hệt  {khác ngoài=0}
+[ĐẠT]  pptx: mất focus → con trỏ ẩn
+[ĐẠT]  pptx: lấy lại focus → con trỏ hiện ngay (pha BẬT)
+[ĐẠT]  pptx: tab ẩn giải phóng cache, dừng render và mất focus
+[ĐẠT]  pptx: chuyển lại tab trong cùng cửa sổ khôi phục render
+[ĐẠT]  pptx: chuyển lại tab khôi phục focus bàn phím
+---- pdf ----
+[ĐẠT]  pdf: mở tài liệu
+[GHI]   pdf: focus=1
+[ĐẠT]  pdf: render phân lô tối đa 4 tile/lượt, hoàn tất khung nhìn  {peak=4 drain=115 ms}
+[ĐẠT]  pdf: thay đổi zoom gửi vùng nhìn mới tới engine
+[ĐẠT]  pdf: thông báo resize trùng hình học không gọi lại engine
+[ĐẠT]  pdf: tab ẩn giải phóng cache, dừng render và mất focus
+[ĐẠT]  pdf: chuyển lại tab trong cùng cửa sổ khôi phục render
+[ĐẠT]  pdf: chuyển lại tab khôi phục focus bàn phím
+Tổng: 79 đạt, 0 lỗi

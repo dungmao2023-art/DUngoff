@@ -1,0 +1,33 @@
+PASS pristine sheet identity
+PASS pristine cell unchanged
+PASS sheet identity
+PASS sheet stays protected
+PASS locked cells stay locked
+PASS editable cells stay unlocked
+PASS allowed edit saved
+PASS locked values, text codes and formula preserved
+PASS other sheet preserved
+PASS input: single list rule retained
+PASS input: exactly one XML rule
+input XML policy {'allowBlank': '1', 'showErrorMessage': '1', 'errorStyle': 'stop', 'showDropDown': '0'}
+PASS input: allow blank preserved
+PASS input: error message enabled
+PASS input: stop error style preserved
+PASS input: validation range unchanged
+PASS input: exact Vietnamese list retained
+PASS pristine: single list rule retained
+PASS pristine: exactly one XML rule
+pristine XML policy {'allowBlank': 'true', 'showErrorMessage': 'true', 'errorStyle': 'stop', 'showDropDown': 'false'}
+PASS pristine: allow blank preserved
+PASS pristine: error message enabled
+PASS pristine: stop error style preserved
+PASS pristine: validation range unchanged
+PASS pristine: exact Vietnamese list retained
+PASS edited: single list rule retained
+PASS edited: exactly one XML rule
+edited XML policy {'allowBlank': 'true', 'showErrorMessage': 'true', 'errorStyle': 'stop', 'showDropDown': 'false'}
+PASS edited: allow blank preserved
+PASS edited: error message enabled
+PASS edited: stop error style preserved
+PASS edited: validation range unchanged
+PASS edited: exact Vietnamese list retained

@@ -1,0 +1,111 @@
+Fontconfig error: Cannot load default config file: No such file: (null)
+Fontconfig: Successfully opened file D:\a\DUngoff\DUngoff\build\lo\engine\program\../share/fonts/truetype/fc_local.conf
+Fontconfig warning: using without calling FcInit()
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2518367493056", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2518367493056", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "730"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2518367493056", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "731"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2518367493056", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "732"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2518367493056", "type": "animated", "content": { "hash": "2517654376864", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2518367493056", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2518367493056", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2518367493056", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "730"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2518367493056", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "731"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2518367493056", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "732"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2518367493056", "type": "animated", "content": { "hash": "2517654376864", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2518367493056", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2517647708512", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2517647708512", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "908"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2517647708512", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "909"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2517647708512", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "910"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2517647708512", "type": "animated", "content": { "hash": "2518329149872", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2517647708512", "type": "animated", "content": { "hash": "2518329143152", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 7129, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#B43C1E", "lineColor": "#4A7EBB"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2517647708512", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2517647708512", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "908"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2517647708512", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "909"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2517647708512", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "910"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2517647708512", "type": "animated", "content": { "hash": "2518329149872", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2517647708512", "type": "animated", "content": { "hash": "2518329143152", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 7129, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#B43C1E", "lineColor": "#4A7EBB"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2518300888864", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "1086"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "1087"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "1088"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2518300888864", "type": "animated", "content": { "hash": "2518308598064", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2518300888864", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2518300888864", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "1086"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "1087"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "1088"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2518300888864", "type": "animated", "content": { "hash": "2518308598064", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2518300888864", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2518300888864", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "1086"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "1087"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "1088"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2518300888864", "type": "animated", "content": { "hash": "2518308598064", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2518300888864", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2518300888864", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "1086"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "1087"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2518300888864", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "1088"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2518300888864", "type": "animated", "content": { "hash": "2518308598064", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2518300888864", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2517650071072", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2517650071072", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "1264"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2517650071072", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "1265"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2517650071072", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "1266"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2517650071072", "type": "animated", "content": { "hash": "2518330325776", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2517650071072", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2517650071072", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2517650071072", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "1264"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2517650071072", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "1265"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2517650071072", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "1266"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2517650071072", "type": "animated", "content": { "hash": "2518330325776", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2517650071072", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2517644721312", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2517644721312", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "1442"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2517644721312", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "1443"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2517644721312", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "1444"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2517644721312", "type": "animated", "content": { "hash": "2518297765808", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2517644721312", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+Render part=0 count=1 doc=14401x10801 window=960x600
+Entrance prepare part=0 image=799x600
+Native layers 799x599 rgba=0 count=6
+{ "group": "Background", "index": 0, "slideHash": "2517644721312", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404
+{ "group": "MasterPage", "index": 0, "slideHash": "2517644721312", "isField": true, "type": "placeholder", "content": { "type": "DateTime", "hash": "1442"}} bytes=0
+{ "group": "MasterPage", "index": 1, "slideHash": "2517644721312", "isField": true, "type": "placeholder", "content": { "type": "Footer", "hash": "1443"}} bytes=0
+{ "group": "MasterPage", "index": 2, "slideHash": "2517644721312", "isField": true, "type": "placeholder", "content": { "type": "SlideNumber", "hash": "1444"}} bytes=0
+{ "group": "DrawPage", "index": 0, "slideHash": "2517644721312", "type": "animated", "content": { "hash": "2518297765808", "initVisible": false, "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}, "bounds": { "x": 1369, "y": 1405, "width": 3021, "height": 3021}, "fillColor": "#235AB4", "lineColor": "#4A7EBB"}} bytes=1914404
+{ "group": "DrawPage", "index": 1, "slideHash": "2517644721312", "type": "bitmap", "content": { "type": "%IMAGETYPE%", "checksum": "%IMAGECHECKSUM%"}} bytes=1914404

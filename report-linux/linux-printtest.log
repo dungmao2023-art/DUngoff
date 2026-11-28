@@ -1,0 +1,76 @@
+[ĐẠT]  khoảng trống = tất cả trang
+[ĐẠT]  "Tất cả" = mọi trang
+[ĐẠT]  1-3, 5
+[ĐẠT]  8- = đến hết
+[ĐẠT]  -3 = từ đầu đến 3
+[ĐẠT]  trộn ; và , — tăng dần, không trùng
+[ĐẠT]  chấp nhận khoảng trắng
+[ĐẠT]  từ chối trang 0
+[ĐẠT]  từ chối trang vượt tổng
+       Trang 6 vượt quá tổng số 5 trang.
+[ĐẠT]  từ chối khoảng ngược
+[ĐẠT]  từ chối dấu phẩy liên tiếp
+[ĐẠT]  từ chối chữ
+[ĐẠT]  từ chối hai số thiếu dấu ngăn
+[ĐẠT]  từ chối chỉ có dấu gạch
+[ĐẠT]  từ chối số quá lớn
+[ĐẠT]  tài liệu 0 trang → lỗi
+[ĐẠT]  odd pages retain original page numbers
+[ĐẠT]  even pages retain original page numbers
+[ĐẠT]  empty parity selection rejected
+[ĐẠT]  invalid range remains invalid
+[ĐẠT]  bản sao theo bộ
+[ĐẠT]  bản sao không theo bộ
+[ĐẠT]  số bản < 1 coi là 1
+[ĐẠT]  số trang khớp: không cảnh báo
+[ĐẠT]  số trang lệch: có cảnh báo nêu cả hai số
+[ĐẠT]  không so sánh được: không cảnh báo
+[ĐẠT]  create fallback print fixture
+[ĐẠT]  copy print PDF to explicit destination
+[ĐẠT]  fallback refuses existing destination
+[ĐẠT]  fallback refuses non-PDF suffix
+[ĐẠT]  print copy survives temporary source deletion
+[ĐẠT]  tạo thư mục tạm
+[ĐẠT]  đọc PDF mẫu: 3 trang
+[ĐẠT]  PDF không tồn tại → lỗi rõ ràng
+[ĐẠT]  PDF hỏng → lỗi rõ ràng
+[ĐẠT]  highlight NFC Vietnamese, trimmed query, case-insensitive
+[ĐẠT]  highlight case-sensitive
+[ĐẠT]  highlight non-overlapping literal matches
+[ĐẠT]  highlight cap and empty query
+[ĐẠT]  Tìm chữ PDF không phân biệt hoa/thường
+[ĐẠT]  Tìm đúng trang PDF
+[ĐẠT]  Tìm phân biệt hoa/thường
+[ĐẠT]  Đọc chữ thật từ trang
+[ĐẠT]  Từ chối từ khóa hoặc khoảng sai
+[ĐẠT]  Trang chữ ngoài phạm vi
+[ĐẠT]  PDF preview paints actual match geometry
+[ĐẠT]  match geometry normalized to page
+[ĐẠT]  PDF drag coordinates return actual text and geometry
+       Trang 2
+[ĐẠT]  case-sensitive page highlights
+[ĐẠT]  reject out-of-page selection
+[ĐẠT]  vẽ trang 1 vừa khung
+[ĐẠT]  trang 1 có nội dung (điểm tối)
+       điểm tối: 2529
+[ĐẠT]  trang 1 và trang 3 khác nhau
+[ĐẠT]  PDF worker render completes within test timeout
+[ĐẠT]  PDF worker renders exact same third-page image as synchronous reference
+[ĐẠT]  reject empty preview bounds
+[ĐẠT]  reject negative preview bounds
+[ĐẠT]  successful render clears previous error
+[ĐẠT]  trang ngang giữ tỉ lệ ngang
+[ĐẠT]  trang 4 không tồn tại → ảnh rỗng + lỗi
+[ĐẠT]  in trang {1,3} ra PDF
+[ĐẠT]  tệp in có đúng 2 trang
+       số trang: 2
+[ĐẠT]  trang đã in có nội dung (không trắng)
+[ĐẠT]  in danh sách có lặp: 3 trang
+[ĐẠT]  in tự chọn hướng giấy theo từng trang
+[ĐẠT]  trang ngang được in trên giấy ngang (hướng tự động)
+       kích thước trang 2: 842x595
+[ĐẠT]  in trang không tồn tại → lỗi rõ ràng
+       Trang 9 không tồn tại.
+[ĐẠT]  danh sách trang rỗng → lỗi
+
+KẾT QUẢ: TẤT CẢ ĐẠT (đạt 68, lỗi 0)

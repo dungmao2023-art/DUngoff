@@ -1,0 +1,93 @@
+[ĐẠT]  fold: Báo cáo → bao cao
+[ĐẠT]  fold: ĐƯỜNG Đi → duong di (Đ, Ư, Ờ)
+[ĐẠT]  fold: NFC và NFD cho cùng kết quả
+[ĐẠT]  fold giữ dấu: NFC và NFD vẫn cùng kết quả
+[ĐẠT]  fold giữ dấu: bao ≠ báo
+[ĐẠT]  fold: bảng ánh xạ vị trí đủ độ dài
+[ĐẠT]  parse: từ khoá và cụm trong ngoặc kép
+[ĐẠT]  parse: loại trừ
+[ĐẠT]  parse: đuôi (bỏ dấu chấm)
+[ĐẠT]  parse: dung lượng
+[ĐẠT]  parse: ngày
+[ĐẠT]  parse: hợp lệ thì không có cảnh báo
+[ĐẠT]  parse: điều kiện sai KHÔNG bị bỏ qua âm thầm (có 2 cảnh báo)
+[ĐẠT]  splitTerms
+[ĐẠT]  inflate: văn bản lớn (dynamic Huffman)
+[ĐẠT]  inflate: dữ liệu ngẫu nhiên (khối stored)
+[ĐẠT]  inflate: chuỗi ngắn (fixed Huffman)
+[ĐẠT]  inflate: cắt đúng trần bộ nhớ, trả status=1
+[ĐẠT]  inflate: dữ liệu cụt báo lỗi, không treo/crash
+[ĐẠT]  inflate: rác báo lỗi/cắt, không crash
+[ĐẠT]  crc32 đúng giá trị chuẩn
+[ĐẠT]  tạo được tệp tên dài 190+ ký tự
+[ĐẠT]  tạo được thư mục sâu (đường dẫn 432 ký tự)
+[ĐẠT]  tên: 'bao cao' khớp Báo cáo (NFC), (NFD) và BAO CAO
+[ĐẠT]  tên: tệp trong thư mục ẩn bị bỏ qua mặc định
+[ĐẠT]  tên: tìm thấy tệp ở thư mục rất sâu
+[ĐẠT]  tên: includeHidden bật thì thấy tệp ẩn
+[ĐẠT]  tên: gõ có dấu (NFD) vẫn khớp tên NFC và không dấu
+[ĐẠT]  tên: chế độ phân biệt dấu loại 'BAO CAO' nhưng giữ NFC/NFD
+[ĐẠT]  tên: phân biệt dấu thì 'bao cao thang' không khớp 'Báo cáo tháng'
+[ĐẠT]  tên: loại trừ -nhap -quy
+[ĐẠT]  lọc: đuôi pdf
+[ĐẠT]  lọc: dung lượng ≥ 2 byte
+[ĐẠT]  lọc: ngày sửa trước 2021
+[ĐẠT]  tên: tìm thấy tên dài
+[ĐẠT]  không nhập gì: báo lỗi rõ ràng thay vì liệt kê tất cả
+[ĐẠT]  thư mục không tồn tại: báo lỗi
+[ĐẠT]  giới hạn số kết quả: cắt và báo rõ
+[ĐẠT]  nội dung: 'hop dong lao dong' khớp 'Hợp đồng lao động' trong txt và docx
+[ĐẠT]  nội dung: txt có vị trí 'dòng 2' và trích đoạn gốc có dấu
+[ĐẠT]  nội dung: docx có vị trí 'đoạn 1'
+[ĐẠT]  nội dung: UTF-8 có BOM (csv)
+[ĐẠT]  nội dung: UTF-16 LE và BE có BOM
+[ĐẠT]  nội dung: dòng dài 5 MB với ký tự nhiều byte ở ranh giới không bị báo sai bảng mã
+[ĐẠT]  nội dung: docx dùng mục không nén (stored)
+[ĐẠT]  nội dung: đọc cả đầu trang (header) của docx
+[ĐẠT]  nội dung: xlsx — chuỗi chung ghép từ nhiều run, vị trí 'Danh sách!A2'
+[ĐẠT]  nội dung: xlsx bỏ phiên âm (rPh), không khớp nhầm
+[ĐẠT]  nội dung: xlsx inlineStr ở sheet 2, vị trí 'Quỹ!C5'
+[ĐẠT]  nội dung: xlsx giữ số 0 đầu của giá trị đã lưu
+[ĐẠT]  nội dung: pptx — vị trí 'slide 1'
+[ĐẠT]  nội dung: pptx — slide 10 xếp sau slide 2 (so số, không so chuỗi)
+[ĐẠT]  nội dung: nhiều từ khoá là AND theo cả tệp
+[ĐẠT]  bỏ qua có lý do: tệp bảng mã cũ
+[ĐẠT]  bỏ qua có lý do: tệp nhị phân
+[ĐẠT]  bỏ qua có lý do: docx bị cụt
+[ĐẠT]  bỏ qua có lý do: docx sai CRC
+[ĐẠT]  bỏ qua có lý do: không phải zip
+[ĐẠT]  thống kê: .doc/.xls cũ được báo là chưa tìm nội dung
+[ĐẠT]  một tệp lỗi không làm dừng cả phiên (vẫn có kết quả hợp lệ)
+INFO  Qt6::Pdf trong bản dựng: CÓ; pdftotext trên máy: CÓ
+[ĐẠT]  nội dung: pdf qua Qt6::Pdf, vị trí trang
+[ĐẠT]  nội dung: có Qt6::Pdf → không báo pdfUnavailable
+[ĐẠT]  pdf hỏng không làm dừng phiên
+[ĐẠT]  pdf hỏng được báo trong danh sách bỏ qua kèm lý do
+[ĐẠT]  ép pdftotext không tồn tại → không có kết quả giả
+[ĐẠT]  huỷ: cờ huỷ có từ đầu → dừng ngay và báo canceled
+[ĐẠT]  chỉ mục: lập được
+[ĐẠT]  chỉ mục: đọc lại được
+[ĐẠT]  chỉ mục: kết quả tìm tên giống hệt duyệt trực tiếp
+[ĐẠT]  chỉ mục: tệp đã xoá được phát hiện là cũ, không trả về
+[ĐẠT]  chỉ mục: yêu cầu tệp ẩn mà chỉ mục không có → tự duyệt trực tiếp, không bỏ sót
+[ĐẠT]  chỉ mục: xoá được
+[ĐẠT]  chỉ mục: sau khi xoá không còn tải được
+INFO  mẫu thật: 173 tệp docx/xlsx/pptx, đọc lỗi 0, có chữ 173
+[ĐẠT]  mẫu thật: đọc được toàn bộ docx/xlsx/pptx không lỗi
+[ĐẠT]  mẫu thật: ≥90% tệp trích được chữ
+[ĐẠT]  mẫu thật: tìm theo một từ lấy từ tệp thì tìm lại đúng tệp đó
+BENCH mau-that tim 'hop dong' trong 178 tep: 25 ms, 6 ket qua, 0 bo qua, RAM dinh 49728 KB
+INFO  tạo bộ đo: 6000 tệp (~2 KB mỗi tệp), 60 tệp chứa từ khoá, mất 139 ms
+BENCH ours-name ms=33 hits=16 extra=0 peakKB=22828
+BENCH raw-name ms=7 hits=16 extra=0 peakKB=22444
+BENCH ours-content ms=222 hits=60 extra=0 peakKB=23484
+BENCH raw-content ms=74 hits=60 extra=0 peakKB=22440
+BENCH ours-index build_ms=72 load_ms=3 entries=6000
+BENCH ours-index ms=15 hits=16 extra=0 peakKB=25576
+[ĐẠT]  đo: tìm tên cho số kết quả bằng cách duyệt thô
+[ĐẠT]  đo: tìm nội dung ra đúng số tệp có từ khoá
+[ĐẠT]  đo: tìm tên bằng chỉ mục cho cùng số kết quả
+[ĐẠT]  huỷ: dừng giữa chừng khi đang duyệt bộ lớn
+
+Đạt 80, lỗi 0
+KẾT QUẢ: TẤT CẢ ĐẠT

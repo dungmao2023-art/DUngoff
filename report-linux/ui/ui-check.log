@@ -1,0 +1,13 @@
+BASIC_UI_PASS assistant initial output hidden
+BASIC_UI_PASS SUM one required field
+BASIC_UI_PASS SUM reference creates formula
+BASIC_UI_PASS VLOOKUP second field initially hidden
+BASIC_UI_PASS VLOOKUP progressive four arguments
+BASIC_UI_PASS TODAY no parameters
+BASIC_UI_PASS live range checkbox exists
+BASIC_UI_PASS busy input defers live range read
+BASIC_UI_PASS idle resumes one live range read
+BASIC_UI_PASS hidden range does not read
+BASIC_UI_PASS show resumes one live range read
+BASIC_UI_PASS disabled live range does not read
+TONG: 0 van de

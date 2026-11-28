@@ -1,0 +1,185 @@
+  -> khởi động engine
+[ĐẠT]  Khởi động engine 
+  -> mở PPTX
+No language allowlisted, turning off the language support.
+[ĐẠT]  Mở PPTX 
+[ĐẠT]  Nhận diện = PowerPoint
+[ĐẠT]  PPTX mở ở chế độ chỉnh sửa
+[ĐẠT]  Có 2 trang chiếu (thực tế: 2)
+  -> xóa slide có nội dung, Undo và Redo
+[ĐẠT]  two original slides have distinct render content
+[ĐẠT]  delete second slide preserves first slide
+[ĐẠT]  Undo restores slide order and rendered content
+[ĐẠT]  Redo removes same slide
+[ĐẠT]  second Undo restores original deck
+  -> trang mới (.uno:InsertPage)
+[ĐẠT]  Trang mới: 2 -> 3
+  -> nhân bản (.uno:DuplicatePage)
+[ĐẠT]  Nhân bản trang: -> 4
+  -> xoá trang (.uno:DeletePage)
+[ĐẠT]  Xoá trang: -> 3
+  -> di chuyển trang
+[ĐẠT]  Hai trang đầu có nội dung khác nhau (để nhận ra thứ tự)
+[ĐẠT]  Dời trang xuống (.uno:MovePageDown): hai trang đổi chỗ
+[ĐẠT]  Dời trang lên (.uno:MovePageUp): trả về thứ tự cũ
+  -> ẩn trang
+       partInfo(0) = { "visible": "1", "selected": "1", "masterPageCount": "11", "mode": "0" }
+       sau HideSlide = { "visible": "0", "selected": "1", "masterPageCount": "11", "mode": "0" }
+[ĐẠT]  Ẩn trang (.uno:HideSlide): thông tin trang đổi
+  -> sửa chữ trong khung đầu tiên
+  -> Đậm
+[ĐẠT]  Đậm (.uno:Bold): engine báo true
+  -> Nghiêng
+[ĐẠT]  Nghiêng (.uno:Italic): engine báo true
+  -> Gạch chân
+[ĐẠT]  Gạch chân (.uno:Underline): engine báo true
+  -> Căn phải
+[ĐẠT]  Căn phải (.uno:RightPara): engine báo true
+[ĐẠT]  Căn trái (.uno:LeftPara): engine báo true
+[ĐẠT]  Căn đều (.uno:JustifyPara): engine báo true
+  -> Phông chữ
+[ĐẠT]  Đổi phông (.uno:CharFontName): engine báo DejaVu Sans
+  -> Cỡ chữ
+[ĐẠT]  Đổi cỡ chữ (.uno:FontHeight): engine báo 32
+  -> Màu chữ
+[ĐẠT]  Đổi màu chữ (.uno:Color): engine báo 16711680 (đỏ)
+  -> danh sách trong khung nội dung
+[ĐẠT]  Đầu dòng (.uno:DefaultBullet): nội dung trang đổi
+[ĐẠT]  Đánh số (.uno:DefaultNumbering): nội dung trang đổi
+  -> đổi bố cục
+[ĐẠT]  Đổi bố cục (.uno:AssignLayout): nội dung trang đổi
+  -> chèn bảng
+[ĐẠT]  Chèn bảng 3x2 (.uno:InsertTable): trang đổi
+  -> chèn hình khối
+[ĐẠT]  Chèn hình chữ nhật (.uno:BasicShapes.rectangle + kéo chuột): trang đổi
+  -> chèn hộp văn bản
+[ĐẠT]  Chèn hộp văn bản (.uno:Text + kéo chuột): trang đổi
+  -> chèn ảnh
+[ĐẠT]  Chèn ảnh (.uno:InsertGraphic, FileName): trang đổi
+  -> ghi chú người nói
+       kích thước trang chiếu 14401x10801, trang ghi chú 12241x15841
+[ĐẠT]  Chế độ ghi chú đổi kích thước trang (đang ở trang ghi chú)
+[ĐẠT]  Trở về chế độ trang chiếu (kích thước trang như cũ)
+  -> vẽ trang bất kỳ
+[ĐẠT]  Reject invalid slide render requests without touching buffer
+[ĐẠT]  Render valid slide through checked LOK ABI
+[ĐẠT]  paintPartTile không làm đổi trang hiện tại
+[ĐẠT]  Part metadata stable without mutation
+[ĐẠT]  Reject invalid part indices before calling optional LOK ABI
+[ĐẠT]  Metadata reads preserve slide identity
+  -> lưu PPTX
+[ĐẠT]  Lưu thành PPTX sau khi chỉnh: Đã lưu: Trình chiếu thử - Dũng Office.pptx
+[ĐẠT]  Tệp PPTX mới có nội dung
+  -> PowerPoint — thay thứ tự lớp và Undo bằng UNO native
+[ĐẠT]  Mở fixture hai hình chồng nhau: 
+[ĐẠT]  Lưu lớp ppt-layer-baseline.pptx: Đã lưu: ppt-layer-baseline.pptx
+[ĐẠT]  Lưu lớp ppt-layer-forward.pptx: Đã lưu: ppt-layer-forward.pptx
+[ĐẠT]  Lưu lớp ppt-layer-forward-undone.pptx: Đã lưu: ppt-layer-forward-undone.pptx
+[ĐẠT]  Lưu lớp ppt-layer-backward.pptx: Đã lưu: ppt-layer-backward.pptx
+[ĐẠT]  Lưu lớp ppt-layer-backward-undone.pptx: Đã lưu: ppt-layer-backward-undone.pptx
+  -> PowerPoint — nhóm, bỏ nhóm và Undo trên fixture độc lập
+[ĐẠT]  Mở fixture nhóm: 
+[ĐẠT]  Lưu nhóm ppt-objects-grouped.pptx: Đã lưu: ppt-objects-grouped.pptx
+[ĐẠT]  Lưu nhóm ppt-objects-ungrouped.pptx: Đã lưu: ppt-objects-ungrouped.pptx
+[ĐẠT]  Lưu nhóm ppt-objects-ungroup-undone.pptx: Đã lưu: ppt-objects-ungroup-undone.pptx
+[ĐẠT]  Lưu nhóm ppt-objects-group-undone.pptx: Đã lưu: ppt-objects-group-undone.pptx
+  -> PowerPoint — căn chỉnh đối tượng native và Undo
+[ĐẠT]  Mở fixture căn left: 
+[ĐẠT]  Lưu căn ppt-align-baseline.pptx: Đã lưu: ppt-align-baseline.pptx
+[ĐẠT]  Lưu căn ppt-align-left.pptx: Đã lưu: ppt-align-left.pptx
+[ĐẠT]  Lưu căn ppt-align-left-undone.pptx: Đã lưu: ppt-align-left-undone.pptx
+[ĐẠT]  Mở fixture căn center: 
+[ĐẠT]  Lưu căn ppt-align-center.pptx: Đã lưu: ppt-align-center.pptx
+[ĐẠT]  Lưu căn ppt-align-center-undone.pptx: Đã lưu: ppt-align-center-undone.pptx
+[ĐẠT]  Mở fixture căn right: 
+[ĐẠT]  Lưu căn ppt-align-right.pptx: Đã lưu: ppt-align-right.pptx
+[ĐẠT]  Lưu căn ppt-align-right-undone.pptx: Đã lưu: ppt-align-right-undone.pptx
+[ĐẠT]  Mở fixture căn top: 
+[ĐẠT]  Lưu căn ppt-align-top.pptx: Đã lưu: ppt-align-top.pptx
+[ĐẠT]  Lưu căn ppt-align-top-undone.pptx: Đã lưu: ppt-align-top-undone.pptx
+[ĐẠT]  Mở fixture căn middle: 
+[ĐẠT]  Lưu căn ppt-align-middle.pptx: Đã lưu: ppt-align-middle.pptx
+[ĐẠT]  Lưu căn ppt-align-middle-undone.pptx: Đã lưu: ppt-align-middle-undone.pptx
+[ĐẠT]  Mở fixture căn bottom: 
+[ĐẠT]  Lưu căn ppt-align-bottom.pptx: Đã lưu: ppt-align-bottom.pptx
+[ĐẠT]  Lưu căn ppt-align-bottom-undone.pptx: Đã lưu: ppt-align-bottom-undone.pptx
+  -> PowerPoint — đổi kích thước native và Undo
+[ĐẠT]  Mở fixture đổi kích thước: 
+[ĐẠT]  Lưu resize ppt-resize-baseline.pptx: Đã lưu: ppt-resize-baseline.pptx
+[ĐẠT]  Lưu resize ppt-resize-edited.pptx: Đã lưu: ppt-resize-edited.pptx
+[ĐẠT]  Lưu resize ppt-resize-undone.pptx: Đã lưu: ppt-resize-undone.pptx
+  -> PowerPoint — native rotation with explicit pivot X/Y
+[ĐẠT]  Mở fixture xoay: 
+[ĐẠT]  Lưu xoay ppt-rotate-baseline.pptx: Đã lưu: ppt-rotate-baseline.pptx
+[ĐẠT]  Native graphic bounds and rotation pivot: 1440, 1440, 2879, 2879, 0, {"id":"94179178636736","type":33, "handles":{"kinds":{"rectangle":{"1":[{"id":"0","kind":"1","pointer":"11","point":{"x":"1440","y":"1440"}}],"2":[{"id":"1","kind":"2","pointer":"7","point":{"x":"2879","y":"1440"}}],"3":[{"id":"2","kind":"3","pointer":"12","point":{"x":"4319","y":"1440"}}],"4":[{"id":"3","kind":"4","pointer":"9","point":{"x":"1440","y":"2879"}}],"5":[{"id":"4","kind":"5","pointer":"10","point":{"x":"4319","y":"2879"}}],"6":[{"id":"5","kind":"6","pointer":"13","point":{"x":"1440","y":"4319"}}],"7":[{"id":"6","kind":"7","pointer":"8","point":{"x":"2879","y":"4319"}}],"8":[{"id":"7","kind":"8","pointer":"14","point":{"x":"4319","y":"4319"}}]},"poly":"","custom":"","anchor":"","others":""}}
+}
+  -> Rotate dispatch with center {"TransformRotationDeltaAngle":{"type":"long","value":9000},"TransformRotationX":{"type":"long","value":2879},"TransformRotationY":{"type":"long","value":2879}}
+[ĐẠT]  Lưu xoay ppt-rotate-positive.pptx: Đã lưu: ppt-rotate-positive.pptx
+[ĐẠT]  Lưu xoay ppt-rotate-positive-undone.pptx: Đã lưu: ppt-rotate-positive-undone.pptx
+[ĐẠT]  Mở fixture xoay: 
+[ĐẠT]  Native graphic bounds and rotation pivot: 1440, 1440, 2879, 2879, 0, {"id":"94179158396240","type":33, "handles":{"kinds":{"rectangle":{"1":[{"id":"0","kind":"1","pointer":"11","point":{"x":"1440","y":"1440"}}],"2":[{"id":"1","kind":"2","pointer":"7","point":{"x":"2879","y":"1440"}}],"3":[{"id":"2","kind":"3","pointer":"12","point":{"x":"4319","y":"1440"}}],"4":[{"id":"3","kind":"4","pointer":"9","point":{"x":"1440","y":"2879"}}],"5":[{"id":"4","kind":"5","pointer":"10","point":{"x":"4319","y":"2879"}}],"6":[{"id":"5","kind":"6","pointer":"13","point":{"x":"1440","y":"4319"}}],"7":[{"id":"6","kind":"7","pointer":"8","point":{"x":"2879","y":"4319"}}],"8":[{"id":"7","kind":"8","pointer":"14","point":{"x":"4319","y":"4319"}}]},"poly":"","custom":"","anchor":"","others":""}}
+}
+  -> Rotate dispatch with center {"TransformRotationDeltaAngle":{"type":"long","value":-4500},"TransformRotationX":{"type":"long","value":2879},"TransformRotationY":{"type":"long","value":2879}}
+[ĐẠT]  Lưu xoay ppt-rotate-negative.pptx: Đã lưu: ppt-rotate-negative.pptx
+[ĐẠT]  Lưu xoay ppt-rotate-negative-undone.pptx: Đã lưu: ppt-rotate-negative-undone.pptx
+  -> PowerPoint — insert editable shapes from gallery
+[ĐẠT]  Open source for shape gallery: 
+  -> Gallery: .uno:BasicShapes.round-rectangle
+[ĐẠT]  Native shape changes slide: .uno:BasicShapes.round-rectangle
+  -> Gallery: .uno:BasicShapes.ellipse
+[ĐẠT]  Native shape changes slide: .uno:BasicShapes.ellipse
+  -> Gallery: .uno:BasicShapes.isosceles-triangle
+[ĐẠT]  Native shape changes slide: .uno:BasicShapes.isosceles-triangle
+  -> Gallery: .uno:BasicShapes.diamond
+[ĐẠT]  Native shape changes slide: .uno:BasicShapes.diamond
+  -> Gallery: .uno:ArrowShapes.right-arrow
+[ĐẠT]  Native shape changes slide: .uno:ArrowShapes.right-arrow
+  -> Gallery: .uno:StarShapes.star5
+[ĐẠT]  Native shape changes slide: .uno:StarShapes.star5
+[ĐẠT]  Save editable gallery shapes: Đã lưu: ppt-shape-gallery.pptx
+  -> PowerPoint — layout and Undo: 0
+[ĐẠT]  Open layout fixture: 
+[ĐẠT]  Save layout ppt-layout-0-before.pptx: Đã lưu: ppt-layout-0-before.pptx
+[ĐẠT]  Layout preserves neighbour slide
+[ĐẠT]  Save layout ppt-layout-0-edited.pptx: Đã lưu: ppt-layout-0-edited.pptx
+[ĐẠT]  Layout Undo restores original slide pixels
+[ĐẠT]  Save layout ppt-layout-0-undone.pptx: Đã lưu: ppt-layout-0-undone.pptx
+  -> PowerPoint — layout and Undo: 1
+[ĐẠT]  Open layout fixture: 
+[ĐẠT]  Save layout ppt-layout-1-before.pptx: Đã lưu: ppt-layout-1-before.pptx
+[ĐẠT]  Layout preserves neighbour slide
+[ĐẠT]  Save layout ppt-layout-1-edited.pptx: Đã lưu: ppt-layout-1-edited.pptx
+[ĐẠT]  Layout Undo restores original slide pixels
+[ĐẠT]  Save layout ppt-layout-1-undone.pptx: Đã lưu: ppt-layout-1-undone.pptx
+  -> PowerPoint — layout and Undo: 3
+[ĐẠT]  Open layout fixture: 
+[ĐẠT]  Save layout ppt-layout-3-before.pptx: Đã lưu: ppt-layout-3-before.pptx
+[ĐẠT]  Layout preserves neighbour slide
+[ĐẠT]  Save layout ppt-layout-3-edited.pptx: Đã lưu: ppt-layout-3-edited.pptx
+[ĐẠT]  Layout Undo restores original slide pixels
+[ĐẠT]  Save layout ppt-layout-3-undone.pptx: Đã lưu: ppt-layout-3-undone.pptx
+  -> PowerPoint — layout and Undo: 18
+[ĐẠT]  Open layout fixture: 
+[ĐẠT]  Save layout ppt-layout-18-before.pptx: Đã lưu: ppt-layout-18-before.pptx
+[ĐẠT]  Layout preserves neighbour slide
+[ĐẠT]  Save layout ppt-layout-18-edited.pptx: Đã lưu: ppt-layout-18-edited.pptx
+[ĐẠT]  Layout Undo restores original slide pixels
+[ĐẠT]  Save layout ppt-layout-18-undone.pptx: Đã lưu: ppt-layout-18-undone.pptx
+  -> PowerPoint — layout and Undo: 20
+[ĐẠT]  Open layout fixture: 
+[ĐẠT]  Save layout ppt-layout-20-before.pptx: Đã lưu: ppt-layout-20-before.pptx
+[ĐẠT]  Layout preserves neighbour slide
+[ĐẠT]  Save layout ppt-layout-20-edited.pptx: Đã lưu: ppt-layout-20-edited.pptx
+[ĐẠT]  Layout Undo restores original slide pixels
+[ĐẠT]  Save layout ppt-layout-20-undone.pptx: Đã lưu: ppt-layout-20-undone.pptx
+  -> PowerPoint — direct Slide Master editing and return to normal
+[ĐẠT]  Mở fixture master: 
+[ĐẠT]  Two distinct normal slides
+[ĐẠT]  Native master mode with distinct page identities; count=11 first=94179178216976 master=94179183039616
+[ĐẠT]  Current master/layout index: 8
+[ĐẠT]  Active master editor tile renders without switching page
+[ĐẠT]  Native master editor tile changed without switching page; before=16654784905433042773 after=14852454652243171358
+[ĐẠT]  Return to both original normal slides in order
+[ĐẠT]  Save master change: Đã lưu: ppt-master-edited.pptx
+
+KẾT QUẢ PPT: TẤT CẢ ĐẠT

@@ -1,0 +1,240 @@
+qpdf: /usr/bin/qpdf
+[ĐẠT]  parsePages '1-3,5,8-' (9 trang)
+[ĐẠT]  parsePages mở đầu cuối '2-'
+[ĐẠT]  parsePages từ chối '0'
+[ĐẠT]  parsePages từ chối '4'
+[ĐẠT]  parsePages từ chối '3-1'
+[ĐẠT]  parsePages từ chối ''
+[ĐẠT]  parsePages từ chối 'x'
+[ĐẠT]  parsePages từ chối '1,,x'
+[ĐẠT]  parsePages từ chối '1,,2'
+[ĐẠT]  parsePages từ chối '1,'
+[ĐẠT]  parsePages từ chối ',1'
+[ĐẠT]  parsePages từ chối '1 2'
+[ĐẠT]  parsePages từ chối '-'
+[ĐẠT]  parsePages từ chối '+1'
+[ĐẠT]  parsePages từ chối '1-2-3'
+[ĐẠT]  page range spaces around dash
+[ĐẠT]  reject excessive page expansion
+[ĐẠT]  info: 3 trang, không mật khẩu
+[ĐẠT]  info: tệp không tồn tại báo lỗi
+[ĐẠT]  Sắp xếp 3,1,2 đủ 3 trang
+[ĐẠT]  Trang đầu bản sắp xếp là trang 3 gốc
+[ĐẠT]  Từ chối trang trùng
+[ĐẠT]  Từ chối thiếu trang
+[ĐẠT]  replace one OCR page and retain full document
+[ĐẠT]  reject invalid OCR range, multi-page replacement and stale source
+[ĐẠT]  visual organize combines reorder and removal
+[ĐẠT]  visual organizer keeps exact chosen order
+[ĐẠT]  visual organizer rejects invalid selection and stale fingerprint
+[ĐẠT]  visual organizer preserves original PDF bytes
+[ĐẠT]  Không ghi đè nguồn khi sắp xếp
+[ĐẠT]  delete duplicates count once
+[ĐẠT]  reject deleting all pages
+[ĐẠT]  reject out of range deletion
+[ĐẠT]  delete page 2 from real PDF
+[ĐẠT]  retained pages in original order
+[ĐẠT]  reject changed source page count
+[ĐẠT]  refuse existing output
+[ĐẠT]  source unchanged
+[ĐẠT]  gộp 3+2 thành 5 trang
+[ĐẠT]  gộp: hai tệp nguồn giữ nguyên từng byte
+[ĐẠT]  gộp: từ chối khi đích đã tồn tại
+[ĐẠT]  gộp: thay thế có sao lưu đúng nội dung cũ
+[ĐẠT]  gộp: không được ghi đè lên chính tệp nguồn
+[ĐẠT]  gộp: cần ít nhất hai tệp
+[ĐẠT]  reject hardlink destination even with replacement consent
+[ĐẠT]  reject dangling symlink without replacing or creating target
+[ĐẠT]  reject directory destination
+[ĐẠT]  competing destination created during qpdf is not overwritten
+[ĐẠT]  no temporary output after competing writer
+[ĐẠT]  tạo tệp tên tiếng Việt
+[ĐẠT]  gộp với tên tệp tiếng Việt
+[ĐẠT]  tách trang '1,3' còn 2 trang
+[ĐẠT]  tách: khoảng trang sai bị từ chối, không tạo tệp
+[ĐẠT]  tách mỗi trang một tệp: 3 tệp a-trangNNN.pdf
+[ĐẠT]  mỗi tệp tách ra có đúng 1 trang
+[ĐẠT]  tách lần hai bị từ chối (không ghi đè), không còn thư mục tạm
+[ĐẠT]  xoay trang 1 thêm 90 độ
+[ĐẠT]  xoay: tệp nguồn giữ nguyên
+[ĐẠT]  xoay: từ chối góc không phải bội của 90
+[ĐẠT]  xoay: góc 360 độ không có gì để làm
+[ĐẠT]  xoay -90 độ thành 270
+[ĐẠT]  blank rotation selection rotates every page
+[ĐẠT]  overlapping page ranges rotate each page once
+[ĐẠT]  invalid rotation range publishes nothing
+[ĐẠT]  blank and overlapping rotations preserve source bytes
+[ĐẠT]  nén giữ nguyên số trang
+[ĐẠT]  nén: tệp nguồn giữ nguyên
+CHẨN ĐOÁN tệp cắt cụt: mã=2 trang= lỗi=WARNING: /tmp/dung-pdftest-zJGynx/hong.pdf: file is damaged
+WARNING: /tmp/dung-pdftest-zJGynx/hong.pdf: can't find startxref
+WARNING: /tmp/dung-pdftest-zJGynx/hong.pdf: Attempting to reconstruct cross
+[ĐẠT]  tệp bị cắt cụt: báo lỗi hoặc cảnh báo đã phục hồi
+[ĐẠT]  tệp không phải PDF: báo lỗi
+[ĐẠT]  gộp với tệp hỏng: từ chối, hoặc ghi kết quả kèm cảnh báo
+[ĐẠT]  gộp với tệp hỏng: tệp nguồn giữ nguyên
+[ĐẠT]  unexpected encryption probe status refused
+[ĐẠT]  status 2 with error diagnostics refused
+[ĐẠT]  silent status 2 is unencrypted
+[ĐẠT]  create owner-password-only fixture
+[ĐẠT]  encrypted PDF with empty user password still requires encryption warning
+[ĐẠT]  owner-only PDF extraction produces readable one-page copy
+[ĐẠT]  owner-only PDF extraction reports decryption
+[ĐẠT]  owner-only PDF source remains byte-identical
+[ĐẠT]  tạo PDF mã hóa để thử
+CHẨN ĐOÁN mật khẩu [--password-file=/tmp/dun]: mã=0 ra=3 lỗi=
+CHẨN ĐOÁN mật khẩu [--password=1234]: mã=0 ra=3 lỗi=
+CHẨN ĐOÁN mật khẩu [--password-file=/tmp/dun]: mã=0 ra=3 lỗi=
+[ĐẠT]  tệp mật khẩu: báo cần mật khẩu
+[ĐẠT]  tệp mật khẩu: mật khẩu sai vẫn báo cần mật khẩu
+[ĐẠT]  tệp mật khẩu: mở đúng với mật khẩu đúng
+[ĐẠT]  tách tệp mật khẩu khi thiếu mật khẩu bị từ chối
+[ĐẠT]  tách tệp mật khẩu: kết quả mở không cần mật khẩu
+[ĐẠT]  tách tệp mật khẩu: có cảnh báo kết quả không còn mật khẩu
+[ĐẠT]  tệp mật khẩu nguồn giữ nguyên từng byte
+[ĐẠT]  đánh số trang: kết quả 3 trang
+[ĐẠT]  đánh số trang: có 'Trang 1/3'..'Trang 3/3' trong nội dung
+[ĐẠT]  đánh số trang: tệp nguồn giữ nguyên từng byte
+[ĐẠT]  đánh số trang: từ chối khi đích đã tồn tại
+[ĐẠT]  đánh số trang: không được ghi đè lên tệp nguồn
+[ĐẠT]  đánh số trang '2-': trang 2 là số 1, trang 3 là số 2, không có số 3
+[ĐẠT]  đánh số tiếng Việt: đủ trang — 
+[ĐẠT]  số trang Unicode có font nhúng
+[ĐẠT]  số trang Unicode giữ chữ vector gốc
+[ĐẠT]  đọc số trang Unicode 1: A1
+[ĐẠT]  đọc số trang Unicode 2: A2 Trang số 7/8
+[ĐẠT]  đọc số trang Unicode 3: A3 Trang số 8/8
+[ĐẠT]  đánh số Unicode giữ nguyên nguồn
+[ĐẠT]  từ chối số trang nhiều dòng
+[ĐẠT]  từ chối số trang ASCII quá rộng
+[ĐẠT]  từ chối số trang quá rộng giữ nguyên nguồn
+[ĐẠT]  đánh số trang: vị trí đường chéo bị từ chối
+[ĐẠT]  đánh số trang: khoảng trang sai bị từ chối
+[ĐẠT]  đánh số trang: trang xoay 90 độ vẫn giữ xoay và có số
+CHẨN ĐOÁN pdftotext so.pdf: A1 Trang 1/3 A2 Trang 2/3 A3 Trang 3/3
+[ĐẠT]  đánh số trang: tệp mật khẩu thiếu mật khẩu bị từ chối
+[ĐẠT]  đánh số trang: tệp mật khẩu đúng mật khẩu, kèm cảnh báo mất mật khẩu
+[ĐẠT]  tạo ảnh PNG thử
+[ĐẠT]  tạo ảnh JPEG thử
+[ĐẠT]  đóng dấu chữ: kết quả 3 trang
+[ĐẠT]  đóng dấu chữ: có chữ và độ đậm 0.3 trong nội dung
+[ĐẠT]  đóng dấu: tệp nguồn giữ nguyên từng byte
+[ĐẠT]  insert Vietnamese vector text while retaining original document
+[ĐẠT]  reject stale source and invalid text position
+[ĐẠT]  đóng dấu chữ Việt Unicode: đủ trang — 
+[ĐẠT]  lớp chữ Việt có font nhúng và bản đồ Unicode
+[ĐẠT]  giữ chữ vector gốc
+[ĐẠT]  đọc lại Unicode trang 1: A1; UTF-8 hex=41310a0a0c; stderr=
+[ĐẠT]  đọc lại Unicode trang 2: A2 BẢN NHÁP; UTF-8 hex=41320a0a42e1baa24e204e48c381500a0a0c; stderr=
+[ĐẠT]  đọc lại Unicode trang 3: A3; UTF-8 hex=41330a0a0c; stderr=
+[ĐẠT]  lớp chữ Việt không sửa nguồn
+[ĐẠT]  từ chối dấu nhiều dòng
+[ĐẠT]  đóng dấu: thiếu chữ và ảnh bị từ chối
+[ĐẠT]  từ chối dấu chữ ASCII quá rộng
+[ĐẠT]  từ chối dấu chữ ASCII quá rộng
+[ĐẠT]  từ chối dấu chữ ASCII quá rộng
+[ĐẠT]  từ chối dấu quá rộng giữ nguyên nguồn
+[ĐẠT]  đóng dấu trang '2': chữ xuất hiện đúng một lần
+[ĐẠT]  lớp phủ tùy vị trí đúng trang
+[ĐẠT]  từ chối vị trí ngoài phạm vi
+[ĐẠT]  lớp phủ tùy vị trí giữ nguồn
+[ĐẠT]  OCR khoảng một trang
+[ĐẠT]  OCR khoảng nhiều trang
+[ĐẠT]  OCR từ chối khoảng không hợp lệ
+[ĐẠT]  OCR giới hạn số trang mỗi lượt
+[ĐẠT]  OCR từ chối ngôn ngữ không hỗ trợ
+[ĐẠT]  OCR từ chối ảnh không tồn tại
+[ĐẠT]  đóng dấu ảnh PNG trong suốt: giữ kênh trong suốt (SMask)
+[ĐẠT]  đóng dấu ảnh JPEG: nhúng nguyên bản từng byte
+[ĐẠT]  đóng dấu: ảnh không tồn tại bị từ chối
+[ĐẠT]  đóng dấu: tệp không phải ảnh bị từ chối
+[ĐẠT]  ảnh -> PDF: 3 ảnh thành 3 trang
+[ĐẠT]  ảnh -> PDF: JPEG được nhúng nguyên bản từng byte
+[ĐẠT]  ảnh -> PDF: có DCTDecode (JPEG) và SMask (PNG trong suốt)
+[ĐẠT]  ảnh -> PDF: PNG 40x30 ở 150 dpi cho trang 19.2 x 14.4 pt
+[ĐẠT]  ảnh -> PDF: ảnh nguồn giữ nguyên từng byte
+[ĐẠT]  ảnh -> PDF: từ chối khi đích đã tồn tại
+[ĐẠT]  ảnh -> PDF: không được ghi đè lên chính ảnh nguồn
+[ĐẠT]  ảnh -> PDF: danh sách rỗng bị từ chối
+[ĐẠT]  ảnh -> PDF: tệp không phải ảnh bị từ chối, không tạo tệp
+[ĐẠT]  ảnh -> PDF: một ảnh lỗi thì hủy cả lô, không tạo tệp dở
+[ĐẠT]  ảnh -> PDF: EXIF hướng 6 thành trang xoay 90 độ
+[ĐẠT]  ảnh -> PDF A4: trang A4 (ảnh dọc và ảnh ngang)
+[ĐẠT]  ảnh -> PDF: dpi ngoài khoảng bị từ chối
+[ĐẠT]  ảnh -> PDF: kết quả tách trang được bằng công cụ khác
+[ĐẠT]  tạo PDF thử có trang trắng (7 trang)
+[ĐẠT]  trang trắng: nhận ra trang 2, 3, 6, 7 (không nhận trang có chữ, ô tô nền, chú thích)
+[ĐẠT]  trang trắng: báo kèm giới hạn của phép kiểm tra
+[ĐẠT]  blank preview stores full SHA256
+[ĐẠT]  changed source retains same page topology and size
+[ĐẠT]  blank removal rejects changed source even when blank indexes match
+[ĐẠT]  stale preview rejection preserves both sources
+[ĐẠT]  blank removal rejects confirmed preview without source identity
+[ĐẠT]  trang trắng: tệp không có trang trắng cho danh sách rỗng
+[ĐẠT]  blank removal rejects changed confirmed page set
+[ĐẠT]  blank removal rejects changed confirmed page count
+[ĐẠT]  bỏ trang trắng: còn 3 trang (7 trừ 4)
+[ĐẠT]  bỏ trang trắng: tệp nguồn giữ nguyên từng byte
+[ĐẠT]  bỏ trang trắng: không có trang trắng thì không tạo tệp
+[ĐẠT]  bỏ trang trắng: mọi trang đều trắng thì từ chối, không tạo tệp rỗng
+[ĐẠT]  trang trắng: tệp mật khẩu thiếu mật khẩu báo cần mật khẩu
+[ĐẠT]  trang trắng: tệp mật khẩu với mật khẩu đúng đọc được
+[ĐẠT]  real annotation keeps page count and source
+[ĐẠT]  annotation contains real Unicode /Text contents
+[ĐẠT]  invalid note page rejected
+[ĐẠT]  direct click creates real annotation and preserves source
+[ĐẠT]  direct annotation rejects missing or stale source fingerprint
+[ĐẠT]  real multi-line highlight annotation
+[ĐẠT]  underline preserves existing annotation and original
+[ĐẠT]  reject out-of-page and stale markup
+[ĐẠT]  no form does not publish result
+[ĐẠT]  read actual AcroForm field
+[ĐẠT]  fill form without changing original
+[ĐẠT]  read filled value after reopening
+[ĐẠT]  filled form has widget appearance
+[ĐẠT]  fill Vietnamese value in real form
+[ĐẠT]  Unicode value and vector glyph appearance persist
+[ĐẠT]  re-edit a saved Unicode form
+[ĐẠT]  reject multiline value
+[ĐẠT]  create native image insertion fixture
+[ĐẠT]  insert real image object without replacing page text or source
+[ĐẠT]  move and resize a native image while retaining previous versions
+[ĐẠT]  create different aspect ratio image fixture
+[ĐẠT]  replace native image in its original layer with new pixel dimensions
+[ĐẠT]  remove actual image object without altering other versions
+[ĐẠT]  removed page object cannot be selected again
+[ĐẠT]  reject image removal outside an image
+[ĐẠT]  reject click outside image
+[ĐẠT]  reject invalid and stale native image placement
+[ĐẠT]  stale text selection never publishes a changed PDF
+[ĐẠT]  PDFium edits original text object
+[ĐẠT]  continue editing the latest PDF copy without altering either earlier version
+[ĐẠT]  reject partial object
+[ĐẠT]  duplicate text without location is ambiguous
+[ĐẠT]  duplicate text outside selection is rejected
+[ĐẠT]  edit one repeated text object by page location
+[ĐẠT]  build Vietnamese CID font fixture
+[ĐẠT]  PDFium replaces real Vietnamese text with matching embedded font
+[ĐẠT]  reject multiline PDF edit
+[ĐẠT]  create private PDF edit session
+[ĐẠT]  snapshot original PDF
+[ĐẠT]  edit first session PDF
+[ĐẠT]  edit second session PDF
+[ĐẠT]  session history tracks edits
+[ĐẠT]  undo selects actual previous PDF
+[ĐẠT]  redo selects actual next PDF
+[ĐẠT]  reject invalid history index
+[ĐẠT]  undo before divergent edit
+[ĐẠT]  new edit discards obsolete redo branch
+[ĐẠT]  never overwrite original PDF
+[ĐẠT]  publish a verified final PDF
+[ĐẠT]  never overwrite exported final PDF
+[ĐẠT]  reject tampered working PDF and preserve published files
+[ĐẠT]  isAsciiText: chữ không dấu hợp lệ
+[ĐẠT]  isAsciiText: chữ có dấu bị nhận ra
+[ĐẠT]  isAsciiText: ký tự điều khiển bị nhận ra
+[ĐẠT]  không còn tệp tạm ~dung-* trong thư mục làm việc
+[ĐẠT]  đề xuất tên tệp kết quả
+
+Đạt 229, lỗi 0
+KẾT QUẢ: TẤT CẢ ĐẠT

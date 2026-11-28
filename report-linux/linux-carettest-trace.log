@@ -1,0 +1,75 @@
+[+0ms] sự kiện 2: 
+[+0ms] sự kiện 6: EMPTY
+[+0ms] sự kiện 1: 2084, 2204, 0, 381
+[+0ms] focus: VÀO
+[+7ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=154,158,1,26
+[+529ms] vẽ: con trỏ tắt (có=1 hiện=1 pha=0 focus=1) viewRect=154,158,1,26
+[+1053ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=154,158,1,26
+[+1579ms] vẽ: con trỏ tắt (có=1 hiện=1 pha=0 focus=1) viewRect=139,153,1,28
+[+2102ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=154,158,1,26
+[+2677ms] vẽ: con trỏ tắt (có=1 hiện=1 pha=0 focus=1) viewRect=154,158,1,26
+[+2868ms] focus: RA
+[+2970ms] focus: VÀO
+[+2971ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=154,158,1,26
+[+3078ms] sự kiện 1: 2253, 2204, 0, 381
+[+3085ms] focus: RA
+[+3089ms] focus: VÀO
+[+3591ms] focus: RA
+[+3644ms] focus: VÀO
+[+4153ms] sự kiện 1: 2084, 2204, 0, 381
+[+4281ms] sự kiện 34: A1
+[+4281ms] sự kiện 17: 0, 0, 2254, 299, 0, 0
+[+4281ms] sự kiện 2: 
+[+4281ms] sự kiện 17: 0, 0, 2264, 299, 0, 0
+[+4281ms] sự kiện 42: EMPTY
+[+4281ms] focus: VÀO
+[+4285ms] vẽ: con trỏ tắt (có=0 hiện=0 pha=1 focus=1) viewRect=0,0,0,0
+[+4365ms] sự kiện 2: EMPTY
+[+4365ms] sự kiện 42: EMPTY
+[+5789ms] sự kiện 17: 0, 0, 2262, 299, 0, 0
+[+5790ms] sự kiện 2: 
+[+5790ms] sự kiện 42: EMPTY
+[+5891ms] sự kiện 17: 0, 0, 2264, 299, 0, 0
+[+5891ms] sự kiện 42: EMPTY
+[+6445ms] sự kiện 34: A2
+[+6445ms] sự kiện 17: 0, 300, 2264, 299, 0, 1
+[+6929ms] sự kiện 42: 0, 300, 2265, 300
+[+6929ms] sự kiện 34: A2:C6
+[+6929ms] sự kiện 42: 0, 300, 4425, 1500
+[+6929ms] sự kiện 2: 0, 300, 4425, 1500
+[+8449ms] sự kiện 42: EMPTY
+[+8449ms] sự kiện 2: 
+[+8449ms] sự kiện 34: A2
+[+9013ms] sự kiện 42: 0, 300, 2265, 300
+[+9013ms] sự kiện 34: A2:A4
+[+9013ms] sự kiện 42: 0, 300, 2265, 900
+[+9013ms] sự kiện 2: 0, 300, 2265, 900
+[+9516ms] sự kiện 42: EMPTY
+[+9516ms] sự kiện 2: 
+[+9516ms] sự kiện 34: A2
+[+10080ms] focus: RA
+[+10080ms] focus: VÀO
+[+10581ms] focus: RA
+[+10633ms] focus: VÀO
+[+11261ms] focus: VÀO
+[+25032ms] sự kiện 2: 
+[+25032ms] sự kiện 6: 1080, 3355, 12239, 2314, 0, {"id":"94275854788224","type":20, "handles":{"kinds":{"rectangle":{"1":[{"id":"2","kind":"1"
+[+32493ms] sự kiện 1: 9670, 3984, 0, 1055
+[+32493ms] sự kiện 1: 4729, 3984, 0, 1055
+[+32493ms] sự kiện 5: true
+[+32493ms] sự kiện 1: 5369, 3984, 0, 1055
+[+32495ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=343,243,1,62
+[+33073ms] vẽ: con trỏ tắt (có=1 hiện=1 pha=0 focus=1) viewRect=343,243,1,62
+[+33262ms] focus: RA
+[+33364ms] focus: VÀO
+[+33364ms] vẽ: con trỏ BẬT (có=1 hiện=1 pha=1 focus=1) viewRect=343,243,1,62
+[+33466ms] focus: RA
+[+33467ms] focus: VÀO
+[+33970ms] focus: RA
+[+34023ms] focus: VÀO
+[+34562ms] focus: VÀO
+[+34564ms] vẽ: con trỏ tắt (có=0 hiện=0 pha=1 focus=1) viewRect=0,0,0,0
+[+36727ms] focus: RA
+[+36727ms] focus: VÀO
+[+37231ms] focus: RA
+[+37284ms] focus: VÀO

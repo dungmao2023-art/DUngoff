@@ -1,0 +1,10 @@
+Tệp gốc không có giá trị cache của công thức (chưa từng được Excel tính) — bỏ qua so sánh kết quả.
+Đã kiểm tra 40061 ô, 0 chỉnh sửa dự kiến.
+CÔNG THỨC VIẾT LẠI TƯƠNG ĐƯƠNG (cùng kết quả, Excel chấp nhận): 5000 ô, ví dụ:
+  = DonHang!E2: =VLOOKUP(C2,DanhMuc!$A$2:$B$7,2,FALSE) -> =VLOOKUP(C2,DanhMuc!$A$2:$B$7,2,FALSE())
+  = DonHang!E3: =VLOOKUP(C3,DanhMuc!$A$2:$B$7,2,FALSE) -> =VLOOKUP(C3,DanhMuc!$A$2:$B$7,2,FALSE())
+  = DonHang!E4: =VLOOKUP(C4,DanhMuc!$A$2:$B$7,2,FALSE) -> =VLOOKUP(C4,DanhMuc!$A$2:$B$7,2,FALSE())
+KHÁC BIỆT ĐÃ BIẾT (xem docs/DATA_SAFETY.md):
+  ~ Tệp: số quy tắc định dạng có điều kiện (cfRule, kể cả x14) 1 -> 2
+  ~ Tệp: số phần mở rộng định dạng có điều kiện (x14) 0 -> 1
+OK: không phát hiện mất dữ liệu.

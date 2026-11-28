@@ -1,0 +1,199 @@
+[ĐẠT]  Số trang chiếu = 3 sau (thêm, nhân bản, xoá) (thực tế 3)
+[ĐẠT]  Trang 1 có chữ 'Dung Office' đã nhập
+[ĐẠT]  Chữ đã nhập: đậm
+[ĐẠT]  Chữ đã nhập: nghiêng
+[ĐẠT]  Chữ đã nhập: gạch chân
+[ĐẠT]  Chữ đã nhập: cỡ 32 (thực tế 32.0)
+[ĐẠT]  Chữ đã nhập: phông DejaVu Sans (thực tế DejaVu Sans)
+[ĐẠT]  Chữ đã nhập: màu đỏ FF0000 (thực tế FF0000)
+[ĐẠT]  Trang 2 có bảng
+[ĐẠT]  Trang 2 có ảnh (PICTURE)
+[ĐẠT]  Trang 1 có hộp văn bản 'Hop van ban' (thực tế: ['Dũng OfficeDung Office', 'Bản trình chiếu mẫu', '', 'Hop van ban'])
+[ĐẠT]  Trang 1 có thêm hình khối/hộp (số đối tượng 4)
+[ĐẠT]  Ghi chú người nói của trang 1 đã lưu (thực tế: 'Ghi chu nguoi noi')
+[ĐẠT]  ppt-layer-baseline.pptx: slide identity
+ppt-layer-baseline.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-layer-baseline.pptx: both objects retained
+[ĐẠT]  original object order
+[ĐẠT]  ppt-layer-forward.pptx: slide identity
+ppt-layer-forward.pptx ['LAYER_B', 'LAYER_A'] {'LAYER_B': (1828800, 914400, 1828440, 1828440), 'LAYER_A': (914400, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-layer-forward.pptx: both objects retained
+[ĐẠT]  ppt-layer-forward.pptx: native layer order
+[ĐẠT]  ppt-layer-forward.pptx: object geometry and text preserved
+[ĐẠT]  ppt-layer-forward-undone.pptx: slide identity
+ppt-layer-forward-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-layer-forward-undone.pptx: both objects retained
+[ĐẠT]  ppt-layer-forward-undone.pptx: native layer order
+[ĐẠT]  ppt-layer-forward-undone.pptx: object geometry and text preserved
+[ĐẠT]  ppt-layer-backward.pptx: slide identity
+ppt-layer-backward.pptx ['LAYER_B', 'LAYER_A'] {'LAYER_B': (1828800, 914400, 1828440, 1828440), 'LAYER_A': (914400, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-layer-backward.pptx: both objects retained
+[ĐẠT]  ppt-layer-backward.pptx: native layer order
+[ĐẠT]  ppt-layer-backward.pptx: object geometry and text preserved
+[ĐẠT]  ppt-layer-backward-undone.pptx: slide identity
+ppt-layer-backward-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-layer-backward-undone.pptx: both objects retained
+[ĐẠT]  ppt-layer-backward-undone.pptx: native layer order
+[ĐẠT]  ppt-layer-backward-undone.pptx: object geometry and text preserved
+[ĐẠT]  ppt-objects-grouped.pptx: single slide preserved
+[ĐẠT]  ppt-objects-grouped.pptx: group topology
+ppt-objects-grouped.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-objects-grouped.pptx: original objects and order retained
+[ĐẠT]  ppt-objects-grouped.pptx: absolute geometry preserved within 0.01 mm
+[ĐẠT]  ppt-objects-ungrouped.pptx: single slide preserved
+[ĐẠT]  ppt-objects-ungrouped.pptx: group topology
+ppt-objects-ungrouped.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-objects-ungrouped.pptx: original objects and order retained
+[ĐẠT]  ppt-objects-ungrouped.pptx: absolute geometry preserved within 0.01 mm
+[ĐẠT]  ppt-objects-ungroup-undone.pptx: single slide preserved
+[ĐẠT]  ppt-objects-ungroup-undone.pptx: group topology
+ppt-objects-ungroup-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-objects-ungroup-undone.pptx: original objects and order retained
+[ĐẠT]  ppt-objects-ungroup-undone.pptx: absolute geometry preserved within 0.01 mm
+[ĐẠT]  ppt-objects-group-undone.pptx: single slide preserved
+[ĐẠT]  ppt-objects-group-undone.pptx: group topology
+ppt-objects-group-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-objects-group-undone.pptx: original objects and order retained
+[ĐẠT]  ppt-objects-group-undone.pptx: absolute geometry preserved within 0.01 mm
+[ĐẠT]  ppt-align-baseline.pptx: slide identity
+ppt-align-baseline.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (3657600, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-baseline.pptx: both objects retained
+[ĐẠT]  alignment source order
+[ĐẠT]  ppt-align-left.pptx: slide identity
+ppt-align-left.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (914400, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-left.pptx: both objects retained
+[ĐẠT]  ppt-align-left.pptx: object identity/order
+[ĐẠT]  ppt-align-left.pptx: requested edges aligned
+[ĐẠT]  ppt-align-left.pptx: actual position changed
+[ĐẠT]  ppt-align-left.pptx: other axis and dimensions preserved
+[ĐẠT]  ppt-align-left-undone.pptx: slide identity
+ppt-align-left-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (3657600, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-left-undone.pptx: both objects retained
+[ĐẠT]  ppt-align-left.pptx: Undo restores original geometry
+[ĐẠT]  ppt-align-center.pptx: slide identity
+ppt-align-center.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (2743200, 914400, 1828440, 1828440), 'LAYER_B': (2286000, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-center.pptx: both objects retained
+[ĐẠT]  ppt-align-center.pptx: object identity/order
+[ĐẠT]  ppt-align-center.pptx: requested edges aligned
+[ĐẠT]  ppt-align-center.pptx: actual position changed
+[ĐẠT]  ppt-align-center.pptx: other axis and dimensions preserved
+[ĐẠT]  ppt-align-center-undone.pptx: slide identity
+ppt-align-center-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (3657600, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-center-undone.pptx: both objects retained
+[ĐẠT]  ppt-align-center.pptx: Undo restores original geometry
+[ĐẠT]  ppt-align-right.pptx: slide identity
+ppt-align-right.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (4572000, 914400, 1828440, 1828440), 'LAYER_B': (3657600, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-right.pptx: both objects retained
+[ĐẠT]  ppt-align-right.pptx: object identity/order
+[ĐẠT]  ppt-align-right.pptx: requested edges aligned
+[ĐẠT]  ppt-align-right.pptx: actual position changed
+[ĐẠT]  ppt-align-right.pptx: other axis and dimensions preserved
+[ĐẠT]  ppt-align-right-undone.pptx: slide identity
+ppt-align-right-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (3657600, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-right-undone.pptx: both objects retained
+[ĐẠT]  ppt-align-right.pptx: Undo restores original geometry
+[ĐẠT]  ppt-align-top.pptx: slide identity
+ppt-align-top.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (3657600, 914400, 2742840, 914040)}
+[ĐẠT]  ppt-align-top.pptx: both objects retained
+[ĐẠT]  ppt-align-top.pptx: object identity/order
+[ĐẠT]  ppt-align-top.pptx: requested edges aligned
+[ĐẠT]  ppt-align-top.pptx: actual position changed
+[ĐẠT]  ppt-align-top.pptx: other axis and dimensions preserved
+[ĐẠT]  ppt-align-top-undone.pptx: slide identity
+ppt-align-top-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (3657600, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-top-undone.pptx: both objects retained
+[ĐẠT]  ppt-align-top.pptx: Undo restores original geometry
+[ĐẠT]  ppt-align-middle.pptx: slide identity
+ppt-align-middle.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 1371600, 1828440, 1828440), 'LAYER_B': (3657600, 1828800, 2742840, 914040)}
+[ĐẠT]  ppt-align-middle.pptx: both objects retained
+[ĐẠT]  ppt-align-middle.pptx: object identity/order
+[ĐẠT]  ppt-align-middle.pptx: requested edges aligned
+[ĐẠT]  ppt-align-middle.pptx: actual position changed
+[ĐẠT]  ppt-align-middle.pptx: other axis and dimensions preserved
+[ĐẠT]  ppt-align-middle-undone.pptx: slide identity
+ppt-align-middle-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (3657600, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-middle-undone.pptx: both objects retained
+[ĐẠT]  ppt-align-middle.pptx: Undo restores original geometry
+[ĐẠT]  ppt-align-bottom.pptx: slide identity
+ppt-align-bottom.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 1828800, 1828440, 1828440), 'LAYER_B': (3657600, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-bottom.pptx: both objects retained
+[ĐẠT]  ppt-align-bottom.pptx: object identity/order
+[ĐẠT]  ppt-align-bottom.pptx: requested edges aligned
+[ĐẠT]  ppt-align-bottom.pptx: actual position changed
+[ĐẠT]  ppt-align-bottom.pptx: other axis and dimensions preserved
+[ĐẠT]  ppt-align-bottom-undone.pptx: slide identity
+ppt-align-bottom-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (3657600, 2743200, 2742840, 914040)}
+[ĐẠT]  ppt-align-bottom-undone.pptx: both objects retained
+[ĐẠT]  ppt-align-bottom.pptx: Undo restores original geometry
+[ĐẠT]  ppt-resize-baseline.pptx: slide identity
+ppt-resize-baseline.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-resize-baseline.pptx: both objects retained
+[ĐẠT]  ppt-resize-edited.pptx: slide identity
+ppt-resize-edited.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 2743200, 1371600), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-resize-edited.pptx: both objects retained
+[ĐẠT]  resize preserves text and object order
+[ĐẠT]  resize applies requested 3 x 1.5 inch dimensions
+[ĐẠT]  resize preserves neighbouring object
+[ĐẠT]  ppt-resize-undone.pptx: slide identity
+ppt-resize-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-resize-undone.pptx: both objects retained
+[ĐẠT]  resize Undo restores exact geometry
+[ĐẠT]  ppt-rotate-baseline.pptx: slide identity
+ppt-rotate-baseline.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-rotate-baseline.pptx: both objects retained
+[ĐẠT]  ppt-rotate-positive.pptx: slide identity
+ppt-rotate-positive.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 913320, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-rotate-positive.pptx: both objects retained
+[ĐẠT]  ppt-rotate-positive.pptx: original objects and order
+Actual rotation positive 270.0 expected 270 geometry (914400, 913320, 1828440, 1828440)
+[ĐẠT]  ppt-rotate-positive.pptx: native rotation angle
+[ĐẠT]  ppt-rotate-positive.pptx: neighbour untouched
+[ĐẠT]  ppt-rotate-positive.pptx: dimensions preserved
+[ĐẠT]  ppt-rotate-positive.pptx: rotation around original center
+[ĐẠT]  ppt-rotate-positive-undone.pptx: slide identity
+ppt-rotate-positive-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-rotate-positive-undone.pptx: both objects retained
+[ĐẠT]  ppt-rotate-positive.pptx: exact Undo
+[ĐẠT]  ppt-rotate-negative.pptx: slide identity
+ppt-rotate-negative.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (913680, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-rotate-negative.pptx: both objects retained
+[ĐẠT]  ppt-rotate-negative.pptx: original objects and order
+Actual rotation negative 45.0 expected 45 geometry (913680, 914400, 1828440, 1828440)
+[ĐẠT]  ppt-rotate-negative.pptx: native rotation angle
+[ĐẠT]  ppt-rotate-negative.pptx: neighbour untouched
+[ĐẠT]  ppt-rotate-negative.pptx: dimensions preserved
+[ĐẠT]  ppt-rotate-negative.pptx: rotation around original center
+[ĐẠT]  ppt-rotate-negative-undone.pptx: slide identity
+ppt-rotate-negative-undone.pptx ['LAYER_A', 'LAYER_B'] {'LAYER_A': (914400, 914400, 1828440, 1828440), 'LAYER_B': (1828800, 914400, 1828440, 1828440)}
+[ĐẠT]  ppt-rotate-negative-undone.pptx: both objects retained
+[ĐẠT]  ppt-rotate-negative.pptx: exact Undo
+Native master/layout XML containing new picture: ['ppt/slideMasters/slideMaster9.xml']
+Native slide inheritance: ppt/slides/slide1.xml ['ppt/slideLayouts/slideLayout9.xml'] ['ppt/slideMasters/slideMaster9.xml']
+Native slide inheritance: ppt/slides/slide2.xml ['ppt/slideLayouts/slideLayout9.xml'] ['ppt/slideMasters/slideMaster9.xml']
+[ĐẠT]  Native edit saved in master or layout inherited by both original slides
+[ĐẠT]  Original shared master text preserved
+[ĐẠT]  No new master picture copied into ordinary slide XML
+[ĐẠT]  Both original slides preserved
+[ĐẠT]  Shape gallery native editable presets; missing set()
+[ĐẠT]  Layout 0: both slides preserved
+[ĐẠT]  Layout 0: original title and body remain editable
+[ĐẠT]  Layout 0: neighbour content and geometry preserved
+[ĐẠT]  Layout 0: Undo restores editable text and geometry
+[ĐẠT]  Layout 1: both slides preserved
+[ĐẠT]  Layout 1: original title and body remain editable
+[ĐẠT]  Layout 1: neighbour content and geometry preserved
+[ĐẠT]  Layout 1: Undo restores editable text and geometry
+[ĐẠT]  Layout 3: both slides preserved
+[ĐẠT]  Layout 3: original title and body remain editable
+[ĐẠT]  Layout 3: neighbour content and geometry preserved
+[ĐẠT]  Layout 3: Undo restores editable text and geometry
+[ĐẠT]  Layout 18: both slides preserved
+[ĐẠT]  Layout 18: original title and body remain editable
+[ĐẠT]  Layout 18: neighbour content and geometry preserved
+[ĐẠT]  Layout 18: Undo restores editable text and geometry
+[ĐẠT]  Layout 20: both slides preserved
+[ĐẠT]  Layout 20: original title and body remain editable
+[ĐẠT]  Layout 20: neighbour content and geometry preserved
+[ĐẠT]  Layout 20: Undo restores editable text and geometry
+
+KẾT QUẢ XÁC MINH PPTX: TẤT CẢ ĐẠT

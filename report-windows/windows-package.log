@@ -1,0 +1,53 @@
+D:\a\DUngoff\DUngoff\build\dist\DungOffice\DungOffice.exe 64 bit, release executable
+Adding in plugin type generic for module: Qt6Gui
+Adding in plugin type iconengines for module: Qt6Gui
+Adding Qt6Svg for qsvgicon.dll from plugin type: iconengines
+Adding in plugin type imageformats for module: Qt6Gui
+Adding in plugin type networkinformation for module: Qt6Network
+Adding in plugin type platforms for module: Qt6Gui
+Adding in plugin type styles for module: Qt6Widgets
+Adding in plugin type tls for module: Qt6Network
+Skipping plugin qopensslbackend.dll. Use -force-openssl or specify -openssl-root if you want to use it.
+Direct dependencies: Qt6Core Qt6Gui Qt6Network Qt6Pdf Qt6PrintSupport Qt6Widgets
+All dependencies   : Qt6Core Qt6Gui Qt6Network Qt6Pdf Qt6PrintSupport Qt6Widgets
+To be deployed     : Qt6Core Qt6Gui Qt6Network Qt6Pdf Qt6PrintSupport Qt6Svg Qt6Widgets
+Updating Qt6Core.dll.
+Updating Qt6Gui.dll.
+Updating Qt6Network.dll.
+Updating Qt6Pdf.dll.
+Updating Qt6PrintSupport.dll.
+Updating Qt6Svg.dll.
+Updating Qt6Widgets.dll.
+Updating dxcompiler.dll.
+Updating dxil.dll.
+Creating directory D:/a/DUngoff/DUngoff/build/dist/DungOffice/generic.
+Updating qtuiotouchplugin.dll.
+Creating directory D:/a/DUngoff/DUngoff/build/dist/DungOffice/iconengines.
+Updating qsvgicon.dll.
+Creating directory D:/a/DUngoff/DUngoff/build/dist/DungOffice/imageformats.
+Updating qgif.dll.
+Updating qicns.dll.
+Updating qico.dll.
+Updating qjpeg.dll.
+Updating qpdf.dll.
+Updating qsvg.dll.
+Updating qtga.dll.
+Updating qtiff.dll.
+Updating qwbmp.dll.
+Updating qwebp.dll.
+Creating directory D:/a/DUngoff/DUngoff/build/dist/DungOffice/networkinformation.
+Updating qnetworklistmanager.dll.
+Creating directory D:/a/DUngoff/DUngoff/build/dist/DungOffice/platforms.
+Updating qwindows.dll.
+Creating directory D:/a/DUngoff/DUngoff/build/dist/DungOffice/styles.
+Updating qmodernwindowsstyle.dll.
+Creating directory D:/a/DUngoff/DUngoff/build/dist/DungOffice/tls.
+Updating qcertonlybackend.dll.
+Updating qschannelbackend.dll.
+Sao chép engine…
+Verified OCR runtime: D:\a\DUngoff\DUngoff\build\ocr-runtime
+Verified OCR runtime: D:\a\DUngoff\DUngoff\build\dist\DungOffice\tesseract
+Từ điển tiếng Việt (thành phần riêng): build\dist\dict-vi
+Từ điển tiếng Việt gỡ khỏi engine: 1 mục
+BUILD-INFO: checkout=0395f23a362f3e9cf97bcd187cb87efabac3f001, run=46186100433, exe=590f059eaf62dfad2236eb5c59eea15d6f414bd04192279de9b53bdf76397361
+Thư mục chạy được: build\dist\DungOffice  (723 MB)

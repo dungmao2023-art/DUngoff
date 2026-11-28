@@ -1,0 +1,44 @@
+[ĐẠT]  ban đầu chưa có gói
+[ĐẠT]  cài gói v2025.1
+[ĐẠT]  danh mục đọc đúng 2 mẫu (CSV có BOM, ngoặc kép)
+[ĐẠT]  trường CSV có dấu phẩy đọc đúng
+[ĐẠT]  đọc danh sách nguồn chính thức
+[ĐẠT]  cài gói v2026.1 thay gói cũ
+[ĐẠT]  mẫu bị thay thế đã biến mất
+[ĐẠT]  mẫu mới có mặt
+[ĐẠT]  danh mục chỉ còn 2 mẫu của gói mới
+[ĐẠT]  không còn thư mục tạm/bản cũ
+[ĐẠT]  cài gói cũ hơn bị chặn, hỏi xác nhận
+[ĐẠT]  gói đang cài vẫn là v2026.1 sau khi từ chối bản cũ
+[ĐẠT]  đồng ý hạ cấp thì thay được
+[ĐẠT]  tạo bản làm việc từ mẫu
+[ĐẠT]  không ghi đè bản làm việc đã có
+[ĐẠT]  thư mục không phải gói bị từ chối
+[ĐẠT]  gói hiện tại giữ nguyên khi cài thất bại
+[ĐẠT]  so sánh phiên bản theo số, không theo chuỗi
+[ĐẠT]  mã gói thoát thư mục bị từ chối
+[ĐẠT]  không đọc gói ngoài thư mục mẫu
+[ĐẠT]  đường dẫn danh mục thoát thư mục bị từ chối
+[ĐẠT]  gói đang cài và tài liệu làm việc giữ nguyên
+[ĐẠT]  không tự cài đè từ gói đang cài
+[ĐẠT]  invalid library cannot enumerate templates
+[ĐẠT]  reject directory as working copy source
+[ĐẠT]  reject manifest FIFO without opening it
+[ĐẠT]  reject catalogue FIFO
+[ĐẠT]  reject symlink package root
+[ĐẠT]  installed package and working file preserved
+[ĐẠT]  ZIP traversal rejected before installing
+[ĐẠT]  case-fold duplicate ZIP entries rejected
+[ĐẠT]  ZIP absolute drive path rejected
+[ĐẠT]  ZIP CRC mismatch rejected
+[ĐẠT]  valid ZIP with UTF-8 BOM and Vietnamese template path installs
+[ĐẠT]  ZIP updates do not affect user's working copy
+       Đã thay gói mẫu cũ (2027.1) bằng gói mới (2026.4). Bản cũ đã bị xoá để tránh dùng nhầm.
+[ĐẠT]  cài gói mẫu thật từ tệp .zip
+[ĐẠT]  gói thật phiên bản 2026.2 trở lên
+[ĐẠT]  kho nguồn luật mở rộng
+[ĐẠT]  student presentation templates bundled and listed
+[ĐẠT]  có ít nhất 12 mẫu Excel
+[ĐẠT]  gói thật liệt kê từ 150 mẫu trở lên (đủ tệp, tên tiếng Việt)
+
+Đã chạy xong, 0 lỗi

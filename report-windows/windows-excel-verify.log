@@ -1,0 +1,102 @@
+[ĐẠT]  Danh sách sheet sau thêm/đổi tên/nhân đôi/xoá: ['Dữ liệu', 'Phụ', 'Phụ_2']
+[ĐẠT]  Còn đủ 5 dòng số liệu: [2, 3, 5, 6, 7]
+[ĐẠT]  Giá trị số giữ nguyên, không bị ép kiểu
+[ĐẠT]  Thay thế chỉ đổi văn bản (Bút→Zút), tên khác giữ nguyên
+[ĐẠT]  Sắp xếp giữ đúng liên kết tên, số tiền và ngày của mỗi dòng
+[ĐẠT]  Sắp xếp giảm dần: [1500.5, 300, 45, 20, 7]
+[ĐẠT]  Công thức theo dòng khi sắp xếp/chèn hàng, và KHÔNG bị thay 'B'→'Z': ['=B2*2', '=B3*2', '=B5*2', '=B6*2', '=B7*2']
+[ĐẠT]  Cột ngày vẫn là kiểu ngày
+[ĐẠT]  Ghi chú đi theo dòng 'Vở' sau sắp xếp
+[ĐẠT]  Liên kết đi theo dòng 'Kẹp' sau sắp xếp
+[ĐẠT]  A1 đậm + nghiêng
+[ĐẠT]  A1 cỡ 16, phông Arial (thực tế 16.0, Arial)
+[ĐẠT]  A1 màu chữ đỏ
+[ĐẠT]  A1 màu nền vàng
+[ĐẠT]  A1 căn giữa + xuống dòng
+[ĐẠT]  Có ô số ở định dạng phần trăm (giá trị vẫn là số)
+[ĐẠT]  Có ô số ở định dạng #,##0
+[ĐẠT]  Cột C đã đặt rộng ~4 cm (width=20.43; đơn vị ký tự Excel phụ thuộc phông mặc định, Linux ra 18)
+[ĐẠT]  Có hàng cao ~1,5 cm
+[ĐẠT]  Cố định hàng đầu: A2
+[ĐẠT]  Bộ lọc tự động: A1:E7
+[ĐẠT]  FillDown dịch tham chiếu tương đối, giữ tuyệt đối và kiểu công thức
+[ĐẠT]  FillRight dịch tham chiếu tương đối, giữ tuyệt đối và kiểu công thức
+[ĐẠT]  Fill không sửa các ô nguồn tham chiếu
+[ĐẠT]  Kết quả FillDown được tính đúng sau lưu XLSX
+[ĐẠT]  Kết quả FillRight được tính đúng sau lưu XLSX
+[ĐẠT]  FillUp giữ nguồn cuối và dịch đúng công thức
+[ĐẠT]  FillLeft giữ nguồn cuối và dịch đúng công thức
+[ĐẠT]  FillUp giữ giá trị tính đúng sau lưu
+[ĐẠT]  FillLeft giữ giá trị tính đúng sau lưu
+[ĐẠT]  FillSeries vertical increasing native numbers
+[ĐẠT]  FillSeries horizontal decreasing across zero
+[ĐẠT]  FillSeries exports numeric cells, not text
+[ĐẠT]  SortAscending giữ tiêu đề và liên kết toàn dòng, mã 0 đầu không đổi
+[ĐẠT]  isolated deletion fixture sheet names
+[ĐẠT]  isolated deletion fixture expected sorted table
+[ĐẠT]  excel-delete-control.xlsx: sheet identity preserved
+[ĐẠT]  excel-delete-control.xlsx: other sheet values and formulas preserved: 0 changed cells
+[ĐẠT]  excel-delete-control.xlsx: all auxiliary values, formula strings and cell types preserved: 0 changed cells
+[ĐẠT]  excel-delete-control.xlsx: unrelated cells preserved
+[ĐẠT]  excel-row-deleted.xlsx: sheet identity preserved
+[ĐẠT]  excel-row-deleted.xlsx: other sheet values and formulas preserved: 0 changed cells
+[ĐẠT]  excel-row-deleted.xlsx: deletes selected whole row and shifts intact records
+[ĐẠT]  excel-row-deleted.xlsx: unrelated cells preserved
+[ĐẠT]  excel-column-deleted.xlsx: sheet identity preserved
+[ĐẠT]  excel-column-deleted.xlsx: other sheet values and formulas preserved: 0 changed cells
+[ĐẠT]  excel-column-deleted.xlsx: deletes selected whole column only
+[ĐẠT]  excel-column-deleted.xlsx: unrelated cells preserved
+[ĐẠT]  excel-row-restored.xlsx: sheet identity preserved
+[ĐẠT]  excel-row-restored.xlsx: other sheet values and formulas preserved: 0 changed cells
+[ĐẠT]  excel-row-restored.xlsx: all auxiliary values, formula strings and cell types preserved: 0 changed cells
+[ĐẠT]  excel-row-restored.xlsx: unrelated cells preserved
+[ĐẠT]  excel-column-restored.xlsx: sheet identity preserved
+[ĐẠT]  excel-column-restored.xlsx: other sheet values and formulas preserved: 0 changed cells
+[ĐẠT]  excel-column-restored.xlsx: all auxiliary values, formula strings and cell types preserved: 0 changed cells
+[ĐẠT]  excel-column-restored.xlsx: unrelated cells preserved
+excel-native-fill-input.xlsx source [10, 20, 30, 40] formulas ['=A1*2', None, None, None]
+[ĐẠT]  excel-native-fill-input.xlsx: source values preserved
+[ĐẠT]  excel-native-fill-input.xlsx: relative formulas and Undo
+[ĐẠT]  excel-native-fill-input.xlsx: unrelated cell preserved
+excel-native-fill-baseline.xlsx source [10, 20, 30, 40] formulas ['=A1*2', None, None, None]
+[ĐẠT]  excel-native-fill-baseline.xlsx: source values preserved
+[ĐẠT]  excel-native-fill-baseline.xlsx: relative formulas and Undo
+[ĐẠT]  excel-native-fill-baseline.xlsx: unrelated cell preserved
+excel-native-fill-drag.xlsx source [10, 20, 30, 40] formulas ['=A1*2', '=A2*2', '=A3*2', '=A4*2']
+[ĐẠT]  excel-native-fill-drag.xlsx: source values preserved
+[ĐẠT]  excel-native-fill-drag.xlsx: relative formulas and Undo
+[ĐẠT]  excel-native-fill-drag.xlsx: unrelated cell preserved
+excel-native-fill-drag-undone.xlsx source [10, 20, 30, 40] formulas ['=A1*2', None, None, None]
+[ĐẠT]  excel-native-fill-drag-undone.xlsx: source values preserved
+[ĐẠT]  excel-native-fill-drag-undone.xlsx: relative formulas and Undo
+[ĐẠT]  excel-native-fill-drag-undone.xlsx: unrelated cell preserved
+[ĐẠT]  excel-search-baseline.xlsx: exact literal and case policy
+[ĐẠT]  excel-search-baseline.xlsx: leading zero text preserved
+[ĐẠT]  excel-search-baseline.xlsx: formula preserved
+[ĐẠT]  excel-search-baseline.xlsx: other sheet unchanged
+[ĐẠT]  excel-search-exact.xlsx: exact literal and case policy
+[ĐẠT]  excel-search-exact.xlsx: leading zero text preserved
+[ĐẠT]  excel-search-exact.xlsx: formula preserved
+[ĐẠT]  excel-search-exact.xlsx: other sheet unchanged
+[ĐẠT]  excel-search-exact-undone.xlsx: exact literal and case policy
+[ĐẠT]  excel-search-exact-undone.xlsx: leading zero text preserved
+[ĐẠT]  excel-search-exact-undone.xlsx: formula preserved
+[ĐẠT]  excel-search-exact-undone.xlsx: other sheet unchanged
+[ĐẠT]  excel-search-insensitive.xlsx: exact literal and case policy
+[ĐẠT]  excel-search-insensitive.xlsx: leading zero text preserved
+[ĐẠT]  excel-search-insensitive.xlsx: formula preserved
+[ĐẠT]  excel-search-insensitive.xlsx: other sheet unchanged
+[ĐẠT]  excel-search-insensitive-undone.xlsx: exact literal and case policy
+[ĐẠT]  excel-search-insensitive-undone.xlsx: leading zero text preserved
+[ĐẠT]  excel-search-insensitive-undone.xlsx: formula preserved
+[ĐẠT]  excel-search-insensitive-undone.xlsx: other sheet unchanged
+[ĐẠT]  excel-search-literal.xlsx: exact literal and case policy
+[ĐẠT]  excel-search-literal.xlsx: leading zero text preserved
+[ĐẠT]  excel-search-literal.xlsx: formula preserved
+[ĐẠT]  excel-search-literal.xlsx: other sheet unchanged
+[ĐẠT]  excel-search-literal-undone.xlsx: exact literal and case policy
+[ĐẠT]  excel-search-literal-undone.xlsx: leading zero text preserved
+[ĐẠT]  excel-search-literal-undone.xlsx: formula preserved
+[ĐẠT]  excel-search-literal-undone.xlsx: other sheet unchanged
+
+KẾT QUẢ XÁC MINH EXCEL: ĐẠT

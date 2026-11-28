@@ -1,0 +1,67 @@
+== Kiểm thử lõi chụp màn hình ==
+[ĐẠT]  không thao tác: ảnh ra giống hệt ảnh gốc
+[ĐẠT]  ban đầu không có gì để hoàn tác
+[ĐẠT]  thêm khung
+[ĐẠT]  khung: cạnh trái có màu đỏ
+[ĐẠT]  khung: bên trong không bị tô
+[ĐẠT]  khung: ngoài khung không đổi
+[ĐẠT]  ảnh gốc trong Document không bị sửa
+[ĐẠT]  mũi tên: thân tô đúng màu
+[ĐẠT]  mũi tên: có đầu mũi tên (đủ điểm ảnh thay đổi)
+[ĐẠT]  mũi tên: xa đường vẽ không đổi
+[ĐẠT]  bút: nét vẽ xuất hiện
+[ĐẠT]  tô sáng: chữ/nền đen bên dưới vẫn đen (không che mất nội dung)
+[ĐẠT]  tô sáng: nền trắng thành vàng
+[ĐẠT]  đánh số: bắt đầu từ 1
+[ĐẠT]  đánh số: tăng lên 2 sau khi thêm
+[ĐẠT]  đánh số: hoàn tác thì số quay lại 1
+[ĐẠT]  đánh số: vòng tròn đỏ xuất hiện
+[ĐẠT]  chữ: chuỗi tiếng Việt có dấu được vẽ
+[CẢNH BÁO] chữ: 'ệ' không cao hơn 'e'
+       Font hệ thống trên máy này có thể thiếu dấu tổ hợp; cần thử trên Windows thật với font Segoe UI.
+[ĐẠT]  undo: 3 thao tác
+[ĐẠT]  undo 1 lần: về đúng trạng thái sau thao tác 2
+[ĐẠT]  undo 2 lần: về đúng trạng thái sau thao tác 1
+[ĐẠT]  redo 2 lần: về đúng trạng thái cuối
+[ĐẠT]  thêm thao tác mới sau undo: xoá nhánh redo
+[ĐẠT]  undo hết: ra ảnh gốc
+[ĐẠT]  undo khi hết lịch sử: trả false, không lỗi
+[ĐẠT]  cắt: kích thước đúng
+[ĐẠT]  cắt lần hai: giao của hai vùng, tự kẹp trong ảnh
+[ĐẠT]  undo cắt: trở lại vùng cắt trước
+[ĐẠT]  undo hết: ảnh nguyên
+[ĐẠT]  cắt hoàn toàn ngoài ảnh: bị từ chối
+[ĐẠT]  cắt vùng 1 điểm ảnh: bị từ chối
+[ĐẠT]  cắt: nội dung điểm ảnh khớp đúng vùng đã chọn
+[ĐẠT]  mosaic: mỗi khối là một màu duy nhất
+[ĐẠT]  mosaic: ngoài vùng chọn không đổi một điểm ảnh
+[ĐẠT]  mosaic: vùng được che thay đổi mạnh
+[ĐẠT]  mosaic: cỡ khối bé bị nâng lên mức tối thiểu (không che quá yếu)
+[ĐẠT]  mosaic: vùng vượt ngoài ảnh được kẹp lại, không lỗi
+[ĐẠT]  chuẩn bị: hai ảnh nguồn thực sự khác nhau
+[ĐẠT]  mosaic: hai nguồn khác nhau cho ra ảnh GIỐNG HỆT (thông tin chi tiết bị phá thật)
+[ĐẠT]  làm mờ: hai nguồn khác nhau cho ra ảnh GIỐNG HỆT (không khôi phục được bằng giải chập)
+[ĐẠT]  làm mờ: ảnh ra khác ảnh gốc
+[ĐẠT]  làm mờ: phương sai trong vùng giảm hơn 10 lần
+[ĐẠT]  làm mờ: ngoài vùng chọn không đổi
+[ĐẠT]  thứ tự: thao tác vẽ trước đó bị che đồng đều (không lộ số 7)
+[ĐẠT]  xuất PNG sau khi che: đọc lại vẫn là một màu duy nhất (không rò thông tin)
+[ĐẠT]  tên tệp theo ngày giờ: ChupManHinh_20261125_001530
+[ĐẠT]  lưu PNG vào thư mục có dấu tiếng Việt (tự tạo thư mục)
+[ĐẠT]  cùng giây: sang tên _2, không ghi đè
+[ĐẠT]  tệp đầu tiên không đổi một byte
+[ĐẠT]  PNG đọc lại giống hệt từng điểm ảnh
+[ĐẠT]  lưu JPG: đọc lại đúng kích thước
+[ĐẠT]  lưu PDF: tệp hợp lệ, có nội dung
+[ĐẠT]  Lưu thành với tên đã có: lưu tên khác và báo rõ
+       Tệp đã tồn tại nên lưu thành tên khác: ChupManHinh_20261125_001530_3.png
+[ĐẠT]  Lưu thành: tệp có sẵn không bị ghi đè
+[ĐẠT]  thư mục đích không tạo được: báo lỗi, không giả vờ thành công
+       Không tạo được thư mục đích.
+[ĐẠT]  ảnh trống: từ chối lưu
+[ĐẠT]  không để lại tệp tạm trong thư mục lưu
+[ĐẠT]  thước pixel: 30,40 → độ dài 50
+[ĐẠT]  thư mục lưu mặc định nằm trong 'Dung Office'
+
+Tổng: 59 đạt, 0 lỗi, 1 cảnh báo
+KẾT QUẢ: TẤT CẢ ĐẠT

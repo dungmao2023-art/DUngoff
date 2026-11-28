@@ -1,0 +1,216 @@
+No language allowlisted, turning off the language support.
+  -> đầu trang và chân trang
+  -> chú thích cuối trang
+[ĐẠT]  Tìm đúng đoạn BODY_MARKER trước khi chèn chú thích  {BODY_MARKER}
+[ĐẠT]  Đã bỏ chọn trước khi chèn neo chú thích
+  -> chú thích cuối văn bản
+[ĐẠT]  Tìm đúng đoạn BODY_MARKER trước khi chèn chú thích  {BODY_MARKER}
+[ĐẠT]  Đã bỏ chọn trước khi chèn neo chú thích
+  -> lưu DOCX để kiểm cấu trúc
+[ĐẠT]  Lưu cấu trúc Word: Đã lưu: word-structure.docx
+  -> Word — chèn bảng tùy chọn 4 cột 5 hàng
+[ĐẠT]  Tạo tài liệu bảng: 
+[ĐẠT]  Lưu DOCX bảng tùy chọn: Đã lưu: word-table-custom.docx
+[ĐẠT]  Mở lại DOCX bảng tùy chọn: 
+[ĐẠT]  Roundtrip bảng tùy chọn: Đã lưu: word-table-custom-roundtrip.docx
+  -> Word — thêm hàng và cột trong bảng hiện có
+[ĐẠT]  Chọn đúng ô trong bảng
+[ĐẠT]  Giữ nội dung ô sau khi thêm hàng
+[ĐẠT]  Lưu bảng sau thêm hàng/cột: Đã lưu: word-table-edited.docx
+  -> Word — xóa hàng/cột và hoàn tác
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Lưu bảng word-table-row-deleted.docx: Đã lưu: word-table-row-deleted.docx
+[ĐẠT]  Lưu bảng word-table-row-restored.docx: Đã lưu: word-table-row-restored.docx
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Lưu bảng word-table-column-deleted.docx: Đã lưu: word-table-column-deleted.docx
+[ĐẠT]  Lưu bảng word-table-column-restored.docx: Đã lưu: word-table-column-restored.docx
+  -> Word — gộp các ô trong hàng và giữ nội dung
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Lưu bảng word-table-merged.docx: Đã lưu: word-table-merged.docx
+[ĐẠT]  Lưu bảng word-table-merge-restored.docx: Đã lưu: word-table-merge-restored.docx
+  -> Word — tách ô dọc và ngang, hoàn tác
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Lưu bảng word-table-split-vertical.docx: Đã lưu: word-table-split-vertical.docx
+[ĐẠT]  Lưu bảng word-table-split-vertical-undone.docx: Đã lưu: word-table-split-vertical-undone.docx
+[ĐẠT]  Tìm đúng ô trước khi xóa
+[ĐẠT]  Lưu bảng word-table-split-horizontal.docx: Đã lưu: word-table-split-horizontal.docx
+[ĐẠT]  Lưu bảng word-table-split-horizontal-undone.docx: Đã lưu: word-table-split-horizontal-undone.docx
+  -> Word — chỉnh chiều cao hàng và chiều rộng cột
+[ĐẠT]  Lưu bảng word-table-resize-before.docx: Đã lưu: word-table-resize-before.docx
+[ĐẠT]  Mở nguồn resize độc lập: 
+[ĐẠT]  Tìm đúng ô trong nguồn resize
+[ĐẠT]  Lưu resize word-table-resize-height.docx: Đã lưu: word-table-resize-height.docx
+[ĐẠT]  Lưu resize word-table-resize-height-undone.docx: Đã lưu: word-table-resize-height-undone.docx
+[ĐẠT]  Mở nguồn resize độc lập: 
+[ĐẠT]  Tìm đúng ô trong nguồn resize
+[ĐẠT]  Lưu resize word-table-resize-width-before.docx: Đã lưu: word-table-resize-width-before.docx
+[ĐẠT]  Lưu resize word-table-resize-width.docx: Đã lưu: word-table-resize-width.docx
+[ĐẠT]  Lưu resize word-table-resize-width-undone.docx: Đã lưu: word-table-resize-width-undone.docx
+  -> Word Review — ghi thay đổi và bình luận native
+[ĐẠT]  Chọn đúng chữ để bình luận
+[ĐẠT]  Lưu DOCX có review thật: Đã lưu: word-review.docx
+  -> Mở lại DOCX có review
+[ĐẠT]  Mở lại Word review: 
+[ĐẠT]  Roundtrip review DOCX: Đã lưu: word-review-roundtrip.docx
+  -> Word Review — chấp nhận toàn bộ
+[ĐẠT]  Mở nguồn review: 
+[ĐẠT]  Lưu kết quả review: Đã lưu: word-review-accepted.docx
+[ĐẠT]  Lưu kết quả Undo review: Đã lưu: word-review-accept-undone.docx
+  -> Word Review — từ chối toàn bộ
+[ĐẠT]  Mở nguồn review: 
+[ĐẠT]  Lưu kết quả review: Đã lưu: word-review-rejected.docx
+[ĐẠT]  Lưu kết quả Undo review: Đã lưu: word-review-reject-undone.docx
+  -> Word mục lục native — cập nhật index hiện có
+[ĐẠT]  Mở fixture có mục lục: 
+[ĐẠT]  Tìm tiêu đề nguồn
+[ĐẠT]  Mục lục: chặn lưu khi chưa xác nhận XML tùy biến
+[ĐẠT]  Lưu mục lục đã cập nhật: Đã lưu: word-toc-updated.docx
+PASS body retained
+PASS HEADER_MARKER in correct XML part
+PASS HEADER_MARKER not accidentally inserted in body
+PASS FOOTER_MARKER in correct XML part
+PASS FOOTER_MARKER not accidentally inserted in body
+PASS FOOTNOTE_MARKER in correct XML part
+PASS FOOTNOTE_MARKER not accidentally inserted in body
+PASS ENDNOTE_MARKER in correct XML part
+PASS ENDNOTE_MARKER not accidentally inserted in body
+PASS document has headerReference
+PASS document has footerReference
+PASS document has footnoteReference
+PASS document has endnoteReference
+PASS word-review.docx: original text retained
+PASS word-review.docx: inserted text is actual tracked insertion
+PASS word-review.docx: native comment linked to document
+PASS word-review-roundtrip.docx: original text retained
+PASS word-review-roundtrip.docx: inserted text is actual tracked insertion
+PASS word-review-roundtrip.docx: native comment linked to document
+PASS real TOC field result updated to new heading
+PASS old heading absent
+PASS word-review-accepted.docx: original retained
+PASS word-review-accepted.docx: tracked insertion resolved correctly
+PASS word-review-accepted.docx: revisions resolved
+PASS word-review-accepted.docx: unrelated comment retained
+PASS word-review-rejected.docx: original retained
+PASS word-review-rejected.docx: tracked insertion resolved correctly
+PASS word-review-rejected.docx: revisions resolved
+PASS word-review-rejected.docx: unrelated comment retained
+PASS word-review-accept-undone.docx: original retained
+PASS word-review-accept-undone.docx: tracked insertion restored
+PASS word-review-accept-undone.docx: unrelated comment and anchor retained
+PASS word-review-reject-undone.docx: original retained
+PASS word-review-reject-undone.docx: tracked insertion restored
+PASS word-review-reject-undone.docx: unrelated comment and anchor retained
+PASS word-table-custom.docx: exactly one native table
+PASS word-table-custom.docx: exactly five rows and four cells per row
+PASS word-table-custom.docx: preceding text retained
+PASS word-table-custom.docx: cell content retained
+PASS word-table-custom-roundtrip.docx: exactly one native table
+PASS word-table-custom-roundtrip.docx: exactly five rows and four cells per row
+PASS word-table-custom-roundtrip.docx: preceding text retained
+PASS word-table-custom-roundtrip.docx: cell content retained
+PASS edited DOCX: exactly one table
+PASS edited DOCX: added one row and one column
+PASS edited DOCX: original cell retained
+PASS edited DOCX: body retained
+PASS word-table-row-deleted.docx: exactly one table
+PASS word-table-row-deleted.docx: correct dimensions
+PASS word-table-row-deleted.docx: targeted text deletion/restoration
+PASS word-table-row-deleted.docx: body retained
+PASS word-table-row-restored.docx: exactly one table
+PASS word-table-row-restored.docx: correct dimensions
+PASS word-table-row-restored.docx: targeted text deletion/restoration
+PASS word-table-row-restored.docx: body retained
+PASS word-table-column-deleted.docx: exactly one table
+PASS word-table-column-deleted.docx: correct dimensions
+PASS word-table-column-deleted.docx: targeted text deletion/restoration
+PASS word-table-column-deleted.docx: body retained
+PASS word-table-column-restored.docx: exactly one table
+PASS word-table-column-restored.docx: correct dimensions
+PASS word-table-column-restored.docx: targeted text deletion/restoration
+PASS word-table-column-restored.docx: body retained
+PASS merged DOCX: exactly one table
+PASS merged DOCX: other rows retained
+PASS merged DOCX: one cell spans all five columns
+PASS merged DOCX: both cell texts retained together
+PASS merged DOCX: body retained
+PASS undo merge: exactly one table
+PASS undo merge: restored original dimensions
+PASS undo merge: both cell texts restored separately
+PASS undo merge: body retained
+PASS word-table-split-vertical.docx: exactly one native table
+PASS word-table-split-vertical.docx: expected row count
+PASS word-table-split-vertical.docx: only target row gained two cells
+PASS word-table-split-vertical.docx: body retained
+PASS word-table-split-vertical.docx: original marker retained exactly once
+PASS word-table-split-vertical.docx: original marker retained exactly once
+PASS word-table-split-vertical-undone.docx: exactly one native table
+PASS word-table-split-vertical-undone.docx: expected row count
+PASS word-table-split-vertical-undone.docx: Undo restored six by five grid
+PASS word-table-split-vertical-undone.docx: body retained
+PASS word-table-split-vertical-undone.docx: original marker retained exactly once
+PASS word-table-split-vertical-undone.docx: original marker retained exactly once
+PASS word-table-split-horizontal.docx: exactly one native table
+PASS word-table-split-horizontal.docx: expected row count
+PASS word-table-split-horizontal.docx: body retained
+PASS word-table-split-horizontal.docx: original marker retained exactly once
+PASS word-table-split-horizontal.docx: original marker retained exactly once
+PASS word-table-split-horizontal-undone.docx: exactly one native table
+PASS word-table-split-horizontal-undone.docx: expected row count
+PASS word-table-split-horizontal-undone.docx: Undo restored six by five grid
+PASS word-table-split-horizontal-undone.docx: body retained
+PASS word-table-split-horizontal-undone.docx: original marker retained exactly once
+PASS word-table-split-horizontal-undone.docx: original marker retained exactly once
+PASS word-table-resize-before.docx: exactly one table
+PASS word-table-resize-before.docx: grid preserved
+PASS word-table-resize-before.docx: body preserved
+word-table-resize-before.docx cell texts [['TABLE_CELL_MARKER', 'TABLE_SECOND_CELL', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', '']]
+PASS word-table-resize-before.docx: TABLE_CELL_MARKER retained once
+PASS word-table-resize-before.docx: TABLE_SECOND_CELL retained once
+PASS word-table-resize-before.docx: unique target cell
+word-table-resize-before.docx height/width twips (0, 1994)
+PASS word-table-resize-height.docx: exactly one table
+PASS word-table-resize-height.docx: grid preserved
+PASS word-table-resize-height.docx: body preserved
+word-table-resize-height.docx cell texts [['TABLE_CELL_MARKER', 'TABLE_SECOND_CELL', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', '']]
+PASS word-table-resize-height.docx: TABLE_CELL_MARKER retained once
+PASS word-table-resize-height.docx: TABLE_SECOND_CELL retained once
+PASS word-table-resize-height.docx: unique target cell
+word-table-resize-height.docx height/width twips (1440, 1994)
+PASS word-table-resize-height-undone.docx: exactly one table
+PASS word-table-resize-height-undone.docx: grid preserved
+PASS word-table-resize-height-undone.docx: body preserved
+word-table-resize-height-undone.docx cell texts [['TABLE_CELL_MARKER', 'TABLE_SECOND_CELL', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', '']]
+PASS word-table-resize-height-undone.docx: TABLE_CELL_MARKER retained once
+PASS word-table-resize-height-undone.docx: TABLE_SECOND_CELL retained once
+PASS word-table-resize-height-undone.docx: unique target cell
+word-table-resize-height-undone.docx height/width twips (0, 1994)
+PASS word-table-resize-width-before.docx: exactly one table
+PASS word-table-resize-width-before.docx: grid preserved
+PASS word-table-resize-width-before.docx: body preserved
+word-table-resize-width-before.docx cell texts [['TABLE_CELL_MARKER', 'TABLE_SECOND_CELL', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', '']]
+PASS word-table-resize-width-before.docx: TABLE_CELL_MARKER retained once
+PASS word-table-resize-width-before.docx: TABLE_SECOND_CELL retained once
+PASS word-table-resize-width-before.docx: unique target cell
+word-table-resize-width-before.docx height/width twips (0, 1994)
+PASS word-table-resize-width.docx: exactly one table
+PASS word-table-resize-width.docx: grid preserved
+PASS word-table-resize-width.docx: body preserved
+word-table-resize-width.docx cell texts [['TABLE_CELL_MARKER', 'TABLE_SECOND_CELL', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', '']]
+PASS word-table-resize-width.docx: TABLE_CELL_MARKER retained once
+PASS word-table-resize-width.docx: TABLE_SECOND_CELL retained once
+PASS word-table-resize-width.docx: unique target cell
+word-table-resize-width.docx height/width twips (0, 720)
+PASS word-table-resize-width-undone.docx: exactly one table
+PASS word-table-resize-width-undone.docx: grid preserved
+PASS word-table-resize-width-undone.docx: body preserved
+word-table-resize-width-undone.docx cell texts [['TABLE_CELL_MARKER', 'TABLE_SECOND_CELL', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', ''], ['', '', '', '', '']]
+PASS word-table-resize-width-undone.docx: TABLE_CELL_MARKER retained once
+PASS word-table-resize-width-undone.docx: TABLE_SECOND_CELL retained once
+PASS word-table-resize-width-undone.docx: unique target cell
+word-table-resize-width-undone.docx height/width twips (0, 1994)
+PASS native row height set to 1440 twips
+PASS native column width set to 720 twips
+PASS Undo row height restores original geometry
+PASS pre-width geometry unchanged after height Undo
+PASS Undo column width restores original geometry

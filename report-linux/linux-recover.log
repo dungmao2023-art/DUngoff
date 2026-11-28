@@ -1,0 +1,94 @@
+  -> khởi động engine
+[ĐẠT]  Khởi động engine 
+  -> tạo tài liệu Word, gõ chữ
+No language allowlisted, turning off the language support.
+[ĐẠT]  Tạo tài liệu mới 
+[ĐẠT]  Engine báo tài liệu đã sửa sau khi gõ
+[ĐẠT]  Document::modified() = true trước khi tạo bản phục hồi
+  -> ghi bản phục hồi
+[ĐẠT]  saveRecoveryCopy ghi được: 
+[ĐẠT]  Bản phục hồi là tệp DOCX hợp lệ (ZIP)
+[ĐẠT]  Cờ 'đã sửa' vẫn là true sau khi tạo bản phục hồi (không bị coi là lần lưu)
+[ĐẠT]  Tài liệu mới: gợi ý Lưu thành không nằm trong thư mục phục hồi
+  -> tự lưu thất bại không làm mất bản phục hồi trước
+[ĐẠT]  Báo đúng lỗi thư mục đích bị chặn: 
+[ĐẠT]  Bản phục hồi trước và cờ chưa lưu giữ nguyên
+[ĐẠT]  Không thay thế thư mục bằng tệp phục hồi: 
+[ĐẠT]  Dữ liệu trong thư mục đích giữ nguyên
+[ĐẠT]  Không sót tệp tạm phục hồi cạnh đích
+[ĐẠT]  Bản phục hồi trước còn nguyên sau cả hai lỗi
+  -> mở lại bản phục hồi
+[ĐẠT]  Mở lại bản phục hồi 
+[ĐẠT]  Chữ tiếng Việt còn nguyên trong bản phục hồi: [Xin chào Dũng Office – bản phục hồi]
+[ĐẠT]  Bản khôi phục được đánh dấu chưa lưu
+[ĐẠT]  Tên hiển thị là tên tệp gốc
+[ĐẠT]  Gợi ý Lưu thành nằm cạnh tệp gốc cũ, không phải thư mục phục hồi
+[ĐẠT]  Không gợi ý ghi đè chính bản phục hồi
+  -> tạo tệp nguồn ngắn
+[ĐẠT]  Lưu tệp nguồn ngắn: Đã lưu: nguon-ngan.docx
+[ĐẠT]  Tệp nguồn ngắn là DOCX hợp lệ
+  -> đường dẫn 200
+       độ dài thật của đường dẫn tệp nguồn: 200 ký tự
+[ĐẠT]  dài 200: mở tệp gốc đường dẫn dài 
+[ĐẠT]  dài 200: lưu bản sao (đích 198 ký tự): Đã lưu: kq-kkkkkkk.docx
+[ĐẠT]  dài 200: tệp đích có thật và là DOCX hợp lệ
+[ĐẠT]  dài 200: không sót tệp tạm cạnh đích
+[ĐẠT]  dài 200: tệp gốc không đổi byte
+  -> đường dẫn 230
+       độ dài thật của đường dẫn tệp nguồn: 230 ký tự
+[ĐẠT]  dài 230: mở tệp gốc đường dẫn dài 
+[ĐẠT]  dài 230: lưu bản sao (đích 228 ký tự): Đã lưu: kq-kkkkkkk.docx
+[ĐẠT]  dài 230: tệp đích có thật và là DOCX hợp lệ
+[ĐẠT]  dài 230: không sót tệp tạm cạnh đích
+[ĐẠT]  dài 230: tệp gốc không đổi byte
+  -> đường dẫn 245
+       độ dài thật của đường dẫn tệp nguồn: 245 ký tự
+[ĐẠT]  dài 245: mở tệp gốc đường dẫn dài 
+[ĐẠT]  dài 245: lưu bản sao (đích 243 ký tự): Đã lưu: kq-kkkkkkk.docx
+[ĐẠT]  dài 245: tệp đích có thật và là DOCX hợp lệ
+[ĐẠT]  dài 245: không sót tệp tạm cạnh đích
+[ĐẠT]  dài 245: tệp gốc không đổi byte
+  -> đường dẫn 250
+       độ dài thật của đường dẫn tệp nguồn: 250 ký tự
+[ĐẠT]  dài 250: mở tệp gốc đường dẫn dài 
+[ĐẠT]  dài 250: lưu bản sao (đích 248 ký tự): Đã lưu: kq-kkkkkkk.docx
+[ĐẠT]  dài 250: tệp đích có thật và là DOCX hợp lệ
+[ĐẠT]  dài 250: không sót tệp tạm cạnh đích
+[ĐẠT]  dài 250: tệp gốc không đổi byte
+  -> đường dẫn 255
+       độ dài thật của đường dẫn tệp nguồn: 255 ký tự
+[ĐẠT]  dài 255: mở tệp gốc đường dẫn dài 
+[ĐẠT]  dài 255: lưu bản sao (đích 253 ký tự): Đã lưu: kq-kkkkkkk.docx
+[ĐẠT]  dài 255: tệp đích có thật và là DOCX hợp lệ
+[ĐẠT]  dài 255: không sót tệp tạm cạnh đích
+[ĐẠT]  dài 255: tệp gốc không đổi byte
+  -> đường dẫn 259
+       độ dài thật của đường dẫn tệp nguồn: 259 ký tự
+[ĐẠT]  dài 259: mở tệp gốc đường dẫn dài 
+[ĐẠT]  dài 259: lưu bản sao (đích 257 ký tự): Đã lưu: kq-kkkkkkk.docx
+[ĐẠT]  dài 259: tệp đích có thật và là DOCX hợp lệ
+[ĐẠT]  dài 259: không sót tệp tạm cạnh đích
+[ĐẠT]  dài 259: tệp gốc không đổi byte
+  -> đường dẫn 262
+       độ dài thật của đường dẫn tệp nguồn: 262 ký tự
+[ĐẠT]  dài 262: mở tệp gốc đường dẫn dài 
+[ĐẠT]  dài 262: lưu bản sao (đích 260 ký tự): Đã lưu: kq-kkkkkkk.docx
+[ĐẠT]  dài 262: tệp đích có thật và là DOCX hợp lệ
+[ĐẠT]  dài 262: không sót tệp tạm cạnh đích
+[ĐẠT]  dài 262: tệp gốc không đổi byte
+  -> đường dẫn 270
+       độ dài thật của đường dẫn tệp nguồn: 270 ký tự
+[ĐẠT]  dài 270: mở tệp gốc đường dẫn dài 
+[ĐẠT]  dài 270: lưu bản sao (đích 268 ký tự): Đã lưu: kq-kkkkkkk.docx
+[ĐẠT]  dài 270: tệp đích có thật và là DOCX hợp lệ
+[ĐẠT]  dài 270: không sót tệp tạm cạnh đích
+[ĐẠT]  dài 270: tệp gốc không đổi byte
+  -> đường dẫn 300
+       độ dài thật của đường dẫn tệp nguồn: 300 ký tự
+[ĐẠT]  dài 300: mở tệp gốc đường dẫn dài 
+[ĐẠT]  dài 300: lưu bản sao (đích 298 ký tự): Đã lưu: kq-kkkkkkk.docx
+[ĐẠT]  dài 300: tệp đích có thật và là DOCX hợp lệ
+[ĐẠT]  dài 300: không sót tệp tạm cạnh đích
+[ĐẠT]  dài 300: tệp gốc không đổi byte
+
+KẾT QUẢ: TẤT CẢ ĐẠT

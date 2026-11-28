@@ -1,0 +1,14 @@
+PASS extended masks and existing transition painter
+PASS isolated Fly/Zoom renderer and metadata
+No language allowlisted, turning off the language support.
+PASS native diagram render and editable shapes 0
+PASS native diagram render and editable shapes 2
+Native animation metadata: 
+Native layer ABI: 0
+Render part=0 count=1 doc=14401x10801 window=960x600
+Render part=0 count=1 doc=14401x10801 window=960x600
+PASS presenter help overlay and unchanged slide
+Before click: 960x600 blue=25946 red=24986
+PASS laser overlay visible, click does not advance, toggle restores original pixels
+PASS temporary ink drawing, undo, clear and unchanged slide
+PASS static fallback on engine without native layer ABI

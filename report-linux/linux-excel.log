@@ -1,0 +1,104 @@
+  -> kiểm tra giới hạn điền dãy
+[ĐẠT]  dãy tăng 10,13,16,19
+[ĐẠT]  dãy giảm qua số 0
+[ĐẠT]  chấp nhận biên trên
+[ĐẠT]  chấp nhận biên dưới
+[ĐẠT]  từ chối bước 0
+[ĐẠT]  từ chối số ô ngoài giới hạn
+[ĐẠT]  từ chối vượt ±1 tỷ
+[ĐẠT]  từ chối đầu vào cực lớn trước phép nhân
+  -> khởi động engine
+[ĐẠT]  Khởi động engine 
+  -> mở tệp Excel cơ bản
+[ĐẠT]  Mở tệp 
+[ĐẠT]  Ban đầu có 2 sheet: Dữ liệu|Phụ
+  -> di chuyển sheet lên đầu và khôi phục thứ tự
+[ĐẠT]  Di chuyển Phụ lên đầu, không tạo/xóa sheet: Phụ|Dữ liệu
+[ĐẠT]  Khôi phục đúng thứ tự sheet: Dữ liệu|Phụ
+  -> thêm / đổi tên / nhân đôi / xoá sheet
+[ĐẠT]  Thêm sheet 'Mới' vào cuối: Dữ liệu|Phụ|Mới
+[ĐẠT]  Dời sheet sang phải một vị trí: Phụ|Dữ liệu|Mới
+[ĐẠT]  Dời sheet cuối về bên phải: Phụ|Mới|Dữ liệu
+[ĐẠT]  Dời sheet cuối sang trái: Phụ|Dữ liệu|Mới
+No language allowlisted, turning off the language support.
+[ĐẠT]  Khôi phục thứ tự ba sheet: Dữ liệu|Phụ|Mới
+[ĐẠT]  Đổi tên sheet: Dữ liệu|Phụ|Đổi tên
+[ĐẠT]  Nhân đôi sheet 'Phụ' (số sheet = 4): Dữ liệu|Phụ|Phụ_2|Đổi tên
+[TIN]  Thứ tự sheet sau khi nhân đôi: Dữ liệu|Phụ|Phụ_2|Đổi tên
+[ĐẠT]  Tìm thấy sheet 'Đổi tên'
+[ĐẠT]  Xoá sheet 'Đổi tên': Dữ liệu|Phụ|Phụ_2
+[ĐẠT]  Sheet đầu vẫn là 'Dữ liệu'
+  -> định dạng ô A1
+  -> định dạng số B2 (%), B4 (#,##0) — không đổi kiểu/giá trị
+  -> độ rộng cột C, chiều cao hàng 4
+  -> tìm & thay thế chỉ trong giá trị (B -> Z), công thức giữ nguyên
+  -> sắp xếp giảm dần theo cột Số
+  -> cố định hàng đầu + bộ lọc tự động
+  -> chèn hàng 4 (công thức dịch theo)
+  -> AutoSum (thông tin, không chặn)
+  -> thăm dò hàm trên engine (dấu ngăn ',' và ';')
+[TIN]  Thăm dò ĐÚNG =SUM(1,2,3) => '6' (mong '6')
+[TIN]  Thăm dò ĐÚNG =SUM(1;2;3) => '6' (mong '6')
+[TIN]  Thăm dò ĐÚNG =IF(2>1,"a","b") => 'a' (mong 'a')
+[TIN]  Thăm dò ĐÚNG =IF(2>1;"a";"b") => 'a' (mong 'a')
+[TIN]  Thăm dò ĐÚNG =ROUNDUP(1.21,1) => '1.3' (mong '1.3')
+[TIN]  Thăm dò ĐÚNG =ROUNDDOWN(1.29,1) => '1.2' (mong '1.2')
+[TIN]  Thăm dò ĐÚNG =TEXT(1234.5,"0.00") => '1234.50' (mong '1234.50')
+[TIN]  Thăm dò =DATE(2026,1,15) => '46037'
+[TIN]  Thăm dò ĐÚNG =NETWORKDAYS(DATE(2026,1,5),DATE(2026,1,9)) => '5' (mong '5')
+[TIN]  Thăm dò =PMT(0.01,12,-1000000) => '88848.7886783417'
+[TIN]  Thăm dò =NPV(0.1,100,200) => '256.198347107438'
+[TIN]  Thăm dò =IRR({-100,60,60}) => '0.130662386291807'
+[TIN]  Thăm dò ĐÚNG =COUNTIF({1,2,3,2},2) => '2' (mong '2')
+[TIN]  Thăm dò ĐÚNG =SUMPRODUCT({1,2},{3,4}) => '11' (mong '11')
+[TIN]  Thăm dò ĐÚNG =VLOOKUP(2,{1,"x";2,"y"},2,0) => 'y' (mong 'y')
+[TIN]  Thăm dò KHÁC =XLOOKUP(2,{1,2,3},{10,20,30}) => '#NAME?' (mong '20')
+[TIN]  Thăm dò =UNIQUE({1;1;2}) => '#NAME?'
+[TIN]  Thăm dò =SORT({3;1;2}) => '#NAME?'
+[TIN]  Thăm dò =FILTER({1;2;3},{1;0;1}) => '#NAME?'
+[TIN]  Thăm dò ĐÚNG =DATEDIF(DATE(2026,1,1),DATE(2026,1,31),"D") => '30' (mong '30')
+[TIN]  Thăm dò =1/0 => '#DIV/0!'
+  -> điền công thức xuống và sang phải trên sheet Phụ
+[ĐẠT]  Có sheet Phụ để kiểm tra điền công thức
+  -> điền công thức lên và sang trái từ hàng/cột cuối
+  -> điền dãy số nguyên tăng và giảm qua lệnh UNO
+  -> sắp xếp tăng dần bảng độc lập trên sheet Phụ
+  -> lưu kết quả
+[ĐẠT]  Lưu thành excel-ket-qua.xlsx: Đã lưu: excel-ket-qua.xlsx
+  -> mở fixture riêng cho xóa hàng/cột và Undo
+[ĐẠT]  Mở fixture xóa/Undo: 
+[ĐẠT]  Fixture có sheet Phụ
+[ĐẠT]  Lưu kiểm thử excel-delete-baseline.xlsx: Đã lưu: excel-delete-baseline.xlsx
+[ĐẠT]  Lưu kiểm thử excel-delete-control.xlsx: Đã lưu: excel-delete-control.xlsx
+[ĐẠT]  Lưu kiểm thử excel-row-deleted.xlsx: Đã lưu: excel-row-deleted.xlsx
+[ĐẠT]  Lưu kiểm thử excel-row-restored.xlsx: Đã lưu: excel-row-restored.xlsx
+[ĐẠT]  Lưu kiểm thử excel-column-deleted.xlsx: Đã lưu: excel-column-deleted.xlsx
+[ĐẠT]  Lưu kiểm thử excel-column-restored.xlsx: Đã lưu: excel-column-restored.xlsx
+  -> kéo tay nắm điền công thức native Calc
+[ĐẠT]  Sao chép fixture kéo fill handle
+[ĐẠT]  Mở fixture XLSX kéo fill handle: 
+[ĐẠT]  LOK native fill rectangle and destination: 1995, 255, 75, 75
+[TIN]  Fill source cursor: 1020,0,1019,299 destination: 1020,900,1019,299
+[ĐẠT]  Lưu nguồn fill chưa chỉnh: Đã lưu: excel-native-fill-baseline.xlsx
+[ĐẠT]  Lưu kết quả kéo công thức: Đã lưu: excel-native-fill-drag.xlsx
+[ĐẠT]  Lưu Undo kéo công thức: Đã lưu: excel-native-fill-drag-undone.xlsx
+  -> Excel — tìm/thay chữ thuần, phân biệt hoa thường và sheet
+[ĐẠT]  Mở fixture tìm/thay: 
+[ĐẠT]  Lưu tìm/thay excel-search-baseline.xlsx: Đã lưu: excel-search-baseline.xlsx
+[ĐẠT]  Lưu tìm/thay excel-search-exact.xlsx: Đã lưu: excel-search-exact.xlsx
+[ĐẠT]  Lưu tìm/thay excel-search-exact-undone.xlsx: Đã lưu: excel-search-exact-undone.xlsx
+[ĐẠT]  Lưu tìm/thay excel-search-insensitive.xlsx: Đã lưu: excel-search-insensitive.xlsx
+[ĐẠT]  Lưu tìm/thay excel-search-insensitive-undone.xlsx: Đã lưu: excel-search-insensitive-undone.xlsx
+[ĐẠT]  Lưu tìm/thay excel-search-literal.xlsx: Đã lưu: excel-search-literal.xlsx
+[ĐẠT]  Lưu tìm/thay excel-search-literal-undone.xlsx: Đã lưu: excel-search-literal-undone.xlsx
+  -> mở tệp stress 5000 dòng
+[ĐẠT]  Mở tệp stress 
+[ĐẠT]  Có sheet DonHang
+  -> stress: sắp xếp giảm dần theo cột F (5000 dòng, công thức)
+[ĐẠT]  Sắp xếp 5000 dòng không treo (89 ms)
+  -> stress: bộ lọc tự động
+[ĐẠT]  Bật bộ lọc 5000 dòng không treo (0 ms)
+  -> stress: lưu
+[ĐẠT]  Lưu kết quả stress: Đã lưu: stress-ket-qua.xlsx
+
+KẾT QUẢ EXCEL: ĐẠT

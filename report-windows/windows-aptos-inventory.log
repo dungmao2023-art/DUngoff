@@ -1,0 +1,10 @@
+NỀN: windows | số mẫu: 2 | khớp mọi tiêu chí: 0
+
+[NHÓM] font gốc không có trong PDF (bị thay) — 2 mẫu
+   - DUNG_OFFICE_THU_VIEN_BIEU_MAU_2026/06_POWERPOINT/01_Mau_trinh_chieu_chinh_sua_duoc/01_Bao_cao_van_hanh_hien_dai.pptx → Aptos
+   - DUNG_OFFICE_THU_VIEN_BIEU_MAU_2026/06_POWERPOINT/01_Mau_trinh_chieu_chinh_sua_duoc/02_De_xuat_du_an_ky_thuat.pptx → Aptos
+
+[FONT] font khai báo trong mẫu mà PDF không nhúng (top 25; số mẫu bị ảnh hưởng):
+   - Aptos                              2 mẫu  vd: DUNG_OFFICE_THU_VIEN_BIEU_MAU_2026/06_POWERPOINT/01_Mau_trinh_chieu_chinh_sua_duoc/01_Bao_cao_van_hanh_hien_dai.pptx
+
+KẾT QUẢ KIỂM KÊ: CÓ NHÓM LỆCH (không chặn CI)

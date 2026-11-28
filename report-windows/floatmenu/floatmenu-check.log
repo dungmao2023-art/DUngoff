@@ -1,0 +1,16 @@
+PASS Minimize displays independent tool window
+PASS Window flags and quit policy
+PASS Vertical shortcut W
+PASS Vertical shortcut X
+PASS Vertical shortcut P
+PASS Vertical shortcut PDF
+PASS Menu within available screen
+PASS Capture rendered FloatMenu
+PASS Hide button exists
+PASS Hide keeps application minimized
+PASS Suppressed menu does not reopen
+PASS Taskbar restore hides FloatMenu
+PASS Next minimize reopens menu
+PASS Second restore hides menu
+PASS Remember maximized state
+Failures: 0

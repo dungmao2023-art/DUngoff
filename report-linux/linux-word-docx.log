@@ -1,0 +1,54 @@
+[ĐẠT]  Đoạn 'Tiêu đề thử' giữ kiểu Heading 1
+[ĐẠT]  Chữ 'Chữ đậm' giữ định dạng đậm
+[ĐẠT]  Chữ ' thường' không bị đậm
+[ĐẠT]  Hai mục danh sách còn nguyên nội dung
+[ĐẠT]  Bảng 3 cột x 2 hàng được lưu
+[ĐẠT]  Hai đoạn có danh sách (w:numPr)
+[ĐẠT]  Liên kết được lưu (w:hyperlink)
+[ĐẠT]  Đích liên kết https://example.com/ còn nguyên
+       lề thực tế (mm): trái 30.0 phải 15.0 trên 20.0 dưới 20.0
+[ĐẠT]  Lề chuẩn VN (trái 30, phải 15, trên 20, dưới 20 mm) được lưu vào DOCX
+[ĐẠT]  wrap baseline contains real text and embedded image
+[ĐẠT]  word-image-square.docx: actual native wrap wrapSquare
+[ĐẠT]  word-image-square.docx: embedded image retained
+[ĐẠT]  word-image-square.docx: body retained
+[ĐẠT]  word-image-topbottom.docx: actual native wrap wrapTopAndBottom
+[ĐẠT]  word-image-topbottom.docx: embedded image retained
+[ĐẠT]  word-image-topbottom.docx: body retained
+[ĐẠT]  word-image-wrap-undone.docx: actual native wrap wrapSquare
+[ĐẠT]  word-image-wrap-undone.docx: embedded image retained
+[ĐẠT]  word-image-wrap-undone.docx: body retained
+[ĐẠT]  wrap and Undo preserve original image bytes
+[ĐẠT]  word-image-anchor-inline.docx: native inline topology
+[ĐẠT]  word-image-anchor-inline.docx: original embedded image bytes
+[ĐẠT]  word-image-anchor-inline.docx: full body preserved
+[ĐẠT]  word-image-anchor-inline-undone.docx: native anchor topology
+[ĐẠT]  word-image-anchor-inline-undone.docx: original embedded image bytes
+[ĐẠT]  word-image-anchor-inline-undone.docx: full body preserved
+[ĐẠT]  word-image-anchor-paragraph.docx: native anchor topology
+[ĐẠT]  word-image-anchor-paragraph.docx: original embedded image bytes
+[ĐẠT]  word-image-anchor-paragraph.docx: full body preserved
+[ĐẠT]  word-image-anchor-paragraph-undone.docx: native inline topology
+[ĐẠT]  word-image-anchor-paragraph-undone.docx: original embedded image bytes
+[ĐẠT]  word-image-anchor-paragraph-undone.docx: full body preserved
+[ĐẠT]  word-image-resize-baseline.docx: one floating picture
+[ĐẠT]  word-image-resized.docx: one floating picture
+[ĐẠT]  resize fixture contains real image and marker
+[ĐẠT]  native resize changes actual extent to 2 x 1 inch
+[ĐẠT]  resize retains embedded image bytes and document text
+[ĐẠT]  word-image-resize-undone.docx: one floating picture
+[ĐẠT]  Undo restores exact picture dimensions and content
+[ĐẠT]  all three list items start in one sequence
+[ĐẠT]  restart only third item, other items and levels unchanged
+[ĐẠT]  Undo restores list sequence
+[ĐẠT]  two independent lists before Continue
+[ĐẠT]  Continue numbering rejoins third item to original sequence without changing levels
+[ĐẠT]  Undo continue restores independent third sequence
+[ĐẠT]  word-list-separate-baseline.docx: preserve all text and list order
+[ĐẠT]  word-list-separate-baseline.docx: actual list formats ['decimal', 'decimal', 'lowerLetter']
+[ĐẠT]  word-list-continued.docx: preserve all text and list order
+[ĐẠT]  word-list-continued.docx: actual list formats ['decimal', 'decimal', 'decimal']
+[ĐẠT]  word-list-continue-undone.docx: preserve all text and list order
+[ĐẠT]  word-list-continue-undone.docx: actual list formats ['decimal', 'decimal', 'lowerLetter']
+
+KẾT QUẢ DOCX: TẤT CẢ ĐẠT

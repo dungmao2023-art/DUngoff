@@ -1,0 +1,9 @@
+REPAINT writer: engine tự báo làm mới tile sau khi gõ: KHÔNG
+REPAINT writer: tầng engine bù sự kiện làm mới (SYNTH): có
+REPAINT writer: sự kiện vị trí con trỏ: có 4469, 2204, 0, 342
+REPAINT writer: sự kiện hiện/ẩn con trỏ: KHÔNG 
+REPAINT writer: sự kiện khung ô (CELL_CURSOR): KHÔNG 
+REPAINT writer: sự kiện vùng chọn ô (CELL_SELECTION_AREA): KHÔNG 
+REPAINT writer: con trỏ rộng 0 (hợp lệ khi vẽ): có — đây là nguyên nhân gốc lỗi cũ
+REPAINT writer (đang gõ): điểm ảnh đổi=1359 vùng=[89,96]-[276,108]
+REPAINT writer: ĐẠT (giao diện thay đổi sau khi gõ)

@@ -1,0 +1,239 @@
+[ĐẠT]  v5 left join preserves exact codes
+[ĐẠT]  group by joined region
+[ĐẠT]  v5 recipe replay
+[ĐẠT]  schema mismatch preserves current options
+[ĐẠT]  joined query extrema
+[ĐẠT]  v5 join wrapper with v6 extrema replays
+[ĐẠT]  old join recipe retains old schema
+[ĐẠT]  v6 without join loads
+[ĐẠT]  reject extrema without numeric column, preserve prior config
+[ĐẠT]  older recipe version cannot silently ignore extrema
+[ĐẠT]  reject changed lookup schema
+[ĐẠT]  reject duplicate right keys
+[ĐẠT]  v7 average and extrema replay in joined query
+[ĐẠT]  v6 recipe does not add average
+[ĐẠT]  average needs a numeric column
+[ĐẠT]  inner join excludes missing keys
+[ĐẠT]  legacy recipe remains compatible
+[ĐẠT]  composite key collision does not remove distinct rows
+[ĐẠT]  embedded separators and NUL remain distinct
+[ĐẠT]  source unchanged after dedup
+[ĐẠT]  reject repeated key column without data loss
+[ĐẠT]  reject malformed row instead of treating missing cell as blank
+[ĐẠT]  trim and case-fold still work
+[ĐẠT]  reject oversized CSV cell without changing result
+[ĐẠT]  quoted field obeys same limit
+[ĐẠT]  reject excessive CSV columns
+[ĐẠT]  reject excessive records without truncation
+[ĐẠT]  reject oversized file before reading, preserve prior bytes
+[ĐẠT]  reject directory as CSV source
+[ĐẠT]  exact field boundary accepted
+[ĐẠT]  trùng đúng khoá, phân biệt hoa/thường khi không chuẩn hoá
+[ĐẠT]  diff ghi dòng được giữ
+[ĐẠT]  chuẩn hoá hoa/thường/khoảng trắng bắt thêm 'a01 '
+[ĐẠT]  dòng khoá rỗng không bị coi là trùng
+[ĐẠT]  có cảnh báo về khoá rỗng
+[ĐẠT]  hoàn tác dòng trùng == bảng gốc, từng ô
+[ĐẠT]  hoàn tác (không chuẩn hoá) == bảng gốc
+[ĐẠT]  bảng gốc không bị sửa
+[ĐẠT]  khoá nhiều cột
+[ĐẠT]  khoá sai bị từ chối
+[ĐẠT]  số điện thoại giữ số 0 đầu
+[ĐẠT]  lọc Unicode không phân biệt hoa thường
+[ĐẠT]  sort ổn định, giữ số 0 đầu
+[ĐẠT]  không sửa nguồn
+[ĐẠT]  sort giảm dần
+[ĐẠT]  lọc ô trống giữ mã
+[ĐẠT]  không chấp nhận contains rỗng
+[ĐẠT]  từ chối chỉ số cột lỗi
+[ĐẠT]  không chọn bước thì giữ nguyên bảng
+[ĐẠT]  nạp lại cấu hình JSON
+[ĐẠT]  chạy lại cho kết quả giống hệt
+[ĐẠT]  cấu hình không chứa dòng dữ liệu
+[ĐẠT]  từ chối cột đổi thứ tự
+[ĐẠT]  từ chối JSON hỏng
+[ĐẠT]  cấu hình lỗi không ghi đè lựa chọn hiện tại
+[ĐẠT]  từ chối cấu hình v2 thiếu cột
+[ĐẠT]  project selected columns after filter
+[ĐẠT]  projection follows sort and preserves text
+[ĐẠT]  v2 recipe roundtrip
+[ĐẠT]  v1 recipe remains compatible
+[ĐẠT]  reject duplicate output names
+[ĐẠT]  reject duplicate source columns
+[ĐẠT]  reject invalid source column
+[ĐẠT]  reject empty output name
+[ĐẠT]  reject projection of ragged rows
+[ĐẠT]  blank filter rejects missing field rather than treating it as blank
+[ĐẠT]  sort rejects short row
+[ĐẠT]  sort rejects extra field
+[ĐẠT]  no-op recipe rejects malformed input
+[ĐẠT]  valid no-op still preserves data
+[ĐẠT]  clean before filter, retain blank keys
+[ĐẠT]  sort/project preserves IDs and source
+[ĐẠT]  dedup keeps first source record
+[ĐẠT]  v3 pipeline recipe roundtrip
+[ĐẠT]  v3 settings restored
+[ĐẠT]  v3 without projection
+[ĐẠT]  reject invalid cleaning spec
+[ĐẠT]  reject invalid clean column
+[ĐẠT]  reject invalid dedup column
+[ĐẠT]  boolean normalization counts only actual changes and unknowns
+[ĐẠT]  Vietnamese and English boolean values
+[ĐẠT]  unknowns codes blanks and original source preserved
+[ĐẠT]  same explicit semantics in clean-table UI
+[ĐẠT]  boolean cleaning runs before filtering
+[ĐẠT]  recipe boolean roundtrip
+[ĐẠT]  numeric zero not inferred
+[ĐẠT]  canonical boolean unchanged
+[ĐẠT]  invalid kind rejected
+[ĐẠT]  invalid recipe leaves prior configuration intact
+[ĐẠT]  left join preserves row count
+[ĐẠT]  exact keys preserve leading zeros
+[ĐẠT]  unique column name
+[ĐẠT]  blank keys never match
+[ĐẠT]  left order and sources preserved
+[ĐẠT]  inner join keeps matched rows only
+[ĐẠT]  reject duplicate lookup key
+[ĐẠT]  reject ragged right row
+[ĐẠT]  reject invalid key column
+[ĐẠT]  empty result retains schema
+[ĐẠT]  một dòng giống hệt
+[ĐẠT]  phát hiện ô khác giá trị
+[ĐẠT]  dòng chỉ có ở A và ở B
+[ĐẠT]  cảnh báo mã trùng và cột chỉ có ở một bên
+[ĐẠT]  bảng khác biệt xuất ra đủ 3 dòng
+[ĐẠT]  cột mã không tồn tại bị từ chối
+[ĐẠT]  '007' khác '7' (không ép kiểu số)
+[ĐẠT]  số dài 20 chữ số so chính xác, không mất độ chính xác
+[ĐẠT]  ngày d/m/yyyy -> dd/mm/yyyy
+[ĐẠT]  ngày ISO -> dd/mm/yyyy
+[ĐẠT]  ngày dấu chấm/gạch
+[ĐẠT]  ngày không tồn tại: giữ nguyên + cảnh báo
+[ĐẠT]  năm 2 chữ số: không đoán
+[ĐẠT]  số seri/số điện thoại không bị đổi thành ngày
+[ĐẠT]  đã chuẩn thì không đổi
+[ĐẠT]  ô rỗng/chữ giữ nguyên
+[ĐẠT]  VN: 1.500.000 -> 1500000
+[ĐẠT]  bỏ ký hiệu tiền ở cuối
+[ĐẠT]  VN: dấu phẩy thập phân, bỏ 0 thừa, không làm tròn
+[ĐẠT]  EN: 1,500,000.25
+[ĐẠT]  số âm
+[ĐẠT]  dấu nghìn sai vị trí: giữ nguyên + cảnh báo
+[ĐẠT]  phân cách lạ không đoán
+[ĐẠT]  số điện thoại không bị coi là tiền
+[ĐẠT]  số >15 chữ số giữ nguyên (không qua double)
+[ĐẠT]  chữ lẫn số giữ nguyên
+[ĐẠT]  0,5 hợp lệ
+[ĐẠT]  leading decimal with digits
+[ĐẠT]  invalid or unsafe money preserved with warning
+[ĐẠT]  invalid or unsafe money preserved with warning
+[ĐẠT]  invalid or unsafe money preserved with warning
+[ĐẠT]  invalid or unsafe money preserved with warning
+[ĐẠT]  invalid or unsafe money preserved with warning
+[ĐẠT]  invalid or unsafe money preserved with warning
+[ĐẠT]  invalid or unsafe money preserved with warning
+[ĐẠT]  invalid or unsafe money preserved with warning
+[ĐẠT]  invalid or unsafe money preserved with warning
+[ĐẠT]  invalid or unsafe money preserved with warning
+[ĐẠT]  strict space and NBSP grouping
+[ĐẠT]  English space grouping and incomplete decimal
+[ĐẠT]  query preserves malformed values instead of inventing numbers
+[ĐẠT]  nhận diện chuỗi cần bảo vệ
+[ĐẠT]  bảng gốc không bị sửa khi làm sạch
+[ĐẠT]  đúng số ô được đổi
+[ĐẠT]  cột mã giữ nguyên số 0 đầu
+[ĐẠT]  ô lỗi giữ nguyên
+[ĐẠT]  mỗi ô không chuyển được và cột thiếu đều có cảnh báo
+[ĐẠT]  đọc CSV: BOM, dấu phẩy/nháy/xuống dòng trong ô, số 0 đầu
+[ĐẠT]  ghi bản sao CSV
+[ĐẠT]  ghi rồi đọc lại == nguyên vẹn
+[ĐẠT]  không ghi đè tệp đã có
+[ĐẠT]  tệp có sẵn không đổi sau từ chối ghi
+[ĐẠT]  CSV xuống dòng CR đơn
+[ĐẠT]  từ chối dấu nháy giữa ô, giữ kết quả cũ
+[ĐẠT]  từ chối chữ sau dấu nháy đóng
+[ĐẠT]  từ chối dấu nháy chưa đóng
+[ĐẠT]  giữ nguyên CRLF bên trong ô
+[ĐẠT]  ghi bản sao xóa lỗi cũ
+[ĐẠT]  roundtrip CRLF và số 0 đầu
+[ĐẠT]  không xuất bảng thiếu tiêu đề
+[ĐẠT]  từ chối phân cách không hỗ trợ
+[ĐẠT]  CSV không phải UTF-8: từ chối, không đoán bảng mã
+[ĐẠT]  tệp không tồn tại báo lỗi
+[ĐẠT]  BOM UTF-8: chắc chắn, không cần hỏi
+[ĐẠT]  UTF-8 không BOM có tiếng Việt: nhận ra
+[ĐẠT]  ASCII thuần: UTF-8
+[ĐẠT]  BOM UTF-16 LE
+[ĐẠT]  BOM UTF-16 BE
+[ĐẠT]  giải mã UTF-16 LE đúng nguyên văn
+[ĐẠT]  giải mã UTF-16 BE đúng nguyên văn
+[ĐẠT]  Windows-1258: chỉ gợi ý, BẮT người dùng xác nhận
+[ĐẠT]  giải mã Windows-1258 ra đúng chữ Việt (NFC)
+[ĐẠT]  byte không giống tiếng Việt: độ tin cậy thấp, cần người dùng chọn
+[ĐẠT]  byte không định nghĩa: không đoán
+[ĐẠT]  Windows-1258 gặp byte lạ: từ chối, không thay ký tự
+[ĐẠT]  chọn nhầm UTF-8 cho tệp Windows-1258: từ chối
+[ĐẠT]  UTF-16 độ dài lẻ: từ chối
+[ĐẠT]  UTF-16 không BOM: gợi ý và bắt xác nhận
+[ĐẠT]  xem trước đúng 20 dòng, bỏ \r
+[ĐẠT]  đoán dấu phân cách
+[ĐẠT]  readCsv mặc định (UTF-8) vẫn từ chối tệp Windows-1258
+[ĐẠT]  đọc CSV Windows-1258 sau khi chọn bảng mã
+[ĐẠT]  tệp gốc không bị đổi byte nào
+[ĐẠT]  ghi bản sao UTF-8 từ tệp Windows-1258
+[ĐẠT]  bản sao đọc lại nguyên vẹn
+[ĐẠT]  exact decimal sum
+[ĐẠT]  preserve key and negative fraction
+[ĐẠT]  blank key grouped, blank value excluded
+[ĐẠT]  cancellation exact, source unchanged
+[ĐẠT]  exact min max positive decimals
+[ĐẠT]  single negative fraction
+[ĐẠT]  empty numeric group has no extrema
+[ĐẠT]  mixed signs compare numerically
+[ĐẠT]  legacy schema and count-only unchanged
+[ĐẠT]  positive tie rounds away from zero, excludes blank
+[ĐẠT]  negative tie rounds away from zero
+[ĐẠT]  no numeric values means blank average
+[ĐẠT]  recurring average rounds to four places
+[ĐẠT]  min max and average coexist
+[ĐẠT]  count only
+[ĐẠT]  reject noncanonical or out of range number
+[ĐẠT]  reject noncanonical or out of range number
+[ĐẠT]  reject noncanonical or out of range number
+[ĐẠT]  reject noncanonical or out of range number
+[ĐẠT]  reject noncanonical or out of range number
+[ĐẠT]  reject noncanonical or out of range number
+[ĐẠT]  reject noncanonical or out of range number
+[ĐẠT]  reject noncanonical or out of range number
+[ĐẠT]  reject ragged input
+[ĐẠT]  reject invalid columns
+[ĐẠT]  reject sum overflow
+[ĐẠT]  group after cleaning filtering and reordered projection
+[ĐẠT]  group preserves zero and source
+[ĐẠT]  v4 replay exact output
+[ĐẠT]  group rejects dropped numeric column
+[ĐẠT]  group count only after projection
+[ĐẠT]  reject sum without grouping key
+[ĐẠT]  reject same group and value column
+[ĐẠT]  empty group output retains schema
+[ĐẠT]  XLSX workbook order and relationship target
+[ĐẠT]  reject unsafe worksheet target
+[ĐẠT]  rich shared string without phonetic annotation
+[ĐẠT]  preserve stored text and leading zeros
+[ĐẠT]  sparse rows and raw values
+[ĐẠT]  refuse formulas and preserve prior result
+[ĐẠT]  reject missing shared string
+[ĐẠT]  reject oversized column
+[ĐẠT]  reject malformed XML
+[ĐẠT]  read real XLSX fixture bytes
+[ĐẠT]  actual XLSX worksheet order and Vietnamese names
+[ĐẠT]  read two actual deflated XLSX worksheet parts
+[ĐẠT]  actual workbook preserves Unicode and textual IDs
+[ĐẠT]  join two worksheets without coercing ID
+[ĐẠT]  group actual XLSX raw decimal values
+[ĐẠT]  filter and project actual XLSX
+[ĐẠT]  export and re-open actual query result CSV
+[ĐẠT]  refuse formula worksheet without altering prior result
+[ĐẠT]  real workbook remains byte-identical
+
+KẾT QUẢ: TẤT CẢ ĐẠT  (đạt 237, lỗi 0)
