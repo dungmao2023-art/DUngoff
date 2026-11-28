@@ -5,6 +5,9 @@
 #include "../EngineHost.h"
 #include "../TileView.h"
 #include "ExcelCommands.h"
+#include "ExcelRules.h"
+#include <QTemporaryDir>
+#include <QFileInfo>
 #ifndef LOK_USE_UNSTABLE_API
 #define LOK_USE_UNSTABLE_API
 #endif
@@ -253,6 +256,33 @@ void DocumentTab::excelAction(const QString& id) {
         }
         cmd(descending?".uno:SortDescending":".uno:SortAscending");
         m_doc->waitInputIdle();m_view->setFocus();return;
+    } else if(a==QLatin1String("createDropdown")||a==QLatin1String("protectSheet")){
+        const bool protect=a==QLatin1String("protectSheet");
+        const QString title=protect?tr("Bảo vệ sheet"):tr("Tạo dropdown");
+        const QString range=m_view->selectedCellRange();
+        const QString normalized=qs(dataassist::bridgeRangeAddress(ss(range)));
+        QStringList items;
+        if(protect){
+            if(QMessageBox::question(this,title,tr("Bảo vệ các ô đang khóa trên sheet %1 trong bản sao XLSX mới (không mật khẩu). Đây là bảo vệ thao tác, không phải mã hóa. Tiếp tục?").arg(qs(originalSheet)),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        }else{
+            if(normalized.isEmpty()){QMessageBox::information(this,title,tr("Chọn vùng ô cần dropdown."));return;}
+            bool ok=false;
+            const auto input=QInputDialog::getMultiLineText(this,title,tr("Mỗi lựa chọn một dòng. Tạo dropdown ở vùng %1 trong bản sao XLSX mới.").arg(range),QString(),&ok);
+            if(!ok)return;
+            for(auto item:input.split(QLatin1Char('\n')))if(!item.trimmed().isEmpty())items<<item.trimmed();
+        }
+        if(!sameSheet()||(!protect&&!confirmTarget(range,title)))return;
+        QTemporaryDir temp;
+        if(!temp.isValid()){QMessageBox::warning(this,title,tr("Không tạo được thư mục tạm."));return;}
+        const QString src=temp.filePath(QStringLiteral("source.xlsx")),dst=temp.filePath(QStringLiteral("rules.xlsx"));
+        std::string saveError;QString error;
+        if(!m_doc->saveRecoveryCopy(toPath(src),&saveError)||!excelrules::createCopy(src,dst,cur,qs(originalSheet),normalized,items,protect,&error)){
+            QMessageBox::warning(this,title,tr("Chưa tạo bản sao: %1").arg(error.isEmpty()?qs(saveError):error));return;
+        }
+        const QString orig=m_doc->isNew()?QString():fromPath(m_doc->originalPath());
+        const QString name=QFileInfo(qs(m_doc->displayName())).completeBaseName()+(protect?QStringLiteral(" - protected.xlsx"):QStringLiteral(" - dropdown.xlsx"));
+        emit openCopyRequested(dst,orig,name);
+        return;
     } else if(a==QLatin1String("refreshPivot")){
         const auto range=m_view->selectedCellRange();
         if(dataassist::bridgeCellAddress(ss(range)).empty()){

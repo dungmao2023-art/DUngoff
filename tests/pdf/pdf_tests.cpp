@@ -690,6 +690,36 @@ int main(int argc, char** argv) {
         CHECK(be2.ok && be2.blank.isEmpty(), "trang trắng: tệp mật khẩu với mật khẩu đúng đọc được");
     }
 
+    {
+        const auto target=P(QStringLiteral("note.pdf"));
+        const auto text=QStringLiteral("Ghi chú tiếng Việt");
+        const auto note=addTextNote({a,{}},2,90,10,text,target);
+        CHECK(note.ok&&info(target).pages==3&&readFile(a)==aBytes,"real annotation keeps page count and source");
+        if(note.ok){
+            QProcess p;p.start(findQpdf(),{QStringLiteral("--json=2"),QStringLiteral("--json-key=qpdf"),target});
+            p.waitForFinished(30000);const auto json=p.readAllStandardOutput();
+            CHECK(p.exitCode()==0&&json.contains("/Text")&&json.contains(text.toUtf8()),"annotation contains real Unicode /Text contents");
+        }
+        CHECK(!addTextNote({a,{}},99,50,50,text,P("bad-note.pdf")).ok&&!QFileInfo::exists(P("bad-note.pdf")),"invalid note page rejected");
+        CHECK(!fillTextField({a,{}},"Name","Test",P("no-form.pdf")).ok&&!QFileInfo::exists(P("no-form.pdf")),"no form does not publish result");
+        // Real single-widget text form with standard Helvetica resources.
+        QByteArray bytes="%PDF-1.4\n";QList<int> offsets;
+        auto obj=[&](const QByteArray& body){offsets<<bytes.size();bytes+=QByteArray::number(offsets.size())+" 0 obj\n"+body+"\nendobj\n";};
+        obj("<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] /DA (/Helv 12 Tf 0 g) /DR << /Font << /Helv 5 0 R >> >> >> >>");
+        obj("<< /Type /Pages /Count 1 /Kids [3 0 R] >>");
+        obj("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Annots [4 0 R] >>");
+        obj("<< /Type /Annot /Subtype /Widget /FT /Tx /T (Name) /V (Old) /Rect [50 600 250 630] /P 3 0 R /DA (/Helv 12 Tf 0 g) >>");
+        obj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+        const int xref=bytes.size();bytes+="xref\n0 6\n0000000000 65535 f \n";
+        for(int n:offsets){char line[32];std::snprintf(line,sizeof line,"%010d 00000 n \n",n);bytes+=line;}
+        bytes+="trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n"+QByteArray::number(xref)+"\n%%EOF\n";
+        const auto source=P("simple-form.pdf"),filled=P("filled-form.pdf");writeFile(source,bytes);
+        const auto fields=textFormFields({source,{}});
+        CHECK(fields.ok&&fields.names==QStringList{"Name"}&&fields.values==QStringList{"Old"},"read actual AcroForm field");
+        const auto result=fillTextField({source,{}},"Name","New value",filled);
+        CHECK(result.ok&&readFile(source)==bytes,"fill form without changing original");
+        if(result.ok){const auto re=textFormFields({filled,{}});CHECK(re.ok&&re.values==QStringList{"New value"},"read filled value after reopening");CHECK(qdfOf(filled).contains("/AP"),"filled form has widget appearance");}
+    }
     if(pdfedit::available()){
         const auto source=P("native-edit-source.pdf"),dest=P("native-edited.pdf");
         const QByteArray original=makePdf(2,QStringLiteral("ORIGINAL"));
