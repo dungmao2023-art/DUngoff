@@ -78,10 +78,19 @@ def main():
             smgr = ctx.ServiceManager
             desktop = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
             for use_provider in (False, True):
-                doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (pv("Hidden", True),))
+                # Shared Python scripts obtain the active component from the
+                # desktop. Hidden documents may not become current even when
+                # the provider is created with their model. Use a non-hidden
+                # document only in this isolated headless test, and insist on
+                # exact component identity before invoking any script.
+                doc = desktop.loadComponentFromURL("private:factory/swriter", "_blank", 0, (pv("Hidden", not use_provider),))
+                if doc is None:
+                    raise RuntimeError("Writer document creation failed")
                 docs.append(doc)
                 doc.Text.setString("Kiểm tra lề trang")
                 if use_provider:
+                    if desktop.getCurrentComponent() != doc:
+                        raise RuntimeError("Provider target is not the exact active test document; aborting script")
                     factory = smgr.createInstanceWithContext("com.sun.star.script.provider.MasterScriptProviderFactory", ctx)
                     provider = factory.createScriptProvider(doc)
                     script = provider.getScript("vnd.sun.star.script:dung_api.py$margins_vn?language=Python&location=share")
@@ -92,6 +101,10 @@ def main():
                     if dung_api.apply_margins(doc, 30, 15, 20, 20) < 1:
                         raise RuntimeError("No page styles changed")
                 assert_margins(doc, root / ("provider.docx" if use_provider else "direct.docx"))
+                # Close each synthetic document before opening the next one.
+                # This avoids leaving an earlier model current.
+                doc.close(True)
+                docs.remove(doc)
             print("DUNG_API PASS (standalone UNO, not live LOK)", flush=True)
         finally:
             for doc in reversed(docs):
