@@ -136,5 +136,20 @@ for mode, axis, factor in (
                   for j in (1-axis,2,3)),filename+": other axis and dimensions preserved")
     undo_order, undo=layer_shapes("ppt-align-"+mode+"-undone.pptx")
     check(undo_order==align_order and undo==original,filename+": Undo restores original geometry")
+def rotation_snapshot(filename):
+    order, geom=layer_shapes(filename)
+    slide=Presentation(layer_dir/filename).slides[0]
+    angles={s.text:s.rotation for s in slide.shapes if s.has_text_frame}
+    return order,geom,angles
+rotbase, rotgeom, angles=rotation_snapshot("ppt-rotate-baseline.pptx")
+for mode, expected in (("positive",270),("negative",90)):
+    filename="ppt-rotate-"+mode+".pptx"
+    order, geom, angle=rotation_snapshot(filename)
+    check(order==rotbase and geom.keys()==rotgeom.keys(),filename+": original object identity/order")
+    if geom.keys()==rotgeom.keys() and "LAYER_A" in angle and "LAYER_B" in angle:
+        check(abs((angle["LAYER_A"]-angles["LAYER_A"])%360-expected)<0.1,filename+": native rotation direction and angle")
+        check(angle["LAYER_B"]==angles["LAYER_B"] and geom["LAYER_B"]==rotgeom["LAYER_B"],filename+": neighbour untouched")
+        check(all(abs(a-b)<=720 for a,b in zip(geom["LAYER_A"][2:],rotgeom["LAYER_A"][2:])),filename+": dimensions preserved")
+    check(rotation_snapshot("ppt-rotate-"+mode+"-undone.pptx")== (rotbase,rotgeom,angles),filename+": exact Undo")
 print("\nKẾT QUẢ XÁC MINH PPTX:", "CÓ LỖI" if fail else "TẤT CẢ ĐẠT")
 sys.exit(1 if fail else 0)
