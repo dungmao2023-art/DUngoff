@@ -50,7 +50,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
         {QStringLiteral("word:count"), tr("Đếm từ"), 0xE8EF, QStringLiteral("#"), false},
     }};
     return {
-        {tr("Trang đầu"), {file, undo, clip, font, changeCase, para, styles, find}},
+        {tr("Trang đầu"), {clip, font, para, styles, find, changeCase, undo, file}},
         {tr("Chèn"), {
             {tr("Phần tử"), {
                 {QStringLiteral("word:table"), tr("Bảng"), 0xE80A, QStringLiteral("▦"), false},

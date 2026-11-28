@@ -21,6 +21,9 @@
 #include <QStyle>
 #include <QTabBar>
 #include <QToolButton>
+#include <QMenu>
+#include <QAction>
+#include <QFont>
 #include <QVBoxLayout>
 
 using dung::DocKind;
@@ -36,7 +39,7 @@ Ribbon::Ribbon(QWidget* parent) : QWidget(parent) {
     m_tabs->setDrawBase(false);
     m_tabs->setExpanding(false);
     m_pages = new QStackedWidget(this);
-    m_pages->setFixedHeight(100);
+    m_pages->setFixedHeight(112);
     v->addWidget(m_tabs);
     v->addWidget(m_pages);
     connect(m_tabs, &QTabBar::currentChanged, m_pages, &QStackedWidget::setCurrentIndex);
@@ -146,7 +149,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
         const auto B = [](const char* id, const QString& label, char16_t g, const char* fb, bool chk) {
             return Btn{QString::fromUtf8(id), label, g, QString::fromUtf8(fb), chk};
         };
-        return {fileTab,
+        QList<Tab> tabs{fileTab,
             {tr("Trang đầu"), {file, undo, clip, font,
                 {tr("Phông & màu"), {
                     B("xl:fontName", tr("Phông"), 0xE8D2, "Aa", false),
@@ -243,6 +246,29 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 B(".uno:FreezePanesColumn", tr("Cột đầu"), 0xE840, "❄‖", false),
             }}}},
         };
+        // Reuse the existing commands exactly once, but place them where an Excel
+        // user expects them. Keeping unique IDs preserves engine state routing.
+        auto& home=tabs[1].groups;
+        home[3].buttons.append(home[4].buttons);
+        home.removeAt(4);
+        const Group cells{tr("Ô"),tabs[2].groups[0].buttons};
+        const Group sheets=tabs[2].groups[1];
+        const Group charts=tabs[3].groups[0];
+        auto& data=tabs[5].groups;
+        const Group fill=data[0],sort=data[1],rules=data[2],pivot=data[3],utilities=data[4],find=data[5];
+        Group editing{tr("Chỉnh sửa"),{tabs[4].groups[0].buttons.last()}};
+        editing.buttons.append(fill.buttons);editing.buttons.append(sort.buttons);editing.buttons.append(find.buttons);
+        tabs[4].groups[0].buttons.removeLast(); // AutoSum lives in Home
+        Group validation{tr("Xác thực dữ liệu"),{rules.buttons.first()}};
+        Group protection{tr("Bảo vệ"),{rules.buttons.last()}};
+        const Group fileTools=home[0],undoTools=home[1],clipboard=home[2],fontTools=home[3],alignment=home[4],number=home[5];
+        home={clipboard,fontTools,alignment,number,cells,editing,undoTools,fileTools};
+        tabs[2].groups={charts,Group{tr("PivotTable"),{pivot.buttons.first()}},sheets};
+        data={validation,Group{tr("PivotTable"),{pivot.buttons.last()}},utilities};
+        tabs[3]=Tab{tr("Xem lại"),{protection}};
+        // Insert, Formulas, Data, Review, View
+        tabs.move(3,5);
+        return tabs;
     }
     case DocKind::Text:
     {
@@ -355,15 +381,13 @@ QWidget* Ribbon::buildPage(const Tab& t) {
     h->setContentsMargins(0, 4, 0, 0);
     h->setSpacing(6);
     auto groups=t.groups;
-    // PPT starts with slide creation and then font. Word/Excel retain compact font-first Home.
     const bool presentation=m_lastKind==int(DocKind::Presentation);
-    if(t.title==tr("Trang đầu")&&!m_lastReadOnly&&!presentation) {
-        for(int i=0;i<groups.size();++i)
-            if(groups[i].title==tr("Phông chữ")) { groups.move(i,0);break; }
-    }
+    const bool office=!m_lastReadOnly&&(m_lastKind==int(DocKind::Text)||m_lastKind==int(DocKind::Spreadsheet));
+    const bool home=t.title==tr("Trang đầu");
     for (int gi = 0; gi < groups.size(); ++gi) {
         const Group& g = groups[gi];
         auto* gw = new QWidget(page);
+        gw->setProperty("ribbonGroup",g.title);
         auto* gv = new QVBoxLayout(gw);
         gv->setContentsMargins(0, 0, 0, 0);
         gv->setSpacing(0);
@@ -420,30 +444,65 @@ QWidget* Ribbon::buildPage(const Tab& t) {
         auto* row = new QGridLayout;
         row->setContentsMargins(0,0,0,0);row->setSpacing(2);
         int buttonIndex=0;
-        // Labels on task-specific PPT controls; keep common formatting compact.
-        const bool labeled=presentation && !fontGroup &&
-            (t.title!=tr("Trang đầu") || g.title==tr("Trang chiếu") ||
-             g.title==tr("Sắp xếp slide") || g.title==tr("Bố cục"));
-        const int rows=fontGroup?1:(labeled||g.buttons.size()>3?2:1);
+        const bool clipboard=office&&home&&g.title==tr("Bộ nhớ tạm");
+        const bool styles=office&&home&&g.title==tr("Kiểu");
+        const bool number=office&&home&&g.title==tr("Số");
+        const bool labeled=(presentation && !fontGroup &&
+            (!home || g.title==tr("Trang chiếu") || g.title==tr("Sắp xếp slide") || g.title==tr("Bố cục"))) ||
+            (office&&!fontGroup&&!styles&&!number&&(!home||clipboard));
+        const int rows=fontGroup?(office?2:1):(clipboard?3:(styles?1:(labeled||g.buttons.size()>3?2:1)));
         for (const Btn& b : g.buttons) {
             if(fontGroup && b.id==QLatin1String("word:font"))continue;
             if(m_lastKind==int(DocKind::Spreadsheet)&&b.id==QLatin1String("xl:fontName"))continue;
             auto* tb = new QToolButton(gw);
             tb->setObjectName(QStringLiteral("RibbonButton"));
-            tb->setToolButtonStyle(labeled?Qt::ToolButtonTextBesideIcon:Qt::ToolButtonIconOnly);
+            const bool bigPaste=clipboard&&b.id==QLatin1String("paste");
+            const bool numberMenu=number&&b.id==QLatin1String(".uno:NumberFormatStandard");
+            tb->setToolButtonStyle(bigPaste?Qt::ToolButtonTextUnderIcon:styles?Qt::ToolButtonTextOnly:(labeled||numberMenu)?Qt::ToolButtonTextBesideIcon:Qt::ToolButtonIconOnly);
             tb->setCheckable(b.checkable);
             tb->setAutoRaise(true);
             tb->setFocusPolicy(Qt::NoFocus); // không lấy focus khỏi tài liệu
-            tb->setIcon(dung::ui::icon(dung::ui::iconNameForCommand(b.id), theme::kBlueDark));
-            tb->setIconSize(QSize(22, 22));
+            QColor iconColor=theme::kBlueDark;
+            if(office){
+                iconColor=QColor("#364152");
+                if(b.id==QLatin1String("paste")||b.id==QLatin1String(".uno:FormatPaintbrush"))iconColor=QColor("#A66B23");
+                else if(b.id==QLatin1String("word:color")||b.id==QLatin1String("xl:textColor"))iconColor=QColor("#B63C36");
+                else if(b.id==QLatin1String("word:back")||b.id==QLatin1String("xl:fillColor"))iconColor=QColor("#A77712");
+                else if(b.id==QLatin1String("xl:insertChart")||b.id==QLatin1String("xl:createPivot")||b.id==QLatin1String(".uno:DataFilterAutoFilter"))iconColor=QColor("#23754B");
+            }
+            tb->setIcon(dung::ui::icon(dung::ui::iconNameForCommand(b.id), iconColor));
+            tb->setIconSize(bigPaste?QSize(32,32):office?QSize(19,19):QSize(22,22));
             tb->setText(b.label);
             tb->setToolTip(b.label);
             tb->setAccessibleName(b.label);
             tb->setProperty("commandId",b.id);
-            if(labeled){
+            if(bigPaste){
+                auto* menu=new QMenu(tb);
+                auto* normal=menu->addAction(tr("Dán giữ định dạng"));
+                auto* plain=menu->addAction(tr("Chỉ dán văn bản"));
+                connect(normal,&QAction::triggered,this,[this]{emit appAction(QStringLiteral("paste"));});
+                connect(plain,&QAction::triggered,this,[this]{emit appAction(QStringLiteral("pasteText"));});
+                tb->setMenu(menu);tb->setPopupMode(QToolButton::MenuButtonPopup);
+                tb->setFixedSize(74,78);
+            }else if(styles){
+                tb->setText(QStringLiteral("AaBbCc\n")+b.label);
+                QFont f=tb->font();f.setBold(b.id!=QLatin1String("word:style0"));tb->setFont(f);
+                tb->setStyleSheet(QStringLiteral("QToolButton#RibbonButton{background:#FFFFFF;border:1px solid #D9E1EB;border-radius:3px;color:#263D58;padding:4px;} QToolButton#RibbonButton:hover{background:#E8F0FF;border-color:#2864BA;}"));
+                tb->setFixedSize(78,72);
+            }else if(numberMenu){
+                tb->setText(tr("Định dạng số"));
+                auto* menu=new QMenu(tb);
+                for(const auto& format:g.buttons){
+                    if(format.id.contains(QLatin1String("Decimals")))continue;
+                    auto* action=menu->addAction(dung::ui::icon(dung::ui::iconNameForCommand(format.id),iconColor),format.label);
+                    connect(action,&QAction::triggered,this,[this,id=format.id]{auto b=m_buttons.value(id);if(b&&b->isEnabled())emit unoCommand(id);});
+                }
+                tb->setMenu(menu);tb->setPopupMode(QToolButton::MenuButtonPopup);
+                tb->ensurePolished();tb->setFixedSize(qMax(120,tb->sizeHint().width()+8),28);
+            }else if(labeled){
                 tb->ensurePolished();
-                tb->setFixedSize(qMax(78,tb->sizeHint().width()+8),29);
-            }else tb->setFixedSize(32,29);
+                tb->setFixedSize(qMax(78,tb->sizeHint().width()+8),office?24:29);
+            }else tb->setFixedSize(office?29:32,office?24:29);
             const QString id = b.id;
             connect(tb, &QToolButton::clicked, this, [this, id, tb] {
                 if (id.startsWith(QLatin1String(".uno:"))) {
@@ -454,7 +513,12 @@ QWidget* Ribbon::buildPage(const Tab& t) {
                 }
             });
             m_buttons.insert(id, tb);
-            row->addWidget(tb,buttonIndex%rows,buttonIndex/rows);
+            if(bigPaste)row->addWidget(tb,0,0,3,1);
+            else if(clipboard)row->addWidget(tb,(buttonIndex-1)%3,1+(buttonIndex-1)/3);
+            else if(numberMenu)row->addWidget(tb,0,0,1,5);
+            else if(number)row->addWidget(tb,1,buttonIndex-1);
+            else if(office&&fontGroup){const int cols=(g.buttons.size()+1)/2;row->addWidget(tb,buttonIndex/cols,buttonIndex%cols);}
+            else row->addWidget(tb,buttonIndex%rows,buttonIndex/rows);
             ++buttonIndex;
         }
         gv->addLayout(row);gv->addStretch(1);

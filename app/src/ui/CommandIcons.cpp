@@ -21,7 +21,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:LeftPara", "align-left"}, {".uno:CenterPara", "align-center"}, {".uno:RightPara", "align-right"}, {".uno:JustifyPara", "justify"},
         {".uno:DefaultBullet", "bullets"}, {".uno:DefaultNumbering", "numbering"},
         {".uno:IncrementIndent", "indent"}, {".uno:DecrementIndent", "outdent"},
-        {".uno:SpacePara1", "line-spacing"}, {".uno:SpacePara15", "line-spacing"},
+        {".uno:SpacePara1", "line-spacing"}, {".uno:SpacePara15", "line-spacing"}, {".uno:SpacePara2", "line-spacing"},
         {".uno:InsertPagebreak", "page-break"}, {".uno:InsertPageNumberField", "page-number"},
         // Word
         {"word:style0", "text"}, {"word:style1", "heading"}, {"word:style2", "heading"}, {"word:style3", "heading"},
@@ -62,7 +62,7 @@ QString iconNameForCommand(const QString& id) {
         {"xl:sortAscending", "sort"}, {"xl:sortDescending", "sort"},
         {".uno:ToggleMergeCells", "merge-cells"}, {".uno:WrapText", "wrap-text"},
         {"xl:colWidth", "col-width"}, {"xl:rowHeight", "row-height"}, {"xl:fillColor", "fill-color"}, {"xl:textColor", "font-color"},
-        {".uno:RecalcPivotTable", "transfer"}, {"xl:refreshPivot", "transfer"}, {"xl:createPivot", "table"}, {"xl:createDropdown", "filter"}, {"xl:protectSheet", "protect"}, {"xl:insertChart", "col-width"}, {"xl:formulaAssistant", "sum"}, {"xl:rangeTools", "col-width"}, {"xl:vnMoney", "currency"},
+        {".uno:RecalcPivotTable", "transfer"}, {"xl:refreshPivot", "transfer"}, {"xl:createPivot", "table"}, {"xl:createDropdown", "filter"}, {"xl:protectSheet", "protect"}, {"xl:insertChart", "chart"}, {"xl:formulaAssistant", "sum"}, {"xl:rangeTools", "col-width"}, {"xl:vnMoney", "currency"},
         {"xl:find", "search"}, {"xl:replace", "replace"}, {"xl:fontName", "font-name"}, {"xl:fontSize", "font-size"},
         {"xl:sheetAdd", "add"}, {"xl:sheetDelete", "delete"}, {"xl:sheetDup", "slide-duplicate"}, {"xl:sheetRename", "rename"},
         {"xl:sheetMoveLeft", "transfer"}, {"xl:sheetMoveRight", "transfer"},

@@ -1274,6 +1274,7 @@ void MainWindow::onAppAction(const QString& id) {
     else if (id == QLatin1String("copy")) t->copy();
     else if (id == QLatin1String("cut")) t->cut();
     else if (id == QLatin1String("paste")) t->paste();
+    else if (id == QLatin1String("pasteText")) t->paste(true);
     else if (id == QLatin1String("zoomIn")) t->setZoom(t->zoom() + 10);
     else if (id == QLatin1String("zoomOut")) t->setZoom(t->zoom() - 10);
     else if (id == QLatin1String("zoom100")) t->setZoom(100);
