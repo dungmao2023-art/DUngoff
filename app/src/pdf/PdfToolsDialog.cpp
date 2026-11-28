@@ -89,7 +89,29 @@ struct PdfEditSession {
     QString original,current;
     int serial=0,changes=0;
     QByteArray identity;
+    struct Revision {QString path;QByteArray sha;int changes;int page;};
+    QList<Revision> history;
+    int cursor=-1;
     bool active() const{return bool(directory);}
+    bool canUndo() const{return cursor>0;}
+    bool canRedo() const{return cursor>=0&&cursor+1<history.size();}
+    void appendRevision(const QString& path,const QByteArray& hash,int page){
+        // A new edit after Undo abandons the redo branch.
+        while(history.size()>cursor+1){
+            const auto removed=history.takeLast();
+            if(removed.path!=original&&removed.path!=path)QFile::remove(removed.path);
+        }
+        history.append({path,hash,changes+1,page});cursor=int(history.size())-1;
+        current=path;identity=hash;++changes;
+        // Keep at most six versions and 512 MiB of working copies. Never
+        // delete the selected version or the actual user-owned source.
+        qint64 bytes=0;
+        for(const auto& rev:history)if(rev.path!=original)bytes+=qMax<qint64>(0,QFileInfo(rev.path).size());
+        while(history.size()>1&&(history.size()>6||bytes>512LL*1024*1024)){
+            const auto removed=history.takeFirst();--cursor;
+            if(removed.path!=original){bytes-=qMax<qint64>(0,QFileInfo(removed.path).size());QFile::remove(removed.path);}
+        }
+    }
 };
 static bool publishSession(const PdfEditSession& session,const QString& dest){
     if(!session.active()||session.changes<=0||session.identity.size()!=32||
@@ -1385,14 +1407,19 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* startSession=new QPushButton(tr("Sửa nhiều lần"),w);
     auto* finishSession=new QPushButton(tr("Lưu bản cuối"),w);finishSession->hide();
     auto* cancelSession=new QPushButton(tr("Hủy phiên"),w);cancelSession->hide();
+    auto* undoSession=new QPushButton(tr("Hoàn tác"),w);undoSession->hide();
+    auto* redoSession=new QPushButton(tr("Làm lại"),w);redoSession->hide();
     actions->addWidget(startSession);actions->addWidget(finishSession);actions->addWidget(cancelSession);
+    auto* historyBar=new QHBoxLayout;historyBar->addWidget(undoSession);historyBar->addWidget(redoSession);historyBar->addStretch();
+    undoSession->setToolTip(tr("Quay lại bản trước trong phiên (tối đa 5 bước, giới hạn dung lượng)."));
+    redoSession->setToolTip(tr("Áp dụng lại chỉnh sửa vừa hoàn tác."));
     startSession->setToolTip(tr("Chỉnh sửa trong thư mục tạm, chỉ lưu một bản PDF cuối."));
     range->addWidget(go);
     connect(findToggle,&QPushButton::toggled,w,[=](bool on){
         searchPanel->setVisible(on);findToggle->setText(on?tr("Ẩn tìm kiếm"):tr("Tìm chữ…"));
         if(on)query->setFocus();
     });
-    root->addLayout(actions);
+    root->addLayout(actions);root->addLayout(historyBar);
     browse->setEnabled(printrender::available());go->setEnabled(printrender::available());
     auto* status=new QLabel(w);status->setWordWrap(true);status->setTextFormat(Qt::PlainText);root->addWidget(status);
     auto* list=new QListWidget(w);list->setAccessibleName(tr("Trang PDF hoặc kết quả tìm"));
@@ -1542,6 +1569,8 @@ QWidget* PdfToolsDialog::buildSearch() {
         sourceRow->setEnabled(!active);
         startSession->setVisible(!active);finishSession->setVisible(active);cancelSession->setVisible(active);
         finishSession->setEnabled(active&&session->changes>0);
+        undoSession->setVisible(active);redoSession->setVisible(active);
+        undoSession->setEnabled(active&&session->canUndo());redoSession->setEnabled(active&&session->canRedo());
         m_searchFile->setToolTip(active?tr("Phiên chỉnh sửa tạm của %1").arg(session->original):m_searchFile->text());
     };
     auto editDest=[=](const QString& source,const QString& label){
@@ -1556,7 +1585,9 @@ QWidget* PdfToolsDialog::buildSearch() {
         const auto info=printrender::pdfInfo(path);
         if(!info.ok){QMessageBox::warning(this,tr("Phiên PDF"),info.error);return false;}
         switchReader(path,page,info.pages);
+        if(!snapshot->has_value()||snapshot->value().path!=path||!snapshot->value().unchanged())return false;
         session->directory.reset();session->original.clear();session->current.clear();session->identity.clear();session->serial=0;session->changes=0;
+        session->history.clear();session->cursor=-1;
         syncSession();return true;
     };
     auto exportSession=[=]{
@@ -1578,9 +1609,37 @@ QWidget* PdfToolsDialog::buildSearch() {
         if(identity.size()!=32){rejectStale();return;}
         auto directory=std::make_unique<QTemporaryDir>();
         if(!directory->isValid()){status->setText(tr("Không tạo được thư mục tạm."));return;}
-        session->directory=std::move(directory);session->original=source;session->current=source;session->identity=identity;
+        // Snapshot the original into the private work directory so an
+        // external modification cannot corrupt the first Undo revision.
+        const auto initial=directory->filePath(QStringLiteral("initial.pdf"));
+        if(!QFile::copy(source,initial)||dungpdf::fingerprint(initial)!=identity||
+           dungpdf::fingerprint(source)!=identity){status->setText(tr("Không tạo được bản làm việc an toàn."));return;}
+        const int page=qMax(1,jump->value()),pages=jump->maximum();
+        session->directory=std::move(directory);session->original=source;session->current=initial;session->identity=identity;
+        session->history.append({initial,identity,0,page});session->cursor=0;
+        switchReader(initial,page,pages);
         syncSession();status->setText(tr("Đang sửa nhiều lần. Bấm Lưu bản cuối khi hoàn tất. Tệp gốc không đổi."));
     });
+    auto navigateHistory=[=](int delta){
+        if(!session->active()||(delta<0?!session->canUndo():!session->canRedo()))return;
+        const int index=session->cursor+delta;
+        const auto rev=session->history.at(index);
+        if(dungpdf::fingerprint(rev.path)!=rev.sha){
+            QMessageBox::warning(this,tr("Lịch sử PDF"),tr("Bản trong lịch sử không còn nguyên vẹn."));return;
+        }
+        const auto info=printrender::pdfInfo(rev.path);
+        if(!info.ok){QMessageBox::warning(this,tr("Lịch sử PDF"),info.error);return;}
+        const auto previous=session->history.at(session->cursor);
+        switchReader(rev.path,rev.page,info.pages);
+        if(!snapshot->has_value()||snapshot->value().path!=rev.path||!snapshot->value().unchanged()){
+            switchReader(previous.path,previous.page,info.pages);
+            status->setText(tr("Không mở được bản trong lịch sử."));return;
+        }
+        session->cursor=index;session->current=rev.path;session->identity=rev.sha;session->changes=rev.changes;
+        syncSession();status->setText(tr("Phiên PDF · %1 chỉnh sửa đang áp dụng.").arg(session->changes));
+    };
+    connect(undoSession,&QPushButton::clicked,w,[=]{navigateHistory(-1);});
+    connect(redoSession,&QPushButton::clicked,w,[=]{navigateHistory(1);});
     connect(finishSession,&QPushButton::clicked,w,[=]{exportSession();});
     connect(cancelSession,&QPushButton::clicked,w,[=]{
         if(!session->active())return;
@@ -1602,10 +1661,14 @@ QWidget* PdfToolsDialog::buildSearch() {
         if(session->active()){
             const auto identity=dungpdf::fingerprint(path);
             if(identity.size()!=32){status->setText(tr("Không xác minh được bản sửa mới."));return;}
+            // Verify the new revision opens before changing the history.
             const auto previous=session->current;
-            session->current=path;session->identity=identity;++session->changes;
-            switchReader(path,page,info.pages);syncSession();
-            if(previous!=session->original&&previous!=path)QFile::remove(previous);
+            switchReader(path,page,info.pages);
+            if(!snapshot->has_value()||snapshot->value().path!=path||!snapshot->value().unchanged()){
+                switchReader(previous,page,info.pages);
+                QFile::remove(path);status->setText(tr("Không mở được bản sửa mới; giữ bản trước."));return;
+            }
+            session->appendRevision(path,identity,page);syncSession();
             status->setText(tr("Đã thực hiện %1 chỉnh sửa. Bấm Lưu bản cuối khi hoàn tất.").arg(session->changes));
             return;
         }
