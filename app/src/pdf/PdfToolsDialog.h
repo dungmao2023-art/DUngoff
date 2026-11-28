@@ -88,6 +88,7 @@ private:
     QDoubleSpinBox* m_stampWidth = nullptr;
     QDoubleSpinBox *m_stampX = nullptr, *m_stampY = nullptr;
     QLineEdit* m_ocrFile = nullptr;
+    QSpinBox *m_ocrFirst = nullptr, *m_ocrLast = nullptr;
     QLineEdit* m_searchFile = nullptr;
     QLineEdit* m_noteFormFile = nullptr;
     QLineEdit* m_stampPages = nullptr;

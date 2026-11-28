@@ -1175,13 +1175,13 @@ QWidget* PdfToolsDialog::buildOcr() {
     auto* w = new QWidget(this);
     auto* root = new QVBoxLayout(w);
     auto* form = new QFormLayout;
-    auto* page = new QSpinBox(w); page->setRange(1, 1);
-    auto* last = new QSpinBox(w); last->setRange(1, 1);
+    auto* page = new QSpinBox(w); page->setRange(1, 1);m_ocrFirst=page;page->setObjectName("pdfOcrFirst");
+    auto* last = new QSpinBox(w); last->setRange(1, 1);m_ocrLast=last;last->setObjectName("pdfOcrLast");
     auto* lang = new QComboBox(w);
     lang->addItem(tr("Tiếng Việt + English"), QStringLiteral("vie+eng"));
     lang->addItem(tr("Tiếng Việt"), QStringLiteral("vie"));
     lang->addItem(tr("English"), QStringLiteral("eng"));
-    form->addRow(tr("PDF nguồn:"), fileRow(&m_ocrFile, {}));
+    form->addRow(tr("PDF nguồn:"), fileRow(&m_ocrFile, {}));m_ocrFile->setObjectName("pdfOcrSource");
     form->addRow(tr("Từ trang:"), page);
     form->addRow(tr("Đến trang:"), last);
     form->addRow(tr("Ngôn ngữ:"), lang);
@@ -1202,6 +1202,15 @@ QWidget* PdfToolsDialog::buildOcr() {
     auto* copy = new QPushButton(tr("Sao chép"), w);
     auto* save = new QPushButton(tr("Lưu TXT…"), w);
     row->addWidget(go); row->addWidget(pdf); row->addWidget(copy); row->addWidget(save); row->addStretch(); root->addLayout(row);
+    auto* openOcr=new QPushButton(tr("Mở PDF OCR vừa lưu"),w);openOcr->hide();
+    auto* backReader=new QPushButton(tr("Quay lại đọc PDF"),w);backReader->setObjectName("pdfOcrBack");
+    auto* links=new QHBoxLayout;links->addWidget(backReader);links->addWidget(openOcr);links->addStretch();root->addLayout(links);
+    auto published=std::make_shared<QString>();
+    connect(backReader,&QPushButton::clicked,w,[=]{m_searchFile->setText(m_ocrFile->text());m_tabs->setCurrentIndex(Search);});
+    connect(openOcr,&QPushButton::clicked,w,[=]{
+        if(published->isEmpty()||!printrender::pdfInfo(*published).ok){openOcr->hide();status->setText(tr("Không mở được PDF OCR đã lưu."));return;}
+        m_searchFile->setText(*published);m_tabs->setCurrentIndex(Search);
+    });
     auto* output = new QPlainTextEdit(w); output->setPlaceholderText(tr("Văn bản OCR sẽ hiện tại đây và có thể sửa.")); root->addWidget(output, 1);
     const QString exe = dungpdf::findTesseract();
     const bool ready = !exe.isEmpty() && printrender::available();
@@ -1213,7 +1222,7 @@ QWidget* PdfToolsDialog::buildOcr() {
         ? tr("Tạo bản sao ảnh trang với lớp chữ OCR ẩn; không giữ cấu trúc vector hoặc liên kết.")
         : tr("Tạo PDF cần QtPdf, Tesseract và qpdf. Nhận dạng TXT không cần qpdf."));
     connect(m_ocrFile, &QLineEdit::textChanged, w, [=] {
-        output->clear();
+        output->clear();published->clear();openOcr->hide();
         const auto inf = printrender::pdfInfo(m_ocrFile->text());
         if (inf.ok) { page->setMaximum(inf.pages); last->setMaximum(inf.pages); page->setValue(1); last->setValue(1); status->setText(tr("PDF có %1 trang.").arg(inf.pages)); }
         else { page->setMaximum(1); last->setMaximum(1); status->setText(inf.error); }
@@ -1228,6 +1237,7 @@ QWidget* PdfToolsDialog::buildOcr() {
             return;
         }
         if (!pdfMode) output->clear();
+        else{published->clear();openOcr->hide();}
         if (m_ocrFile->text().isEmpty()) { status->setText(tr("Hãy chọn tệp PDF.")); return; }
         const auto source = m_ocrFile->text();
         const PdfSourceSnapshot snapshot(source);
@@ -1329,6 +1339,7 @@ QWidget* PdfToolsDialog::buildOcr() {
                 if (pdfPages.size()==1) return dungpdf::extract(pdfPages.first(),QStringLiteral("1"),destination,false);
                 return dungpdf::merge(pdfPages,destination,false);
             });
+            if(result.ok){*published=destination;openOcr->show();}
             status->setText(result.ok ? tr("Đã lưu PDF OCR %1 trang: %2. Kiểm tra lại chữ nhận dạng.").arg(count).arg(destination) : result.error);
             return;
         }
@@ -1396,6 +1407,9 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* undoSession=new QPushButton(tr("Hoàn tác"),w);undoSession->setObjectName("pdfSessionUndo");undoSession->hide();
     auto* redoSession=new QPushButton(tr("Làm lại"),w);redoSession->setObjectName("pdfSessionRedo");redoSession->hide();
     actions->addWidget(startSession);actions->addWidget(finishSession);actions->addWidget(cancelSession);
+    auto* ocrPage=new QPushButton(tr("OCR trang này"),w);ocrPage->setObjectName("pdfReaderOcrPage");ocrPage->setEnabled(false);
+    ocrPage->setToolTip(tr("Nhận dạng chữ trên trang đang đọc, dùng cho tài liệu scan."));
+    actions->insertWidget(3,ocrPage);
     auto* historyBar=new QHBoxLayout;historyBar->addWidget(undoSession);historyBar->addWidget(redoSession);historyBar->addStretch();
     undoSession->setToolTip(tr("Quay lại bản trước trong phiên (tối đa 5 bước, giới hạn dung lượng). Phím tắt trên trang: %1").arg(QKeySequence(QKeySequence::Undo).toString(QKeySequence::NativeText)));
     redoSession->setToolTip(tr("Áp dụng lại chỉnh sửa vừa hoàn tác. Phím tắt trên trang: %1").arg(QKeySequence(QKeySequence::Redo).toString(QKeySequence::NativeText)));
@@ -1522,6 +1536,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         const int current=row>=0?list->item(row)->data(Qt::UserRole).toInt():0;
         previous->setEnabled(row>0||(*browsing&&current>1));
         next->setEnabled(row>=0&&(row+1<list->count()||(*browsing&&current<jump->maximum())));
+        ocrPage->setEnabled(row>=0&&!session->active());
         if(row>=0){QSignalBlocker guard(jump);jump->setValue(list->item(row)->data(Qt::UserRole).toInt());}
     };
     auto clear=[=]{selectionIdentity->clear();highlight->setEnabled(false);underline->setEnabled(false);snapshot->reset();*browsing=false;list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);insertImage->setChecked(false);insertImage->setEnabled(false);moveImage->setChecked(false);moveImage->setEnabled(false);replaceImage->setChecked(false);replaceImage->setEnabled(false);deleteImage->setChecked(false);deleteImage->setEnabled(false);status->clear();refreshNav();};
@@ -1554,6 +1569,14 @@ QWidget* PdfToolsDialog::buildSearch() {
         else if(*browsing&&row>=0&&jump->value()<jump->maximum())openRange(jump->value()+1);
     });
     canvas->turnPage=[=](int delta){auto* button=delta<0?previous:next;if(button->isEnabled())button->click();};
+    connect(ocrPage,&QPushButton::clicked,w,[=]{
+        if(session->active()||!snapshot->has_value()||!snapshot->value().unchanged()||!list->currentItem())return;
+        const auto path=snapshot->value().path;
+        const int current=list->currentItem()->data(Qt::UserRole).toInt();
+        m_ocrFile->setText(path);
+        m_ocrFirst->setValue(current);m_ocrLast->setValue(current);
+        m_tabs->setCurrentIndex(Ocr);
+    });
     auto rejectStale=[=]{clear();status->setText(tr("PDF nguồn đã thay đổi. Hãy tìm lại."));};
     auto copyCurrent=[=]{
         if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
@@ -1571,7 +1594,7 @@ QWidget* PdfToolsDialog::buildSearch() {
     };
     auto syncSession=[=]{
         const bool active=session->active();
-        sourceRow->setEnabled(!active);
+        sourceRow->setEnabled(!active);ocrPage->setEnabled(!active&&list->currentItem());
         if(m_toolList){
             m_toolList->setEnabled(!active);
             m_toolList->setToolTip(active?tr("Lưu bản cuối hoặc hủy phiên để chuyển công cụ PDF khác."):QString());

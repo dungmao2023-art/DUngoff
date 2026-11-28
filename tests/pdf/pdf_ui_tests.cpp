@@ -72,6 +72,16 @@ int main(int argc,char** argv){
         check(pageList->isHidden(),"hide page list without losing document");
         next->click();
         check(page->value()==2&&extracted->toPlainText().contains("PAGE TWO"),"navigate to real second page");
+        auto* ocrPage=dlg->findChild<QPushButton*>("pdfReaderOcrPage");
+        auto* ocrFirst=dlg->findChild<QSpinBox*>("pdfOcrFirst");
+        auto* ocrLast=dlg->findChild<QSpinBox*>("pdfOcrLast");
+        auto* ocrSource=dlg->findChild<QLineEdit*>("pdfOcrSource");
+        auto* ocrBack=dlg->findChild<QPushButton*>("pdfOcrBack");
+        if(!ocrPage||!ocrFirst||!ocrLast||!ocrSource||!ocrBack){check(false,"OCR bridge controls present");dlg->reject();return;}
+        ocrPage->click();
+        check(ocrBack->isVisible()&&ocrSource->text()==source&&ocrFirst->value()==2&&ocrLast->value()==2,"OCR opens current page only");
+        ocrBack->click();
+        check(ocrPage->isVisible()&&page->value()==2,"return from OCR preserves reader page");
         searchToggle->click();query->setText("PAGE");
         check(!search->isHidden()&&page->value()==2&&extracted->toPlainText().contains("PAGE TWO"),"typing search does not clear reading page");
         query->setText("NO SUCH TEXT 1937");
@@ -88,7 +98,7 @@ int main(int argc,char** argv){
         textToggle->click();
         start->click();
         const auto working=file->text();
-        check(working!=source&&dungpdf::fingerprint(working)==hash&&!row->isEnabled()&&!tools->isEnabled()&&!cancel->isHidden(),
+        check(working!=source&&dungpdf::fingerprint(working)==hash&&!row->isEnabled()&&!tools->isEnabled()&&!cancel->isHidden()&&!ocrPage->isEnabled(),
               "session snapshot and lock other tools");
         cancel->click();
         check(file->text()==source&&row->isEnabled()&&tools->isEnabled()&&cancel->isHidden()&&dungpdf::fingerprint(source)==hash,
