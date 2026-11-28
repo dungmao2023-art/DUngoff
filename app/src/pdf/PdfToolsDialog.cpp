@@ -27,6 +27,7 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QFileInfo>
+#include <QDir>
 #include <QDateTime>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -81,6 +82,27 @@ struct PdfSourceSnapshot {
             f.size() == size && f.lastModified() == modified && f.birthTime() == birth;
     }
 };
+// Reader edits can be staged in a private temporary directory. Never
+// overwrite the original or expose incomplete output to the user.
+struct PdfEditSession {
+    std::unique_ptr<QTemporaryDir> directory;
+    QString original,current;
+    int serial=0,changes=0;
+    QByteArray identity;
+    bool active() const{return bool(directory);}
+};
+static bool publishSession(const PdfEditSession& session,const QString& dest){
+    if(!session.active()||session.changes<=0||session.identity.size()!=32||
+       dungpdf::fingerprint(session.current)!=session.identity)return false;
+    const QFileInfo target(dest);
+    if(target.exists()||target.isSymLink())return false;
+    QTemporaryDir temp(QDir(target.absolutePath()).filePath(QStringLiteral("~dung-pdf-final-XXXXXX")));
+    if(!temp.isValid())return false;
+    const auto staged=temp.filePath(QStringLiteral("final.pdf"));
+    if(!QFile::copy(session.current,staged)||dungpdf::fingerprint(staged)!=session.identity||
+       dungpdf::fingerprint(session.current)!=session.identity||!dungpdf::info(staged).ok)return false;
+    return QFile::rename(staged,target.absoluteFilePath());
+}
 // Keep wheel scrolling native; Ctrl+wheel changes magnification instead.
 class PdfPageScroll final : public QScrollArea {
 public:
@@ -197,6 +219,9 @@ void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
     dlg.exec();
 }
 
+void PdfToolsDialog::reject(){
+    if(!m_confirmClose||m_confirmClose())QDialog::reject();
+}
 PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle(tr("Công cụ PDF"));
     resize(1060, 680);
@@ -277,7 +302,7 @@ PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
         }
         if(file&&label&&label->text().isEmpty()&&!file->text().isEmpty())refreshPageCount(file->text(),label);
     });
-    auto* note = new QLabel(tr("Tệp gốc không bao giờ bị sửa: kết quả luôn lưu thành tệp mới."), this);
+    auto* note = new QLabel(tr("Tệp gốc luôn giữ nguyên. Chế độ Sửa nhiều lần cần bấm Lưu bản cuối."), this);
     note->setStyleSheet("color:#555");
     lay->addWidget(note);
     auto* bb = new QDialogButtonBox(QDialogButtonBox::Close, this);
@@ -1337,7 +1362,8 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* query=new QLineEdit(w);query->setMaxLength(256);
     query->setPlaceholderText(tr("Nhập từ hoặc cụm từ"));
     auto* match=new QCheckBox(tr("Phân biệt hoa/thường"),w);
-    form->addRow(tr("PDF nguồn:"),fileRow(&m_searchFile,{}));root->addLayout(form);
+    auto* sourceRow=fileRow(&m_searchFile,{});
+    form->addRow(tr("PDF nguồn:"),sourceRow);root->addLayout(form);
     auto* searchPanel=new QWidget(w);auto* searchLayout=new QVBoxLayout(searchPanel);
     searchLayout->setContentsMargins(0,0,0,0);
     auto* terms=new QHBoxLayout;
@@ -1356,6 +1382,11 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* findToggle=new QPushButton(tr("Tìm chữ…"),w);findToggle->setCheckable(true);
     auto* showText=new QPushButton(tr("Xem chữ trích xuất"),w);showText->setCheckable(true);
     actions->addWidget(browse);actions->addWidget(findToggle);actions->addWidget(showText);actions->addStretch();
+    auto* startSession=new QPushButton(tr("Sửa nhiều lần"),w);
+    auto* finishSession=new QPushButton(tr("Lưu bản cuối"),w);finishSession->hide();
+    auto* cancelSession=new QPushButton(tr("Hủy phiên"),w);cancelSession->hide();
+    actions->addWidget(startSession);actions->addWidget(finishSession);actions->addWidget(cancelSession);
+    startSession->setToolTip(tr("Chỉnh sửa trong thư mục tạm, chỉ lưu một bản PDF cuối."));
     range->addWidget(go);
     connect(findToggle,&QPushButton::toggled,w,[=](bool on){
         searchPanel->setVisible(on);findToggle->setText(on?tr("Ẩn tìm kiếm"):tr("Tìm chữ…"));
@@ -1452,6 +1483,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         if(active)status->setText(tr("Nhấp vào ảnh cần thay. Ảnh mới sẽ vừa khung ảnh cũ, giữ tỷ lệ."));
     });
     if(!pdfedit::available())edit->setToolTip(tr("Bản cài chưa có PDFium Editing SDK."));
+    auto session=std::make_shared<PdfEditSession>();
     auto browsing=std::make_shared<bool>(false);
     auto initializedPath=std::make_shared<QString>();
     auto refreshNav=[=]{
@@ -1497,11 +1529,86 @@ QWidget* PdfToolsDialog::buildSearch() {
     };
     connect(copy,&QPushButton::clicked,w,copyCurrent);
     canvas->copySelection=copyCurrent;
+    auto switchReader=[=](const QString& path,int page,int pages){
+        {QSignalBlocker fileGuard(m_searchFile),firstGuard(first),lastGuard(last),queryGuard(query);
+            m_searchFile->setText(path);*initializedPath=path;query->clear();
+            first->setMaximum(qMax(1,pages));last->setMaximum(qMax(1,pages));
+            first->setValue(1);last->setValue(qBound(1,pages,200));
+        }
+        openRange(qBound(1,page,pages));
+    };
+    auto syncSession=[=]{
+        const bool active=session->active();
+        sourceRow->setEnabled(!active);
+        startSession->setVisible(!active);finishSession->setVisible(active);cancelSession->setVisible(active);
+        finishSession->setEnabled(active&&session->changes>0);
+        m_searchFile->setToolTip(active?tr("Phiên chỉnh sửa tạm của %1").arg(session->original):m_searchFile->text());
+    };
+    auto editDest=[=](const QString& source,const QString& label){
+        if(!session->active())return pickDest(this,source,label);
+        if(source!=session->current||dungpdf::fingerprint(source)!=session->identity){
+            status->setText(tr("Bản đang sửa đã thay đổi. Không thể ghi thêm."));return QString();
+        }
+        return session->directory->filePath(QStringLiteral("edit-%1.pdf").arg(++session->serial));
+    };
+    auto endSession=[=](const QString& path){
+        const int page=qMax(1,jump->value());
+        const auto info=printrender::pdfInfo(path);
+        if(!info.ok){QMessageBox::warning(this,tr("Phiên PDF"),info.error);return false;}
+        switchReader(path,page,info.pages);
+        session->directory.reset();session->original.clear();session->current.clear();session->identity.clear();session->serial=0;session->changes=0;
+        syncSession();return true;
+    };
+    auto exportSession=[=]{
+        if(!session->active()||!session->changes)return true;
+        const auto dest=pickDest(this,session->original,tr("Đã chỉnh sửa"));if(dest.isEmpty())return false;
+        if(!publishSession(*session,dest)){
+            QMessageBox::warning(this,tr("Lưu bản cuối"),tr("Không lưu được bản cuối. Phiên chỉnh sửa vẫn được giữ."));return false;
+        }
+        if(!endSession(dest)){
+            // A verified file was published, but the reader could not reopen it.
+            QMessageBox::warning(this,tr("Lưu bản cuối"),tr("Đã lưu %1; chưa mở lại được. Phiên vẫn được giữ.").arg(dest));
+            return false;
+        }
+        status->setText(tr("Đã lưu bản cuối: %1. Tệp gốc không đổi.").arg(dest));return true;
+    };
+    connect(startSession,&QPushButton::clicked,w,[=]{
+        if(!snapshot->has_value()||!snapshot->value().unchanged()){status->setText(tr("Mở PDF trước khi bắt đầu phiên."));return;}
+        const auto source=snapshot->value().path;const auto identity=dungpdf::fingerprint(source);
+        if(identity.size()!=32){rejectStale();return;}
+        auto directory=std::make_unique<QTemporaryDir>();
+        if(!directory->isValid()){status->setText(tr("Không tạo được thư mục tạm."));return;}
+        session->directory=std::move(directory);session->original=source;session->current=source;session->identity=identity;
+        syncSession();status->setText(tr("Đang sửa nhiều lần. Bấm Lưu bản cuối khi hoàn tất. Tệp gốc không đổi."));
+    });
+    connect(finishSession,&QPushButton::clicked,w,[=]{exportSession();});
+    connect(cancelSession,&QPushButton::clicked,w,[=]{
+        if(!session->active())return;
+        if(session->changes&&QMessageBox::question(this,tr("Hủy phiên PDF"),tr("Bỏ tất cả chỉnh sửa chưa lưu?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        endSession(session->original);
+    });
+    m_confirmClose=[=]{
+        if(!session->active()||!session->changes)return true;
+        const auto answer=QMessageBox::warning(this,tr("PDF chưa lưu"),tr("Phiên PDF có chỉnh sửa chưa lưu. Lưu bản cuối trước khi đóng?"),
+            QMessageBox::Save|QMessageBox::Discard|QMessageBox::Cancel,QMessageBox::Save);
+        if(answer==QMessageBox::Save)return exportSession();
+        return answer==QMessageBox::Discard;
+    };
     auto continueEditing=[=](const Result& result,const QString& title,int page){
         if(!result.ok||result.files.size()!=1){showResult(result,title);return;}
         const auto path=result.files.first();
         const auto info=printrender::pdfInfo(path);
         if(!info.ok){showResult(result,title);return;}
+        if(session->active()){
+            const auto identity=dungpdf::fingerprint(path);
+            if(identity.size()!=32){status->setText(tr("Không xác minh được bản sửa mới."));return;}
+            const auto previous=session->current;
+            session->current=path;session->identity=identity;++session->changes;
+            switchReader(path,page,info.pages);syncSession();
+            if(previous!=session->original&&previous!=path)QFile::remove(previous);
+            status->setText(tr("Đã thực hiện %1 chỉnh sửa. Bấm Lưu bản cuối khi hoàn tất.").arg(session->changes));
+            return;
+        }
         QMessageBox box(this);box.setWindowTitle(title);
         box.setText(tr("Đã lưu bản PDF mới. Tệp gốc vẫn giữ nguyên.\n%1").arg(path));
         if(!result.warnings.isEmpty())box.setInformativeText(result.warnings.join(QLatin1Char('\n')));
@@ -1509,14 +1616,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         auto* stay=box.addButton(tr("Ở lại bản hiện tại"),QMessageBox::RejectRole);
         box.setDefaultButton(resume);box.setEscapeButton(stay);box.exec();
         if(box.clickedButton()!=resume)return;
-        // Reset the source, search and range without opening page 1 first.
-        // The next action always operates on the newly saved copy.
-        {QSignalBlocker fileGuard(m_searchFile),firstGuard(first),lastGuard(last),queryGuard(query);
-            m_searchFile->setText(path);*initializedPath=path;query->clear();
-            first->setMaximum(qMax(1,info.pages));last->setMaximum(qMax(1,info.pages));
-            first->setValue(1);last->setValue(qBound(1,info.pages,200));
-        }
-        openRange(qBound(1,page,info.pages));
+        switchReader(path,page,info.pages);
         if(snapshot->has_value())status->setText(tr("Đang chỉnh sửa bản mới · Trang %1/%2. Tệp trước vẫn được giữ.").arg(qBound(1,page,info.pages)).arg(info.pages));
     };
     auto saveMarkup=[=](dungpdf::MarkupKind kind){
@@ -1527,7 +1627,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         if(dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
         const int page=list->currentItem()->data(Qt::UserRole).toInt();
         const auto label=kind==dungpdf::MarkupKind::Highlight?tr("Tô sáng"):tr("Gạch chân");
-        const auto dest=pickDest(this,source.path,label);if(dest.isEmpty())return;
+        const auto dest=editDest(source.path,label);if(dest.isEmpty())return;
         continueEditing(runWithPasswords({source.path},[=]{return addTextMarkup(inputFor(source.path),page,bounds,kind,identity,dest);}),label,page);
     };
     connect(highlight,&QPushButton::clicked,w,[=]{saveMarkup(dungpdf::MarkupKind::Highlight);});
@@ -1542,7 +1642,7 @@ QWidget* PdfToolsDialog::buildSearch() {
             const auto image=QFileDialog::getOpenFileName(this,tr("Chọn ảnh thay thế"),QString(),tr("Ảnh (*.png *.jpg *.jpeg)"));
             if(image.isEmpty())return;
             if(!source.unchanged()||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
-            const auto dest=pickDest(this,source.path,tr("Thay ảnh"));if(dest.isEmpty())return;
+            const auto dest=editDest(source.path,tr("Thay ảnh"));if(dest.isEmpty())return;
             continueEditing(runWithPasswords({source.path},[=]{return pdfedit::replaceImage(source.path,page,point,image,identity,dest);}),tr("Thay ảnh PDF"),page);
             return;
         }
@@ -1562,7 +1662,7 @@ QWidget* PdfToolsDialog::buildSearch() {
             if(!ok)return;
             if(width>0&&width<5){status->setText(tr("Chiều rộng phải từ 5% đến 100% hoặc bằng 0."));return;}
             if(!source.unchanged()||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
-            const auto dest=pickDest(this,source.path,tr("Chỉnh ảnh"));if(dest.isEmpty())return;
+            const auto dest=editDest(source.path,tr("Chỉnh ảnh"));if(dest.isEmpty())return;
             continueEditing(runWithPasswords({source.path},[=]{return pdfedit::moveImage(source.path,page,selected,point,width,identity,dest);}),tr("Chỉnh ảnh PDF"),page);
             return;
         }
@@ -1580,7 +1680,7 @@ QWidget* PdfToolsDialog::buildSearch() {
             const int width=QInputDialog::getInt(this,tr("Kích thước ảnh"),tr("Chiều rộng (% trang). Giữ tỷ lệ ảnh."),30,5,100,5,&accepted);
             if(!accepted)return;
             if(!source.unchanged()||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
-            const auto dest=pickDest(this,source.path,tr("Chèn ảnh"));if(dest.isEmpty())return;
+            const auto dest=editDest(source.path,tr("Chèn ảnh"));if(dest.isEmpty())return;
             continueEditing(runWithPasswords({source.path},[=]{return pdfedit::insertImage(source.path,page,image,point,width,identity,dest);}),tr("Chèn ảnh PDF"),page);
             return;
         }
@@ -1590,7 +1690,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         if(!ok)return;
         if(content.trimmed().isEmpty()||content.size()>2000){status->setText(tr("Ghi chú phải có từ 1 đến 2.000 ký tự."));return;}
         if(!source.unchanged()||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
-        const auto dest=pickDest(this,source.path,tr("Ghi chú"));if(dest.isEmpty())return;
+        const auto dest=editDest(source.path,tr("Ghi chú"));if(dest.isEmpty())return;
         continueEditing(runWithPasswords({source.path},[=]{return addTextNote(inputFor(source.path),page,point.x()*100,point.y()*100,content,dest,identity,true);}),tr("Ghi chú PDF"),page);
     };
     // Invalidate the preview as soon as a normal external file update becomes
@@ -1610,7 +1710,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         bool ok=false;const auto replacement=QInputDialog::getText(this,tr("Sửa chữ PDF"),tr("Thay nguyên đối tượng chữ đã chọn. Hỗ trợ tiếng Việt nếu font gốc có ký tự tương ứng. Lưu bản sao PDF mới."),QLineEdit::Normal,old,&ok);
         if(!ok)return;
         if(!source.unchanged()){rejectStale();return;}
-        const auto dest=pickDest(this,source.path,tr("Sửa chữ"));if(dest.isEmpty())return;
+        const auto dest=editDest(source.path,tr("Sửa chữ"));if(dest.isEmpty())return;
         if(!source.unchanged()){rejectStale();return;}
         continueEditing(runWithPasswords({source.path},[=]{return pdfedit::replaceObject(source.path,page,old,replacement,dest,identity);}),tr("Sửa chữ PDF"),page);
     });

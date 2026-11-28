@@ -25,7 +25,10 @@ public:
     // Mở hộp thoại (chặn cho tới khi đóng). `initialPath` là PDF đang mở (có thể rỗng).
     static void run(QWidget* parent, Tab tab, const QString& initialPath);
 
+public slots:
+    void reject() override;
 private:
+    std::function<bool()> m_confirmClose;
     explicit PdfToolsDialog(QWidget* parent);
 
     QWidget* buildMerge();
