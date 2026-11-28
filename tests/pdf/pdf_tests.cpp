@@ -861,6 +861,34 @@ int main(int argc, char** argv) {
         const auto source=P("native-edit-source.pdf"),dest=P("native-edited.pdf");
         const QByteArray original=makePdf(2,QStringLiteral("ORIGINAL"));
         writeFile(source,original);
+        const auto png=P("native-insert.png"),withImage=P("native-insert.pdf");
+        QImage solid(80,40,QImage::Format_ARGB32);solid.fill(QColor(15,160,40));
+        CHECK(solid.save(png),"create native image insertion fixture");
+        const auto imageResult=pdfedit::insertImage(source,2,png,QPointF(.5,.5),25,fingerprint(source),withImage);
+        if(!imageResult.ok)std::cerr<<imageResult.error.toStdString()<<'\n';
+        CHECK(imageResult.ok&&info(withImage).pages==2&&qdfOf(withImage).contains("/Subtype /Image")&&
+              readFile(source)==original,"insert real image object without replacing page text or source");
+        if(imageResult.ok){
+            const auto moved=P("native-moved.pdf");const auto beforeMove=readFile(withImage);
+            const auto movedResult=pdfedit::moveImage(withImage,2,QPointF(.5,.5),QPointF(.75,.8),15,fingerprint(withImage),moved);
+            if(!movedResult.ok)std::cerr<<movedResult.error.toStdString()<<'\n';
+            CHECK(movedResult.ok&&info(moved).pages==2&&readFile(withImage)==beforeMove&&readFile(source)==original,
+                "move and resize a native image while retaining previous versions");
+            const auto replacementPng=P("native-replace.png"),replaced=P("native-replaced-image.pdf");
+            QImage newImage(37,83,QImage::Format_ARGB32);newImage.fill(QColor(20,50,220));
+            CHECK(newImage.save(replacementPng),"create different aspect ratio image fixture");
+            const auto replacedResult=pdfedit::replaceImage(withImage,2,QPointF(.5,.5),replacementPng,fingerprint(withImage),replaced);
+            if(!replacedResult.ok)std::cerr<<replacedResult.error.toStdString()<<'\n';
+            CHECK(replacedResult.ok&&info(replaced).pages==2&&readFile(withImage)==beforeMove&&readFile(source)==original,
+                "replace native image in its original layer with new pixel dimensions");
+            const auto missed=P("native-missed.pdf");
+            CHECK(!pdfedit::moveImage(withImage,2,QPointF(.01,.01),QPointF(.5,.5),0,fingerprint(withImage),missed).ok&&
+                  !QFile::exists(missed),"reject click outside image");
+        }
+        const auto badImage=P("bad-image.pdf");
+        CHECK(!pdfedit::insertImage(source,1,png,QPointF(1.5,.5),25,fingerprint(source),badImage).ok&&
+              !pdfedit::insertImage(source,1,png,QPointF(.5,.5),25,QByteArray(32,'x'),badImage).ok&&
+              !QFile::exists(badImage),"reject invalid and stale native image placement");
         const auto staleEdit=P("native-stale.pdf");
         CHECK(!pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",staleEdit,QByteArray(32,'x')).ok&&
               !QFile::exists(staleEdit),"stale text selection never publishes a changed PDF");
