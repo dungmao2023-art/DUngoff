@@ -55,6 +55,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:InsertColumnsBefore", "col-insert"}, {".uno:InsertRowsBefore", "row-insert"},
         {".uno:InsertColumnsAfter", "col-insert"}, {".uno:InsertRowsAfter", "row-insert"},
         {"word:tableDeleteRow", "row-delete"}, {"word:tableDeleteColumn", "col-delete"}, {"word:tableMergeRow", "merge-cells"}, {"word:tableSplitCell", "col-insert"}, {"word:tableRowHeight", "row-height"}, {"word:tableColumnWidth", "col-width"},
+        {"word:listLevelUp", "move-up"}, {"word:listLevelDown", "move-down"}, {"word:listRestart", "numbering"}, {"word:listContinue", "numbering"},
         {".uno:FreezePanes", "freeze"}, {".uno:FreezePanesColumn", "freeze"}, {".uno:FreezePanesRow", "freeze"},
         {".uno:NumberFormatDate", "calendar"}, {".uno:NumberFormatDecDecimals", "decimal-dec"}, {".uno:NumberFormatIncDecimals", "decimal-inc"},
         {".uno:NumberFormatPercent", "percent"}, {".uno:NumberFormatStandard", "clear-format"}, {".uno:NumberFormatThousands", "thousands"},

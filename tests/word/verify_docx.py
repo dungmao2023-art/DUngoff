@@ -83,5 +83,42 @@ for filename, mode in (
           filename+": native "+mode+" topology")
     check(media==original_media,filename+": original embedded image bytes")
     check(content==original_text,filename+": full body preserved")
+# Verify native list levels and restart through real DOCX numbering metadata.
+def list_snapshot(filename):
+    with zipfile.ZipFile(Path(path).parent / filename) as package:
+        root = ET.fromstring(package.read("word/document.xml"))
+        numbering = ET.fromstring(package.read("word/numbering.xml"))
+        entries = {}
+        for para in root.iter(W+"p"):
+            text = "".join(n.text or "" for n in para.iter(W+"t"))
+            if text not in ("LIST_FIRST","LIST_SECOND","LIST_THIRD"):
+                continue
+            props = para.find(W+"pPr")
+            num = props.find(W+"numPr") if props is not None else None
+            if num is None or num.find(W+"numId") is None:
+                continue
+            level = num.find(W+"ilvl")
+            entries[text] = (num.find(W+"numId").get(W+"val"), int(level.get(W+"val")) if level is not None else 0)
+        return entries, numbering
+base, _ = list_snapshot("word-list-baseline.docx")
+check(set(base)=={"LIST_FIRST","LIST_SECOND","LIST_THIRD"}, "list baseline contains all three numbered paragraphs")
+deeper, _ = list_snapshot("word-list-deeper.docx")
+if set(base)==set(deeper)=={"LIST_FIRST","LIST_SECOND","LIST_THIRD"}:
+    check(deeper["LIST_SECOND"][1]==base["LIST_SECOND"][1]+1, "list level increased only for selected paragraph")
+    check(all(deeper[k][1]==base[k][1] for k in ("LIST_FIRST","LIST_THIRD")), "other list levels unchanged")
+else:
+    check(False,"all numbered paragraphs survive level change")
+undone, _ = list_snapshot("word-list-level-undone.docx")
+def topology(entries):
+    return [(entries[k][1], entries[k][0]==entries["LIST_FIRST"][0]) for k in ("LIST_FIRST","LIST_SECOND","LIST_THIRD")] if len(entries)==3 else []
+check(bool(topology(base)) and topology(undone)==topology(base), "Undo restores original list structure")
+restarted, numbering = list_snapshot("word-list-restarted.docx")
+if len(restarted)==3:
+    first, third=restarted["LIST_FIRST"],restarted["LIST_THIRD"]
+    check(first[0]!=third[0] and first[1]==third[1], "restart creates independent numbering sequence at same level")
+else:
+    check(False,"restart retains all numbered paragraphs")
+undone, _ = list_snapshot("word-list-restart-undone.docx")
+check(bool(topology(base)) and topology(undone)==topology(base), "Undo restores numbering sequence")
 print("\nKẾT QUẢ DOCX:", "CÓ LỖI" if fails else "TẤT CẢ ĐẠT")
 sys.exit(1 if fails else 0)

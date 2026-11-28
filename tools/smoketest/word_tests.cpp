@@ -504,6 +504,38 @@ int runWordTests(const fs::path& program, const fs::path& out) {
         check(r.ok, "Lưu tài liệu mẫu thành DOCX: " + r.message);
     }
 
+    step("Word — cấp danh sách và đánh số lại native");
+    d2p.reset();
+    auto list=engine->createNew(DocKind::Text,&err);
+    check(bool(list),"Tạo fixture danh sách "+err);
+    if(list){
+        list->setClientView(512,512,7680,7680,0,0,7680,7680);
+        list->typeText(u"LIST_FIRST\nLIST_SECOND\nLIST_THIRD");
+        list->waitInputIdle();selectAll(*list);
+        run(*list,".uno:DefaultNumbering");
+        auto snap=[&](const char* filename){
+            const fs::path target=out/filename;
+            fs::remove(target,ec);
+            auto saved=list->saveAs(target);
+            check(saved.ok,std::string("Lưu danh sách ")+filename+": "+saved.message);
+        };
+        auto locate=[&](const std::string& marker){
+            run(*list,".uno:GoToStartOfDoc");run(*list,w::findNext(marker,false));
+            const bool found=selText(*list)==marker;
+            check(found,"Tìm mục "+marker);
+            return found;
+        };
+        snap("word-list-baseline.docx");
+        if(locate("LIST_SECOND")){
+            run(*list,".uno:IncrementLevel");snap("word-list-deeper.docx");
+            run(*list,".uno:Undo");snap("word-list-level-undone.docx");
+        }
+        if(locate("LIST_THIRD")){
+            run(*list,".uno:NumberingStart");snap("word-list-restarted.docx");
+            run(*list,".uno:Undo");snap("word-list-restart-undone.docx");
+        }
+    }
+
     // ---------------- thống kê lệnh engine đã báo trạng thái ----------------
     {
         std::lock_guard<std::mutex> g(g_mu);

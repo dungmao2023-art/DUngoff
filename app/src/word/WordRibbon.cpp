@@ -29,6 +29,12 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
         {QStringLiteral(".uno:DecrementIndent"), tr("Giảm lề"), 0xE290, QStringLiteral("◀≡"), false},
         {QStringLiteral(".uno:IncrementIndent"), tr("Tăng lề"), 0xE291, QStringLiteral("≡▶"), false},
     }};
+    const Group list{tr("Danh sách nhiều cấp"), {
+        {QStringLiteral("word:listLevelUp"), tr("Lên một cấp"), 0xE290, QStringLiteral("◀≡"), false},
+        {QStringLiteral("word:listLevelDown"), tr("Xuống một cấp"), 0xE291, QStringLiteral("≡▶"), false},
+        {QStringLiteral("word:listRestart"), tr("Đánh số lại"), 0xE72C, QStringLiteral("1↻"), false},
+        {QStringLiteral("word:listContinue"), tr("Tiếp tục số"), 0xE72C, QStringLiteral("→1"), false},
+    }};
     const Group styles{tr("Kiểu"), {
         {QStringLiteral("word:style0"), tr("Thường"), 0xE8A5, QStringLiteral("T"), false},
         {QStringLiteral("word:style1"), tr("Tiêu đề 1"), 0xE8A5, QStringLiteral("H1"), false},
@@ -48,7 +54,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
         {QStringLiteral("word:count"), tr("Đếm từ"), 0xE8EF, QStringLiteral("#"), false},
     }};
     return {
-        {tr("Trang đầu"), {file, undo, clip, font, changeCase, para, styles, find}},
+        {tr("Trang đầu"), {file, undo, clip, font, changeCase, para, list, styles, find}},
         {tr("Chèn"), {
             {tr("Phần tử"), {
                 {QStringLiteral("word:table"), tr("Bảng"), 0xE80A, QStringLiteral("▦"), false},

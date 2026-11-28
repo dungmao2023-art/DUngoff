@@ -140,6 +140,26 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
     if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
+    if(name==QLatin1String("listLevelUp")||name==QLatin1String("listLevelDown")||
+       name==QLatin1String("listRestart")||name==QLatin1String("listContinue")){
+        doc->waitInputIdle();
+        const WordInsertTarget target(tab);
+        const QString command=name==QLatin1String("listLevelUp")?QStringLiteral(".uno:DecrementLevel"):
+            name==QLatin1String("listLevelDown")?QStringLiteral(".uno:IncrementLevel"):
+            name==QLatin1String("listRestart")?QStringLiteral(".uno:NumberingStart"):QStringLiteral(".uno:ContinueNumbering");
+        const auto state=tab->states().value(command);
+        if(target.caret.empty()||!target.selected.empty()||
+           (state!=QLatin1String("enabled")&&state!=QLatin1String("true")&&state!=QLatin1String("false"))){
+            QMessageBox::information(parent,QObject::tr("Danh sách nhiều cấp"),
+                QObject::tr("Đặt con trỏ trong mục danh sách cần đổi; lệnh phải khả dụng. Không chọn nhiều đoạn."));
+            return true;
+        }
+        if(name==QLatin1String("listRestart")&&state==QLatin1String("true"))return true;
+        if(!target.verify())return true;
+        doc->command(ss(command));doc->waitInputIdle();
+        if(target.tab&&target.tab->view())target.tab->view()->setFocus();
+        return true;
+    }
     if(name==QLatin1String("tableRowHeight")||name==QLatin1String("tableColumnWidth")){
         const bool row=name==QLatin1String("tableRowHeight");
         const QString command=row?QStringLiteral(".uno:TableRowHeight"):QStringLiteral(".uno:TableColumWidth");
