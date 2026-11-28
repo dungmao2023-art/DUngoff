@@ -34,6 +34,9 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QIcon>
+#include <QSignalBlocker>
+#include <QAbstractItemView>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QRadioButton>
@@ -398,6 +401,116 @@ QWidget* PdfToolsDialog::buildReorder() {
     }));
     m_orderInfo = new QLabel(w);
     f->addRow(QString(), m_orderInfo);
+    auto* visual=new QPushButton(tr("Quản lý trang trực quan…"),w);
+    visual->setToolTip(tr("Kéo thả, xem hình thu nhỏ, bỏ trang và lưu một bản PDF mới."));
+    f->addRow(visual);
+    connect(visual,&QPushButton::clicked,this,[this]{
+        const QString src=m_orderFile->text();
+        if(src.isEmpty()){QMessageBox::information(this,tr("Quản lý trang"),tr("Hãy chọn PDF."));return;}
+        const auto source=dungpdf::fingerprint(src);
+        const auto inf=info(src,m_passwords.value(src));
+        if(!inf.ok||source.size()!=32||inf.encrypted||inf.pages<1||inf.pages>200){
+            QMessageBox::information(this,tr("Quản lý trang"),tr("Chỉ hỗ trợ trực quan PDF không mã hóa, từ 1 đến 200 trang. Với tài liệu khác, dùng cách nhập số trang bên dưới."));return;
+        }
+        const PdfSourceSnapshot snapshot(src);
+        if(!snapshot.unchanged()||dungpdf::fingerprint(src)!=source){QMessageBox::warning(this,tr("Quản lý trang"),tr("Tệp nguồn đã thay đổi."));return;}
+        QDialog dlg(this);dlg.setWindowTitle(tr("Quản lý trang PDF"));dlg.resize(870,650);
+        auto* root=new QVBoxLayout(&dlg);
+        auto* hint=new QLabel(tr("Kéo thả để đổi thứ tự. Chọn một hoặc nhiều trang để bỏ. Tệp gốc không thay đổi."),&dlg);
+        hint->setWordWrap(true);root->addWidget(hint);
+        auto* split=new QSplitter(Qt::Horizontal,&dlg);root->addWidget(split,1);
+        auto* pages=new QListWidget(split);
+        pages->setIconSize(QSize(92,120));pages->setSelectionMode(QAbstractItemView::ExtendedSelection);
+        pages->setDragDropMode(QAbstractItemView::InternalMove);pages->setDefaultDropAction(Qt::MoveAction);
+        pages->setDragDropOverwriteMode(false);pages->setAlternatingRowColors(true);
+        pages->setAccessibleName(tr("Danh sách trang PDF theo thứ tự xuất"));
+        auto* preview=new QLabel(split);preview->setAlignment(Qt::AlignCenter);preview->setMinimumSize(260,320);
+        preview->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Ignored);preview->setWordWrap(true);
+        split->addWidget(pages);split->addWidget(preview);split->setStretchFactor(0,1);split->setStretchFactor(1,2);
+        QHash<int,QIcon> cached;
+        auto restore=[&]{
+            QSignalBlocker guard(pages);pages->clear();
+            for(int k=1;k<=inf.pages;++k){
+                auto* item=new QListWidgetItem(tr("Trang gốc %1").arg(k),pages);
+                item->setData(Qt::UserRole,k);item->setIcon(cached.value(k));
+                item->setSizeHint(QSize(160,126));
+            }
+        };
+        restore();
+        auto* tools=new QHBoxLayout;root->addLayout(tools);
+        auto* up=new QPushButton(tr("↑ Lên"),&dlg);auto* down=new QPushButton(tr("↓ Xuống"),&dlg);
+        auto* remove=new QPushButton(tr("Bỏ trang đã chọn"),&dlg);auto* reset=new QPushButton(tr("Khôi phục tất cả"),&dlg);
+        for(auto* b:{up,down,remove,reset})tools->addWidget(b);
+        tools->addStretch();
+        auto* status=new QLabel(&dlg);root->addWidget(status);
+        auto* bb=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&dlg);
+        bb->button(QDialogButtonBox::Save)->setText(tr("Lưu PDF mới…"));root->addWidget(bb);
+        bool stale=false;
+        auto refresh=[&]{
+            const auto selected=pages->selectedItems();const int row=pages->currentRow();
+            const bool one=selected.size()==1&&row>=0;
+            up->setEnabled(!stale&&one&&row>0);down->setEnabled(!stale&&one&&row+1<pages->count());
+            remove->setEnabled(!stale&&!selected.isEmpty()&&selected.size()<pages->count());
+            reset->setEnabled(!stale);bb->button(QDialogButtonBox::Save)->setEnabled(!stale&&pages->count()>0);
+            status->setText(stale?tr("Nguồn đã thay đổi. Đóng và mở lại công cụ."):
+                tr("Giữ %1/%2 trang · đã chọn %3").arg(pages->count()).arg(inf.pages).arg(selected.size()));
+        };
+        auto markStale=[&]{stale=true;preview->clear();preview->setText(tr("Tệp nguồn đã thay đổi."));refresh();};
+        auto showPage=[&]{
+            if(stale||!snapshot.unchanged()){markStale();return;}
+            const auto* item=pages->currentItem();if(!item){preview->clear();return;}
+            const int page=item->data(Qt::UserRole).toInt();
+            QString error;
+            const auto img=printrender::renderPage(src,page,QSize(640,680),&error);
+            if(!snapshot.unchanged()){markStale();return;}
+            if(img.isNull()){preview->setText(tr("Trang %1 · %2").arg(page).arg(error));return;}
+            preview->setPixmap(QPixmap::fromImage(img).scaled(preview->size().boundedTo(QSize(640,680)),Qt::KeepAspectRatio,Qt::SmoothTransformation));
+        };
+        connect(pages,&QListWidget::currentRowChanged,&dlg,[&](int){showPage();refresh();});
+        connect(pages,&QListWidget::itemSelectionChanged,&dlg,refresh);
+        connect(pages->model(),&QAbstractItemModel::rowsMoved,&dlg,[&]{refresh();});
+        auto move=[&](int delta){
+            const int from=pages->currentRow(),to=from+delta;
+            if(stale||pages->selectedItems().size()!=1||from<0||to<0||to>=pages->count())return;
+            {QSignalBlocker guard(pages);auto* item=pages->takeItem(from);pages->insertItem(to,item);pages->setCurrentRow(to);}
+            refresh();
+        };
+        connect(up,&QPushButton::clicked,&dlg,[&]{move(-1);});
+        connect(down,&QPushButton::clicked,&dlg,[&]{move(1);});
+        connect(remove,&QPushButton::clicked,&dlg,[&]{
+            const auto selected=pages->selectedItems();if(stale||selected.isEmpty()||selected.size()>=pages->count())return;
+            const int row=pages->currentRow();
+            {QSignalBlocker guard(pages);for(auto* item:selected)delete pages->takeItem(pages->row(item));pages->setCurrentRow(qBound(0,row,pages->count()-1));}
+            showPage();refresh();
+        });
+        connect(reset,&QPushButton::clicked,&dlg,[&]{if(stale)return;restore();pages->setCurrentRow(0);refresh();});
+        // Load thumbnails in small event-loop steps. No unbounded image cache.
+        QTimer thumbTimer;thumbTimer.setInterval(35);int next=1;
+        connect(&thumbTimer,&QTimer::timeout,&dlg,[&]{
+            if(stale||!snapshot.unchanged()){thumbTimer.stop();markStale();return;}
+            if(next>inf.pages){thumbTimer.stop();return;}
+            const int page=next++;
+            const auto img=printrender::renderPage(src,page,QSize(92,120));
+            if(!snapshot.unchanged()){thumbTimer.stop();markStale();return;}
+            if(img.isNull())return;
+            const QIcon icon(QPixmap::fromImage(img));cached.insert(page,icon);
+            for(int k=0;k<pages->count();++k)if(pages->item(k)->data(Qt::UserRole).toInt()==page){pages->item(k)->setIcon(icon);break;}
+        });
+        connect(bb,&QDialogButtonBox::accepted,&dlg,[&]{if(!stale&&pages->count()>0)dlg.accept();});
+        connect(bb,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        pages->setCurrentRow(0);refresh();if(printrender::available())thumbTimer.start();
+        if(dlg.exec()!=QDialog::Accepted)return;
+        thumbTimer.stop();
+        QList<int> keep;for(int k=0;k<pages->count();++k)keep.append(pages->item(k)->data(Qt::UserRole).toInt());
+        if(!snapshot.unchanged()||dungpdf::fingerprint(src)!=source){
+            QMessageBox::warning(this,tr("Quản lý trang"),tr("Nguồn đã thay đổi. Không xuất bản sao."));return;
+        }
+        if(keep.size()<inf.pages&&QMessageBox::question(this,tr("Xác nhận bỏ trang"),
+            tr("Giữ %1/%2 trang theo thứ tự mới? Tệp nguồn không thay đổi. Đây không phải xóa thông tin mật.").arg(keep.size()).arg(inf.pages),
+            QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+        const QString dest=pickDest(this,src,tr("quản lý trang"));if(dest.isEmpty())return;
+        showResult(runWithPasswords({src},[=]{return dungpdf::organizePages(inputFor(src),keep,inf.pages,source,dest);}),tr("Quản lý trang xong"));
+    });
     m_orderSpec = new QLineEdit(w);
     m_orderSpec->setPlaceholderText(tr("VD: 3,1-2,4-"));
     auto* mode=new QComboBox(w);

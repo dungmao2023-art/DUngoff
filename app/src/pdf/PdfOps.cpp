@@ -425,7 +425,8 @@ Result merge(const QList<Input>& inputs, const QString& dest, bool allowReplace)
     return res;
 }
 
-Result extract(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace) {
+QByteArray fingerprint(const QString& path){return sourceSha256(path);}
+Result extract(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace,const QByteArray& expectedSource) {
     Result res;
     const Info inf = info(in.path, in.password);
     if (!inf.ok) {
@@ -448,11 +449,33 @@ Result extract(const Input& in, const QString& pagesSpec, const QString& dest, b
         if (inf.encrypted) a << QStringLiteral("--decrypt");
         a << in.path << QStringLiteral("--pages") << QStringLiteral(".") << rangeFromIndexes(idx) << QStringLiteral("--") << tmp;
         return a;
-    });
+    },expectedSource);
     if (res.ok && inf.encrypted) res.warnings << tr("Kết quả không còn mật khẩu.");
     return res;
 }
 
+Result organizePages(const Input& in,const QList<int>& pages,int expectedPages,
+                     const QByteArray& expectedSource,const QString& dest){
+    Result r;
+    if(expectedSource.size()!=32||sourceSha256(in.path)!=expectedSource){
+        r.error=tr("Nguồn đã thay đổi hoặc chưa được xác minh. Hãy mở lại trình quản lý trang.");return r;
+    }
+    const auto inf=info(in.path,in.password);
+    if(!inf.ok){r.error=inf.error;r.needPassword=inf.needPassword;return r;}
+    if(inf.pages!=expectedPages||expectedPages<1||expectedPages>200||pages.isEmpty()||pages.size()>expectedPages){
+        r.error=tr("Danh sách trang không hợp lệ hoặc nguồn đã thay đổi.");return r;
+    }
+    QSet<int> seen;QList<int> indexes;
+    for(int page:pages){
+        if(page<1||page>expectedPages||seen.contains(page)){
+            r.error=tr("Trang bị trùng hoặc nằm ngoài tài liệu.");return r;
+        }
+        seen.insert(page);indexes.append(page-1);
+    }
+    r=extract(in,rangeFromIndexes(indexes),dest,false,expectedSource);
+    if(r.ok&&pages.size()<expectedPages)r.warnings<<tr("Đã bỏ %1 trang. Đây không phải công cụ xóa thông tin mật (redaction).").arg(expectedPages-pages.size());
+    return r;
+}
 Result reorder(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace) {
     Result res;
     const auto inf = info(in.path, in.password);

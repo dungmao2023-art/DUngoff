@@ -50,7 +50,13 @@ QList<int> parsePages(const QString& spec, int total, QString* error = nullptr);
 Info info(const QString& path, const QString& password = QString());
 
 Result merge(const QList<Input>& inputs, const QString& dest, bool allowReplace = false);
-Result extract(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace = false);
+Result extract(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace = false,
+               const QByteArray& expectedSource = {});
+// Visual organizer: keep unique 1-based pages in the exact chosen order.
+// Require the fingerprint captured before displaying the page thumbnails.
+QByteArray fingerprint(const QString& path);
+Result organizePages(const Input& in,const QList<int>& pages,int expectedPages,
+                     const QByteArray& expectedSource,const QString& dest);
 // Sắp xếp: mọi trang phải xuất hiện đúng một lần; không xóa hoặc nhân bản trang.
 Result reorder(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace = false);
 // Plan a deletion without modifying the source; duplicates count only once.
