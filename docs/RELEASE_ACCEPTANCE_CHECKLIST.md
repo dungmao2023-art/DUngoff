@@ -61,6 +61,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 
 ### B1 — PowerPoint: ca làm bài thuyết trình
 - [ ] P01.1 Chèn/sửa textbox, ảnh/hình, kéo/resize/rotate; căn chỉnh, thứ tự lớp, nhóm/bỏ nhóm; nhiều đối tượng, Undo/Redo.
+  - 28/11: #176 merged 1fd9304, CI 46108619165 Windows v2/Linux PASS thứ tự lớp, group/ungroup/Undo. Bổ sung 6 chế độ căn native theo svx/sdi/svx.sdi, drviews2.cxx; guard selection/document/state sau modal; fixture lệch hai trục, kiểm cả 6 mode, giữ trục còn lại/kích thước/nội dung/thứ tự và Undo. CI/GUI chờ.
   - 28/11: #176 layer order Linux CI 46107375044 PASS; đồng bộ main #173/#170; bổ sung .uno:FormatGroup/.uno:FormatUngroup với guard selection/state và fixture độc lập kiểm group topology, hình/chữ/thứ tự, tọa độ tuyệt đối và Undo hai chiều. Chờ CI mới/GUI.
 - [ ] P02.1 Tạo/xóa/nhân đôi/sắp xếp slide, layout, thumbnail, notes; mở lại PPTX.
 - [ ] P03.1 F5/Shift+F5, chuyển slide/phím ESC, quay đúng slide; toàn màn hình/cửa sổ, màn hình ngoài.
