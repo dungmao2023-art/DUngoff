@@ -565,18 +565,29 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
             check(saved.ok,std::string("Lưu xoay ")+name+": "+saved.message);
         };
         snap("ppt-rotate-baseline.pptx");
-        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,2160,2160,1,1,0);
-        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,2160,2160,1,1,0);
-        rotated->waitInputIdle();
-        rotated->command(".uno:TransformDialog",R"({"TransformRotationDeltaAngle":{"type":"long","value":9000}})");
-        rotated->waitInputIdle();snap("ppt-rotate-positive.pptx");
-        rotated->command(".uno:Undo");rotated->waitInputIdle();snap("ppt-rotate-positive-undone.pptx");
-        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,2160,2160,1,1,0);
-        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,2160,2160,1,1,0);
-        rotated->waitInputIdle();
-        rotated->command(".uno:TransformDialog",R"({"TransformRotationDeltaAngle":{"type":"long","value":-9000}})");
-        rotated->waitInputIdle();snap("ppt-rotate-negative.pptx");
-        rotated->command(".uno:Undo");rotated->waitInputIdle();snap("ppt-rotate-negative-undone.pptx");
+        // A Windows native failure previously ended the process after the
+        // baseline save. Report each boundary before the next native call.
+        for(const auto angle:{9000,-9000}){
+            const std::string mode=angle>0?"positive":"negative";
+            step("Rotation "+mode+": select");
+            rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,2160,2160,1,1,0);
+            rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,2160,2160,1,1,0);
+            rotated->waitInputIdle();
+            const auto selection=rotated->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
+            std::cout<<"Rotation graphic selection: "<<selection<<std::endl;
+            const bool selected=!selection.empty()&&selection!="EMPTY";
+            check(selected,"Native graphic selection available");
+            if(!selected)break;
+            step("Rotation "+mode+": dispatch");
+            rotated->command(".uno:TransformDialog",longArg("TransformRotationDeltaAngle",angle),true);
+            step("Rotation "+mode+": wait idle");
+            rotated->waitInputIdle();
+            step("Rotation "+mode+": save");
+            snap(("ppt-rotate-"+mode+".pptx").c_str());
+            step("Rotation "+mode+": Undo");
+            rotated->command(".uno:Undo");rotated->waitInputIdle();
+            snap(("ppt-rotate-"+mode+"-undone.pptx").c_str());
+        }
     }
 
     std::cout << (g_fail ? "\nKẾT QUẢ PPT: CÓ LỖI\n" : "\nKẾT QUẢ PPT: TẤT CẢ ĐẠT\n");

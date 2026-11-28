@@ -668,8 +668,15 @@ jobs:
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--out", "$PWD/smoke-word", "--word", "1") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-word.log -RedirectStandardError report/windows-word.err.log
           if (-not $p.WaitForExit(360000)) { Stop-Process $p -Force; Write-Host "::error::Word test timeout"; exit 1 }
-          Get-Content report/windows-word.log
-          if ($p.ExitCode -ne 0) { exit 1 }
+          Get-Content report/windows-word.log -Encoding UTF8
+          if (Test-Path report/windows-word.err.log) { Get-Content report/windows-word.err.log -Encoding UTF8 }
+          $p.Refresh()
+          $rc = $p.ExitCode
+          Write-Host "Native smoke exit code: $rc"
+          if ($null -eq $rc -or $rc -ne 0 -or !(Select-String -Path report/windows-word.log -Encoding UTF8 -SimpleMatch 'KẾT QUẢ WORD: TẤT CẢ ĐẠT')) {
+            Write-Host "::error::Native word smoke did not complete successfully; see stdout/stderr and exit code"
+            exit 1
+          }
           python tests/word/verify_docx.py smoke-word/word-dinh-dang.docx --margin-tested-separately 2>&1 | Tee-Object report/windows-word-docx.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Excel — lệnh cơ bản và kiểm nội dung XLSX lưu thật (Windows)
@@ -684,8 +691,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--xlsx", "fixtures/excel-co-ban.xlsx", "--excel", "1", "--out", "$PWD/smoke-excel") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-excel.log -RedirectStandardError report/windows-excel.err.log
           if (-not $p.WaitForExit(420000)) { Stop-Process $p -Force; Write-Host "::error::Excel test timeout"; exit 1 }
-          Get-Content report/windows-excel.log
-          if ($p.ExitCode -ne 0) { exit 1 }
+          Get-Content report/windows-excel.log -Encoding UTF8
+          if (Test-Path report/windows-excel.err.log) { Get-Content report/windows-excel.err.log -Encoding UTF8 }
+          $p.Refresh()
+          $rc = $p.ExitCode
+          Write-Host "Native smoke exit code: $rc"
+          if ($null -eq $rc -or $rc -ne 0 -or !(Select-String -Path report/windows-excel.log -Encoding UTF8 -SimpleMatch 'KẾT QUẢ EXCEL: ĐẠT')) {
+            Write-Host "::error::Native excel smoke did not complete successfully; see stdout/stderr and exit code"
+            exit 1
+          }
           python -W ignore tests/excel/verify_excel.py smoke-excel/excel-ket-qua.xlsx 2>&1 | Tee-Object report/windows-excel-verify.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: PowerPoint — thao tác slide, nhập chữ, đối tượng và PPTX lưu thật (Windows)
@@ -704,8 +718,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--ppt", "fixtures/mau-trinh-chieu.pptx", "--out", "$PWD/smoke-ppt") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-ppt.log -RedirectStandardError report/windows-ppt.err.log
           if (-not $p.WaitForExit(420000)) { Stop-Process $p -Force; Write-Host "::error::PowerPoint test timeout"; exit 1 }
-          Get-Content report/windows-ppt.log
-          if ($p.ExitCode -ne 0) { exit 1 }
+          Get-Content report/windows-ppt.log -Encoding UTF8
+          if (Test-Path report/windows-ppt.err.log) { Get-Content report/windows-ppt.err.log -Encoding UTF8 }
+          $p.Refresh()
+          $rc = $p.ExitCode
+          Write-Host "Native smoke exit code: $rc"
+          if ($null -eq $rc -or $rc -ne 0 -or !(Select-String -Path report/windows-ppt.log -Encoding UTF8 -SimpleMatch 'KẾT QUẢ PPT: TẤT CẢ ĐẠT')) {
+            Write-Host "::error::Native ppt smoke did not complete successfully; see stdout/stderr and exit code"
+            exit 1
+          }
           $saved = (Get-Content smoke-ppt/saved-path.txt -Raw -Encoding UTF8).Trim()
           python tests/ppt/verify_pptx.py "$saved" 2>&1 | Tee-Object report/windows-ppt-verify.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
