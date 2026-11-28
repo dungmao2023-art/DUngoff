@@ -120,13 +120,15 @@ bool SlideShow::prepareEntrance(){
     const auto hash=slide.value("hash").toString();
     dung::Document::SlideLayers layers;
     if(!m_doc->renderSlideLayers(m_part,hash.toStdString(),qMin(1280,m_img.width()),qMin(1280,m_img.height()),layers))return false;
-    QImage before(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied),after=before.copy();
+    QImage before(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
+    QImage after(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
     if(before.isNull()||after.isNull())return false;
     before.fill(Qt::white);after.fill(Qt::white);
     QPainter p(&before),q(&after);int entrance=0;bool background=false;
     for(const auto& layer:layers.layers){
         const auto o=QJsonDocument::fromJson(QByteArray::fromStdString(layer.json)).object();
-        const auto type=o.value("type").toString(),group=o.value("group").toString(),content=o.value("content").toObject();
+        const auto type=o.value("type").toString(),group=o.value("group").toString();
+        const auto content=o.value("content").toObject();
         if(layer.pixels.size()!=size_t(layers.width)*layers.height*4||(type!="bitmap"&&type!="animated"))return false;
         if(group=="Background")background=true;
         if(group!="Background"&&group!="MasterPage"&&group!="DrawPage")return false;
