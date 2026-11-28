@@ -475,6 +475,60 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
     check(fs::exists(target) && fs::file_size(target) > 2000, "Tệp PPTX mới có nội dung");
     std::ofstream(out / "saved-path.txt") << target.u8string();
 
+    step("PowerPoint — thay thứ tự lớp và Undo bằng UNO native");
+    d.reset();
+    auto layers=engine->open(out/"ppt-layer-input.pptx",&err);
+    check(bool(layers),"Mở fixture hai hình chồng nhau: "+err);
+    if(layers){
+        layers->setClientView(512,512,7680,7680,0,0,7680,7680);
+        renderHash(*layers,0);
+        auto snapshot=[&](const char* filename){
+            const auto dest=out/filename;
+            fs::remove(dest,ec);
+            const auto saved=layers->saveAs(dest);
+            check(saved.ok,std::string("Lưu lớp ")+filename+": "+saved.message);
+        };
+        auto click=[&](int x,int y){
+            layers->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,x,y,1,1,0);
+            layers->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,x,y,1,1,0);
+            layers->waitInputIdle();
+        };
+        snapshot("ppt-layer-baseline.pptx");
+        click(2160,2160); // exposed left part of first rectangle
+        layers->command(".uno:Forward");layers->waitInputIdle();
+        snapshot("ppt-layer-forward.pptx");
+        layers->command(".uno:Undo");layers->waitInputIdle();
+        snapshot("ppt-layer-forward-undone.pptx");
+        click(5040,2160); // exposed right part of second rectangle
+        layers->command(".uno:Backward");layers->waitInputIdle();
+        snapshot("ppt-layer-backward.pptx");
+        layers->command(".uno:Undo");layers->waitInputIdle();
+        snapshot("ppt-layer-backward-undone.pptx");
+    }
+    layers.reset();
+    step("PowerPoint — nhóm, bỏ nhóm và Undo trên fixture độc lập");
+    auto grouped=engine->open(out/"ppt-layer-input.pptx",&err);
+    check(bool(grouped),"Mở fixture nhóm: "+err);
+    if(grouped){
+        grouped->setClientView(512,512,7680,7680,0,0,7680,7680);
+        renderHash(*grouped,0);
+        auto snap=[&](const char* file){
+            const auto dest=out/file;
+            fs::remove(dest,ec);
+            const auto saved=grouped->saveAs(dest);
+            check(saved.ok,std::string("Lưu nhóm ")+file+": "+saved.message);
+        };
+        grouped->command(".uno:SelectAll");grouped->waitInputIdle();
+        grouped->command(".uno:FormatGroup");grouped->waitInputIdle();
+        snap("ppt-objects-grouped.pptx");
+        grouped->command(".uno:FormatUngroup");grouped->waitInputIdle();
+        snap("ppt-objects-ungrouped.pptx");
+        grouped->command(".uno:Undo");grouped->waitInputIdle();
+        snap("ppt-objects-ungroup-undone.pptx");
+        grouped->command(".uno:Undo");grouped->waitInputIdle();
+        snap("ppt-objects-group-undone.pptx");
+    }
+
     std::cout << (g_fail ? "\nKẾT QUẢ PPT: CÓ LỖI\n" : "\nKẾT QUẢ PPT: TẤT CẢ ĐẠT\n");
     std::cout.flush();
     std::_Exit(g_fail ? 1 : 0);
