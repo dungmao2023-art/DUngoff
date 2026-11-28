@@ -6,6 +6,7 @@
 #include <QCoreApplication>
 #include <QTemporaryDir>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QFile>
 #include <QImage>
 #include <QPixmap>
@@ -79,6 +80,23 @@ int main(int argc,char** argv){
     const auto before=show->grab().toImage();
     std::cout<<"Before click: "<<before.width()<<"x"<<before.height()<<" blue="<<bluePixels(before)<<" red="<<redPixels(before)<<std::endl;
     QPointer<SlideShow> safe(show);
+    // Laser is a transient overlay, never a document operation or an animation click.
+    key(show,Qt::Key_L);
+    const QPointF center=QRectF(show->rect()).center();
+    const QPointF global=show->mapToGlobal(center.toPoint());
+    QMouseEvent move(QEvent::MouseMove,center,global,Qt::NoButton,Qt::NoButton,Qt::NoModifier);
+    QCoreApplication::sendEvent(show,&move);
+    const auto withLaser=show->grab().toImage();
+    QMouseEvent click(QEvent::MouseButtonPress,center,global,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+    QCoreApplication::sendEvent(show,&click);
+    const bool stillShowing=safe&&safe->isVisible();
+    if(!stillShowing){std::cerr<<"FAIL laser click closed show"<<std::endl;std::_Exit(1);}
+    const auto afterLaserClick=show->grab().toImage();
+    key(show,Qt::Key_L);
+    const bool laserOk=!before.isNull()&&withLaser.size()==before.size()&&withLaser!=before&&
+        withLaser==afterLaserClick&&show->grab().toImage()==before&&doc->currentPart()==originalPart;
+    std::cout<<(laserOk?"PASS":"FAIL")<<" laser overlay visible, click does not advance, toggle restores original pixels"<<std::endl;
+    if(!laserOk)std::_Exit(1);
     key(show,Qt::Key_Right);
     // Older system engines without the layer ABI must still render an intact
     // static show and navigate normally, never claim animation support.

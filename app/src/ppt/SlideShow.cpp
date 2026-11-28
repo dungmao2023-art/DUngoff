@@ -46,7 +46,7 @@ SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool f
         }
         showFullScreen();
     }
-    else { setWindowTitle(tr("Xem trước slide — mũi tên chuyển trang · số + Enter đến slide · B/W màn trống · Esc đóng")); resize(960, 600); show(); }
+    else { setWindowTitle(tr("Xem trước slide — mũi tên chuyển trang · số + Enter đến slide · L laser · B/W màn trống · Esc đóng")); resize(960, 600); show(); }
     render();
     restartAdvance();
     setFocus(Qt::OtherFocusReason);
@@ -229,7 +229,18 @@ void SlideShow::paintEvent(QPaintEvent*) {
     }
     const QSizeF sz = QSizeF(m_img.size()).scaled(QSizeF(size()), Qt::KeepAspectRatio);
     p.setRenderHint(QPainter::SmoothPixmapTransform);
-    p.drawImage(QRectF(QPointF((width() - sz.width()) / 2, (height() - sz.height()) / 2), sz), m_img);
+    const QRectF slideRect(QPointF((width() - sz.width()) / 2, (height() - sz.height()) / 2), sz);
+    p.drawImage(slideRect, m_img);
+    // Screen-only pointer: no engine calls, no document edits, no mark on letterbox.
+    if(m_laserMode && slideRect.contains(m_laserPoint)){
+        p.save();
+        p.setClipRect(slideRect);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(Qt::white,1.5));
+        p.setBrush(QColor(238,35,45));
+        p.drawEllipse(m_laserPoint,6.0,6.0);
+        p.restore();
+    }
 }
 
 void SlideShow::resizeEvent(QResizeEvent*) { render(); restartAdvance(); }
@@ -264,6 +275,17 @@ void SlideShow::keyPressEvent(QKeyEvent* e) {
         e->accept();return;
     }
     if (!(e->modifiers() & (Qt::ControlModifier|Qt::AltModifier|Qt::MetaModifier))) {
+        if(e->key()==Qt::Key_L){
+            if(!e->isAutoRepeat()){
+                m_laserMode=!m_laserMode;
+                m_laserPoint=QPointF(-1,-1);
+                setMouseTracking(m_laserMode);
+                if(m_laserMode||isFullScreen())setCursor(Qt::BlankCursor);
+                else unsetCursor();
+                update();
+            }
+            e->accept();return;
+        }
         if(e->key()==Qt::Key_N || e->key()==Qt::Key_P){
             go(e->key()==Qt::Key_N?1:-1);e->accept();return;
         }
@@ -291,6 +313,19 @@ void SlideShow::keyPressEvent(QKeyEvent* e) {
 void SlideShow::mousePressEvent(QMouseEvent* e) {
     m_digits.clear();
     if (e->button() == Qt::RightButton) go(-1);
+    else if (e->button() == Qt::LeftButton && m_laserMode && !m_blank) {
+        m_laserPoint=e->position();update();restartAdvance();e->accept();
+    }
     else if (e->button() == Qt::LeftButton) go(+1);
     else { restartAdvance(); QWidget::mousePressEvent(e); }
+}
+
+void SlideShow::mouseMoveEvent(QMouseEvent* e) {
+    if(m_laserMode){m_laserPoint=e->position();update();e->accept();return;}
+    QWidget::mouseMoveEvent(e);
+}
+
+void SlideShow::leaveEvent(QEvent* e) {
+    if(m_laserMode){m_laserPoint=QPointF(-1,-1);update();}
+    QWidget::leaveEvent(e);
 }

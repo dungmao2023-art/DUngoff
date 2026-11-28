@@ -5,6 +5,7 @@
 #include <QVector>
 #include <QString>
 #include <QTimer>
+#include <QPointF>
 
 class QScreen;
 
@@ -19,6 +20,8 @@ protected:
     void paintEvent(QPaintEvent*) override;
     void keyPressEvent(QKeyEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
+    void mouseMoveEvent(QMouseEvent*) override;
+    void leaveEvent(QEvent*) override;
     void resizeEvent(QResizeEvent*) override;
 
 private:
@@ -43,4 +46,6 @@ private:
     QTimer m_advance;
     int m_intervalMs = 0;
     bool m_paused = false;
+    bool m_laserMode = false;
+    QPointF m_laserPoint{-1,-1};
 };
