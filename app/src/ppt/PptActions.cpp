@@ -33,6 +33,7 @@
 #include <QAbstractItemModel>
 #include <QSet>
 #include <QPointer>
+#include <QRegularExpression>
 #include <QGuiApplication>
 #include <QScreen>
 #include <functional>
@@ -198,6 +199,24 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             return true;
         }
         safeTab->stepPart(page - 1 - d->currentPart());
+    } else if (id == QLatin1String("ppt.layerUp") || id == QLatin1String("ppt.layerDown") || id == QLatin1String("ppt.group") || id == QLatin1String("ppt.ungroup")) {
+        if(d->readOnly())return true;
+        const PptEditTarget target(tab);
+        const QString command=id==QLatin1String("ppt.group")?QStringLiteral(".uno:FormatGroup"):
+            id==QLatin1String("ppt.ungroup")?QStringLiteral(".uno:FormatUngroup"):
+            id==QLatin1String("ppt.layerUp")?QStringLiteral(".uno:Forward"):QStringLiteral(".uno:Backward");
+        static const QRegularExpression rect(QStringLiteral("^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*[1-9]\\d*\\s*,\\s*[1-9]\\d*(?:\\s*,|\\s*$)"));
+        const auto state=tab->states().value(command);
+        if(!rect.match(QString::fromStdString(target.graphic)).hasMatch()||
+           (state!=QLatin1String("enabled")&&state!=QLatin1String("true")&&state!=QLatin1String("false"))||
+           !target.selected.empty()){
+            QMessageBox::information(tab,QObject::tr("Sắp xếp đối tượng"),QObject::tr("Chọn đối tượng trên slide (không ở chế độ sửa chữ). Để nhóm, chọn nhiều hình bằng Shift; để bỏ nhóm, chọn nhóm hiện có. Lệnh phải khả dụng."));
+            return true;
+        }
+        if(!target.verify(true))return true;
+        d->command(command.toStdString());
+        d->waitInputIdle();
+        tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.textbox")) {
         armShape(tab, ".uno:Text");
     } else if (id == QLatin1String("ppt.rect")) {

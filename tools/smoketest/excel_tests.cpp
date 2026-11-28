@@ -10,6 +10,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdio>
+#include <vector>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -313,6 +315,58 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
         snapshot("excel-column-restored.xlsx");
     }
     deletion.reset();
+
+    step("kéo tay nắm điền công thức native Calc");
+    const auto fillInput=out/"excel-native-fill-input.xlsx";
+    ec.clear();
+    fs::copy_file(xlsx.parent_path()/"excel-native-fill-input.xlsx",fillInput,fs::copy_options::overwrite_existing,ec);
+    check(!ec,"Sao chép fixture kéo fill handle");
+    auto fill=engine->open(fillInput,&err);
+    check(bool(fill),"Mở fixture XLSX kéo fill handle: "+err);
+    if(fill){
+        fill->setClientView(512,512,7680,7680,0,0,7680,7680);
+        std::vector<unsigned char> tile(512*512*4);
+        fill->paintTile(tile.data(),512,512,0,0,7680,7680);
+        fill->waitInputIdle();
+        auto rect=[](const std::string& s,int& x,int& y,int& w,int& h){
+            return std::sscanf(s.c_str(),"%d , %d , %d , %d",&x,&y,&w,&h)==4&&w>0&&h>0;
+        };
+        gotoCell(*fill,"B4");fill->waitInputIdle();settle();
+        int tx=0,ty=0,tw=0,th=0;
+        const bool target=rect(fill->lastPayload(LOK_CALLBACK_CELL_CURSOR),tx,ty,tw,th);
+        gotoCell(*fill,"B1");fill->waitInputIdle();settle();
+        int x=0,y=0,w=0,h=0,cx=0,cy=0,cw=0,ch=0;
+        const auto payload=fill->lastPayload(LOK_CALLBACK_CELL_AUTO_FILL_AREA);
+        const bool source=rect(fill->lastPayload(LOK_CALLBACK_CELL_CURSOR),cx,cy,cw,ch);
+        const bool handle=rect(payload,x,y,w,h)&&source&&
+            x<=cx+cw+w&&x+w>=cx+cw-w&&y<=cy+ch+h&&y+h>=cy+ch-h;
+        check(target&&handle,"LOK native fill rectangle and destination: "+payload);
+        if(target&&handle){
+            info("Fill source cursor: "+std::to_string(cx)+","+std::to_string(cy)+","+std::to_string(cw)+","+std::to_string(ch)+
+                " destination: "+std::to_string(tx)+","+std::to_string(ty)+","+std::to_string(tw)+","+std::to_string(th));
+            const auto baseline=fill->saveAs(out/"excel-native-fill-baseline.xlsx");
+            check(baseline.ok,"Lưu nguồn fill chưa chỉnh: "+baseline.message);
+            // Calc autofill uses a nearest-edge threshold, so a cell center
+            // can round back to the preceding row. End inside B4, near its bottom.
+            const int endX=tx+tw/2, endY=ty+th*4/5;
+            fill->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,x+w/2,y+h/2,1,1,0);
+            fill->waitInputIdle();settle(150);
+            for(int i=1;i<=4;++i){
+                fill->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,
+                    x+w/2+(endX-x-w/2)*i/4,y+h/2+(endY-y-h/2)*i/4,1,1,0);
+                settle(100);
+            }
+            fill->waitInputIdle();settle(200);
+            fill->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,endX,endY,1,1,0);
+            fill->waitInputIdle();settle();
+            const auto saved=fill->saveAs(out/"excel-native-fill-drag.xlsx");
+            check(saved.ok,"Lưu kết quả kéo công thức: "+saved.message);
+            fill->command(".uno:Undo");fill->waitInputIdle();settle();
+            const auto undone=fill->saveAs(out/"excel-native-fill-drag-undone.xlsx");
+            check(undone.ok,"Lưu Undo kéo công thức: "+undone.message);
+        }
+    }
+    fill.reset();
 
     // ======================= Tệp stress 5000 dòng =======================
     if (!stress.empty() && fs::exists(stress)) {

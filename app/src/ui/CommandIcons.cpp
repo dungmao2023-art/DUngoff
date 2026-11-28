@@ -26,7 +26,7 @@ QString iconNameForCommand(const QString& id) {
         // Word
         {"word:style0", "text"}, {"word:style1", "heading"}, {"word:style2", "heading"}, {"word:style3", "heading"},
         {"word:font", "font-name"}, {"word:size", "font-size"}, {"word:color", "font-color"},
-        {"word:find", "search"}, {"word:replace", "replace"}, {"word:table", "table"}, {"word:image", "image"}, {"word:link", "link"},
+        {"word:find", "search"}, {"word:replace", "replace"}, {"word:table", "table"}, {"word:image", "image"}, {"word:imageWrapSquare", "wrap-text"}, {"word:imageWrapTopBottom", "wrap-text"}, {"word:link", "link"},
         {"word:a4", "paper-size"}, {"word:landscape", "orientation"},
         {"word:marginNarrow", "margins"}, {"word:marginCustom", "margins"}, {"word:marginNormal", "margins"}, {"word:marginVN", "margins"},
         {"word:adminHead", "heading"}, {"word:adminTail", "text"}, {"word:adminFull", "template"}, {"word:adminMargin", "margins"},
@@ -72,7 +72,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:InsertPage", "slide-new"}, {".uno:DuplicatePage", "slide-duplicate"}, {".uno:DeletePage", "delete"}, {"ppt.deleteSlide", "delete"},
         {".uno:MovePageUp", "move-up"}, {".uno:MovePageDown", "move-down"},
         {".uno:HideSlide", "eye-off"}, {".uno:ShowSlide", "eye"},
-        {"ppt.image", "image"}, {"ppt.rect", "shape"}, {"ppt.textbox", "textbox"},
+        {"ppt.image", "image"}, {"ppt.layerUp", "move-up"}, {"ppt.layerDown", "move-down"}, {"ppt.group", "merge-cells"}, {"ppt.ungroup", "table"}, {"ppt.rect", "shape"}, {"ppt.textbox", "textbox"},
         {"ppt.notes", "text"}, {"ppt.normal", "template"}, {"ppt.goto", "page-number"}, {"ppt.fontSize", "font-size"}, {"ppt.textColor", "font-color"},
         {"ppt.show", "play"}, {"ppt.showHere", "play"}, {"ppt.transitionNote", "transition"},
         {"ppt.preview", "play"}, {"ppt.showTimed", "play"}, {"ppt.animationCopy", "transition"}, {"ppt.clearAnimationCopy", "delete"}, {"ppt.masterBackground", "template"},

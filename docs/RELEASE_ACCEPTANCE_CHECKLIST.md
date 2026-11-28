@@ -26,14 +26,16 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] W01.1 Soạn văn bản 3 trang tiếng Việt: chọn đoạn, font/cỡ/màu, đậm/nghiêng/gạch chân, căn trái/phải/giữa/đều, spacing, indent; Undo/Redo và roundtrip.
 - [ ] W01.2 Bullet/numbering nhiều cấp, tiếp tục và khởi động lại danh sách.
 - [ ] W02.1 Tạo bảng 4×5; chèn/xóa hàng cột, gộp/tách, chỉnh rộng/cao; giữ nội dung khi lưu.
+  - 28/11: #172 merged d2e7f39 CI 46104316833 Windows/Linux PASS tách ô; #173 merged 7964cd8 CI 46105922456 Windows/Linux PASS chiều cao 1440 twip, rộng 720 twip, Undo và bảo toàn marker. GUI vẫn cần nghiệm thu.
   - 28/11: UI tách ô 2–10 theo dọc/ngang bằng .uno:SplitCell (Amount/Horizontal/Proportional theo sw/sdi/swriter.sdi upstream 24.2), guard tài liệu/vùng chọn; test DOCX thay đổi cấu trúc và Undo hai hướng. Chờ CI v2/Linux và GUI.
   - 28/11: thêm đặt cao hàng/rộng cột (cm), native .uno:TableRowHeight/.uno:TableColumWidth theo sw/sdi/swriter.sdi và tabsh.cxx upstream; thử DOCX 1440/720 twip và Undo. UNO standalone Linux 25.2.3.2 xác nhận 1440/720 twip và Undo. CI 46104456794 Linux: split cả hai hướng PASS; resize width mất kiểm tra TABLE_SECOND_CELL. CI 46105069579 Linux xác nhận cả hai lệnh no-op, Undo đã hoàn tác chữ nhập trước đó. Upstream svl/source/items/cintitem.cxx CntUInt32Item::PutValue đọc sal_Int32, đổi JSON từ unsigned long sang long. Mỗi ca resize mở riêng baseline không có lịch sử nhập chữ. Giữ nguyên gate kích thước, nội dung và Undo, chờ CI mới. Ảnh/GUI còn thiếu.
 - [ ] W02.2 Chèn ảnh, resize giữ tỷ lệ, wrap, kéo vị trí; link, ký hiệu, ngắt trang.
+  - 28/11: #174 CI 46106172971 Windows v2/Linux PASS wrapSquare/wrapTopAndBottom/Undo, giữ nguyên toàn bộ chữ và hash ảnh nhúng; tích hợp với #173/#170, chờ CI hợp nhất và GUI. Resize ảnh/kéo vị trí vẫn chưa hoàn tất.
 - [ ] W03.1 A4, lề tùy chỉnh theo nhu cầu hành chính, portrait/landscape, header/footer, số trang; kiểm preview/in.
 - [ ] W03.2 Heading 1–3, tạo TOC thật, sửa heading và cập nhật mục lục; mở lại DOCX.
 - [ ] W03.3 Footnote/endnote, số trang và section; không mất nội dung.
 - [ ] W04.1 Tìm/thay một và tất cả, phân biệt hoa thường, đếm từ; test dấu Việt, hủy thao tác.
-  - 28/11: tùy chọn phân biệt hoa/thường cho tìm/thay, reset match khi đổi tùy chọn; UNO SearchItem.TransliterateFlags 0/0x100, literal ABSOLUTE, kiểm tiếng Việt, dấu regex thuần, replace-all cả hai mode và Undo. Chờ CI/GUI; không nâng stage.
+  - 28/11: #177 CI 46109286539 Windows v2/Linux PASS tìm/thay chữ thuần phân biệt/không phân biệt hoa thường tiếng Việt, dấu regex như chữ thuần, Undo cả hai. Đồng bộ main sau #174/#176/#175, chờ CI tích hợp và GUI.
   - 28/11: nút thay vùng tìm thấy, xác minh lại đúng vùng chọn/tài liệu và chữ khớp chính xác, hỗ trợ thay rỗng, giữ đường Undo native. Test Unicode và Undo 4cc5ab5c66ab615ba1a0d5db4223b7c14cec209f; chờ CI/GUI. Chưa có tùy chọn phân biệt hoa thường cho toàn bộ tìm kiếm.
 - [ ] W04.2 Kiểm chính tả tiếng Việt bằng từ điển có license xác minh; phân biệt kiểm âm tiết.
 - [ ] W05.1 Mẫu công văn, đơn, hợp đồng; số tiền thành chữ, ngày, chuyển mã; mail merge từ Excel/CSV có Unicode.
@@ -46,6 +48,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] X03.1 SUM/AVERAGE/COUNT/IF/SUMIF(S)/COUNTIF(S), VLOOKUP/XLOOKUP/INDEX/MATCH, tham chiếu tương đối/tuyệt đối/liên sheet; lỗi công thức đúng.
 - [ ] X03.2 Tôi muốn tự nhận ô/vùng đang chọn, đủ đối số từng hàm, chọn ô kết quả, đổi sheet không ghi nhầm.
 - [ ] X04.1 FillDown/Right, chuỗi ngày/số, kéo fill handle; công thức và tham chiếu cập nhật đúng.
+  - 28/11: native LOK auto-fill rectangle; CI 46106879141 Windows/Linux đều bảo toàn nguồn/ô lân cận, điền đúng B2/B3 và Undo, B4 thiếu khi thả giữa ô. Test tới 80% chiều cao B4, chờ move cuối; app gửi move cuối nếu vị trí release khác move trước, không bắt gesture ở handle ẩn khi sửa chữ. Đồng bộ #170, giữ gate B1:B4, CI/GUI còn chờ.
 - [ ] X05.1 Filter, sort một/nhiều khóa, freeze; dữ liệu nguyên hàng, header và công thức không lệch.
 - [ ] X05.2 Conditional formatting, data validation/dropdown, bảo vệ sheet; kiểm XLSX thật.
   - 28/11: #170 CI 46104703528 Windows v2/Linux PASS trên 86f6117: kiểm input/pristine/edited XML allowBlank, showErrorMessage, errorStyle; bảo toàn ô khóa/mở, dữ liệu, công thức, vùng dropdown tiếng Việt. Đồng bộ main sau #171/#172; chờ CI tích hợp và GUI tạo/sửa rule, không nâng stage.
@@ -58,6 +61,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 
 ### B1 — PowerPoint: ca làm bài thuyết trình
 - [ ] P01.1 Chèn/sửa textbox, ảnh/hình, kéo/resize/rotate; căn chỉnh, thứ tự lớp, nhóm/bỏ nhóm; nhiều đối tượng, Undo/Redo.
+  - 28/11: #176 layer order Linux CI 46107375044 PASS; đồng bộ main #173/#170; bổ sung .uno:FormatGroup/.uno:FormatUngroup với guard selection/state và fixture độc lập kiểm group topology, hình/chữ/thứ tự, tọa độ tuyệt đối và Undo hai chiều. Chờ CI mới/GUI.
 - [ ] P02.1 Tạo/xóa/nhân đôi/sắp xếp slide, layout, thumbnail, notes; mở lại PPTX.
 - [ ] P03.1 F5/Shift+F5, chuyển slide/phím ESC, quay đúng slide; toàn màn hình/cửa sổ, màn hình ngoài.
   - 28/11: chế độ tự chuyển slide theo số giây mỗi trang (chỉ phiên trình chiếu); T tạm dừng/tiếp tục, B/W hoặc nhập số tạm dừng timer, bỏ slide ẩn và giữ slide cuối. Test quy tắc timer, CI/GUI còn chờ. Không đọc timing riêng của PPTX hoặc phát animation đối tượng; không nâng stage.
