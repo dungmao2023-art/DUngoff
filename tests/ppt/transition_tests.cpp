@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "PptTransition.h"
 #include "SlideNavigation.h"
+#include "SimpleEntrance.h"
+#include <QJsonDocument>
 #include <QCoreApplication>
 #include <QFile>
 #include <QTemporaryDir>
@@ -12,6 +14,11 @@ int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     int errors = 0;
     auto check = [&](bool ok, const char* msg) { std::cout << (ok ? "PASS " : "FAIL ") << msg << '\n'; if (!ok) ++errors; };
+    QString target;
+    const auto entrance=QJsonDocument::fromJson(R"({"nodeName":"Seq","children":[{"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape1"}]}]})").object();
+    check(slideshow::findSimpleEntrance(entrance,&target)&&target=="shape1","native single on-click visibility entrance plan");
+    const auto unsupported=QJsonDocument::fromJson(R"({"nodeName":"Seq","children":[{"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Animate","attributeName":"Opacity","to":"1","targetElement":"shape1"}]}]})").object();
+    check(!slideshow::findSimpleEntrance(unsupported,&target),"complex animation not misrepresented as appear");
     const QSize wide=slideshow::thumbnailSize(16000,9000);
     const QSize tall=slideshow::thumbnailSize(100,100000);
     check(wide.width()==128 && wide.height()==72,"thumbnail preserves landscape aspect");

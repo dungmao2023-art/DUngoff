@@ -26,6 +26,8 @@ private:
     void go(int delta);
     void render();
     void restartAdvance();
+    bool prepareEntrance();
+    void resetEntrance();
 
     dung::Document* m_doc;
     int m_part;
@@ -35,6 +37,9 @@ private:
     int m_blank = 0; // 0: slide, 1: black, 2: white
     long m_w = 0, m_h = 0; // twip
     QImage m_img;
+    QImage m_beforeEntrance,m_afterEntrance;
+    bool m_entrancePending=false;
+    int m_entrancePart=-1;
     QTimer m_advance;
     int m_intervalMs = 0;
     bool m_paused = false;

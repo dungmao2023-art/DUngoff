@@ -928,6 +928,63 @@ std::string Document::partHash(int part) {
     return r;
 }
 
+bool Document::supportsSlideLayers(){
+    if(kind()!=DocKind::Presentation)return false;
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        return d&&d->pClass&&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,getPresentationInfo)&&d->pClass->getPresentationInfo&&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,createSlideRenderer)&&d->pClass->createSlideRenderer&&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,renderNextSlideLayer)&&d->pClass->renderNextSlideLayer&&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,postSlideshowCleanup)&&d->pClass->postSlideshowCleanup&&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,getTileMode)&&d->pClass->getTileMode;
+    });
+}
+
+std::string Document::presentationInfo() {
+    if(kind()!=DocKind::Presentation)return {};
+    char* data=onEngine([&]()->char*{
+        auto* d=m_doc->get();
+        if(!d||!d->pClass||!LIBREOFFICEKIT_DOCUMENT_HAS(d,getPresentationInfo)||!d->pClass->getPresentationInfo)return nullptr;
+        return d->pClass->getPresentationInfo(d);
+    });
+    std::string result=data?data:"";free(data);return result;
+}
+
+bool Document::renderSlideLayers(int part,const std::string& hash,int width,int height,SlideLayers& result){
+    result={};
+    if(kind()!=DocKind::Presentation||part<0||hash.empty()||width<1||height<1||width>1280||height>1280)return false;
+    return onEngine([&]()->bool{
+        auto* d=m_doc->get();
+        if(!d||!d->pClass||part>=m_doc->getParts()||
+           !LIBREOFFICEKIT_DOCUMENT_HAS(d,createSlideRenderer)||!d->pClass->createSlideRenderer||
+           !LIBREOFFICEKIT_DOCUMENT_HAS(d,renderNextSlideLayer)||!d->pClass->renderNextSlideLayer||
+           !LIBREOFFICEKIT_DOCUMENT_HAS(d,postSlideshowCleanup)||!d->pClass->postSlideshowCleanup||
+           !LIBREOFFICEKIT_DOCUMENT_HAS(d,getTileMode)||!d->pClass->getTileMode)return false;
+        unsigned w=unsigned(width),h=unsigned(height);
+        if(!d->pClass->createSlideRenderer(d,hash.c_str(),part,&w,&h,true,true))return false;
+        struct Cleanup{LibreOfficeKitDocument* d;~Cleanup(){d->pClass->postSlideshowCleanup(d);}} cleanup{d};
+        if(!w||!h||w>1280||h>1280)return false;
+        const auto size=size_t(w)*h*4;
+        result.width=int(w);result.height=int(h);
+        result.rgba=d->pClass->getTileMode(d)==LOK_TILEMODE_RGBA;
+        // Continue draining even when unsupported layers exceed the preview budget.
+        std::vector<uint8_t> scratch(size);
+        size_t stored=0;bool overflow=false;
+        for(int i=0;i<512;++i){
+            std::fill(scratch.begin(),scratch.end(),0);
+            bool bitmap=false;double scale=1.0;char* json=nullptr;
+            const bool done=d->pClass->renderNextSlideLayer(d,scratch.data(),&bitmap,&scale,&json);
+            std::string message=json?json:"";free(json);
+            if(done){if(overflow){result={};return false;}return !result.layers.empty();}
+            if(message.empty()||result.layers.size()>=48||stored+(bitmap?size:0)>96ULL*1024*1024){overflow=true;continue;}
+            if(!overflow){SlideLayer layer;layer.json=std::move(message);
+                if(bitmap){layer.pixels=scratch;stored+=size;}result.layers.push_back(std::move(layer));}
+        }
+        result={};return false;
+    });
+}
+
 void Document::setClientView(int pxTileW, int pxTileH, int twipTileW, int twipTileH, int visX,
                              int visY, int visW, int visH) {
     onEngine([&] {
