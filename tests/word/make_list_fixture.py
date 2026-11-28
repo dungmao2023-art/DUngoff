@@ -58,3 +58,14 @@ doc.save(dest)
 with zipfile.ZipFile(dest) as package:
     if any(n.lower().startswith("customxml/") for n in package.namelist()):
         raise RuntimeError("Unexpected unrelated custom XML in synthetic fixture")
+
+# Two truly independent lists with the same abstract numbering definition.
+# This differs from a restart marker within one list, which older Writer
+# versions handle differently in the native ContinueNumbering API.
+separate_num = elem("num", numId=nid + 1)
+separate_num.append(elem("abstractNumId", val=aid))
+numbering.append(separate_num)
+third = doc.paragraphs[-1]
+third._p.pPr.find(qn("w:numPr")).find(qn("w:numId")).set(qn("w:val"), str(nid + 1))
+separator = third.insert_paragraph_before("LIST_SEPARATOR")
+doc.save(dest.with_name("word-list-separate-input.docx"))

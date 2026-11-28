@@ -225,6 +225,17 @@ int main(int argc, char** argv) {
             const auto clearedCopy=createClearAnimationCopy(animDest,clearDest,1);
             check(clearedCopy.ok&&slideEntries(clearDest,&error)==entries&&!slideShapes(clearDest,1,&error).isEmpty(),"actual PPTX clear and enumerate again");
             check(!createClearAnimationCopy(animDest,clearDest,1).ok,"refuse overwriting cleared copy");
+            const auto rangeClear=temp.filePath("clear-range.pptx");
+            const int last=qMin(2,int(entries.size()));
+            const auto animHash=sourceFingerprint(animDest);
+            check(!createClearAnimationRangeCopy(animDest,rangeClear,0,last,animHash).ok&&!QFile::exists(rangeClear),"reject invalid clear range");
+            check(!createClearAnimationRangeCopy(animDest,rangeClear,1,last,expected).ok&&!QFile::exists(rangeClear),"reject stale range clear");
+            const auto batchClear=createClearAnimationRangeCopy(animDest,rangeClear,1,last,animHash);
+            check(batchClear.ok&&slideEntries(rangeClear,&error)==entries&&!slideShapes(rangeClear,1,&error).isEmpty(),"range clear removes animation and retains slide order");
+            check(sourceFingerprint(animDest)==animHash,"range clear preserves source bytes");
+            check(!createClearAnimationRangeCopy(animDest,rangeClear,1,last,animHash).ok,"refuse overwrite range clear");
+            const auto alreadyStatic=temp.filePath("clear-static.pptx");
+            check(createClearAnimationRangeCopy(src,alreadyStatic,1,1,expected).ok,"range clear permits static slide");
             const auto recreated=temp.filePath("recreated-animation.pptx");
             check(clearedCopy.ok&&createAnimationCopy(clearDest,recreated,1,anim).ok,"create new animation after clearing");
         }

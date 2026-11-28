@@ -13,6 +13,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -582,6 +583,37 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         resized->command(".uno:TransformDialog",R"({"TransformWidth":{"type":"long","value":4320},"TransformHeight":{"type":"long","value":2160}})");
         resized->waitInputIdle();snap("ppt-resize-edited.pptx");
         resized->command(".uno:Undo");resized->waitInputIdle();snap("ppt-resize-undone.pptx");
+    }
+
+    resized.reset();
+    step("PowerPoint — native rotation with explicit pivot X/Y");
+    struct Rotation{const char* name;int angle;};
+    for(const auto& item:{Rotation{"positive",9000},Rotation{"negative",-4500}}){
+        auto rotated=engine->open(out/"ppt-layer-input.pptx",&err);
+        check(bool(rotated),"Mở fixture xoay: "+err);if(!rotated)continue;
+        rotated->setClientView(512,512,7680,7680,0,0,7680,7680);
+        renderHash(*rotated,0);
+        auto snap=[&](const std::string& name){
+            const auto dest=out/name;fs::remove(dest,ec);
+            const auto saved=rotated->saveAs(dest);check(saved.ok,"Lưu xoay "+name+": "+saved.message);
+        };
+        if(item.angle>0)snap("ppt-rotate-baseline.pptx");
+        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,2160,2160,1,1,0);
+        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,2160,2160,1,1,0);
+        rotated->waitInputIdle();
+        const auto sel=rotated->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
+        int x=0,y=0,w=0,h=0;
+        const bool selected=std::sscanf(sel.c_str(),"%d , %d , %d , %d",&x,&y,&w,&h)==4&&w>0&&h>0;
+        check(selected,"Native graphic bounds and rotation pivot: "+sel);
+        if(!selected)continue;
+        const std::string args="{\"TransformRotationDeltaAngle\":{\"type\":\"long\",\"value\":"+std::to_string(item.angle)+
+          "},\"TransformRotationX\":{\"type\":\"long\",\"value\":"+std::to_string(x+w/2)+
+          "},\"TransformRotationY\":{\"type\":\"long\",\"value\":"+std::to_string(y+h/2)+"}}";
+        step("Rotate dispatch with center "+args);
+        rotated->command(".uno:TransformDialog",args);rotated->waitInputIdle();
+        snap(std::string("ppt-rotate-")+item.name+".pptx");
+        rotated->command(".uno:Undo");rotated->waitInputIdle();
+        snap(std::string("ppt-rotate-")+item.name+"-undone.pptx");
     }
 
     std::cout << (g_fail ? "\nKẾT QUẢ PPT: CÓ LỖI\n" : "\nKẾT QUẢ PPT: TẤT CẢ ĐẠT\n");

@@ -122,7 +122,13 @@ baseline=list_topology(list_snapshot("word-list-baseline.docx"))
 check(baseline==[(0,True),(0,True),(0,True)],"all three list items start in one sequence")
 check(list_topology(list_snapshot("word-list-restarted.docx"))==[(0,True),(0,True),(0,False)],"restart only third item, other items and levels unchanged")
 check(bool(baseline) and list_topology(list_snapshot("word-list-restart-undone.docx"))==baseline,"Undo restores list sequence")
+check(list_topology(list_snapshot("word-list-separate-baseline.docx"))==[(0,True),(0,True),(0,False)],"two independent lists before Continue")
 check(list_topology(list_snapshot("word-list-continued.docx"))==[(0,True),(0,True),(0,True)],"Continue numbering rejoins third item to original sequence without changing levels")
 check(list_topology(list_snapshot("word-list-continue-undone.docx"))==[(0,True),(0,True),(0,False)],"Undo continue restores independent third sequence")
+for filename in ("word-list-separate-baseline.docx","word-list-continued.docx","word-list-continue-undone.docx"):
+    with zipfile.ZipFile(Path(path).parent / filename) as package:
+        root=ET.fromstring(package.read("word/document.xml"))
+        content=["".join(n.text or "" for n in para.iter(W+"t")) for para in root.iter(W+"p")]
+        check(content==["LIST_FIRST","LIST_SECOND","LIST_SEPARATOR","LIST_THIRD"],filename+": preserve all text and list order")
 print("\nKẾT QUẢ DOCX:", "CÓ LỖI" if fails else "TẤT CẢ ĐẠT")
 sys.exit(1 if fails else 0)

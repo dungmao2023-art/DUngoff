@@ -593,12 +593,13 @@ int runWordTests(const fs::path& program, const fs::path& out) {
                 }
             }
         }
-        // Reopen the restarted file so Undo cannot accidentally undo Restart.
+        // Explicitly independent lists, not an engine-dependent restart flag.
         list.reset();
-        list=engine->open(out/"word-list-restarted.docx",&err);
-        check(bool(list),"Mở danh sách đã đánh số lại: "+err);
+        list=engine->open(out/"word-list-separate-input.docx",&err);
+        check(bool(list),"Mở hai danh sách độc lập: "+err);
         if(list){
             list->setClientView(512,512,7680,7680,0,0,7680,7680);
+            snap("word-list-separate-baseline.docx");
             run(*list,".uno:GoToStartOfDoc");run(*list,w::findNext("LIST_THIRD",false));
             const bool found=selText(*list)=="LIST_THIRD";
             check(found,"Tìm đúng mục cần tiếp tục số");

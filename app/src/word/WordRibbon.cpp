@@ -105,7 +105,8 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
             }},
         }},
         {tr("Tham chiếu"), {
-            {tr("Mục lục có sẵn"), {
+            {tr("Mục lục"), {
+                {QStringLiteral("word:tocCreate"), tr("Tạo mục lục"), 0xE8A5, QStringLiteral("≡"), false},
                 {QStringLiteral(".uno:UpdateAllIndexes"), tr("Cập nhật mục lục"), 0xE72C, QStringLiteral("↻"), false},
             }},
             {tr("Chú thích"), {

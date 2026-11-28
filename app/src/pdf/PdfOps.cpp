@@ -2,6 +2,7 @@
 #include "PdfOps.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -223,10 +224,25 @@ QString rangeFromIndexes(const QList<int>& idx) {
     return parts.join(QLatin1Char(','));
 }
 
+// Full content fingerprint, not merely timestamp or file size.
+QByteArray sourceSha256(const QString& path) {
+    QFile file(path);
+    if(!file.open(QIODevice::ReadOnly))return {};
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if(!hash.addData(&file))return {};
+    return hash.result();
+}
+
 // Quy trình ghi an toàn dùng chung. `makeArgs(tmp)` dựng đối số qpdf ghi ra `tmp`.
+// Optional confirmed fingerprint applies to the first source only.
 template <class MakeArgs>
-Result writeSafely(const QStringList& sources, const QString& destIn, bool allowReplace, MakeArgs makeArgs) {
+Result writeSafely(const QStringList& sources, const QString& destIn, bool allowReplace, MakeArgs makeArgs,
+                   const QByteArray& expectedSource = {}) {
     Result res;
+    auto sourceUnchanged=[&]{
+        return expectedSource.isEmpty()||(!sources.isEmpty()&&sourceSha256(sources.first())==expectedSource);
+    };
+    if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi. Hãy kiểm tra lại.");return res;}
     const QString dest = QFileInfo(destIn).absoluteFilePath();
     const QFileInfo di(dest);
     if (!QDir(di.absolutePath()).exists()) {
@@ -264,6 +280,7 @@ Result writeSafely(const QStringList& sources, const QString& destIn, bool allow
         res.error = tr("Kết quả không qua bước kiểm tra, đã hủy. Tệp gốc không thay đổi.");
         return res;
     }
+    if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi trong lúc xử lý. Chưa công bố kết quả.");return res;}
     if (exists) {
         auto unchanged=[&] {
             const QFileInfo current(dest);
@@ -281,6 +298,7 @@ Result writeSafely(const QStringList& sources, const QString& destIn, bool allow
         res.backup = backup;
         if(!unchanged()){res.error=tr("Tệp đích thay đổi sau sao lưu; không thay thế.");return res;}
     }
+    if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi trước khi công bố kết quả.");return res;}
     if (!(exists ? replaceFile(tmp, dest) : publishNew(tmp,dest))) {
         res.error = tr("Không ghi được tệp đích (đang mở ở chương trình khác hoặc không đủ quyền).");
         return res;
@@ -1404,6 +1422,8 @@ int objNumber(const QString& ref) { return ref.section(QLatin1Char(' '), 0, 0).t
 
 BlankReport findBlankPages(const Input& in) {
     BlankReport br;
+    br.sourceSha256=sourceSha256(in.path);
+    if(br.sourceSha256.isEmpty()){br.error=tr("Không đọc được tệp nguồn để xác minh nội dung.");return br;}
     br.notes << tr("Chỉ phát hiện trang không có nội dung. Trang trông trắng nhưng có ảnh quét hoặc ô tô nền trắng "
                    "KHÔNG được phát hiện.");
     const Info inf = info(in.path, in.password);
@@ -1481,6 +1501,9 @@ BlankReport findBlankPages(const Input& in) {
         }
         if (!hasPaintingOps(all)) br.blank << i;
     }
+    if(sourceSha256(in.path)!=br.sourceSha256){
+        br.error=tr("Tệp nguồn thay đổi trong lúc phân tích trang trắng.");return br;
+    }
     br.ok = true;
     return br;
 }
@@ -1493,8 +1516,9 @@ Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace,
         res.needPassword = br.needPassword;
         return res;
     }
-    if (confirmed && (!confirmed->ok || br.pages != confirmed->pages || br.blank != confirmed->blank)) {
-        res.error = tr("Danh sách trang trắng đã thay đổi kể từ lúc xác nhận. Hãy kiểm tra lại.");
+    if (confirmed && (!confirmed->ok || confirmed->sourceSha256.size()!=32 ||
+        br.sourceSha256!=confirmed->sourceSha256 || br.pages != confirmed->pages || br.blank != confirmed->blank)) {
+        res.error = tr("Tệp nguồn hoặc danh sách trang trắng đã thay đổi kể từ lúc xác nhận. Hãy kiểm tra lại.");
         return res;
     }
     if (br.blank.isEmpty()) {
@@ -1514,13 +1538,132 @@ Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace,
         QStringList a = pw.args();
         a << in.path << QStringLiteral("--pages") << QStringLiteral(".") << rangeFromIndexes(keep) << QStringLiteral("--") << tmp;
         return a;
-    });
+    },br.sourceSha256);
     if (res.ok) {
         res.warnings << tr("Đã bỏ %1 trang không có nội dung.").arg(br.blank.size());
         res.warnings << br.notes.first();
         if (!in.password.isEmpty()) res.warnings << tr("Kết quả không còn mật khẩu.");
     }
     return res;
+}
+
+namespace {
+struct EditablePdf {
+    QJsonObject meta,objects,catalog,form;
+    QJsonArray pages;
+    QString catalogRef,formRef;
+    QByteArray sha;
+};
+bool loadEditable(const Input& in,EditablePdf* e,Result* r){
+    e->sha=sourceSha256(in.path);
+    if(e->sha.isEmpty()){r->error=tr("Không đọc được nguồn.");return false;}
+    const auto inf=info(in.path,in.password);
+    if(!inf.ok){r->error=inf.error;r->needPassword=inf.needPassword;return false;}
+    if(inf.encrypted){r->error=tr("Chưa hỗ trợ sửa PDF mã hóa.");return false;}
+    QJsonDocument doc;
+    if(!runJson(in,{QStringLiteral("--json-key=pages"),QStringLiteral("--json-key=qpdf")},&doc,r))return false;
+    const auto q=doc.object().value(QStringLiteral("qpdf")).toArray();
+    if(q.size()!=2||sourceSha256(in.path)!=e->sha){r->error=tr("Cấu trúc hoặc nguồn PDF đã thay đổi.");return false;}
+    e->meta=q.at(0).toObject();e->objects=q.at(1).toObject();e->pages=doc.object().value(QStringLiteral("pages")).toArray();
+    for(auto it=e->objects.constBegin();it!=e->objects.constEnd();++it){
+        const auto d=it.value().toObject().value(QStringLiteral("value")).toObject();
+        if(d.contains(QStringLiteral("/ByteRange"))||d.value(QStringLiteral("/Type")).toString()==QLatin1String("/Sig")){
+            r->error=tr("PDF có chữ ký số; không chỉnh sửa.");return false;
+        }
+    }
+    const auto trailer=e->objects.value(QStringLiteral("trailer")).toObject().value(QStringLiteral("value")).toObject();
+    e->catalogRef=trailer.value(QStringLiteral("/Root")).toString();e->catalog=dictOf(e->objects,e->catalogRef);
+    if(e->catalog.isEmpty()||e->catalog.contains(QStringLiteral("/Perms"))){r->error=tr("Catalog hoặc quyền PDF chưa hỗ trợ.");return false;}
+    const auto form=e->catalog.value(QStringLiteral("/AcroForm"));
+    if(form.isString())e->formRef=form.toString();
+    e->form=resolveRef(e->objects,form).toObject();return true;
+}
+QJsonObject wrapped(const QJsonValue& v){return {{QStringLiteral("value"),v}};}
+Result updatePdf(const Input& in,const EditablePdf& e,const QJsonObject& updates,const QString& dest,bool appearances=false){
+    Result r;QTemporaryDir tmp;
+    if(!tmp.isValid()){r.error=tr("Không tạo được thư mục tạm.");return r;}
+    const QString patch=tmp.filePath(QStringLiteral("update.json"));
+    const auto data=QJsonDocument(QJsonObject{{QStringLiteral("qpdf"),QJsonArray{e.meta,updates}}}).toJson(QJsonDocument::Compact);
+    QFile file(patch);
+    if(!file.open(QIODevice::WriteOnly)||file.write(data)!=data.size()){r.error=tr("Không ghi được cập nhật PDF.");return r;}
+    file.close();
+    return writeSafely({in.path},dest,false,[&](const QString& out){
+        QStringList args{in.path,QStringLiteral("--update-from-json=")+patch};
+        if(appearances)args<<QStringLiteral("--generate-appearances");
+        args<<out;return args;
+    },e.sha);
+}
+QString pdfString(const QJsonValue& v){const auto s=v.toString();return s.startsWith(QLatin1String("u:"))?s.mid(2):QString();}
+bool simpleFields(const EditablePdf& e,TextForm* out,QHash<QString,QString>* refs){
+    if(e.form.isEmpty()||e.form.contains(QStringLiteral("/XFA"))){out->error=tr("Không có AcroForm đơn giản hoặc form XFA chưa hỗ trợ.");return false;}
+    const auto list=resolveRef(e.objects,e.form.value(QStringLiteral("/Fields"))).toArray();
+    for(const auto& item:list){
+        const QString ref=item.toString();const auto d=dictOf(e.objects,ref);
+        const int flags=d.value(QStringLiteral("/Ff")).toInt();
+        const QString name=pdfString(d.value(QStringLiteral("/T"))),value=pdfString(d.value(QStringLiteral("/V")));
+        if(d.value(QStringLiteral("/FT")).toString()!=QLatin1String("/Tx")||d.contains(QStringLiteral("/Kids"))||
+           d.value(QStringLiteral("/Subtype")).toString()!=QLatin1String("/Widget")||(flags&~6)!=0||
+           d.contains(QStringLiteral("/AA"))||d.contains(QStringLiteral("/RV"))||name.isEmpty()||refs->contains(name)||
+           !isAsciiText(value)||(d.contains(QStringLiteral("/V"))&&!d.value(QStringLiteral("/V")).toString().startsWith(QLatin1String("u:")))){
+            out->error=tr("Chỉ hỗ trợ form phẳng gồm trường chữ ASCII một dòng, không có trường phức tạp.");return false;
+        }
+        refs->insert(name,ref);out->names<<name;out->values<<value;
+    }
+    if(out->names.isEmpty()){out->error=tr("Không có trường chữ hỗ trợ.");return false;}
+    return true;
+}
+}
+Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest){
+    Result r;
+    if(text.trimmed().isEmpty()||text.size()>2000||!std::isfinite(xPercent)||!std::isfinite(yPercent)||xPercent<0||xPercent>100||yPercent<0||yPercent>100){
+        r.error=tr("Nội dung hoặc vị trí chú thích không hợp lệ.");return r;}
+    EditablePdf e;if(!loadEditable(in,&e,&r))return r;
+    if(page<1||page>e.pages.size()){r.error=tr("Trang không hợp lệ.");return r;}
+    const QString ref=e.pages.at(page-1).toObject().value(QStringLiteral("object")).toString();
+    auto d=dictOf(e.objects,ref);double b[4];
+    const int rot=resolveRef(e.objects,inheritedKey(e.objects,d,QStringLiteral("/Rotate"))).toInt();
+    if(rot%360!=0||(!boxOf(e.objects,d,QStringLiteral("/CropBox"),b)&&!boxOf(e.objects,d,QStringLiteral("/MediaBox"),b))||
+       b[2]-b[0]<24||b[3]-b[1]<24){r.error=tr("Chưa hỗ trợ trang xoay hoặc kích thước không hợp lệ.");return r;}
+    for(double n:b)if(!std::isfinite(n)){r.error=tr("Kích thước trang không hợp lệ.");return r;}
+    QJsonArray annots;
+    if(d.contains(QStringLiteral("/Annots"))){
+        const auto existing=resolveRef(e.objects,d.value(QStringLiteral("/Annots")));
+        if(!existing.isArray()){r.error=tr("Danh sách chú thích không hợp lệ.");return r;}
+        annots=existing.toArray();
+    }
+    const int max=e.meta.value(QStringLiteral("maxobjectid")).toInt(-1);
+    if(max<1||max>=2000000000){r.error=tr("Không xác minh được số đối tượng PDF.");return r;}
+    const QString noteRef=QString::number(max+1)+QStringLiteral(" 0 R");
+    const double x=b[0]+(b[2]-b[0]-24)*xPercent/100,y=b[3]-24-(b[3]-b[1]-24)*yPercent/100;
+    const QJsonObject note{{QStringLiteral("/Type"),QStringLiteral("/Annot")},{QStringLiteral("/Subtype"),QStringLiteral("/Text")},
+        {QStringLiteral("/Rect"),QJsonArray{x,y,x+24,y+24}},{QStringLiteral("/Contents"),QStringLiteral("u:")+text},
+        {QStringLiteral("/Name"),QStringLiteral("/Note")},{QStringLiteral("/C"),QJsonArray{1.0,0.8,0.0}},
+        {QStringLiteral("/Open"),false},{QStringLiteral("/P"),ref}};
+    annots.append(noteRef);d.insert(QStringLiteral("/Annots"),annots);
+    return updatePdf(in,e,QJsonObject{{QStringLiteral("obj:")+ref,wrapped(d)},{QStringLiteral("obj:")+noteRef,wrapped(note)}},dest);
+}
+TextForm textFormFields(const Input& in){
+    TextForm out;EditablePdf e;Result r;
+    if(!loadEditable(in,&e,&r)){out.error=r.error;return out;}
+    QHash<QString,QString> refs;out.ok=simpleFields(e,&out,&refs);return out;
+}
+Result fillTextField(const Input& in,const QString& name,const QString& value,const QString& dest){
+    Result r;
+    if(!isAsciiText(value)||value.size()>500){r.error=tr("Chỉ hỗ trợ chữ ASCII một dòng.");return r;}
+    EditablePdf e;if(!loadEditable(in,&e,&r))return r;
+    TextForm fields;QHash<QString,QString> refs;
+    if(!simpleFields(e,&fields,&refs)){r.error=fields.error;return r;}
+    if(!refs.contains(name)){r.error=tr("Không tìm thấy trường.");return r;}
+    const auto ref=refs.value(name);auto d=dictOf(e.objects,ref);
+    if(value.size()>d.value(QStringLiteral("/MaxLen")).toInt(500)){r.error=tr("Giá trị quá dài.");return r;}
+    d.insert(QStringLiteral("/V"),QStringLiteral("u:")+value);
+    e.form.insert(QStringLiteral("/NeedAppearances"),true);
+    QJsonObject updates{{QStringLiteral("obj:")+ref,wrapped(d)}};
+    if(e.formRef.isEmpty()){e.catalog.insert(QStringLiteral("/AcroForm"),e.form);updates.insert(QStringLiteral("obj:")+e.catalogRef,wrapped(e.catalog));}
+    else updates.insert(QStringLiteral("obj:")+e.formRef,wrapped(e.form));
+    r=updatePdf(in,e,updates,dest,true);
+    if(r.ok)r.warnings<<tr("Kiểm tra hình thức hiển thị trong trình đọc PDF. Chưa hỗ trợ điền chữ Việt có dấu.");
+    return r;
 }
 
 QString suggestOutputPath(const QString& sourcePath, const QString& label) {

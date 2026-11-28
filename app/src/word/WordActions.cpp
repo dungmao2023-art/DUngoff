@@ -141,6 +141,26 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
     if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
+    if(name==QLatin1String("tocCreate")){
+        QPointer<DocumentTab> live(tab);
+        bool ok=false;
+        const int levels=QInputDialog::getInt(parent,QObject::tr("Tạo mục lục"),
+            QObject::tr("Số cấp Heading (1–3). Tạo mục lục ở đầu tài liệu trong bản sao mới; sau khi mở, bấm Cập nhật mục lục."),
+            3,1,3,1,&ok);
+        if(!ok||!live||live->readOnly()||live->document()!=doc)return true;
+        QTemporaryDir temp;
+        if(!temp.isValid()){QMessageBox::warning(parent,QObject::tr("Mục lục"),QObject::tr("Không tạo được thư mục tạm."));return true;}
+        const QString src=temp.filePath(QStringLiteral("source.docx")),dst=temp.filePath(QStringLiteral("toc.docx"));
+        doc->waitInputIdle();std::string err;
+        QString error;
+        if(!doc->saveRecoveryCopy(dung::fromUtf8(ss(src)),&err)||!createTocCopy(src,dst,levels,&error)){
+            QMessageBox::warning(parent,QObject::tr("Mục lục"),error.isEmpty()?QString::fromUtf8(err.c_str()):error);return true;
+        }
+        const QString orig=doc->isNew()?QString():QString::fromUtf8(dung::toUtf8(doc->originalPath()).c_str());
+        const QString name=QFileInfo(QString::fromUtf8(doc->displayName().c_str())).completeBaseName()+QObject::tr(" - Mục lục.docx");
+        emit live->openCopyRequested(dst,orig,name);
+        return true;
+    }
     if(name==QLatin1String("listRestart")||name==QLatin1String("listContinue")){
         doc->waitInputIdle();
         const WordInsertTarget target(tab);

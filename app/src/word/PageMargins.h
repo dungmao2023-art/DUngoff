@@ -69,4 +69,8 @@ PatchResult patchDocxMargins(const QString& src, const QString& dst, const Margi
 bool replaceZipEntry(const QString& src, const QString& dst, const QString& entryName, const QByteArray& newData,
                      QString* error);
 
+// Create an actual TOC field at the beginning of a DOCX copy; update after opening.
+bool createTocXml(const QByteArray& xml,int levels,QByteArray* output,QString* error);
+bool createTocCopy(const QString& src,const QString& dst,int levels,QString* error);
+
 } // namespace dung::word
