@@ -605,6 +605,46 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         form->addRow(QObject::tr("Đối tượng"),shape); form->addRow(QObject::tr("Hiệu ứng"),effect);
         form->addRow(QObject::tr("Kiểu"),direction);
         form->addRow(QObject::tr("Bắt đầu"),trigger); form->addRow(QObject::tr("Thời lượng"),duration); form->addRow(QObject::tr("Độ trễ"),delay); root->addLayout(form);
+        auto* previewRow=new QHBoxLayout;
+        auto* preview=new QLabel(&dialog);preview->setFixedSize(200,92);
+        preview->setAccessibleName(QObject::tr("Minh họa hoạt ảnh đối tượng"));
+        previewRow->addWidget(preview);
+        auto* previewText=new QLabel(QObject::tr("Xem thử kiểu hiệu ứng, không thay đổi slide.\nMô phỏng trên hình mẫu; hiệu ứng ra được xem ngược."),&dialog);
+        previewText->setWordWrap(true);previewRow->addWidget(previewText,1);
+        auto* replayEffect=new QPushButton(QObject::tr("Xem thử"),&dialog);
+        previewRow->addWidget(replayEffect);root->addLayout(previewRow);
+        QTimer effectTimer;effectTimer.setInterval(20);QElapsedTimer effectClock;
+        QImage absent(200,92,QImage::Format_ARGB32_Premultiplied);absent.fill(QColor("#F1F5F9"));
+        QImage present=absent.copy();
+        {QPainter painter(&present);painter.setRenderHint(QPainter::Antialiasing);painter.setPen(Qt::NoPen);
+         painter.setBrush(QColor("#4338CA"));painter.drawRoundedRect(QRectF(27,12,146,68),8,8);
+         painter.setPen(Qt::white);painter.drawText(QRectF(27,12,146,68),Qt::AlignCenter,QObject::tr("Ý tưởng"));}
+        slideshow::TransitionPlan samplePlan;
+        bool sampleExit=false;
+        auto drawSample=[&](qreal f){
+            QImage frame=absent.copy();QPainter painter(&frame);
+            const QRect region(25,10,150,72);
+            slideshow::paintTransition(painter,QRectF(region),absent.copy(region),present.copy(region),
+                samplePlan,sampleExit?1-f:f);
+            painter.end();preview->setPixmap(QPixmap::fromImage(frame));
+        };
+        auto playSample=[&]{
+            using K=slideshow::TransitionKind;
+            const K kinds[]{K::Cut,K::Fade,K::Wipe,K::Blinds,K::Circle,K::Diamond,K::Dissolve,K::Wheel,K::Checkerboard,K::Split};
+            const int ix=effect->currentIndex();if(ix<0||ix>=10)return;
+            samplePlan={kinds[ix],qRound(duration->value()*1000),-1,0};
+            sampleExit=direction->currentIndex()==1;
+            effectClock.start();drawSample(0);
+            if(ix==0){effectTimer.stop();drawSample(1);}else effectTimer.start();
+        };
+        QObject::connect(&effectTimer,&QTimer::timeout,&dialog,[&]{
+            const qreal f=qMin(qreal(1),qreal(effectClock.elapsed())/qMax(1,samplePlan.durationMs));
+            drawSample(f);if(f>=1)effectTimer.stop();
+        });
+        QObject::connect(replayEffect,&QPushButton::clicked,&dialog,playSample);
+        QObject::connect(effect,&QComboBox::currentIndexChanged,&dialog,[&](int){playSample();});
+        QObject::connect(direction,&QComboBox::currentIndexChanged,&dialog,[&](int){playSample();});
+        preview->setPixmap(QPixmap::fromImage(present));
         auto* buttons = new QHBoxLayout;
         auto* add = new QPushButton(QObject::tr("+ Thêm"), &dialog); add->setObjectName(QStringLiteral("AnimationPrimary"));
         auto* edit = new QPushButton(QObject::tr("Cập nhật dòng"), &dialog);

@@ -63,7 +63,7 @@ inline bool findEntrancePlans(const QJsonObject& root,QVector<ClickEntrance>* ou
             const QJsonObject metadata{{"transitionType",filterType},{"transitionSubtype",filterSub},
                 {"transitionDirection",direction!="reverse"},{"transitionDuration",duration*1000}};
             const auto plan=transitionPlan(metadata);
-            if(plan.kind!=TransitionKind::Fade&&plan.kind!=TransitionKind::Wipe&&plan.kind!=TransitionKind::Dissolve){
+            if(plan.kind==TransitionKind::Cut||plan.kind==TransitionKind::Push){
                 valid=false;return;
             }
             g.plan=plan;g.filterTarget=target;g.hasFilter=true;

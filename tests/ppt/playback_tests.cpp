@@ -102,7 +102,18 @@ int main(int argc,char** argv){
            draw(hologram,.4)==draw(silk,.4)){
             std::cerr<<"FAIL distinct ink and hologram effects"<<std::endl;return 1;
         }
-        std::cout<<"PASS transition painter: Fade, Push, Wipe, Dissolve, Silk, Prism, Focus, Ink, Hologram"<<std::endl;
+        const QList<QPair<QString,QString>> extraMasks{
+            {"BlindWipe","Vertical"},{"EllipseWipe","Horizontal"},{"IrisWipe","Diamond"},
+            {"PineWheelWipe","4Blade"},{"CheckerBoardWipe","Across"},{"BarnDoorWipe","Vertical"}};
+        for(const auto& mask:extraMasks){
+            const auto plan=transitionPlan(QJsonObject{{"transitionType",mask.first},{"transitionSubtype",mask.second},
+                {"transitionDirection",true},{"transitionDuration",500}});
+            if(plan.kind==TransitionKind::Cut||draw(plan,0)!=oldFrame||draw(plan,1)!=newFrame||
+               draw(plan,.4)==oldFrame||draw(plan,.4)==newFrame||draw(plan,.3)==draw(plan,.6)){
+                std::cerr<<"FAIL extended transition mask "<<mask.first.toStdString()<<std::endl;return 1;
+            }
+        }
+        std::cout<<"PASS extended masks and existing transition painter"<<std::endl;
     }
     {
         const auto tree=QJsonDocument::fromJson(R"({"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape","begin":"0s"},{"nodeName":"TransitionFilter","targetElement":"shape","transitionType":"Fade","transitionSubType":"CrossFade","dur":"0.75s","begin":"0s"}]})").object();
