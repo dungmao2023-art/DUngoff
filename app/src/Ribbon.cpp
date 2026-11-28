@@ -178,8 +178,8 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 {tr("Hàng & cột"), {
                     B(".uno:InsertRowsBefore", tr("Chèn hàng"), 0xE710, "+≡", false),
                     B(".uno:InsertColumnsBefore", tr("Chèn cột"), 0xE710, "+‖", false),
-                    B(".uno:DeleteRows", tr("Xoá hàng"), 0xE74D, "−≡", false),
-                    B(".uno:DeleteColumns", tr("Xoá cột"), 0xE74D, "−‖", false),
+                    B("xl:deleteRow", tr("Xoá hàng…"), 0xE74D, "−≡", false),
+                    B("xl:deleteColumn", tr("Xoá cột…"), 0xE74D, "−‖", false),
                     B("xl:colWidth", tr("Rộng cột"), 0xE746, "↔|", false),
                     B("xl:rowHeight", tr("Cao hàng"), 0xE745, "↕|", false),
                     B(".uno:SetOptimalColumnWidth", tr("Vừa cột"), 0xE746, "⇔", false),
@@ -251,7 +251,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 {tr("Trang chiếu"), {
                     {QStringLiteral(".uno:InsertPage"), tr("Trang mới"), 0xE710, QStringLiteral("+"), false},
                     {QStringLiteral(".uno:DuplicatePage"), tr("Nhân bản"), 0xE8C8, QStringLiteral("⧉"), false},
-                    {QStringLiteral(".uno:DeletePage"), tr("Xoá trang"), 0xE74D, QStringLiteral("−"), false},
+                    {QStringLiteral("ppt.deleteSlide"), tr("Xoá trang…"), 0xE74D, QStringLiteral("−"), false},
                     {QStringLiteral(".uno:MovePageUp"), tr("Dời lên"), 0xE74A, QStringLiteral("↑"), false},
                     {QStringLiteral(".uno:MovePageDown"), tr("Dời xuống"), 0xE74B, QStringLiteral("↓"), false},
                     {QStringLiteral(".uno:HideSlide"), tr("Ẩn trang"), 0xED1A, QStringLiteral("⊘"), false},

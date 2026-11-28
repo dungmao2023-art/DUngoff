@@ -72,6 +72,17 @@ for filename, accepted in (("word-review-accepted.docx", True), ("word-review-re
         refs = {node.get(W+"id") for node in root.iter(W+"commentReference")}
         check(bool(ids & refs), filename + ": unrelated comment retained")
 
+# Undo must restore an actual tracked insertion and keep the comment anchor.
+for filename in ("word-review-accept-undone.docx", "word-review-reject-undone.docx"):
+    with zipfile.ZipFile(Path(sys.argv[1]).parent / filename) as z:
+        root = ET.fromstring(z.read("word/document.xml"))
+        check("ORIGINAL_MARKER" in text(root), filename + ": original retained")
+        check(any("INSERTED_MARKER" in text(ins) for ins in root.iter(W+"ins")), filename + ": tracked insertion restored")
+        comments = ET.fromstring(z.read("word/comments.xml"))
+        ids = {node.get(W+"id") for node in comments.iter(W+"comment") if "COMMENT_MARKER · Ghi chú tiếng Việt: Đường dẫn & số liệu" in text(node)}
+        refs = {node.get(W+"id") for node in root.iter(W+"commentReference")}
+        check(bool(ids & refs), filename + ": unrelated comment and anchor retained")
+
 # Verify the real table dimensions and surrounding text after each save.
 for filename in ("word-table-custom.docx", "word-table-custom-roundtrip.docx"):
     with zipfile.ZipFile(Path(sys.argv[1]).parent / filename) as z:

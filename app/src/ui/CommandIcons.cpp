@@ -51,6 +51,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:AlignTop", "align-top"}, {".uno:AlignVCenter", "align-middle"}, {".uno:AlignBottom", "align-bottom"},
         {".uno:AutoSum", "sum"}, {".uno:DataFilterAutoFilter", "filter"},
         {".uno:DeleteColumns", "col-delete"}, {".uno:DeleteRows", "row-delete"},
+        {"xl:deleteRow", "row-delete"}, {"xl:deleteColumn", "col-delete"},
         {".uno:InsertColumnsBefore", "col-insert"}, {".uno:InsertRowsBefore", "row-insert"},
         {".uno:InsertColumnsAfter", "col-insert"}, {".uno:InsertRowsAfter", "row-insert"},
         {"word:tableDeleteRow", "row-delete"}, {"word:tableDeleteColumn", "col-delete"}, {"word:tableMergeRow", "merge-cells"},
@@ -68,7 +69,7 @@ QString iconNameForCommand(const QString& id) {
         {"tableTools:clean", "clear-format"}, {"tableTools:compare", "compare"}, {"tableTools:dedup", "duplicate-files"},
         // PowerPoint
         {".uno:AssignLayout", "template"}, {".uno:FontHeight", "font-size"}, {".uno:Color", "font-color"}, {".uno:InsertTable", "table"},
-        {".uno:InsertPage", "slide-new"}, {".uno:DuplicatePage", "slide-duplicate"}, {".uno:DeletePage", "delete"},
+        {".uno:InsertPage", "slide-new"}, {".uno:DuplicatePage", "slide-duplicate"}, {".uno:DeletePage", "delete"}, {"ppt.deleteSlide", "delete"},
         {".uno:MovePageUp", "move-up"}, {".uno:MovePageDown", "move-down"},
         {".uno:HideSlide", "eye-off"}, {".uno:ShowSlide", "eye"},
         {"ppt.image", "image"}, {"ppt.rect", "shape"}, {"ppt.textbox", "textbox"},

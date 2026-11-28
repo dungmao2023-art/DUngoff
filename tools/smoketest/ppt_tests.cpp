@@ -187,6 +187,26 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
             if (e.type == LOK_CALLBACK_STATE_CHANGED) std::cout << "       [sự kiện] " << e.payload << std::endl;
         });
 
+    // Verify deletion of a nonempty original slide and Undo/Redo, not
+    // merely deleting the blank duplicate used by the basic count test.
+    if(n0==2){
+        step("xóa slide có nội dung, Undo và Redo");
+        d->setPart(1);d->waitInputIdle();
+        const auto first=renderHash(*d,0),second=renderHash(*d,1);
+        check(first!=second,"two original slides have distinct render content");
+        d->command(".uno:DeletePage");d->waitInputIdle();
+        check(partCountIs(*d,1)&&renderHash(*d,0)==first,"delete second slide preserves first slide");
+        d->command(".uno:Undo");d->waitInputIdle();
+        const bool restored=partCountIs(*d,2);
+        check(restored&&renderHash(*d,0)==first&&renderHash(*d,1)==second,"Undo restores slide order and rendered content");
+        if(restored){
+            d->command(".uno:Redo");d->waitInputIdle();
+            check(partCountIs(*d,1)&&renderHash(*d,0)==first,"Redo removes same slide");
+            d->command(".uno:Undo");d->waitInputIdle();
+            check(partCountIs(*d,2)&&renderHash(*d,0)==first&&renderHash(*d,1)==second,"second Undo restores original deck");
+        }
+        if(d->partCount()!=n0)return 1;
+    }
     // ---------------- Quản lý trang chiếu ----------------
     step("trang mới (.uno:InsertPage)");
     d->setPart(1);

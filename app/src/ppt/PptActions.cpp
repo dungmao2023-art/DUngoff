@@ -133,6 +133,28 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         new SlideShow(d,start,safeTab.data(),fullscreen,screen.data());
     } else if (id == QLatin1String("ppt.notes") || id == QLatin1String("ppt.normal")) {
         tab->setPptNotesMode(id == QLatin1String("ppt.notes"));
+    } else if (id == QLatin1String("ppt.deleteSlide")) {
+        if (tab->readOnly()) return true;
+        tab->setPptNotesMode(false);
+        const PptEditTarget target(tab);
+        if (target.count<=1) {
+            QMessageBox::information(tab,QObject::tr("Xóa slide"),QObject::tr("Không thể xóa slide duy nhất."));
+            return true;
+        }
+        if(target.part<0||target.part>=target.count)return true;
+        const auto hash=d->partHash(target.part);
+        const auto info=d->partInfo(target.part);
+        if(QMessageBox::question(tab,QObject::tr("Xóa slide"),
+            QObject::tr("Xóa slide %1/%2 (%3), gồm toàn bộ đối tượng và ghi chú của slide này?").arg(target.part+1).arg(target.count).arg(qs(target.name)),
+            QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return true;
+        if(!target.verify(false))return true;
+        if(d->partHash(target.part)!=hash||d->partInfo(target.part)!=info){
+            QMessageBox::warning(target.tab.data(),QObject::tr("Xóa slide"),QObject::tr("Slide đã thay đổi. Chưa xóa."));
+            return true;
+        }
+        d->command(".uno:DeletePage");
+        d->waitInputIdle();
+        if(target.tab&&target.tab->document()==d&&target.tab->view())target.tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.fontSize")) {
         if (d->readOnly()) return true;
         const PptEditTarget target(tab);
@@ -150,11 +172,19 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         }
         if (target.tab && target.tab->view()) target.tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.goto")) {
+        d->waitInputIdle();
+        QPointer<DocumentTab> safeTab(tab);
         const int n = d->partCount();
         if (n < 1) return true;
         bool ok = false;
         const int page = QInputDialog::getInt(tab, QObject::tr("Đến trang chiếu"), QObject::tr("Trang:"), d->currentPart() + 1, 1, n, 1, &ok);
-        if (ok) tab->stepPart(page - 1 - d->currentPart());
+        if (!ok||!safeTab||safeTab->document()!=d)return true;
+        d->waitInputIdle();
+        if(d->partCount()!=n){
+            QMessageBox::warning(safeTab.data(),QObject::tr("Đến trang chiếu"),QObject::tr("Số slide đã thay đổi. Hãy chọn lại."));
+            return true;
+        }
+        safeTab->stepPart(page - 1 - d->currentPart());
     } else if (id == QLatin1String("ppt.textbox")) {
         armShape(tab, ".uno:Text");
     } else if (id == QLatin1String("ppt.rect")) {

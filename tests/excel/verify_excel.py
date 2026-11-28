@@ -4,6 +4,7 @@ Dùng: python3 -I verify_excel.py <excel-ket-qua.xlsx> [<stress-goc.xlsx> <stres
 Mọi thay đổi phải KHÔNG làm mất công thức / ghi chú / liên kết / kiểu dữ liệu."""
 import datetime as dt
 import sys
+from pathlib import Path
 
 import openpyxl
 
@@ -93,6 +94,47 @@ def basic(path):
             print(f"[TIN]  AutoSum chèn {v} ở B{r}")
 
 
+def verify_delete_undo(path):
+    root = Path(path).parent
+    original = openpyxl.load_workbook(root / "excel-delete-baseline.xlsx")
+    def values(ws):
+        return {(c.row, c.column): (c.value, c.data_type)
+                for row in ws.iter_rows() for c in row if c.value is not None}
+    def compare_sheet(actual, expected, label):
+        a, b = values(actual), values(expected)
+        diffs = sorted(k for k in a.keys() | b.keys() if a.get(k) != b.get(k))
+        for k in diffs[:20]:
+            print(f"[DIFF] {label} {actual.cell(*k).coordinate}: {b.get(k)!r} -> {a.get(k)!r}")
+        check(not diffs, label + f": {len(diffs)} changed cells")
+    check(original.sheetnames == ["Dữ liệu", "Phụ"], "isolated deletion fixture sheet names")
+    check([tuple(original["Phụ"].cell(r,c).value for c in (11,12,13)) for r in (10,11,12,13)] ==
+          [("Khóa","Mã","Giá trị"),(1,"001",10),(2,"002",20),(3,"003",30)],
+          "isolated deletion fixture expected sorted table")
+    for filename, mode in (("excel-delete-control.xlsx", "undo"),
+                           ("excel-row-deleted.xlsx", "row"),
+                           ("excel-column-deleted.xlsx", "column"),
+                           ("excel-row-restored.xlsx", "undo"),
+                           ("excel-column-restored.xlsx", "undo")):
+        candidate = openpyxl.load_workbook(root / filename)
+        check(candidate.sheetnames == original.sheetnames, filename + ": sheet identity preserved")
+        compare_sheet(candidate["Dữ liệu"], original["Dữ liệu"],
+                      filename + ": other sheet values and formulas preserved")
+        aux = candidate["Phụ"]
+        if mode == "row":
+            check([tuple(aux.cell(r,c).value for c in (11,12,13)) for r in (10,11,12)] ==
+                  [("Khóa","Mã","Giá trị"),(2,"002",20),(3,"003",30)],
+                  filename + ": deletes selected whole row and shifts intact records")
+        elif mode == "column":
+            check([tuple(aux.cell(r,c).value for c in (11,12)) for r in (10,11,12,13)] ==
+                  [("Khóa","Giá trị"),(1,10),(2,20),(3,30)],
+                  filename + ": deletes selected whole column only")
+        else:
+            compare_sheet(aux, original["Phụ"],
+                          filename + ": all auxiliary values, formula strings and cell types preserved")
+        check(aux["A2"].value == 10 and aux["B2"].value == 5,
+              filename + ": unrelated cells preserved")
+
+
 def stress(orig, res):
     a = openpyxl.load_workbook(orig)["DonHang"]
     wb = openpyxl.load_workbook(res)
@@ -113,6 +155,7 @@ def stress(orig, res):
 
 if __name__ == "__main__":
     basic(sys.argv[1])
+    verify_delete_undo(sys.argv[1])
     if len(sys.argv) >= 4:
         stress(sys.argv[2], sys.argv[3])
     print("\nKẾT QUẢ XÁC MINH EXCEL: " + ("CÓ LỖI" if fails else "ĐẠT"))

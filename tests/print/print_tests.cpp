@@ -134,6 +134,16 @@ int main(int argc, char** argv) {
     check(!printrender::pdfInfo(dir.filePath(QStringLiteral("hong.pdf"))).ok, "PDF hỏng → lỗi rõ ràng");
 
     QString err;
+    const QString display=QStringLiteral("Có có CÓ không").normalized(QString::NormalizationForm_C);
+    check(printrender::highlightOffsets(display,QStringLiteral("  có "),false)==QVector<qsizetype>{0,3,6},
+          "highlight NFC Vietnamese, trimmed query, case-insensitive");
+    check(printrender::highlightOffsets(display,QStringLiteral("Có"),true)==QVector<qsizetype>{0},
+          "highlight case-sensitive");
+    check(printrender::highlightOffsets(QStringLiteral("aaaa"),QStringLiteral("aa"),false)==QVector<qsizetype>{0,2},
+          "highlight non-overlapping literal matches");
+    check(printrender::highlightOffsets(display,QStringLiteral("có"),false,2).size()==2&&
+          printrender::highlightOffsets(display,QStringLiteral(" " ),false).isEmpty(),
+          "highlight cap and empty query");
     const auto all=printrender::searchText(src,QStringLiteral("trang"),1,3);
     check(all.ok&&all.hits.size()==3&&all.textPages==3,"Tìm chữ PDF không phân biệt hoa/thường");
     const auto one=printrender::searchText(src,QStringLiteral("Trang 2"),1,3,true);
