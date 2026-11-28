@@ -68,8 +68,8 @@ Result compress(const Input& in, const QString& dest, bool allowReplace = false)
 enum class Position { TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight, Center, Diagonal, Custom };
 
 struct NumberOptions {
-    // {n} = số trang hiện tại, {total} = số cuối cùng được đánh. Chỉ nhận ký tự ASCII (chữ không dấu): font
-    // chuẩn của PDF không có chữ có dấu tiếng Việt và chưa nhúng font; gặp ký tự khác thì từ chối, không đánh sai.
+    // {n} = số trang hiện tại, {total} = số cuối cùng được đánh.
+    // Unicode một dòng dùng lớp PDF vector nhúng font; từ chối nếu thiếu font hoặc cỡ trang không rõ.
     QString format = QStringLiteral("{n}");
     Position pos = Position::BottomCenter;
     double fontSize = 11;

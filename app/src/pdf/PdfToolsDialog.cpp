@@ -583,8 +583,6 @@ private:
     bool busy_ = false, fresh_ = false;
 };
 
-const char* kAsciiHint = "Chữ có dấu tiếng Việt chưa dùng được ở mục này (font PDF chuẩn không có chữ có dấu). "
-                         "Hãy dùng chữ không dấu, hoặc đóng dấu bằng ảnh đã có chữ tiếng Việt.";
 }  // namespace
 
 QWidget* PdfToolsDialog::buildNumber() {
@@ -613,7 +611,7 @@ QWidget* PdfToolsDialog::buildNumber() {
     m_numPages = new QLineEdit(QStringLiteral("1-"), w);
     m_numPages->setPlaceholderText(tr("Ví dụ: 1- hoặc 2-10"));
     f->addRow(tr("Các trang được đánh số:"), m_numPages);
-    auto* hint = new QLabel(tr("{n} = số trang, {total} = số cuối cùng. Chỉ nhận chữ không dấu."), w);
+    auto* hint = new QLabel(tr("{n} = số trang, {total} = số cuối cùng. Hỗ trợ chữ tiếng Việt một dòng nếu có phông phù hợp."), w);
     hint->setStyleSheet("color:#555");
     f->addRow(hint);
     auto options = [this] {
@@ -640,7 +638,6 @@ QWidget* PdfToolsDialog::buildNumber() {
         const QString src = m_numFile->text();
         if (src.isEmpty()) { QMessageBox::information(this, tr("Đánh số trang"), tr("Hãy chọn tệp PDF.")); return; }
         const QString fmt = m_numFormat->text();
-        if (!isAsciiText(fmt)) { QMessageBox::warning(this, tr("Đánh số trang"), tr(kAsciiHint)); return; }
         NumberOptions o;
         o.format = fmt;
         o.pos = Position(m_numPos->currentData().toInt());
