@@ -231,6 +231,7 @@ jobs:
           python3 tests/calc/check_freeze.py smoke-sweep 2>&1 | tee report/linux-freeze-file.log
           python3 tests/calc/check_native_chart.py smoke-sweep/native-chart.xlsx 2>&1 | tee report/linux-native-chart.log
           python3 tests/calc/check_native_pivot.py smoke-sweep/native-pivot.xlsx 2>&1 | tee report/linux-native-pivot.log
+          python3 tests/calc/test_create_pivot.py /usr/lib/libreoffice/program /usr/bin/python3 2>&1 | tee report/linux-create-pivot.log
           python3 tests/calc/check_validation_protection.py verify smoke-sweep 2>&1 | tee report/linux-validation-protection.log
       - name: Đặt lề bằng vá XML (Linux) — đơn vị, gói ZIP, .docx thật, engine thật
         run: |
@@ -751,6 +752,8 @@ jobs:
           python tests/calc/check_native_chart.py smoke-sweep/native-chart.xlsx 2>&1 | Tee-Object report/windows-native-chart.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python tests/calc/check_native_pivot.py smoke-sweep/native-pivot.xlsx 2>&1 | Tee-Object report/windows-native-pivot.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python tests/calc/test_create_pivot.py "$PWD/build/lo/engine/program" "$PWD/build/lo/engine/program/python.exe" 2>&1 | Tee-Object report/windows-create-pivot.log
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python tests/calc/check_validation_protection.py verify smoke-sweep 2>&1 | Tee-Object report/windows-validation-protection.log
           if ($LASTEXITCODE -ne 0) { exit 1 }

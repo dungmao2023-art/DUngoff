@@ -5,6 +5,13 @@
 #include "../EngineHost.h"
 #include "../TileView.h"
 #include "ExcelCommands.h"
+#include "CreatePivotScript.h"
+#include <QProcess>
+#include <QTemporaryDir>
+#include <QFileInfo>
+#include <QFile>
+#include <QComboBox>
+#include <QPointer>
 #ifndef LOK_USE_UNSTABLE_API
 #define LOK_USE_UNSTABLE_API
 #endif
@@ -253,6 +260,63 @@ void DocumentTab::excelAction(const QString& id) {
         }
         cmd(descending?".uno:SortDescending":".uno:SortAscending");
         m_doc->waitInputIdle();m_view->setFocus();return;
+    } else if(a==QLatin1String("createPivot")){
+        const QString title=tr("Tạo PivotTable");
+        const QString range=m_view->selectedCellRange();
+        const auto normalized=dataassist::bridgeRangeAddress(ss(range));
+        const auto ends=qs(normalized).split(QLatin1Char(':'));
+        auto coords=[](const QString& cell){
+            int i=0,col=0;
+            while(i<cell.size()&&cell[i].unicode()>='A'&&cell[i].unicode()<='Z'){col=col*26+cell[i].unicode()-'A'+1;++i;}
+            return QPair<int,int>(cell.mid(i).toInt(),col);
+        };
+        if(ends.size()!=2){QMessageBox::information(this,title,tr("Chọn vùng nguồn có dòng tiêu đề và ít nhất hai cột."));return;}
+        const auto first=coords(ends.first()),last=coords(ends.last());
+        const int rows=last.first-first.first+1,cols=last.second-first.second+1;
+        if(rows<2||cols<2||cols>100||qint64(rows)*cols>50000){QMessageBox::information(this,title,tr("Chọn 2–100 cột và tối đa 50.000 ô."));return;}
+        auto colName=[](int n){QString s;while(n>0){--n;s.prepend(QChar(ushort('A'+n%26)));n/=26;}return s;};
+        QDialog dialog(this);dialog.setWindowTitle(title);
+        auto* layout=new QFormLayout(&dialog);
+        auto* row=new QComboBox(&dialog);auto* col=new QComboBox(&dialog);auto* val=new QComboBox(&dialog);auto* fn=new QComboBox(&dialog);
+        col->addItem(tr("Không dùng"),-1);
+        for(int i=0;i<cols;++i){const auto label=tr("Cột %1").arg(colName(first.second+i));row->addItem(label,i);col->addItem(label,i);val->addItem(label,i);}
+        val->setCurrentIndex(1);fn->addItems({tr("Tổng (SUM)"),tr("Đếm (COUNT)")});
+        auto* note=new QLabel(tr("Nguồn: %1. Dòng đầu là tiêu đề duy nhất. PivotTable thật sẽ nằm trên sheet mới trong bản sao XLSX; bản đang soạn giữ nguyên.").arg(range),&dialog);
+        note->setWordWrap(true);layout->addRow(note);layout->addRow(tr("Hàng"),row);layout->addRow(tr("Cột"),col);layout->addRow(tr("Giá trị"),val);layout->addRow(tr("Tổng hợp"),fn);
+        auto* bb=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);layout->addRow(bb);
+        connect(bb,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);connect(bb,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+        if(dialog.exec()!=QDialog::Accepted||!confirmTarget(range,title))return;
+        const int ri=row->currentData().toInt(),ci=col->currentData().toInt(),vi=val->currentData().toInt();
+        if(ri==vi||ci==ri||ci==vi){QMessageBox::warning(this,title,tr("Chọn các trường khác nhau."));return;}
+        const QString program=EngineHost::instance().runtimeDir();
+#ifdef Q_OS_WIN
+        const QString python=program+QStringLiteral("/python.exe");
+#else
+        const QString python=QStringLiteral("/usr/bin/python3");
+#endif
+        if(!QFileInfo::exists(python)){QMessageBox::warning(this,title,tr("Thiếu Python UNO của engine; chưa tạo PivotTable."));return;}
+        QTemporaryDir temp;
+        if(!temp.isValid()){QMessageBox::warning(this,title,tr("Không tạo được thư mục tạm."));return;}
+        const QString src=temp.filePath("source.xlsx"),dst=temp.filePath("pivot.xlsx"),helper=temp.filePath("pivot.py");
+        std::string error;
+        if(!m_doc->saveRecoveryCopy(toPath(src),&error)){QMessageBox::warning(this,title,qs(error));return;}
+        QFile script(helper);const QByteArray bytes(kCreatePivotScript);
+        if(!script.open(QIODevice::WriteOnly)||script.write(bytes)!=bytes.size()){QMessageBox::warning(this,title,tr("Không ghi được công cụ PivotTable."));return;}script.close();
+        QProcess worker;
+        worker.setProgram(python);
+        worker.setArguments({helper,program,src,dst,QString::number(cur),qs(normalized),QString::number(ri),QString::number(ci),QString::number(vi),fn->currentIndex()==0?QStringLiteral("SUM"):QStringLiteral("COUNT")});
+        QApplication::setOverrideCursor(Qt::BusyCursor);
+        worker.start();
+        const bool finished=worker.waitForStarted(5000)&&worker.waitForFinished(90000);
+        if(!finished){worker.kill();worker.waitForFinished(3000);}
+        QApplication::restoreOverrideCursor();
+        if(!finished||worker.exitStatus()!=QProcess::NormalExit||worker.exitCode()!=0||!worker.readAllStandardOutput().contains("PIVOT_OK")||!QFileInfo::exists(dst)){
+            QMessageBox::warning(this,title,tr("Không tạo được PivotTable. Bản gốc không thay đổi. Kiểm tra tiêu đề, trường và engine.\n%1").arg(QString::fromUtf8(worker.readAllStandardError()).right(500)));return;
+        }
+        const QString orig=m_doc->isNew()?QString():fromPath(m_doc->originalPath());
+        const QString name=QFileInfo(qs(m_doc->displayName())).completeBaseName()+QStringLiteral(" - Pivot.xlsx");
+        emit openCopyRequested(dst,orig,name);
+        return;
     } else if(a==QLatin1String("refreshPivot")){
         const auto range=m_view->selectedCellRange();
         if(dataassist::bridgeCellAddress(ss(range)).empty()){
