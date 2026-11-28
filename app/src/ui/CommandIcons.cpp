@@ -54,7 +54,7 @@ QString iconNameForCommand(const QString& id) {
         {"xl:deleteRow", "row-delete"}, {"xl:deleteColumn", "col-delete"},
         {".uno:InsertColumnsBefore", "col-insert"}, {".uno:InsertRowsBefore", "row-insert"},
         {".uno:InsertColumnsAfter", "col-insert"}, {".uno:InsertRowsAfter", "row-insert"},
-        {"word:tableDeleteRow", "row-delete"}, {"word:tableDeleteColumn", "col-delete"}, {"word:tableMergeRow", "merge-cells"},
+        {"word:tableDeleteRow", "row-delete"}, {"word:tableDeleteColumn", "col-delete"}, {"word:tableMergeRow", "merge-cells"}, {"word:tableSplitCell", "col-insert"},
         {".uno:FreezePanes", "freeze"}, {".uno:FreezePanesColumn", "freeze"}, {".uno:FreezePanesRow", "freeze"},
         {".uno:NumberFormatDate", "calendar"}, {".uno:NumberFormatDecDecimals", "decimal-dec"}, {".uno:NumberFormatIncDecimals", "decimal-inc"},
         {".uno:NumberFormatPercent", "percent"}, {".uno:NumberFormatStandard", "clear-format"}, {".uno:NumberFormatThousands", "thousands"},
