@@ -60,6 +60,12 @@ def split(doc, root):
 def toc(doc, root):
     text = doc.Text
     cursor = text.createTextCursor()
+    # The installed engine may call its body style "Body Text" or use a
+    # localized name. Capture the actual default before changing the heading.
+    body_style = cursor.ParaStyleName
+    styles = doc.StyleFamilies.getByName("ParagraphStyles")
+    require(styles.hasByName(body_style), "default paragraph style unavailable: " + str(body_style))
+    print("TOC: initial paragraph style", body_style, flush=True)
     print("TOC: create heading", flush=True)
     text.insertString(cursor, "HEADING_PROBE", False)
     cursor.gotoStart(False)
@@ -68,7 +74,8 @@ def toc(doc, root):
     print("TOC: separate paragraph", flush=True)
     text.insertControlCharacter(cursor, uno.getConstantByName("com.sun.star.text.ControlCharacter.PARAGRAPH_BREAK"), False)
     cursor.gotoEnd(False)
-    cursor.ParaStyleName = "Text Body"
+    cursor.ParaStyleName = body_style
+    require(cursor.ParaStyleName == body_style, "body style not restored")
     print("TOC: create index", flush=True)
     index = doc.createInstance("com.sun.star.text.ContentIndex")
     print("TOC: attach index", flush=True)
