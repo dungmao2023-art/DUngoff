@@ -1064,6 +1064,7 @@ void MainWindow::addTab(DocumentTab* tab) {
     });
     connect(tab, &DocumentTab::savedTo, this, &MainWindow::addRecent);
     connect(tab, &DocumentTab::templateCopyRequested, this, &MainWindow::openPath);
+    connect(tab, &DocumentTab::openSavedPresentationRequested, this, &MainWindow::openPath, Qt::QueuedConnection);
     // Bản sao có lề mới (Word, Windows): mở trong thẻ mới, thẻ cũ giữ nguyên.
     connect(tab, &DocumentTab::openCopyRequested, this, [this](const QString& path, const QString& original, const QString& name) {
         QString err;

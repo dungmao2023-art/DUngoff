@@ -14,7 +14,7 @@ struct ClickEntrance {QString target;TransitionPlan plan;};
 inline bool findEntrancePlans(const QJsonObject& root,QVector<ClickEntrance>* output){
     if(!output)return false;
     output->clear();
-    struct Group {QString target,filterTarget;TransitionPlan plan;bool hasSet=false,hasFilter=false;};
+    struct Group {QString target,filterTarget;TransitionPlan plan;bool hasSet=false,hasFilter=false;QVector<QJsonObject> motion;};
     QVector<Group> groups;QSet<QString> seen;
     int nodes=0;bool valid=true;
     auto visit=[&](auto&& self,const QJsonObject& node,int depth,int click)->void{
@@ -63,18 +63,58 @@ inline bool findEntrancePlans(const QJsonObject& root,QVector<ClickEntrance>* ou
             const QJsonObject metadata{{"transitionType",filterType},{"transitionSubtype",filterSub},
                 {"transitionDirection",direction!="reverse"},{"transitionDuration",duration*1000}};
             const auto plan=transitionPlan(metadata);
-            if(plan.kind!=TransitionKind::Fade&&plan.kind!=TransitionKind::Wipe&&plan.kind!=TransitionKind::Dissolve){
+            if(plan.kind==TransitionKind::Cut||plan.kind==TransitionKind::Push){
                 valid=false;return;
             }
             g.plan=plan;g.filterTarget=target;g.hasFilter=true;
+        }else if(kind=="Animate"){
+            if(g.motion.size()>=4||g.hasFilter||node.contains("formula")||node.contains("keySplines")||
+               node.contains("accumulate")||node.contains("accelerate")||node.contains("decelerate")){
+                valid=false;return;
+            }
+            const auto mode=node.value("calcMode").toString(),additive=node.value("additive").toString();
+            if((!mode.isEmpty()&&mode!="Linear")||(!additive.isEmpty()&&additive!="Replace")){
+                valid=false;return;
+            }
+            g.motion.append(node);
         }else valid=false;
     };
     visit(visit,root,0,-1);
     if(!valid||groups.isEmpty())return false;
     QVector<ClickEntrance> candidate;
     for(const auto& g:groups){
-        if(!g.hasSet||(g.hasFilter&&g.filterTarget!=g.target))return false;
-        candidate.append(ClickEntrance{g.target,g.plan});
+        if(!g.hasSet||(g.hasFilter&&g.filterTarget!=g.target)||(!g.motion.isEmpty()&&g.hasFilter))return false;
+        auto plan=g.plan;
+        if(!g.motion.isEmpty()){
+            QSet<QString> properties;int durationMs=0;bool width=false,height=false;int dx=0,dy=0;
+            for(const auto& node:g.motion){
+                if(node.value("targetElement").toString()!=g.target)return false;
+                const auto attr=node.value("attributeName").toString().toLower();
+                if(properties.contains(attr))return false;
+                properties.insert(attr);
+                QString values=node.value("values").toString().toLower();
+                values.remove(' ');values.remove('#');
+                QString times=node.value("keyTimes").toString();times.remove(' ');
+                if(!times.isEmpty()&&times!="0;1")return false;
+                QString seconds=node.value("dur").toString();if(!seconds.endsWith('s'))return false;
+                seconds.chop(1);bool ok=false;const auto d=seconds.toDouble(&ok);
+                if(!ok||!std::isfinite(d)||d<.1||d>10)return false;
+                const int ms=qRound(d*1000);if(durationMs&&ms!=durationMs)return false;durationMs=ms;
+                if(attr=="x"){
+                    if(values=="0-width/2;x")dx=-1;else if(values=="1+width/2;x")dx=1;
+                    else if(values!="x;x")return false;
+                }else if(attr=="y"){
+                    if(values=="0-height/2;y")dy=-1;else if(values=="1+height/2;y")dy=1;
+                    else if(values!="y;y")return false;
+                }else if(attr=="width"&&values=="0;width")width=true;
+                else if(attr=="height"&&values=="0;height")height=true;
+                else return false;
+            }
+            if(width&&height&&properties.size()==2)plan={TransitionKind::Zoom,durationMs,0,0};
+            else if(!width&&!height&&(dx||dy))plan={TransitionKind::Fly,durationMs,dx,dy};
+            else return false;
+        }
+        candidate.append(ClickEntrance{g.target,plan});
     }
     *output=candidate;return true;
 }

@@ -14,7 +14,16 @@ int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     int errors = 0;
     auto check = [&](bool ok, const char* msg) { std::cout << (ok ? "PASS " : "FAIL ") << msg << '\n'; if (!ok) ++errors; };
+    check(slideshow::visibleSlideIndices({true,false,true,false,true})==QVector<int>({0,2,4})&&
+          slideshow::visibleSlideIndices({false,false}).isEmpty(),"slide chooser excludes hidden slides");
     const QList<Shape> presetShapes{{1,"Title"},{2,"Text"},{3,"Picture"}};
+    QList<Shape> selectedPreset;
+    check(selectPresetShapes(presetShapes,{3,1},&selectedPreset).ok&&selectedPreset.size()==2&&
+          selectedPreset[0].id==1&&selectedPreset[1].id==3,"preset subset follows slide order");
+    check(!selectPresetShapes(presetShapes,{1,1},&selectedPreset).ok&&
+          !selectPresetShapes(presetShapes,{99},&selectedPreset).ok&&
+          !selectPresetShapes(presetShapes,{},&selectedPreset).ok&&selectedPreset.size()==2,
+          "invalid preset selection leaves existing list intact");
     QList<AnimationOptions> presetEffects;
     QList<AnimationTiming> presetTiming;
     check(makeAnimationPreset(presetShapes,AnimationPreset::AppearClickEach,&presetEffects).ok &&
@@ -65,6 +74,12 @@ int main(int argc, char** argv) {
           "numeric jump rejects hidden or invalid slides");
     check(slideshow::autoAdvanceDelay(visible,1,5000,false,false,false,true)==5000,"autoplay advances to next visible slide");
     check(slideshow::autoAdvanceDelay(visible,3,5000,false,false,false,true)==0,"autoplay stops at last visible slide");
+    check(slideshow::autoAdvanceDelay(visible,3,1000,false,false,false,true,true)==1000,
+          "autoplay finishes pending entrance on last slide");
+    check(slideshow::autoAdvanceDelay(visible,3,1000,true,false,false,true,true)==0&&
+          slideshow::autoAdvanceDelay(visible,3,1000,false,true,false,true,true)==0&&
+          slideshow::autoAdvanceDelay(visible,-1,1000,false,false,false,true,true)==0,
+          "pending effects never bypass pause, blank or invalid slide");
     check(slideshow::autoAdvanceDelay(visible,1,5000,true,false,false,true)==0 &&
           slideshow::autoAdvanceDelay(visible,1,5000,false,true,false,true)==0 &&
           slideshow::autoAdvanceDelay(visible,1,5000,false,false,true,true)==0 &&
@@ -78,6 +93,15 @@ int main(int argc, char** argv) {
     check(result.ok && out.contains("advTm=\"3000\"") && out.contains("<p:fade/>") && out.indexOf("<p:transition") < out.indexOf("<p:timing"), "insert transition before timing");
     QByteArray replaced; o.effect = Effect::PushLeft;
     check(patchXml(out, o, &replaced).ok && replaced.count("<p:transition") == 1 && replaced.contains("<p:push dir=\"l\"/>") && !replaced.contains("<p:fade/>"), "replace simple transition");
+    for(const auto& item:QList<QPair<Effect,QByteArray>>{
+            {Effect::PushRight,"<p:push dir=\"r\"/>"},{Effect::PushUp,"<p:push dir=\"u\"/>"},
+            {Effect::PushDown,"<p:push dir=\"d\"/>"},{Effect::WipeRight,"<p:wipe dir=\"r\"/>"},
+            {Effect::WipeUp,"<p:wipe dir=\"u\"/>"},{Effect::WipeDown,"<p:wipe dir=\"d\"/>"}}){
+        Options direction;direction.effect=item.first;QByteArray patched,clean;
+        check(patchXml(xml,direction,&patched).ok&&patched.contains(item.second),"directional slide transition");
+        direction.effect=Effect::None;
+        check(patchXml(patched,direction,&clean).ok&&clean==xml,"directional transition removable without other changes");
+    }
     o.effect = Effect::None; o.autoAdvanceMs = 0;
     QByteArray removed;
     check(patchXml(replaced, o, &removed).ok && removed == xml, "remove transition preserves original XML");
@@ -86,6 +110,27 @@ int main(int argc, char** argv) {
     o.onClick = true;
     check(!patchXml("<not-slide/>", o, &out).ok, "reject bad XML");
     const QByteArray animXml = "<p:sld xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id=\"42\" name=\"Box\"/></p:nvSpPr></p:sp></p:spTree></p:cSld><p:transition/><p:extLst/></p:sld>";
+    {
+        const QByteArray blank="<p:sld xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld></p:sld>";
+        pptdiagram::Options diagram;diagram.title="Ý tưởng & <kết quả>";diagram.items={"Một","Hai","Ba","Bốn"};
+        for(int l=0;l<6;++l)for(int palette=0;palette<3;++palette){
+            diagram.layout=static_cast<pptdiagram::Layout>(l);diagram.palette=palette;
+            QList<pptdiagram::Node> nodes;QByteArray output;
+            check(pptdiagram::plan(diagram,&nodes)&&patchDiagramXml(blank,12192000,6858000,diagram,&output).ok&&
+                  output.count("<p:sp ")==nodes.size()&&output.contains("&amp;")&&output.contains("&lt;")&&
+                  !patchDiagramXml(output,12192000,6858000,diagram,&out).ok,
+                  "editable diagram shapes, escaping and refusal to overwrite");
+            const auto edges=pptdiagram::edges(diagram,nodes);
+            const int expectedEdges=l==0?3:l==1?7:l==2?4:l==3?0:l==4?3:4;
+            check(edges.size()==expectedEdges&&output.count("<p:cxnSp ")==expectedEdges&&
+                  output.count("<a:stCxn ")==expectedEdges&&output.count("<a:endCxn ")==expectedEdges,"attached diagram connectors");
+            for(const auto& edge:edges)check(edge.from!=edge.to&&edge.from>=0&&edge.to>=0&&
+                edge.from<nodes.size()&&edge.to<nodes.size()&&edge.start!=edge.end,"valid connector endpoints");
+            for(const auto& node:nodes)check(QRectF(0,0,1,1).contains(node.rect),"diagram bounds");
+        }
+        check(!patchDiagramXml(animXml,12192000,6858000,diagram,&out).ok,"reject occupied slide");
+        diagram.items.clear();check(!patchDiagramXml(blank,12192000,6858000,diagram,&out).ok,"reject empty diagram");
+    }
     AnimationOptions anim; anim.shapeId = 42; anim.fade = true; anim.durationMs = 750; anim.delayMs = 200;
     QByteArray animated;
     check(patchAnimationXml(animXml,anim,&animated).ok && animated.contains("spid=\"42\"") && animated.contains("dur=\"750\"") &&
@@ -108,6 +153,19 @@ int main(int argc, char** argv) {
               filtered.contains(exiting?"val=\"hidden\"":"val=\"visible\"")&&
               clearAnimationXml(filtered,&restored).ok&&restored==animXml,
               "extended animation filter roundtrip");
+    }
+    for(const auto f:{AnimationFilter::FlyLeft,AnimationFilter::FlyRight,AnimationFilter::FlyTop,AnimationFilter::FlyBottom,AnimationFilter::Zoom}){
+        for(bool exit:{false,true}){
+            AnimationOptions motion;motion.shapeId=42;motion.filter=f;motion.durationMs=800;motion.exit=exit;
+            QByteArray result,restored;QList<AnimationTiming> times;
+            const bool zoom=f==AnimationFilter::Zoom;
+            check(planAnimation({motion},&times).ok&&times.first().endMs==(exit?801:800)&&
+                  patchAnimationXml(animXml,motion,&result).ok&&
+                  result.contains(zoom?"presetID=\"23\"":"presetID=\"2\"")&&
+                  result.count("<p:anim calcmode=")==(zoom?2:1)&&result.contains("tm=\"100000\"")&&
+                  result.contains("dur=\"800\"")&&clearAnimationXml(result,&restored).ok&&restored==animXml,
+                  "motion and zoom animation keyframe roundtrip");
+        }
     }
     AnimationOptions invalidFilter;invalidFilter.shapeId=42;invalidFilter.filter=static_cast<AnimationFilter>(99);
     check(!patchAnimationXml(animXml,invalidFilter,&out).ok,"reject unknown animation filter");

@@ -10,6 +10,7 @@
 #include <QSet>
 #include <QTemporaryDir>
 #include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 #include <functional>
 #include <QRegularExpression>
 
@@ -158,6 +159,12 @@ Result patchXml(const QByteArray& xml, const Options& o, QByteArray* output) {
         case Effect::PushLeft: fragment += QStringLiteral("<p:push dir=\"l\"/>"); break;
         case Effect::WipeLeft: fragment += QStringLiteral("<p:wipe dir=\"l\"/>"); break;
         case Effect::Dissolve: fragment += QStringLiteral("<p:dissolve/>"); break;
+        case Effect::PushRight: fragment += QStringLiteral("<p:push dir=\"r\"/>"); break;
+        case Effect::PushUp: fragment += QStringLiteral("<p:push dir=\"u\"/>"); break;
+        case Effect::PushDown: fragment += QStringLiteral("<p:push dir=\"d\"/>"); break;
+        case Effect::WipeRight: fragment += QStringLiteral("<p:wipe dir=\"r\"/>"); break;
+        case Effect::WipeUp: fragment += QStringLiteral("<p:wipe dir=\"u\"/>"); break;
+        case Effect::WipeDown: fragment += QStringLiteral("<p:wipe dir=\"d\"/>"); break;
         default: return fail(QStringLiteral("Hiệu ứng không hợp lệ."));
         }
         fragment += QStringLiteral("</p:transition>");
@@ -268,7 +275,7 @@ Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTimin
     QList<AnimationTiming> plan;QHash<unsigned,AnimationTiming> entrances;QSet<unsigned> exits;
     for(const auto& o:effects){
         if(!o.shapeId || o.durationMs<100 || o.durationMs>10000 || o.delayMs<0 || o.delayMs>30000 ||
-           int(o.filter)<int(AnimationFilter::None)||int(o.filter)>int(AnimationFilter::Split)||
+           int(o.filter)<int(AnimationFilter::None)||int(o.filter)>int(AnimationFilter::Zoom)||
            (o.fade&&o.filter!=AnimationFilter::None))
             return fail(QStringLiteral("Thông số hoạt ảnh không hợp lệ."));
         if(exits.contains(o.shapeId) || (!o.exit && entrances.contains(o.shapeId)))
@@ -322,7 +329,7 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
         const int visibilityDelay = o.exit && timedEffect(o) ? o.durationMs : 0;
         const QString visibility = o.exit ? QStringLiteral("hidden") : QStringLiteral("visible");
         QString behavior = QStringLiteral("<p:set><p:cBhvr><p:cTn id=\"%1\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"%2\"/></p:stCondLst></p:cTn>%3<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"%4\"/></p:to></p:set>").arg(visibilityId).arg(visibilityDelay).arg(target,visibility);
-        int presetId=o.fade?10:1;
+        int presetId=o.fade?10:1,presetSubtype=0;
         QString filter=o.fade?QStringLiteral("fade"):QString();
         // IDs and filters correspond to LibreOffice's PresentationML import
         // tables (commontimenodecontext.cxx and pptfilterhelpers.cxx).
@@ -336,8 +343,30 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
         case AnimationFilter::Wheel:presetId=21;filter=QStringLiteral("wheel(4)");break;
         case AnimationFilter::Checkerboard:presetId=5;filter=QStringLiteral("checkerboard(across)");break;
         case AnimationFilter::Split:presetId=16;filter=QStringLiteral("barn(outVertical)");break;
+        case AnimationFilter::FlyLeft:presetId=2;presetSubtype=8;break;
+        case AnimationFilter::FlyRight:presetId=2;presetSubtype=2;break;
+        case AnimationFilter::FlyTop:presetId=2;presetSubtype=1;break;
+        case AnimationFilter::FlyBottom:presetId=2;presetSubtype=4;break;
+        case AnimationFilter::Zoom:presetId=23;presetSubtype=o.exit?32:16;break;
         }
-        if (timedEffect(o)) {
+        // Numeric animation keyframes for native PPTX position and size.
+        auto animate=[&](const QString& property,QString from,QString to){
+            if(o.exit)qSwap(from,to);
+            const int id=nextId++;
+            return QStringLiteral("<p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr><p:cTn id=\"%1\" dur=\"%2\" fill=\"hold\"/>%3<p:attrNameLst><p:attrName>%4</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"%5\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"%6\"/></p:val></p:tav></p:tavLst></p:anim>")
+                .arg(id).arg(o.durationMs).arg(target,property,from,to);
+        };
+        if(presetId==2){
+            const bool horizontal=o.filter==AnimationFilter::FlyLeft||o.filter==AnimationFilter::FlyRight;
+            const auto property=horizontal?QStringLiteral("ppt_x"):QStringLiteral("ppt_y");
+            const auto outside=o.filter==AnimationFilter::FlyLeft?QStringLiteral("0-#ppt_w/2"):
+                o.filter==AnimationFilter::FlyRight?QStringLiteral("1+#ppt_w/2"):
+                o.filter==AnimationFilter::FlyTop?QStringLiteral("0-#ppt_h/2"):QStringLiteral("1+#ppt_h/2");
+            behavior+=animate(property,outside,QStringLiteral("#")+property);
+        }else if(presetId==23){
+            behavior+=animate(QStringLiteral("ppt_w"),QStringLiteral("0"),QStringLiteral("#ppt_w"));
+            behavior+=animate(QStringLiteral("ppt_h"),QStringLiteral("0"),QStringLiteral("#ppt_h"));
+        }else if (timedEffect(o)) {
             const int filterId=nextId++;
             const QString direction=o.exit?QStringLiteral("out"):QStringLiteral("in");
             behavior+=QStringLiteral("<p:animEffect transition=\"%1\" filter=\"%2\"><p:cBhvr><p:cTn id=\"%3\" dur=\"%4\"/>%5</p:cBhvr></p:animEffect>")
@@ -349,11 +378,11 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
             o.trigger==AnimationTrigger::WithPrevious?QStringLiteral("withEffect"):QStringLiteral("afterEffect");
         children+=QStringLiteral(
             "<p:par><p:cTn id=\"%1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"%2\"/></p:stCondLst><p:childTnLst>"
-            "<p:par><p:cTn id=\"%3\" presetID=\"%4\" presetClass=\"%5\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"%6\">"
-            "<p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>%7</p:childTnLst></p:cTn></p:par>"
+            "<p:par><p:cTn id=\"%3\" presetID=\"%4\" presetClass=\"%5\" presetSubtype=\"%6\" fill=\"hold\" nodeType=\"%7\">"
+            "<p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>%8</p:childTnLst></p:cTn></p:par>"
             "</p:childTnLst></p:cTn></p:par>")
             .arg(groupId).arg(plan[index].startMs).arg(effectId).arg(presetId)
-            .arg(o.exit ? QStringLiteral("exit") : QStringLiteral("entr"), trigger, behavior);
+            .arg(o.exit ? QStringLiteral("exit") : QStringLiteral("entr")).arg(presetSubtype).arg(trigger,behavior);
     }
     flush();
     const QString timing = QStringLiteral(
@@ -523,6 +552,110 @@ static Result createPatchedCopy(const QString& source, const QString& destinatio
     const auto slides=slideEntries(source,&error);
     if (slide1<1 || slide1>slides.size()) return fail(error.isEmpty()?QStringLiteral("Slide không tồn tại."):error);
     return createPatchedEntryCopy(source,destination,slides.at(slide1-1),patch,expected);
+}
+Result patchDiagramXml(const QByteArray& xml,qint64 width,qint64 height,const pptdiagram::Options& options,QByteArray* output){
+    QList<pptdiagram::Node> nodes;
+    if(!output||width<914400||height<914400||width>100000000||height>100000000||!pptdiagram::plan(options,&nodes))
+        return fail(QStringLiteral("Nội dung hoặc kích thước sơ đồ không hợp lệ."));
+    QString text=QString::fromUtf8(xml);
+    if(text.toUtf8()!=xml)return fail(QStringLiteral("Chỉ hỗ trợ XML UTF-8."));
+    QXmlStreamReader xr(text);
+    int depth=0,trees=0;qsizetype insertion=-1;unsigned maxId=0;
+    bool validRoot=false,common=false;
+    while(!xr.atEnd()){
+        xr.readNext();
+        if(xr.isDTD())return fail(QStringLiteral("XML có DTD."));
+        if(xr.isStartElement()){
+            ++depth;
+            const auto n=xr.name().toString(),ns=xr.namespaceUri().toString();
+            if(depth==1)validRoot=ns==P&&n=="sld";
+            if(depth==2&&ns==P&&n=="cSld")common=true;
+            if(depth==2&&n=="timing")return fail(QStringLiteral("Slide có hoạt ảnh. Hãy chọn slide trống."));
+            if(common&&depth==3&&ns==P&&n=="spTree")++trees;
+            if(common&&trees==1&&depth==4&&(ns!=P||(n!="nvGrpSpPr"&&n!="grpSpPr")))
+                return fail(QStringLiteral("Slide đã có nội dung. Hãy tạo slide trống trước."));
+            if(ns==P&&n=="cNvPr"){
+                bool ok=false;const auto id=xr.attributes().value("id").toUInt(&ok);
+                if(!ok||id==0)return fail(QStringLiteral("ID hình không hợp lệ."));
+                maxId=qMax(maxId,id);
+            }
+        }else if(xr.isEndElement()){
+            if(common&&depth==3&&xr.namespaceUri()==P&&xr.name()==QLatin1String("spTree")){
+                const auto off=xr.characterOffset();
+                if(off>0&&off<=text.size())insertion=text.lastIndexOf(QLatin1Char('<'),off-1);
+                if(insertion<0||!text.mid(insertion,2).startsWith("</"))return fail(QStringLiteral("Không xác minh vị trí sơ đồ."));
+            }
+            if(depth==2)common=false;
+            --depth;
+        }
+    }
+    if(xr.hasError()||!validRoot||trees!=1||insertion<0||maxId>1000000000u)
+        return fail(QStringLiteral("Không đọc được slide trống."));
+    // Write each shape as standalone XML, escaping all user text. No images.
+    QString fragment;QXmlStreamWriter w(&fragment);
+    const auto start=[&](const char* name){w.writeStartElement(QString::fromLatin1(name));};
+    const auto attr=[&](const char* name,const QString& value){w.writeAttribute(QString::fromLatin1(name),value);};
+    const auto color=[&](const QString& value){start("a:solidFill");start("a:srgbClr");attr("val",value);w.writeEndElement();w.writeEndElement();};
+    const unsigned firstNodeId=maxId+1;
+    const auto links=pptdiagram::edges(options,nodes);
+    maxId+=unsigned(nodes.size());
+    // Connectors are real attached DrawingML objects, drawn behind the boxes.
+    for(const auto& edge:links){
+        start("p:cxnSp");attr("xmlns:p",P);attr("xmlns:a","http://schemas.openxmlformats.org/drawingml/2006/main");
+        start("p:nvCxnSpPr");start("p:cNvPr");attr("id",QString::number(++maxId));attr("name",QStringLiteral("Đường nối %1").arg(maxId));w.writeEndElement();
+        start("p:cNvCxnSpPr");
+        start("a:stCxn");attr("id",QString::number(firstNodeId+edge.from));attr("idx",QString::number(edge.startSite));w.writeEndElement();
+        start("a:endCxn");attr("id",QString::number(firstNodeId+edge.to));attr("idx",QString::number(edge.endSite));w.writeEndElement();
+        w.writeEndElement();start("p:nvPr");w.writeEndElement();w.writeEndElement();
+        start("p:spPr");start("a:xfrm");
+        if(edge.end.x()<edge.start.x())attr("flipH","1");
+        if(edge.end.y()<edge.start.y())attr("flipV","1");
+        start("a:off");attr("x",QString::number(qRound64(qMin(edge.start.x(),edge.end.x())*width)));attr("y",QString::number(qRound64(qMin(edge.start.y(),edge.end.y())*height)));w.writeEndElement();
+        start("a:ext");attr("cx",QString::number(qRound64(qAbs(edge.end.x()-edge.start.x())*width)));attr("cy",QString::number(qRound64(qAbs(edge.end.y()-edge.start.y())*height)));w.writeEndElement();w.writeEndElement();
+        start("a:prstGeom");attr("prst","line");start("a:avLst");w.writeEndElement();w.writeEndElement();
+        start("a:ln");attr("w","25400");color("64748B");
+        if(edge.arrow){start("a:tailEnd");attr("type","triangle");w.writeEndElement();}
+        w.writeEndElement();w.writeEndElement();w.writeEndElement();
+    }
+    unsigned nodeId=firstNodeId;
+    for(const auto& node:nodes){
+        start("p:sp");attr("xmlns:p",P);attr("xmlns:a","http://schemas.openxmlformats.org/drawingml/2006/main");
+        start("p:nvSpPr");start("p:cNvPr");attr("id",QString::number(nodeId++));attr("name",node.text.left(60));w.writeEndElement();
+        start("p:cNvSpPr");w.writeEndElement();start("p:nvPr");w.writeEndElement();w.writeEndElement();
+        start("p:spPr");start("a:xfrm");start("a:off");attr("x",QString::number(qRound64(node.rect.x()*width)));attr("y",QString::number(qRound64(node.rect.y()*height)));w.writeEndElement();
+        start("a:ext");attr("cx",QString::number(qRound64(node.rect.width()*width)));attr("cy",QString::number(qRound64(node.rect.height()*height)));w.writeEndElement();w.writeEndElement();
+        start("a:prstGeom");attr("prst","roundRect");start("a:avLst");w.writeEndElement();w.writeEndElement();color(node.fill);
+        start("a:ln");start("a:noFill");w.writeEndElement();w.writeEndElement();w.writeEndElement();
+        start("p:txBody");start("a:bodyPr");attr("wrap","square");attr("anchor","ctr");
+        attr("lIns","45720");attr("rIns","45720");attr("tIns","22860");attr("bIns","22860");
+        start("a:normAutofit");w.writeEndElement();w.writeEndElement();start("a:lstStyle");w.writeEndElement();
+        start("a:p");start("a:pPr");attr("algn","ctr");w.writeEndElement();start("a:r");start("a:rPr");attr("lang","vi-VN");
+        attr("sz",QString::number(qBound(1000,qRound((node.title?2400:1800)*height/6858000.0),3000)));
+        attr("b",node.title?"1":"0");color(node.ink);start("a:latin");attr("typeface","Carlito");w.writeEndElement();w.writeEndElement();
+        w.writeTextElement("a:t",node.text);w.writeEndElement();w.writeEndElement();w.writeEndElement();w.writeEndElement();
+    }
+    text.insert(insertion,fragment);
+    QXmlStreamReader verify(text);int shapes=0,connectors=0;
+    while(!verify.atEnd()){verify.readNext();if(verify.isStartElement()&&verify.namespaceUri()==P){
+        if(verify.name()==QLatin1String("sp"))++shapes;else if(verify.name()==QLatin1String("cxnSp"))++connectors;
+    }}
+    if(verify.hasError()||shapes!=nodes.size()||connectors!=links.size())return fail(QStringLiteral("Không xác minh được sơ đồ đầu ra."));
+    *output=text.toUtf8();return {true,{}};
+}
+Result createDiagramCopy(const QString& source,const QString& destination,int slide1,const pptdiagram::Options& options,const QByteArray& expectedSource){
+    const auto expected=expectedSource.isEmpty()?sourceFingerprint(source):expectedSource;
+    if(!unchanged(source,expected))return staleSource();
+    ft::ZipReader z;QString error;QByteArray xml;
+    if(!z.open(source,&error)||!read(z,"ppt/presentation.xml",&xml,&error))return fail(error);
+    QXmlStreamReader xr(xml);qint64 width=0,height=0;int count=0;
+    while(!xr.atEnd()){
+        xr.readNext();if(xr.isDTD())return fail(QStringLiteral("XML có DTD."));
+        if(xr.isStartElement()&&xr.namespaceUri()==P&&xr.name()==QLatin1String("sldSz")){
+            ++count;width=xr.attributes().value("cx").toLongLong();height=xr.attributes().value("cy").toLongLong();
+        }
+    }
+    if(xr.hasError()||count!=1)return fail(QStringLiteral("Không xác minh được kích thước slide."));
+    return createPatchedCopy(source,destination,slide1,[&](const QByteArray& old,QByteArray* out){return patchDiagramXml(old,width,height,options,out);},expected);
 }
 Result createMasterBackgroundCopy(const QString& source,const QString& destination,const QString& entry,const QString& rgb,const QByteArray& expectedSource) {
     const auto expected=expectedSource.isEmpty()?sourceFingerprint(source):expectedSource;

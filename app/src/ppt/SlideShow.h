@@ -6,6 +6,7 @@
 #include <QString>
 #include <QTimer>
 #include <QPointF>
+#include <QPolygonF>
 #include <QElapsedTimer>
 #include "SlideTransitionPlayback.h"
 
@@ -23,6 +24,7 @@ protected:
     void keyPressEvent(QKeyEvent*) override;
     void mousePressEvent(QMouseEvent*) override;
     void mouseMoveEvent(QMouseEvent*) override;
+    void mouseReleaseEvent(QMouseEvent*) override;
     void leaveEvent(QEvent*) override;
     void resizeEvent(QResizeEvent*) override;
 
@@ -31,10 +33,19 @@ private:
     void go(int delta);
     void render();
     void restartAdvance();
+    bool hasPendingEffects() const;
+    int advanceDelay() const;
     bool prepareEntrance();
     void resetEntrance();
     void stopTransition();
     void startTransition(const QImage& previous);
+    void chooseSlide();
+    void toggleHelp();
+    void paintHelp(QPainter& painter);
+    QRectF slideBounds() const;
+    void paintInk(QPainter& painter,const QRectF& slide);
+    void toggleInk();
+    void appendInk(const QPointF& position,bool start);
     QImage m_transitionFrom;
     QTimer m_transitionTimer;
     QElapsedTimer m_transitionClock;
@@ -42,6 +53,9 @@ private:
     QRect m_entranceTransitionBounds;
     QImage m_entranceTransitionOld,m_entranceTransitionNew;
     QVector<slideshow::TransitionPlan> m_entrancePlans;
+    struct MotionLayer {QImage bitmap;int firstStep;QRect bounds;};
+    QVector<MotionLayer> m_motionLayers;
+    void paintObjectMotion(QPainter& painter,const QRectF& slide,qreal progress);
     slideshow::SignatureStyle m_signature=slideshow::SignatureStyle::Native;
 
     dung::Document* m_doc;
@@ -59,5 +73,9 @@ private:
     int m_intervalMs = 0;
     bool m_paused = false;
     bool m_laserMode = false;
+    bool m_help = false;
+    bool m_inkMode = false, m_inking = false;
+    int m_inkPart = -1;
+    QVector<QPolygonF> m_ink;
     QPointF m_laserPoint{-1,-1};
 };
