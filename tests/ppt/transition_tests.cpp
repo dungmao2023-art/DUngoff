@@ -78,6 +78,15 @@ int main(int argc, char** argv) {
     check(result.ok && out.contains("advTm=\"3000\"") && out.contains("<p:fade/>") && out.indexOf("<p:transition") < out.indexOf("<p:timing"), "insert transition before timing");
     QByteArray replaced; o.effect = Effect::PushLeft;
     check(patchXml(out, o, &replaced).ok && replaced.count("<p:transition") == 1 && replaced.contains("<p:push dir=\"l\"/>") && !replaced.contains("<p:fade/>"), "replace simple transition");
+    for(const auto& item:QList<QPair<Effect,QByteArray>>{
+            {Effect::PushRight,"<p:push dir=\"r\"/>"},{Effect::PushUp,"<p:push dir=\"u\"/>"},
+            {Effect::PushDown,"<p:push dir=\"d\"/>"},{Effect::WipeRight,"<p:wipe dir=\"r\"/>"},
+            {Effect::WipeUp,"<p:wipe dir=\"u\"/>"},{Effect::WipeDown,"<p:wipe dir=\"d\"/>"}}){
+        Options direction;direction.effect=item.first;QByteArray patched,clean;
+        check(patchXml(xml,direction,&patched).ok&&patched.contains(item.second),"directional slide transition");
+        direction.effect=Effect::None;
+        check(patchXml(patched,direction,&clean).ok&&clean==xml,"directional transition removable without other changes");
+    }
     o.effect = Effect::None; o.autoAdvanceMs = 0;
     QByteArray removed;
     check(patchXml(replaced, o, &removed).ok && removed == xml, "remove transition preserves original XML");

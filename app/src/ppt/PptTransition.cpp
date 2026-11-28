@@ -159,6 +159,12 @@ Result patchXml(const QByteArray& xml, const Options& o, QByteArray* output) {
         case Effect::PushLeft: fragment += QStringLiteral("<p:push dir=\"l\"/>"); break;
         case Effect::WipeLeft: fragment += QStringLiteral("<p:wipe dir=\"l\"/>"); break;
         case Effect::Dissolve: fragment += QStringLiteral("<p:dissolve/>"); break;
+        case Effect::PushRight: fragment += QStringLiteral("<p:push dir=\"r\"/>"); break;
+        case Effect::PushUp: fragment += QStringLiteral("<p:push dir=\"u\"/>"); break;
+        case Effect::PushDown: fragment += QStringLiteral("<p:push dir=\"d\"/>"); break;
+        case Effect::WipeRight: fragment += QStringLiteral("<p:wipe dir=\"r\"/>"); break;
+        case Effect::WipeUp: fragment += QStringLiteral("<p:wipe dir=\"u\"/>"); break;
+        case Effect::WipeDown: fragment += QStringLiteral("<p:wipe dir=\"d\"/>"); break;
         default: return fail(QStringLiteral("Hiệu ứng không hợp lệ."));
         }
         fragment += QStringLiteral("</p:transition>");

@@ -6,7 +6,7 @@
 #include <QList>
 #include "QuickDiagram.h"
 namespace ppttransition {
-enum class Effect { None, Fade, PushLeft, WipeLeft, Dissolve };
+enum class Effect { None, Fade, PushLeft, WipeLeft, Dissolve, PushRight, PushUp, PushDown, WipeRight, WipeUp, WipeDown };
 struct Options { Effect effect = Effect::Fade; int speed = 1; bool onClick = true; int autoAdvanceMs = 0; };
 struct Result { bool ok = false; QString error; };
 // Full content identity; empty means unreadable, never a valid fingerprint.
