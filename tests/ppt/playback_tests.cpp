@@ -117,5 +117,36 @@ int main(int argc,char** argv){
         a>b+500&&r0>500&&r1>500&&std::abs(r0-r1)<100&&doc->currentPart()==originalPart;
     std::cout<<(ok?"PASS":"FAIL")<<" actual entrance click/back preserves neighbour and editor slide"<<std::endl;
     delete show;
-    std::_Exit(ok?0:1);
+    if(!ok)std::_Exit(1);
+    const auto sequence=temp.filePath("sequence.pptx");
+    auto second=options;second.shapeId=shapes[1].id;
+    const auto seq=ppttransition::createAnimationSequenceCopy(args[2],sequence,1,{options,second});
+    if(!seq.ok){std::cerr<<seq.error.toStdString()<<std::endl;std::_Exit(1);}
+    auto multi=engine->open(pathOf(sequence),&err);
+    if(!multi){std::cerr<<err<<std::endl;std::_Exit(1);}
+    multi->setClientView(512,512,7680,7680,0,0,7680,7680);
+    multi->waitInputIdle(350,4000);
+    std::cout<<"Multi metadata: "<<multi->presentationInfo()<<std::endl;
+    const int originalMulti=multi->currentPart();
+    auto* playback=new SlideShow(multi.get(),0,nullptr,false);
+    QPointer<SlideShow> live(playback);
+    QApplication::processEvents();
+    const auto zero=playback->grab().toImage();
+    key(playback,Qt::Key_Right);
+    if(!live||!live->isVisible())std::_Exit(1);
+    const auto one=playback->grab().toImage();
+    key(playback,Qt::Key_Right);
+    if(!live||!live->isVisible())std::_Exit(1);
+    const auto two=playback->grab().toImage();
+    key(playback,Qt::Key_Left);
+    const auto backOne=playback->grab().toImage();
+    key(playback,Qt::Key_Left);
+    const auto backZero=playback->grab().toImage();
+    const bool multiOk=bluePixels(zero)<100&&redPixels(zero)<100&&
+        bluePixels(one)>500&&redPixels(one)<100&&
+        bluePixels(two)>500&&redPixels(two)>500&&one==backOne&&zero==backZero&&
+        multi->currentPart()==originalMulti;
+    std::cout<<(multiOk?"PASS":"FAIL")<<" two native click entrances and backward steps"<<std::endl;
+    delete playback;
+    std::_Exit(multiOk?0:1);
 }

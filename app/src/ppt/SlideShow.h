@@ -40,8 +40,8 @@ private:
     int m_blank = 0; // 0: slide, 1: black, 2: white
     long m_w = 0, m_h = 0; // twip
     QImage m_img;
-    QImage m_beforeEntrance,m_afterEntrance;
-    bool m_entrancePending=false;
+    QVector<QImage> m_entranceFrames;
+    int m_entranceStep=0;
     int m_entrancePart=-1;
     QTimer m_advance;
     int m_intervalMs = 0;

@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <utility>
 
 SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool fullscreen, QScreen* targetScreen, int intervalMs)
     : QWidget(parent, Qt::Window), m_doc(doc), m_part(startPart), m_count(doc->partCount()), m_intervalMs(intervalMs) {
@@ -67,11 +68,11 @@ void SlideShow::restartAdvance() {
 void SlideShow::go(int delta) {
     if (m_blank != 0) { m_blank = 0; update(); restartAdvance(); return; }
     if (m_part < 0 || m_count <= 0) return;
-    if(delta>0&&m_entrancePending&&!m_afterEntrance.isNull()){
-        m_entrancePending=false;m_img=m_afterEntrance;update();restartAdvance();return;
-    }
-    if(delta<0&&m_entrancePart==m_part&&!m_entrancePending&&!m_beforeEntrance.isNull()){
-        m_entrancePending=true;m_img=m_beforeEntrance;update();restartAdvance();return;
+    if(m_entrancePart==m_part&&!m_entranceFrames.isEmpty()){
+        const int next=m_entranceStep+delta;
+        if(next>=0&&next<m_entranceFrames.size()){
+            m_entranceStep=next;m_img=m_entranceFrames[next];update();restartAdvance();return;
+        }
     }
     const int p=slideshow::adjacentVisible(m_visible,m_part,delta);
     if(p<0){
@@ -86,7 +87,7 @@ void SlideShow::go(int delta) {
 }
 
 void SlideShow::render() {
-    const bool alreadyShown=m_entrancePart==m_part&&!m_entrancePending&&!m_afterEntrance.isNull();
+    const int previousStep=m_entrancePart==m_part?m_entranceStep:0;
     resetEntrance();
     m_img = QImage();
     if(m_w<=0||m_h<=0)m_doc->documentSize(m_w,m_h);
@@ -107,15 +108,15 @@ void SlideShow::render() {
     // Prefer native layers for supported animations; never require the
     // unrelated static tile renderer to succeed first.
     if(prepareEntrance()){
-        if(alreadyShown){m_entrancePending=false;m_img=m_afterEntrance;}
-        else m_img=m_beforeEntrance;
+        m_entranceStep=qBound(0,previousStep,int(m_entranceFrames.size())-1);
+        m_img=m_entranceFrames[m_entranceStep];
         return;
     }
     if(!m_doc->paintPartTile(m_img.bits(), m_part, pw, ph, 0, 0, int(m_w), int(m_h)))
         m_img=QImage(); // Stop autoplay; paintEvent shows a render-unavailable message.
 }
 void SlideShow::resetEntrance(){
-    m_beforeEntrance={};m_afterEntrance={};m_entrancePending=false;m_entrancePart=-1;
+    m_entranceFrames.clear();m_entranceStep=0;m_entrancePart=-1;
 }
 bool SlideShow::prepareEntrance(){
     // Avoid native layer API for unsupported animation trees.
@@ -127,8 +128,8 @@ bool SlideShow::prepareEntrance(){
     for(const auto& item:info.value("slides").toArray()){
         const auto candidate=item.toObject();if(candidate.value("index").toInt(-1)==m_part){slide=candidate;break;}
     }
-    QString target;
-    if(!slideshow::findSimpleEntrance(slide.value("animations").toObject().value("root").toObject(),&target)){
+    QStringList targets;
+    if(!slideshow::findClickEntrances(slide.value("animations").toObject().value("root").toObject(),&targets)){
         if(trace)std::cerr<<"Entrance metadata not supported"<<std::endl;
         return false;
     }
@@ -141,10 +142,19 @@ bool SlideShow::prepareEntrance(){
     if(trace)std::cerr<<"Native layers "<<layers.width<<"x"<<layers.height<<" rgba="<<layers.rgba<<" count="<<layers.layers.size()<<std::endl;
     // Log all synthetic-fixture metadata before applying conservative policy.
     if(trace)for(const auto& layer:layers.layers)std::cerr<<layer.json<<" bytes="<<layer.pixels.size()<<std::endl;
-    QImage before(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
-    QImage after(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
-    if(before.isNull()||after.isNull())return false;
-    before.fill(Qt::white);after.fill(Qt::white);
+    if(layers.width<=0||layers.height<=0||layers.width>1280||layers.height>1280||
+       qint64(layers.width)*layers.height*4*(targets.size()+1)>64LL*1024*1024)return false;
+    QVector<QImage> frames;
+    for(int step=0;step<=targets.size();++step){
+        QImage frame(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
+        if(frame.isNull())return false;
+        frame.fill(Qt::white);frames.append(std::move(frame));
+    }
+    auto draw=[&](const QImage& image,int first){
+        for(int step=first;step<frames.size();++step){
+            QPainter painter(&frames[step]);painter.drawImage(0,0,image);
+        }
+    };
     // TextFields are rendered separately, before their master placeholders.
     // A placeholder with no matching field bitmap represents a hidden field.
     // Resolve visible fields at their original z-order, not as top overlays.
@@ -167,7 +177,7 @@ bool SlideShow::prepareEntrance(){
         if(fieldHash.isEmpty()||fields.contains(fieldHash)||layer.pixels.size()!=bytes)return false;
         fields.insert(fieldHash,&layer);
     }
-    QPainter p(&before),q(&after);int entrance=0;bool background=false;
+    QSet<QString> animatedTargets;bool background=false;
     for(const auto& layer:layers.layers){
         const auto o=parse(layer);
         const auto type=o.value("type").toString(),group=o.value("group").toString();
@@ -180,7 +190,7 @@ bool SlideShow::prepareEntrance(){
             const auto* field=fields.value(fieldHash,nullptr);
             if(field){
                 if(parse(*field).value("content").toObject().value("type").toString()!=fieldType)return false;
-                const auto img=imageOf(*field);p.drawImage(0,0,img);q.drawImage(0,0,img);
+                draw(imageOf(*field),0);
             }else if(fieldType!="DateTime"&&fieldType!="Footer"&&fieldType!="SlideNumber"){
                 // Unknown missing field: refuse rather than silently lose content.
                 return false;
@@ -195,21 +205,20 @@ bool SlideShow::prepareEntrance(){
         if(group!="Background"&&group!="MasterPage"&&group!="DrawPage")return false;
         const auto img=imageOf(layer);
         if(type=="animated"){
-            if(group!="DrawPage"||content.value("hash").toString()!=target||!content.value("initVisible").isBool()||content.value("initVisible").toBool()){
-                if(trace)std::cerr<<"Native animation target or visibility mismatch "<<target.toStdString()<<" "<<QJsonDocument(content).toJson(QJsonDocument::Compact).constData()<<std::endl;
+            const auto target=content.value("hash").toString();
+            const int step=targets.indexOf(target);
+            if(group!="DrawPage"||step<0||animatedTargets.contains(target)||
+               !content.value("initVisible").isBool()||content.value("initVisible").toBool()){
+                if(trace)std::cerr<<"Native animation target or visibility mismatch "<<target.toStdString()<<std::endl;
                 return false;
             }
-            ++entrance;
-        }else p.drawImage(0,0,img);
-        q.drawImage(0,0,img);
+            animatedTargets.insert(target);draw(img,step+1);
+        }else draw(img,0);
     }
     for(auto it=fields.constBegin();it!=fields.constEnd();++it)if(!usedFields.contains(it.key()))return false;
-    p.end();q.end();
-    if(!background||entrance!=1||before==after){
-        if(trace)std::cerr<<"Invalid entrance composition "<<background<<" "<<entrance<<" "<<(before==after)<<std::endl;
-        return false;
-    }
-    m_beforeEntrance=before;m_afterEntrance=after;m_entrancePending=true;m_entrancePart=m_part;
+    if(!background||animatedTargets.size()!=targets.size())return false;
+    for(int step=1;step<frames.size();++step)if(frames[step]==frames[step-1])return false;
+    m_entranceFrames=std::move(frames);m_entranceStep=0;m_entrancePart=m_part;
     return true;
 }
 
