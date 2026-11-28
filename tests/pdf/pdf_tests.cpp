@@ -898,7 +898,15 @@ int main(int argc, char** argv) {
             if(!replacedResult.ok)std::cerr<<replacedResult.error.toStdString()<<'\n';
             CHECK(replacedResult.ok&&info(replaced).pages==2&&readFile(withImage)==beforeMove&&readFile(source)==original,
                 "replace native image in its original layer with new pixel dimensions");
+            const auto removed=P("native-removed.pdf");
+            const auto removedResult=pdfedit::removeImage(withImage,2,QPointF(.5,.5),fingerprint(withImage),removed);
+            if(!removedResult.ok)std::cerr<<removedResult.error.toStdString()<<'\n';
+            CHECK(removedResult.ok&&info(removed).pages==2&&!qdfOf(removed).contains("/Subtype /Image")&&
+                  readFile(withImage)==beforeMove&&readFile(source)==original,
+                  "remove actual image object without altering other versions");
             const auto missed=P("native-missed.pdf");
+            CHECK(!pdfedit::removeImage(withImage,2,QPointF(.01,.01),fingerprint(withImage),missed).ok&&
+                  !QFile::exists(missed),"reject image removal outside an image");
             CHECK(!pdfedit::moveImage(withImage,2,QPointF(.01,.01),QPointF(.5,.5),0,fingerprint(withImage),missed).ok&&
                   !QFile::exists(missed),"reject click outside image");
         }
