@@ -19,7 +19,7 @@ Result createRangeCopy(const QString& source,const QString& destination,int firs
 struct Shape { unsigned id = 0; QString name; };
 enum class AnimationTrigger { Click, WithPrevious, AfterPrevious };
 // Extra transition filters use standard PresentationML animEffect values.
-enum class AnimationFilter { None, Wipe, Blinds, Circle, Diamond, Dissolve, Wheel, Checkerboard, Split };
+enum class AnimationFilter { None, Wipe, Blinds, Circle, Diamond, Dissolve, Wheel, Checkerboard, Split, FlyLeft, FlyRight, FlyTop, FlyBottom, Zoom };
 struct AnimationOptions { unsigned shapeId = 0; bool fade = false; int durationMs = 500; int delayMs = 0; AnimationTrigger trigger=AnimationTrigger::Click; bool exit = false; AnimationFilter filter=AnimationFilter::None; };
 inline bool timedEffect(const AnimationOptions& o){return o.fade||o.filter!=AnimationFilter::None;}
 struct AnimationTiming { int click=0, startMs=0, endMs=0; };

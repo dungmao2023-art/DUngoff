@@ -589,7 +589,8 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         const QStringList effectNames{QObject::tr("Xuất hiện / biến mất"),QObject::tr("Mờ dần"),
             QObject::tr("Quét ngang"),QObject::tr("Rèm sọc"),QObject::tr("Vòng tròn"),
             QObject::tr("Hình thoi"),QObject::tr("Tan biến"),QObject::tr("Bánh xe"),
-            QObject::tr("Ô bàn cờ"),QObject::tr("Tách đôi")};
+            QObject::tr("Ô bàn cờ"),QObject::tr("Tách đôi"),QObject::tr("Bay từ trái"),
+            QObject::tr("Bay từ phải"),QObject::tr("Bay từ trên"),QObject::tr("Bay từ dưới"),QObject::tr("Phóng to / thu nhỏ")};
         for(const auto& name:effectNames)effect->addItem(name);
         effect->setCurrentIndex(1);
         auto* direction=new QComboBox;
@@ -621,18 +622,34 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
          painter.setPen(Qt::white);painter.drawText(QRectF(27,12,146,68),Qt::AlignCenter,QObject::tr("Ý tưởng"));}
         slideshow::TransitionPlan samplePlan;
         bool sampleExit=false;
+        int sampleIndex=1;
         auto drawSample=[&](qreal f){
             QImage frame=absent.copy();QPainter painter(&frame);
             const QRect region(25,10,150,72);
-            slideshow::paintTransition(painter,QRectF(region),absent.copy(region),present.copy(region),
-                samplePlan,sampleExit?1-f:f);
+            const qreal progress=sampleExit?1-f:f;
+            if(sampleIndex>=10){
+                const qreal k=slideshow::smoothStep(progress);
+                const QRectF target(27,12,146,68);
+                QRectF moved=target;
+                if(sampleIndex==10)moved.translate(-173*(1-k),0);
+                else if(sampleIndex==11)moved.translate(173*(1-k),0);
+                else if(sampleIndex==12)moved.translate(0,-80*(1-k));
+                else if(sampleIndex==13)moved.translate(0,80*(1-k));
+                else {
+                    moved.setSize(target.size()*k);moved.moveCenter(target.center());
+                }
+                painter.setRenderHint(QPainter::SmoothPixmapTransform);
+                if(k>0)painter.drawImage(moved,present,QRectF(27,12,146,68));
+            }else slideshow::paintTransition(painter,QRectF(region),absent.copy(region),present.copy(region),
+                samplePlan,progress);
             painter.end();preview->setPixmap(QPixmap::fromImage(frame));
         };
         auto playSample=[&]{
             using K=slideshow::TransitionKind;
             const K kinds[]{K::Cut,K::Fade,K::Wipe,K::Blinds,K::Circle,K::Diamond,K::Dissolve,K::Wheel,K::Checkerboard,K::Split};
-            const int ix=effect->currentIndex();if(ix<0||ix>=10)return;
-            samplePlan={kinds[ix],qRound(duration->value()*1000),-1,0};
+            const int ix=effect->currentIndex();if(ix<0||ix>=15)return;
+            sampleIndex=ix;
+            samplePlan={ix<10?kinds[ix]:K::Cut,qRound(duration->value()*1000),-1,0};
             sampleExit=direction->currentIndex()==1;
             effectClock.start();drawSample(0);
             if(ix==0){effectTimer.stop();drawSample(1);}else effectTimer.start();
@@ -656,7 +673,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
                           QObject::tr("Mờ dần · lần lượt tự động"),
                           QObject::tr("Mờ dần · đồng thời")});
         preset->setToolTip(QObject::tr("Xuất hiện tức thì hoặc mờ dần 0,5 giây. Có thể chỉnh riêng từng dòng."));
-        auto* presetHint=new QLabel(QObject::tr("10 kiểu hiệu ứng vào/ra. Hiệu ứng nâng cao được ghi vào bản PPTX; trình chiếu trong ứng dụng chưa hỗ trợ đầy đủ."),&dialog);
+        auto* presetHint=new QLabel(QObject::tr("15 kiểu hiệu ứng vào/ra. Hiệu ứng nâng cao được ghi vào bản PPTX; trình chiếu trong ứng dụng chưa hỗ trợ đầy đủ."),&dialog);
         presetHint->setWordWrap(true);
         auto* quick=new QPushButton(QObject::tr("Áp dụng mẫu"),&dialog);
         quick->setEnabled(shapes.size()<=100);

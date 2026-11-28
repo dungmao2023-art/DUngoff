@@ -109,6 +109,19 @@ int main(int argc, char** argv) {
               clearAnimationXml(filtered,&restored).ok&&restored==animXml,
               "extended animation filter roundtrip");
     }
+    for(const auto f:{AnimationFilter::FlyLeft,AnimationFilter::FlyRight,AnimationFilter::FlyTop,AnimationFilter::FlyBottom,AnimationFilter::Zoom}){
+        for(bool exit:{false,true}){
+            AnimationOptions motion;motion.shapeId=42;motion.filter=f;motion.durationMs=800;motion.exit=exit;
+            QByteArray result,restored;QList<AnimationTiming> times;
+            const bool zoom=f==AnimationFilter::Zoom;
+            check(planAnimation({motion},&times).ok&&times.first().endMs==(exit?801:800)&&
+                  patchAnimationXml(animXml,motion,&result).ok&&
+                  result.contains(zoom?"presetID=\"23\"":"presetID=\"2\"")&&
+                  result.count("<p:anim calcmode=")==(zoom?2:1)&&result.contains("tm=\"100000\"")&&
+                  result.contains("dur=\"800\"")&&clearAnimationXml(result,&restored).ok&&restored==animXml,
+                  "motion and zoom animation keyframe roundtrip");
+        }
+    }
     AnimationOptions invalidFilter;invalidFilter.shapeId=42;invalidFilter.filter=static_cast<AnimationFilter>(99);
     check(!patchAnimationXml(animXml,invalidFilter,&out).ok,"reject unknown animation filter");
     check(!patchAnimationXml(animated,anim,&out).ok,"refuse overwrite existing animation");

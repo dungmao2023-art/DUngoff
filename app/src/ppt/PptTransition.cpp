@@ -268,7 +268,7 @@ Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTimin
     QList<AnimationTiming> plan;QHash<unsigned,AnimationTiming> entrances;QSet<unsigned> exits;
     for(const auto& o:effects){
         if(!o.shapeId || o.durationMs<100 || o.durationMs>10000 || o.delayMs<0 || o.delayMs>30000 ||
-           int(o.filter)<int(AnimationFilter::None)||int(o.filter)>int(AnimationFilter::Split)||
+           int(o.filter)<int(AnimationFilter::None)||int(o.filter)>int(AnimationFilter::Zoom)||
            (o.fade&&o.filter!=AnimationFilter::None))
             return fail(QStringLiteral("Thông số hoạt ảnh không hợp lệ."));
         if(exits.contains(o.shapeId) || (!o.exit && entrances.contains(o.shapeId)))
@@ -322,7 +322,7 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
         const int visibilityDelay = o.exit && timedEffect(o) ? o.durationMs : 0;
         const QString visibility = o.exit ? QStringLiteral("hidden") : QStringLiteral("visible");
         QString behavior = QStringLiteral("<p:set><p:cBhvr><p:cTn id=\"%1\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"%2\"/></p:stCondLst></p:cTn>%3<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"%4\"/></p:to></p:set>").arg(visibilityId).arg(visibilityDelay).arg(target,visibility);
-        int presetId=o.fade?10:1;
+        int presetId=o.fade?10:1,presetSubtype=0;
         QString filter=o.fade?QStringLiteral("fade"):QString();
         // IDs and filters correspond to LibreOffice's PresentationML import
         // tables (commontimenodecontext.cxx and pptfilterhelpers.cxx).
@@ -336,8 +336,30 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
         case AnimationFilter::Wheel:presetId=21;filter=QStringLiteral("wheel(4)");break;
         case AnimationFilter::Checkerboard:presetId=5;filter=QStringLiteral("checkerboard(across)");break;
         case AnimationFilter::Split:presetId=16;filter=QStringLiteral("barn(outVertical)");break;
+        case AnimationFilter::FlyLeft:presetId=2;presetSubtype=8;break;
+        case AnimationFilter::FlyRight:presetId=2;presetSubtype=2;break;
+        case AnimationFilter::FlyTop:presetId=2;presetSubtype=1;break;
+        case AnimationFilter::FlyBottom:presetId=2;presetSubtype=4;break;
+        case AnimationFilter::Zoom:presetId=23;presetSubtype=o.exit?32:16;break;
         }
-        if (timedEffect(o)) {
+        // Numeric animation keyframes for native PPTX position and size.
+        auto animate=[&](const QString& property,QString from,QString to){
+            if(o.exit)qSwap(from,to);
+            const int id=nextId++;
+            return QStringLiteral("<p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr><p:cTn id=\"%1\" dur=\"%2\" fill=\"hold\"/>%3<p:attrNameLst><p:attrName>%4</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"%5\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"%6\"/></p:val></p:tav></p:tavLst></p:anim>")
+                .arg(id).arg(o.durationMs).arg(target,property,from,to);
+        };
+        if(presetId==2){
+            const bool horizontal=o.filter==AnimationFilter::FlyLeft||o.filter==AnimationFilter::FlyRight;
+            const auto property=horizontal?QStringLiteral("ppt_x"):QStringLiteral("ppt_y");
+            const auto outside=o.filter==AnimationFilter::FlyLeft?QStringLiteral("0-#ppt_w/2"):
+                o.filter==AnimationFilter::FlyRight?QStringLiteral("1+#ppt_w/2"):
+                o.filter==AnimationFilter::FlyTop?QStringLiteral("0-#ppt_h/2"):QStringLiteral("1+#ppt_h/2");
+            behavior+=animate(property,outside,QStringLiteral("#")+property);
+        }else if(presetId==23){
+            behavior+=animate(QStringLiteral("ppt_w"),QStringLiteral("0"),QStringLiteral("#ppt_w"));
+            behavior+=animate(QStringLiteral("ppt_h"),QStringLiteral("0"),QStringLiteral("#ppt_h"));
+        }else if (timedEffect(o)) {
             const int filterId=nextId++;
             const QString direction=o.exit?QStringLiteral("out"):QStringLiteral("in");
             behavior+=QStringLiteral("<p:animEffect transition=\"%1\" filter=\"%2\"><p:cBhvr><p:cTn id=\"%3\" dur=\"%4\"/>%5</p:cBhvr></p:animEffect>")
@@ -349,11 +371,11 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
             o.trigger==AnimationTrigger::WithPrevious?QStringLiteral("withEffect"):QStringLiteral("afterEffect");
         children+=QStringLiteral(
             "<p:par><p:cTn id=\"%1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"%2\"/></p:stCondLst><p:childTnLst>"
-            "<p:par><p:cTn id=\"%3\" presetID=\"%4\" presetClass=\"%5\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"%6\">"
-            "<p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>%7</p:childTnLst></p:cTn></p:par>"
+            "<p:par><p:cTn id=\"%3\" presetID=\"%4\" presetClass=\"%5\" presetSubtype=\"%6\" fill=\"hold\" nodeType=\"%7\">"
+            "<p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>%8</p:childTnLst></p:cTn></p:par>"
             "</p:childTnLst></p:cTn></p:par>")
             .arg(groupId).arg(plan[index].startMs).arg(effectId).arg(presetId)
-            .arg(o.exit ? QStringLiteral("exit") : QStringLiteral("entr"), trigger, behavior);
+            .arg(o.exit ? QStringLiteral("exit") : QStringLiteral("entr")).arg(presetSubtype).arg(trigger,behavior);
     }
     flush();
     const QString timing = QStringLiteral(
