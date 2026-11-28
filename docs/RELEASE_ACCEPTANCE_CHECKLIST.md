@@ -47,6 +47,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] X07.1 Tạo PivotTable thật từ vùng có tiêu đề, chọn row/column/value, SUM/COUNT; sửa cấu hình, refresh sau đổi số và nhóm; kiểm cache và output XLSX.
 - [ ] X08.1 CSV nhập/xuất Unicode, dấu phân cách/quote/newline, mã dài/0 đầu; dedup/đối soát; số thành chữ không phá định dạng.
 - [ ] X09.1 Import/export mẫu MISA/KiotViet chính thức; nếu thiếu fixture thì ghi blocker, không bịa tương thích.
+  - 28/11: Bản vá DataAssist trên nền main b73a9c6, mã/test b94a29c68dacf173f4d00ebdf1dc6332cbe88b38: từ chối ép kiểu số có hơn 15 chữ số có nghĩa, mã số nhóm có 0 đầu và dấu âm kép; kiểm tra XLSX bản sao giữ nguyên text và hash mẫu. CI Windows/Linux chưa xác nhận, vẫn thiếu mẫu chính thức và GUI thật; không tăng stage.
 - [ ] X10.1 Power Query cơ bản: chọn nguồn CSV/XLSX/sheet, lọc/sort, kiểu dữ liệu, join/group, lưu recipe, chạy lại; preview, xuất bản sao; không gọi là M đầy đủ.
 
 ### B1 — PowerPoint: ca làm bài thuyết trình
