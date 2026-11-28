@@ -118,6 +118,14 @@ int main(int argc, char **argv)
     CHECK(parseNumber(QStringLiteral("2.500.000 ₫"), true).value == 2500000, "Có ký hiệu tiền");
     CHECK(!parseNumber(QStringLiteral("abc"), true).ok && !parseNumber(QString(), true).ok, "Chữ/rỗng không phải số");
 
+    // Refuse values that would lose data when exported as Excel numeric cells.
+    CHECK(!parseNumber(QStringLiteral("(-1.500)"),true).ok && !parseNumber(QStringLiteral("(+1.500)"),true).ok,"Reject double accounting signs");
+    CHECK(!parseNumber(QStringLiteral("123.456.789.012.345.678"),true).ok,"Protect grouped long integers");
+    CHECK(!parseNumber(QStringLiteral("123456789012345,67"),true).ok,"Protect amounts with more than 15 significant digits");
+    CHECK(!parseNumber(QStringLiteral("0.012"),true).ok,"Protect grouped leading-zero identifiers");
+    CHECK(parseNumber(QStringLiteral("123456789012345,00"),true).ok && parseNumber(QStringLiteral("0,000000000000000001"),true).ok,"Accept 15 digits and small numbers without rounding away significant digits");
+    CHECK(parseNumber(QStringLiteral("123,450000"),true).ok,"Accept insignificant fractional zeros");
+    
     // ---------------- Thống kê / lỗi / biểu đồ ----------------
     const auto grid = parseTsv(QStringLiteral("Tên\tSố\tMã\nA\t10\t001\nB\t20,5\t002\nC\t#DIV/0!\t003\nD\t\t004\r\n"));
     CHECK(grid.size() == 5 && grid[0].size() == 3, "Tách TSV: 5 dòng × 3 cột");
@@ -208,6 +216,23 @@ int main(int argc, char **argv)
     CHECK(!validate(ti, srcH, src, bad).errors.isEmpty(), "Một cột nguồn ghép hai lần => lỗi chặn");
     ExportOptions none = o; none.mapping = QVector<int>(5, -1);
     CHECK(!validate(ti, srcH, src, none).errors.isEmpty(), "Chưa ghép cột nào => lỗi chặn");
+
+    {
+        const QVector<QStringList> exactRows = {
+            {QStringLiteral("A"),QStringLiteral("ID"),QStringLiteral("123.456.789.012.345.678"),QStringLiteral("123456789012345,67"),QString()},
+            {QStringLiteral("B"),QStringLiteral("ID2"),QStringLiteral("(-1.500)"),QStringLiteral("12,5"),QString()}
+        };
+        const QString exactPath=out+"/precision-safe.xlsx";
+        const auto exact=exportToTemplate(tpl,exactPath,ti,srcH,exactRows,o);
+        CHECK(exact.ok && sha(tpl)==tplHash,"Precision-safe export keeps source");
+        if(exact.ok) {
+            QZipReader z(exactPath);
+            const auto xml=z.fileData("xl/worksheets/sheet1.xml");
+            CHECK(xml.contains("<c r=\"C3\" t=\"inlineStr\">") && xml.contains(">123.456.789.012.345.678<"),"Long grouped integer stays text");
+            CHECK(xml.contains("<c r=\"D3\" t=\"inlineStr\">") && xml.contains(">123456789012345,67<"),"High precision amount stays exact text");
+            CHECK(xml.contains("<c r=\"C4\" t=\"inlineStr\">") && xml.contains(">(-1.500)<") && xml.contains("<c r=\"D4\"><v>12.5</v></c>"),"Invalid accounting sign stays text, valid amount numeric");
+        }
+    }
 
     const QString outX = out + "/ket-qua-xuat.xlsx";
     const ExportResult er = exportToTemplate(tpl, outX, ti, srcH, src, o);
