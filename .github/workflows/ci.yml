@@ -61,6 +61,10 @@ jobs:
           set -o pipefail
           qpdf --version | head -1
           QT_QPA_PLATFORM=offscreen ./build/app/dung-pdftest 2>&1 | tee report/linux-pdftest.log
+      - name: Kiểm thử giao diện đọc PDF thật (Qt Widgets)
+        run: |
+          set -o pipefail
+          QT_QPA_PLATFORM=offscreen ./build/app/dung-pdfuitest 2>&1 | tee report/linux-pdfuitest.log
       - name: OCR thật — Tesseract tiếng Việt và tiếng Anh từ ảnh kiểm thử
         run: |
           set -o pipefail
@@ -443,6 +447,13 @@ jobs:
           $exe = Get-ChildItem build/out -Recurse -Filter dung-pdftest.exe | Select-Object -First 1
           if (-not $exe) { Write-Host "::error::Không thấy dung-pdftest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-pdftest.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: Kiểm thử giao diện đọc PDF thật trên Windows
+        run: |
+          $env:DUNG_QPDF = "$PWD/build/qpdf/qpdf.exe"
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-pdfuitest.exe | Select-Object -First 1
+          if (-not $exe) { exit 1 }
+          & $exe.FullName *>&1 | Tee-Object report/windows-pdfuitest.log
           if ($LASTEXITCODE) { exit 1 }
       - name: Khôi phục gói OCR đã build (khóa chính xác theo script)
         id: ocr-cache

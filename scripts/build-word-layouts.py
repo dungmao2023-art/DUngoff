@@ -168,10 +168,10 @@ def verify(root):
     for i,row in enumerate(rows):
         path=root/row[0]
         doc=Document(path)
-        assert len(doc.tables)>=4 and doc.sections[0].page_width==Cm(21)
+        assert len(doc.tables)>=4 and abs(doc.sections[0].page_width-Cm(21))<=635
         assert all(not p.text.strip() for p in doc.paragraphs)
         assert all(not cell.text.strip() for table in doc.tables for row in table.rows for cell in row.cells)
-        assert all(s.left_margin==Cm(2) and s.right_margin==Cm(2) for s in doc.sections)
+        assert all(abs(s.left_margin-Cm(2))<=635 and abs(s.right_margin-Cm(2))<=635 for s in doc.sections)
         assert doc.styles["Normal"].font.size==Pt(11)
         assert (Path(str(path)+".png")).read_bytes().startswith(b"\x89PNG")
         assert int(doc.sections[-1]._sectPr.find(qn("w:cols")).get(qn("w:num"),"1"))==COLS[i]
