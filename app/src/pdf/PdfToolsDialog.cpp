@@ -227,7 +227,7 @@ PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     auto* toggleTools=new QPushButton(tr("Ẩn công cụ"),this);toggleTools->setCheckable(true);
     heading->addWidget(activeTitle);heading->addStretch();heading->addWidget(toggleTools);lay->addLayout(heading);
     auto* work=new QHBoxLayout;lay->addLayout(work,1);
-    auto* tools=new QListWidget(this);tools->setFixedWidth(180);tools->setAccessibleName(tr("Danh mục công cụ PDF"));
+    auto* tools=new QListWidget(this);m_toolList=tools;tools->setObjectName("pdfToolList");tools->setFixedWidth(180);tools->setAccessibleName(tr("Danh mục công cụ PDF"));
     auto group=[&](const QString& label){
         auto* item=new QListWidgetItem(label,tools);
         auto font=item->font();font.setBold(true);item->setFont(font);
@@ -1339,12 +1339,13 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* form=new QFormLayout;
     auto* first=new QSpinBox(w);first->setRange(1,1);
     auto* last=new QSpinBox(w);last->setRange(1,1);
-    auto* query=new QLineEdit(w);query->setMaxLength(256);
+    auto* query=new QLineEdit(w);query->setObjectName("pdfSearchQuery");query->setMaxLength(256);
     query->setPlaceholderText(tr("Nhập từ hoặc cụm từ"));
     auto* match=new QCheckBox(tr("Phân biệt hoa/thường"),w);
-    auto* sourceRow=fileRow(&m_searchFile,{});
+    auto* sourceRow=fileRow(&m_searchFile,{});sourceRow->setObjectName("pdfReaderSourceRow");
+    m_searchFile->setObjectName("pdfReaderSource");
     form->addRow(tr("PDF nguồn:"),sourceRow);root->addLayout(form);
-    auto* searchPanel=new QWidget(w);auto* searchLayout=new QVBoxLayout(searchPanel);
+    auto* searchPanel=new QWidget(w);searchPanel->setObjectName("pdfSearchPanel");auto* searchLayout=new QVBoxLayout(searchPanel);
     searchLayout->setContentsMargins(0,0,0,0);
     auto* terms=new QHBoxLayout;
     terms->addWidget(new QLabel(tr("Từ khóa:"),w));terms->addWidget(query,1);
@@ -1359,12 +1360,12 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* actions=new QHBoxLayout;
     auto* browse=new QPushButton(tr("Đọc / sửa trực tiếp"),w);
     auto* go=new QPushButton(tr("Tìm trong PDF"),w);
-    auto* findToggle=new QPushButton(tr("Tìm chữ…"),w);findToggle->setCheckable(true);
-    auto* showText=new QPushButton(tr("Xem chữ trích xuất"),w);showText->setCheckable(true);
+    auto* findToggle=new QPushButton(tr("Tìm chữ…"),w);findToggle->setObjectName("pdfSearchToggle");findToggle->setCheckable(true);
+    auto* showText=new QPushButton(tr("Xem chữ trích xuất"),w);showText->setObjectName("pdfTextToggle");showText->setCheckable(true);
     actions->addWidget(browse);actions->addWidget(findToggle);actions->addWidget(showText);actions->addStretch();
-    auto* startSession=new QPushButton(tr("Sửa nhiều lần"),w);
+    auto* startSession=new QPushButton(tr("Sửa nhiều lần"),w);startSession->setObjectName("pdfSessionStart");
     auto* finishSession=new QPushButton(tr("Lưu bản cuối"),w);finishSession->hide();
-    auto* cancelSession=new QPushButton(tr("Hủy phiên"),w);cancelSession->hide();
+    auto* cancelSession=new QPushButton(tr("Hủy phiên"),w);cancelSession->setObjectName("pdfSessionCancel");cancelSession->hide();
     auto* undoSession=new QPushButton(tr("Hoàn tác"),w);undoSession->hide();
     auto* redoSession=new QPushButton(tr("Làm lại"),w);redoSession->hide();
     actions->addWidget(startSession);actions->addWidget(finishSession);actions->addWidget(cancelSession);
@@ -1383,13 +1384,13 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* list=new QListWidget(w);list->setAccessibleName(tr("Trang PDF hoặc kết quả tìm"));
     list->setMaximumHeight(116);root->addWidget(list);
     auto* nav=new QHBoxLayout;
-    auto* previous=new QPushButton(tr("← Trước"),w);auto* next=new QPushButton(tr("Sau →"),w);
-    auto* jump=new QSpinBox(w);jump->setRange(1,1);jump->setPrefix(tr("Trang "));
+    auto* previous=new QPushButton(tr("← Trước"),w);auto* next=new QPushButton(tr("Sau →"),w);next->setObjectName("pdfNextPage");
+    auto* jump=new QSpinBox(w);jump->setObjectName("pdfPageNumber");jump->setRange(1,1);jump->setPrefix(tr("Trang "));
     jump->setAccessibleName(tr("Số trang cần mở"));
     auto* openPage=new QPushButton(tr("Đến trang"),w);
     previous->setEnabled(false);next->setEnabled(false);jump->setEnabled(false);openPage->setEnabled(false);
     nav->addWidget(previous);nav->addWidget(next);nav->addStretch();nav->addWidget(jump);nav->addWidget(openPage);root->addLayout(nav);
-    auto* text=new QPlainTextEdit(w);text->setReadOnly(true);
+    auto* text=new QPlainTextEdit(w);text->setObjectName("pdfExtractedText");text->setReadOnly(true);
     text->setPlaceholderText(tr("Chọn trang để đọc, kéo chọn chữ trên ảnh PDF hoặc sao chép chữ trích xuất."));
     text->setToolTip(tr("Chữ trích xuất được chuẩn hóa Unicode NFC; tô sáng tối đa 1.000 vị trí trên trang, không sửa PDF."));
     auto* canvas=new PdfTextCanvas(w);
@@ -1525,6 +1526,10 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto syncSession=[=]{
         const bool active=session->active();
         sourceRow->setEnabled(!active);
+        if(m_toolList){
+            m_toolList->setEnabled(!active);
+            m_toolList->setToolTip(active?tr("Lưu bản cuối hoặc hủy phiên để chuyển công cụ PDF khác."):QString());
+        }
         startSession->setVisible(!active);finishSession->setVisible(active);cancelSession->setVisible(active);
         finishSession->setEnabled(active&&session->changes>0);
         undoSession->setVisible(active);redoSession->setVisible(active);

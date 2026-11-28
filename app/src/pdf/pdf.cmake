@@ -28,6 +28,19 @@ if(TARGET Qt6::Pdf)
   target_compile_definitions(dung-ocrtest PRIVATE DUNG_OCR_TEST_QTPDF=1)
 endif()
 
+# Real reader widget smoke test, independent of the Office engine.
+if(TARGET Qt6::Pdf)
+  add_executable(dung-pdfuitest
+    ${PROJECT_SOURCE_DIR}/tests/pdf/pdf_ui_tests.cpp
+    ${DUNG_PDF_DIR}/PdfToolsDialog.cpp ${DUNG_PDF_DIR}/PdfToolsDialog.h
+    ${DUNG_PDF_DIR}/PdfOps.cpp ${DUNG_PDF_DIR}/PdfOcr.cpp ${DUNG_PDF_DIR}/PdfTextEdit.cpp
+    ${DUNG_PDF_DIR}/../print/PrintRender.cpp ${DUNG_PDF_DIR}/../print/PrintLogic.cpp)
+  target_include_directories(dung-pdfuitest PRIVATE ${PROJECT_SOURCE_DIR}/app/src)
+  target_link_libraries(dung-pdfuitest PRIVATE Qt6::Widgets Qt6::Pdf Qt6::PrintSupport)
+  target_compile_definitions(dung-pdfuitest PRIVATE DUNG_HAVE_QTPDF=1)
+  set_target_properties(dung-pdfuitest PROPERTIES AUTOMOC ON)
+endif()
+
 # Optional standalone PDFium SDK; only use externally verified distributions.
 set(DUNG_PDFIUM_ROOT "" CACHE PATH "Verified PDFium SDK root")
 foreach(t DungOffice dung-pdftest)
