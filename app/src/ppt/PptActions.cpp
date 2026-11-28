@@ -317,6 +317,12 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return true;
         const QString source=QFileDialog::getOpenFileName(tab,QObject::tr("Chọn PPTX đã lưu"),d->isNew()?QString():fromPath(d->originalPath()),QObject::tr("PowerPoint (*.pptx)"));
         if (source.isEmpty()) return true;
+        const auto expectedSource=ppttransition::sourceFingerprint(source);
+        if(expectedSource.isEmpty()){
+            QMessageBox::warning(tab,QObject::tr("PPTX nguồn"),QObject::tr("Không đọc được tệp nguồn. Chưa tạo bản sao."));
+            return true;
+        }
+
         QString error;
         const auto masters=ppttransition::masterEntries(source,&error);
         if (masters.isEmpty()) { QMessageBox::warning(tab,QObject::tr("Slide Master"),error); return true; }
@@ -328,12 +334,18 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         const QFileInfo src(source);
         const QString dest=QFileDialog::getSaveFileName(tab,QObject::tr("Lưu PPTX mới"),src.absolutePath()+QLatin1Char('/')+src.completeBaseName()+QStringLiteral(" - master.pptx"),QObject::tr("PowerPoint (*.pptx)"));
         if (dest.isEmpty()) return true;
-        const auto result=ppttransition::createMasterBackgroundCopy(source,dest,entry,color.name(QColor::HexRgb).mid(1));
+        const auto result=ppttransition::createMasterBackgroundCopy(source,dest,entry,color.name(QColor::HexRgb).mid(1),expectedSource);
         if (!result.ok) QMessageBox::warning(tab,QObject::tr("Slide Master"),result.error);
         else QMessageBox::information(tab,QObject::tr("Slide Master"),QObject::tr("Đã tạo PPTX mới. Mở lại để kiểm tra các slide kế thừa màu nền; nguồn không bị sửa."));
     } else if(id==QLatin1String("ppt.clearAnimationCopy")){
         const QString source=QFileDialog::getOpenFileName(tab,QObject::tr("Chọn PPTX đã lưu"),d->isNew()?QString():fromPath(d->originalPath()),QObject::tr("PowerPoint (*.pptx)"));
         if(source.isEmpty())return true;
+        const auto expectedSource=ppttransition::sourceFingerprint(source);
+        if(expectedSource.isEmpty()){
+            QMessageBox::warning(tab,QObject::tr("PPTX nguồn"),QObject::tr("Không đọc được tệp nguồn. Chưa tạo bản sao."));
+            return true;
+        }
+
         QString error;const auto slides=ppttransition::slideEntries(source,&error);
         if(slides.isEmpty()){QMessageBox::warning(tab,QObject::tr("Xóa hoạt ảnh"),error);return true;}
         bool ok=false;
@@ -345,12 +357,18 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         const QFileInfo src(source);
         const QString dest=QFileDialog::getSaveFileName(tab,QObject::tr("Lưu PPTX mới"),src.absolutePath()+QLatin1Char('/')+src.completeBaseName()+QStringLiteral(" - xoa hoat anh.pptx"),QObject::tr("PowerPoint (*.pptx)"));
         if(dest.isEmpty())return true;
-        const auto result=ppttransition::createClearAnimationCopy(source,dest,page);
+        const auto result=ppttransition::createClearAnimationCopy(source,dest,page,expectedSource);
         if(!result.ok)QMessageBox::warning(tab,QObject::tr("Xóa hoạt ảnh"),result.error);
         else QMessageBox::information(tab,QObject::tr("Xóa hoạt ảnh"),QObject::tr("Đã tạo bản sao không có timing trên slide %1. Có thể dùng Thêm hoạt ảnh để thiết lập lại.").arg(page));
     } else if (id == QLatin1String("ppt.animationCopy")) {
         const QString source = QFileDialog::getOpenFileName(tab, QObject::tr("Chọn PPTX đã lưu (lưu bản nháp trước)"), d->isNew() ? QString() : fromPath(d->originalPath()), QObject::tr("PowerPoint (*.pptx)"));
         if (source.isEmpty()) return true;
+        const auto expectedSource=ppttransition::sourceFingerprint(source);
+        if(expectedSource.isEmpty()){
+            QMessageBox::warning(tab,QObject::tr("PPTX nguồn"),QObject::tr("Không đọc được tệp nguồn. Chưa tạo bản sao."));
+            return true;
+        }
+
         QString error;
         const auto slides = ppttransition::slideEntries(source, &error);
         if (slides.isEmpty()) { QMessageBox::warning(tab, QObject::tr("Hoạt ảnh"), error); return true; }
@@ -488,7 +506,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         const QFileInfo src(source);
         const QString dest = QFileDialog::getSaveFileName(tab,QObject::tr("Lưu PPTX mới"),src.absolutePath()+QLatin1Char('/')+src.completeBaseName()+QStringLiteral(" - hoat anh.pptx"),QObject::tr("PowerPoint (*.pptx)"));
         if (dest.isEmpty()) return true;
-        const auto result=ppttransition::createAnimationSequenceCopy(source,dest,page,effects);
+        const auto result=ppttransition::createAnimationSequenceCopy(source,dest,page,effects,expectedSource);
         if (!result.ok) QMessageBox::warning(tab,QObject::tr("Hoạt ảnh"),result.error);
         else QMessageBox::information(tab,QObject::tr("Hoạt ảnh"),QObject::tr("Đã tạo bản PPTX mới với %1 hiệu ứng. Hãy kiểm tra trình chiếu trong PowerPoint. Nguồn không bị sửa.").arg(effects.size()));
     } else if (id == QLatin1String("ppt.transitionNote")) {
@@ -497,6 +515,12 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return true;
         const QString source = QFileDialog::getOpenFileName(tab, QObject::tr("Chọn PPTX đã lưu"), d->isNew() ? QString() : fromPath(d->originalPath()), QObject::tr("PowerPoint (*.pptx)"));
         if (source.isEmpty()) return true;
+        const auto expectedSource=ppttransition::sourceFingerprint(source);
+        if(expectedSource.isEmpty()){
+            QMessageBox::warning(tab,QObject::tr("PPTX nguồn"),QObject::tr("Không đọc được tệp nguồn. Chưa tạo bản sao."));
+            return true;
+        }
+
         QString error;
         const auto slides = ppttransition::slideEntries(source, &error);
         if (slides.isEmpty()) { QMessageBox::warning(tab, QObject::tr("Chuyển cảnh"), error); return true; }
@@ -530,7 +554,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         const QString dest = QFileDialog::getSaveFileName(tab, QObject::tr("Lưu bản PPTX mới"), src.absolutePath() + QLatin1Char('/') + src.completeBaseName() + QStringLiteral(" - chuyen canh.pptx"), QObject::tr("PowerPoint (*.pptx)"));
         if (dest.isEmpty()) return true;
         ppttransition::Options o; o.effect = ppttransition::Effect(effect->currentIndex()); o.speed = speed->currentIndex(); o.onClick = click->isChecked(); o.autoAdvanceMs = seconds->value()*1000;
-        const auto result = ppttransition::createRangeCopy(source,dest,page->value(),rangeEnd->value(),o);
+        const auto result = ppttransition::createRangeCopy(source,dest,page->value(),rangeEnd->value(),o,expectedSource);
         if (!result.ok) QMessageBox::warning(tab, QObject::tr("Chuyển cảnh"), result.error);
         else QMessageBox::information(tab, QObject::tr("Chuyển cảnh"), QObject::tr("Đã lưu PPTX mới và kiểm cấu trúc gói:\n%1\nHãy thử trình chiếu trong PowerPoint; nguồn không bị sửa.").arg(dest));
     }

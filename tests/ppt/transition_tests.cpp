@@ -185,7 +185,21 @@ int main(int argc, char** argv) {
         QString error; const auto entries = slideEntries(src, &error);
         check(!entries.isEmpty(), "read actual PPTX slide order");
         o.effect = Effect::Fade;
-        const auto patched = createCopy(src, dst, 1, o);
+        const auto expected=sourceFingerprint(src);
+        check(expected.size()==32,"capture SHA256 of actual PPTX");
+        const QString changed=temp.filePath("changed-source.pptx");
+        check(QFile::copy(src,changed),"make isolated source-change fixture");
+        QFile changedFile(changed);
+        if(changedFile.open(QIODevice::Append)){
+            check(changedFile.write("changed")==7,"modify isolated source");
+            changedFile.close();
+        }else check(false,"open isolated source");
+        const QString stale=temp.filePath("stale-output.pptx");
+        check(!createRangeCopy(changed,stale,1,1,o,expected).ok&&!QFile::exists(stale),"stale transition source creates no output");
+        check(!createClearAnimationCopy(changed,stale,1,expected).ok&&!QFile::exists(stale),"stale animation clear creates no output");
+        check(!createAnimationSequenceCopy(changed,stale,1,{anim},expected).ok&&!QFile::exists(stale),"stale animation selection creates no output");
+        check(!createMasterBackgroundCopy(changed,stale,QStringLiteral("ppt/slideMasters/slideMaster1.xml"),QStringLiteral("123ABC"),expected).ok&&!QFile::exists(stale),"stale master selection creates no output");
+        const auto patched = createCopy(src, dst, 1, o,expected);
         if (!patched.ok) std::cerr << patched.error.toStdString() << '\n';
         check(patched.ok && slideEntries(dst, &error) == entries, "actual PPTX copy retains slide order");
         check(!createCopy(src, dst, 1, o).ok && !createCopy(src, src, 1, o).ok, "refuse overwrite");
