@@ -592,6 +592,18 @@ int runSweepTests(const fs::path& program, const fs::path& out,const fs::path& p
     const auto validationFixture=out/"validation-protection-input.xlsx";
     if(fs::exists(validationFixture)){
         step("bảo toàn dropdown và bảo vệ sheet khi sửa ô mở khóa");
+        // Separate pristine open/save from keyboard editing. Both must retain
+        // the input rule; a baseline failure identifies a filter/load issue.
+        {
+            auto pristine=engine->open(validationFixture,&err);
+            result(C,"validation-baseline-open",bool(pristine),err);
+            if(pristine){
+                const auto dest=out/"validation-protection-baseline.xlsx";
+                fs::remove(dest,ec);
+                const auto saved=pristine->saveAs(dest);
+                result(C,"validation-baseline-save",saved.ok,saved.message);
+            }
+        }
         auto vd=engine->open(validationFixture,&err);
         result(C,"validation-protection-open",bool(vd),err);
         if(vd){
