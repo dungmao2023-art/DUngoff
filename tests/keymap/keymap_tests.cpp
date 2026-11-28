@@ -32,18 +32,18 @@ int main(int argc, char** argv) {
     // 7. Thay cả phần sau con trỏ -> Delete
     { auto ops = imeToOps(QString("a"), -1, 3);
       check(ops.size() == 4 && ops[0].kind == ImeOp::Backspace && ops[1].kind == ImeOp::Delete && ops[3].kind == ImeOp::Char, "thay 1 trước + 2 sau -> BS + 2 Delete + ký tự"); }
-    // 8. Thay ở chỗ không làm được bằng phím: báo unsupported, vẫn chốt chuỗi, không xoá bậy
+    // 8. Thay ở chỗ không làm được bằng phím: từ chối toàn bộ, không chèn nhầm.
     { bool un = false; auto ops = imeToOps(QString("a"), 2, 3, &un);
-      check(un && ops.size() == 1 && ops[0].kind == ImeOp::Char, "thay phần sau con trỏ xa: báo không hỗ trợ, không xoá"); }
+      check(un && ops.empty(), "thay phần sau con trỏ xa: báo không hỗ trợ, không xoá; no partial insert"); }
     // Disjoint replacement to the left cannot be represented by adjacent Backspace.
     { bool un=false; auto ops=imeToOps(QString::fromUtf8("ệ"),-5,2,&un);
-      check(un && ops.size()==1 && ops[0].kind==ImeOp::Char, "IME disjoint left range: no adjacent deletion"); }
+      check(un && ops.empty(), "IME disjoint left range: no adjacent deletion; no partial insert"); }
     { bool un=false; auto ops=imeToOps(QString("a"),-3,3,&un);
       check(!un && ops.size()==4 && ops[2].kind==ImeOp::Backspace, "IME contiguous left range remains supported"); }
     { bool un=false; auto ops=imeToOps(QString("a"),-2147483647-1,2147483647,&un);
-      check(un && ops.size()==1 && ops[0].kind==ImeOp::Char, "IME extreme range: no overflow or deletion"); }
+      check(un && ops.empty(), "IME extreme range: no overflow or deletion; no partial insert"); }
     { bool un=false; auto ops=imeToOps(QString("a"),0,4097,&un);
-      check(un && ops.size()==1 && ops[0].kind==ImeOp::Char, "IME oversized replacement does not mass-delete"); }
+      check(un && ops.empty(), "IME oversized replacement does not mass-delete; no partial insert"); }
     { QKeyEvent e(QEvent::KeyPress,Qt::Key_Backtab,Qt::NoModifier);
       auto k=toLokKey(&e); check(k.valid && k.keyCode==(1282|0x1000), "Backtab maps to Shift+Tab even without modifier"); }
     // 9. imePlan: bắt đầu soạn (chưa composing) -> một bước Preedit
@@ -71,9 +71,14 @@ int main(int argc, char** argv) {
     // 16. Không soạn, thay 3 ký tự trước con trỏ rồi soạn tiếp
     { auto st = imePlan(QString("o"), QString::fromUtf8("yễn"), -3, 3, false);
       check(st.size() == 7 && st[0].kind == ImeStep::Backspace && st[3].kind == ImeStep::Char && st[6].kind == ImeStep::Preedit, "imePlan: thay + chốt + soạn tiếp"); }
-    // 17. Đang soạn mà đòi thay thế: bỏ phần thay, báo unsupported, không xoá bậy
-    { bool un = false; auto st = imePlan(QString("a"), QString(), -2, 2, true, nullptr, &un);
-      check(un && st.size() == 1 && st[0].kind == ImeStep::Preedit, "imePlan: đang soạn mà thay thế -> bỏ phần thay, báo unsupported"); }
+    // 17. Reject unsupported edits even if caller omits the diagnostic pointer.
+    { bool un = false, ca = false; auto st = imePlan(QString("a"), QString("b"), -2, 2, true, &ca, &un);
+      check(un && st.empty() && ca, "IME composing: reject full edit, preserve state until reset"); }
+    { bool un = false, ca = true; auto st = imePlan(QString("a"), QString("b"), 2, 3, false, &ca, &un);
+      check(un && st.empty() && !ca, "IME disjoint: no insert, deletion or new preedit"); }
+    check(imePlan(QString("a"),QString("b"),-5,2,false).empty(), "IME rejection without diagnostics");
+    check(imeToOps(QString("x"),2,0).empty(), "Reject insertion away from caret");
+    check(imeToOps(QString("x"),0,-1).empty(), "Reject negative replacement length");
     std::cout << (g_fail ? "\nKẾT QUẢ: CÓ LỖI\\n" : "\nKẾT QUẢ: TẤT CẢ ĐẠT\\n");
     return g_fail ? 1 : 0;
 }

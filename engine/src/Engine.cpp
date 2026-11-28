@@ -900,7 +900,9 @@ void Document::setPartMode(int mode) { onEngine([&] { m_doc->setPartMode(mode); 
 std::string Document::partInfo(int part) {
     char* s = onEngine([&]() -> char* {
         LibreOfficeKitDocument* d = m_doc->get();
-        return d->pClass->getPartInfo ? d->pClass->getPartInfo(d, part) : nullptr;
+        if (!d || !d->pClass || part < 0 || part >= m_doc->getParts()) return nullptr;
+        if (!LIBREOFFICEKIT_DOCUMENT_HAS(d, getPartInfo) || !d->pClass->getPartInfo) return nullptr;
+        return d->pClass->getPartInfo(d, part);
     });
     std::string r = s ? s : "";
     free(s);
@@ -908,7 +910,12 @@ std::string Document::partInfo(int part) {
 }
 
 std::string Document::partHash(int part) {
-    char* s = onEngine([&] { return m_doc->getPartHash(part); });
+    char* s = onEngine([&]() -> char* {
+        LibreOfficeKitDocument* d = m_doc->get();
+        if (!d || !d->pClass || part < 0 || part >= m_doc->getParts()) return nullptr;
+        if (!LIBREOFFICEKIT_DOCUMENT_HAS(d, getPartHash) || !d->pClass->getPartHash) return nullptr;
+        return d->pClass->getPartHash(d, part);
+    });
     std::string r = s ? s : "";
     free(s);
     return r;

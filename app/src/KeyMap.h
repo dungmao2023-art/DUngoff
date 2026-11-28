@@ -22,7 +22,7 @@ struct ImeOp {
 };
 // commit: chuỗi bộ gõ chốt; replaceStart/replaceLen: phần văn bản bộ gõ muốn thay (tính từ con trỏ, theo QInputMethodEvent).
 // Chỉ hỗ trợ thay phần NẰM TRƯỚC con trỏ (replaceStart <= 0) bằng Backspace và phần sau bằng Delete;
-// thay ở chỗ khác không làm được qua phím -> đặt *unsupported = true và bỏ phần thay (vẫn chốt chuỗi).
+// thay ở chỗ khác không làm được qua phím -> đặt *unsupported = true và từ chối toàn bộ thao tác (không chốt chuỗi).
 std::vector<ImeOp> imeToOps(const QString& commit, int replaceStart, int replaceLen, bool* unsupported = nullptr);
 
 // Kế hoạch xử lý MỘT QInputMethodEvent, gồm cả chữ đang soạn (preedit). Hàm thuần để kiểm thử không cần giao diện.
@@ -36,7 +36,7 @@ struct ImeStep {
 };
 // preedit/commit/replaceStart/replaceLen: lấy từ QInputMethodEvent. composing: engine đang có chữ đang soạn.
 // *composingAfter: sau khi chạy các bước, engine còn chữ đang soạn hay không.
-// *unsupported: đã bỏ phần "thay thế" vì không làm được (đang soạn dở, hoặc thay ở chỗ xa con trỏ).
+// *unsupported: từ chối toàn bộ sự kiện vì không thể thay đúng vùng; composingAfter giữ trạng thái cũ.
 // Quy ước: đang soạn mà có commit -> commit THAY chữ đang soạn rồi chốt (không chèn hai lần);
 //          đang soạn mà preedit rỗng và không commit -> HUỶ chữ đang soạn (engine trả về như trước khi soạn).
 std::vector<ImeStep> imePlan(const QString& preedit, const QString& commit, int replaceStart, int replaceLen,

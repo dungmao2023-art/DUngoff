@@ -4,6 +4,8 @@
 #include "tools/dataassist/ExcelBridge.h"
 #include <QGuiApplication>
 #include <QInputMethod>
+#include <QScopedValueRollback>
+#include <QToolTip>
 
 #include "CaretGeom.h"
 #include "CaretTrace.h"
@@ -776,6 +778,7 @@ void TileView::keyReleaseEvent(QKeyEvent* e) {
 }
 
 void TileView::inputMethodEvent(QInputMethodEvent* e) {
+    if (m_resettingIme) { e->accept(); return; }
     flushDragMove();
     const UiTiming timing("ime");
     if (m_doc->readOnly()) { e->ignore(); return; }
@@ -785,6 +788,17 @@ void TileView::inputMethodEvent(QInputMethodEvent* e) {
     bool unsupported = false, after = false;
     const auto steps = imePlan(e->preeditString(), e->commitString(), e->replacementStart(), e->replacementLength(),
                                m_composing, &after, &unsupported);
+    if (unsupported) {
+        // Do not insert at the caret when the requested target is elsewhere.
+        // Reset the transient preedit, never delete committed text as a fallback.
+        QScopedValueRollback<bool> resetting(m_resettingIme, true);
+        if (m_composing) cancelComposition();
+        else if (QGuiApplication::inputMethod()) QGuiApplication::inputMethod()->reset();
+        QToolTip::showText(viewport()->mapToGlobal(viewport()->rect().center()),
+            tr("Bộ gõ yêu cầu thay chữ ở vị trí chưa hỗ trợ. Văn bản đã lưu giữ nguyên; hãy nhập lại đoạn này."), viewport());
+        e->accept();
+        return;
+    }
     for (const ImeStep& st : steps) {
         switch (st.kind) {
         case ImeStep::Preedit:    m_doc->postExtTextInput(0, st.text.toUtf8().toStdString()); break;

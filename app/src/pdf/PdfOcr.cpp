@@ -9,6 +9,7 @@
 #include <QElapsedTimer>
 #include <QStandardPaths>
 #include <QCoreApplication>
+#include <QImageReader>
 namespace dungpdf {
 QString validateOcrRange(int first, int last, int pageCount) {
     if (first < 1 || last < first || last > pageCount)
@@ -43,6 +44,13 @@ static OcrResult runTesseract(const QString& image, const QString& language, int
     const QFileInfo input(image);
     if (!input.isFile() || input.size() <= 0 || input.size() > 100LL * 1024 * 1024)
         return fail(QStringLiteral("Ảnh OCR không tồn tại hoặc quá lớn."));
+    // Reject oversized decoded images before invoking the external process.
+    // File size alone cannot bound a compressed image's memory footprint.
+    QImageReader reader(input.absoluteFilePath());
+    const QSize dimensions = reader.size();
+    if (!dimensions.isValid() || dimensions.width() > 12000 || dimensions.height() > 12000
+        || qint64(dimensions.width()) * dimensions.height() > 36000000)
+        return fail(QStringLiteral("Ảnh OCR không đọc được kích thước hoặc vượt giới hạn 36 triệu điểm ảnh."));
     const QString exe = findTesseract();
     if (exe.isEmpty()) return fail(QStringLiteral("Thiếu Tesseract: đặt gói OCR cạnh Dũng Office hoặc cài Tesseract vào PATH."));
     QProcess proc;
@@ -73,6 +81,7 @@ static OcrResult runTesseract(const QString& image, const QString& language, int
         }
         proc.waitForFinished(100);
     }
+    if (QThread::currentThread()->isInterruptionRequested()) return fail(QStringLiteral("Đã hủy OCR."));
     if (proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0)
         return fail(QStringLiteral("Tesseract lỗi (kiểm tra gói ngôn ngữ): ") + QString::fromUtf8(proc.readAllStandardError()).left(1500));
     return {true, QString::fromUtf8(proc.readAllStandardOutput()).trimmed(), {}};
@@ -100,6 +109,7 @@ OcrResult searchableImagePdf(const QString& image, const QString& language, int 
         || !pdf.readAll().contains("%%EOF"))
         return fail(QStringLiteral("Tesseract không tạo được PDF hợp lệ."));
     pdf.close();
+    if (QThread::currentThread()->isInterruptionRequested()) return fail(QStringLiteral("Đã hủy OCR."));
     if (!QFile::rename(produced,destination)) return fail(QStringLiteral("Không lưu được PDF mới; không ghi đè."));
     return {true,{},{}};
 }

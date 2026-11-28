@@ -56,17 +56,22 @@ def verify(root):
         # The synthetic fixture always uses sheet1; report only policy attributes.
         with ZipFile(path) as package:
             root_xml = ET.fromstring(package.read("xl/worksheets/sheet1.xml"))
-            for node in root_xml.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}dataValidation"):
-                print(label, "XML policy", {k: node.get(k, "<absent>") for k in
+            nodes = root_xml.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}dataValidation")
+            check(len(nodes) == 1, label + ": exactly one XML rule")
+            if len(nodes) == 1:
+                policy = nodes[0].attrib
+                print(label, "XML policy", {k: policy.get(k, "<absent>") for k in
                     ("allowBlank", "showErrorMessage", "errorStyle", "showDropDown")})
+                # OOXML boolean lexical forms: 1/true and 0/false. Older
+                # openpyxl builds misread allowBlank even on the input fixture.
+                check(policy.get("allowBlank") in ("1", "true"), label + ": allow blank preserved")
+                check(policy.get("showErrorMessage") in ("1", "true"), label + ": error message enabled")
+                check(policy.get("errorStyle", "stop") == "stop", label + ": stop error style preserved")
         if len(matching) != 1:
             return
         r = matching[0]
         check(str(r.sqref) == "B2:B3", label + ": validation range unchanged")
         check(r.formula1 == '"Đạt,Chờ"', label + ": exact Vietnamese list retained")
-        check(r.allowBlank is True, label + ": allow blank preserved")
-        check(r.showErrorMessage is True, label + ": error message enabled")
-        check(r.errorStyle in (None, "stop"), label + ": stop error style preserved")
     verify_rule(before, root / "validation-protection-input.xlsx", "input")
     verify_rule(baseline, baseline_path, "pristine")
     verify_rule(after, root / "validation-protection-output.xlsx", "edited")
