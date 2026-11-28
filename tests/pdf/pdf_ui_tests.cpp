@@ -16,6 +16,7 @@
 #include <QFileDialog>
 #include <QMouseEvent>
 #include <QFileInfo>
+#include <QDir>
 #include <iostream>
 
 int main(int argc,char** argv){
@@ -102,7 +103,23 @@ int main(int argc,char** argv){
                 if(button){button->click();return;}
             }
             if(auto* dialog=qobject_cast<QFileDialog*>(active);dialog&&expected==Expected::Save){
-                expected=Expected::None;dialog->selectFile(final);
+                expected=Expected::None;
+                const QFileInfo target(final);
+                dialog->setDirectory(target.absolutePath());
+                dialog->selectFile(target.fileName());
+                // A visible non-native QFileDialog can retain the previous
+                // filename in its editor after selectFile; drive the actual
+                // input control just as a user entering the new name would.
+                if(auto* editor=dialog->findChild<QLineEdit*>("fileNameEdit"))
+                    editor->setText(target.fileName());
+                const auto chosen=dialog->selectedFiles();
+                const bool exact=chosen.size()==1&&QDir::cleanPath(chosen.first())==QDir::cleanPath(final);
+                check(exact,"save dialog resolves requested final filename");
+                if(!exact){
+                    std::cerr<<"Selected files: "<<chosen.join(" | ").toStdString()
+                             <<" expected: "<<final.toStdString()<<std::endl;
+                    dialog->reject();return;
+                }
                 QMetaObject::invokeMethod(dialog,"accept",Qt::DirectConnection);return;
             }
             // Fail instead of hanging CI on any unexpected dialog.
@@ -127,8 +144,14 @@ int main(int argc,char** argv){
         dlg->reject();
         check(expected==Expected::None&&dlg->isVisible()&&file->text()==revised,"cancel close preserves unsaved changes");
         expected=Expected::Save;save->click();
-        check(expected==Expected::None&&file->text()==final&&dungpdf::fingerprint(final)==revisedHash&&
-              dungpdf::fingerprint(source)==hash&&tools->isEnabled()&&cancel->isHidden(),"save one final PDF and preserve original");
+        check(expected==Expected::None,"save dialog completed");
+        check(QFileInfo::exists(final),"final PDF exists at chosen path");
+        check(dungpdf::fingerprint(final)==revisedHash,"final PDF bytes match edited revision");
+        check(dungpdf::fingerprint(source)==hash,"original PDF bytes unchanged");
+        check(QDir::cleanPath(file->text())==QDir::cleanPath(final),"reader switches to exported PDF");
+        check(tools->isEnabled()&&cancel->isHidden(),"session exits and tools unlock");
+        if(QDir::cleanPath(file->text())!=QDir::cleanPath(final))
+            std::cerr<<"Reader source: "<<file->text().toStdString()<<" expected: "<<final.toStdString()<<std::endl;
         modal.stop();
         // If the last step failed, reject an unsaved-close prompt via Discard
         // so the test reports failure rather than blocking indefinitely.

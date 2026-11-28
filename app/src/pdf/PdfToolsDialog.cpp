@@ -402,9 +402,22 @@ void PdfToolsDialog::refreshPageCount(const QString& path, QLabel* label) {
 // Export tools always create new files. Do not infer overwrite permission from
 // existence after the native save dialog: another process may have created the name.
 static QString pickDest(QWidget* p, const QString& src, const QString& label) {
-    const auto path=QFileDialog::getSaveFileName(p,QObject::tr("Lưu bản PDF mới (không ghi đè)"),suggestOutputPath(src,label),
-        QObject::tr("Tệp PDF (*.pdf)"),nullptr,QFileDialog::DontConfirmOverwrite);
+    QFileDialog dialog(p,QObject::tr("Lưu bản PDF mới (không ghi đè)"));
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setFileMode(QFileDialog::AnyFile);
+    dialog.setNameFilter(QObject::tr("Tệp PDF (*.pdf)"));
+    dialog.setDefaultSuffix(QStringLiteral("pdf"));
+    dialog.setOption(QFileDialog::DontConfirmOverwrite);
+    const QFileInfo suggested(suggestOutputPath(src,label));
+    dialog.setDirectory(suggested.absolutePath());
+    dialog.selectFile(suggested.fileName());
+    if(dialog.exec()!=QDialog::Accepted||dialog.selectedFiles().size()!=1)return {};
+    const auto path=QDir::cleanPath(dialog.selectedFiles().first());
     if(path.isEmpty())return {};
+    if(!path.endsWith(QStringLiteral(".pdf"),Qt::CaseInsensitive)){
+        QMessageBox::warning(p,QObject::tr("Lưu bản PDF mới"),QObject::tr("Hãy sử dụng phần mở rộng .pdf."));
+        return {};
+    }
     const QFileInfo target(path);
     if(target.exists()||target.isSymLink()){
         QMessageBox::warning(p,QObject::tr("Lưu bản PDF mới"),QObject::tr("Tên này đã tồn tại. Hãy chọn tên khác để giữ nguyên mọi tệp cũ."));
