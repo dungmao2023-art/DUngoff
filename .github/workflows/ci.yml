@@ -270,6 +270,7 @@ jobs:
       - name: PowerPoint — lệnh UNO Impress trên engine thật + kiểm tệp PPTX đã lưu
         run: |
           set -o pipefail
+          python3 tests/ppt/make_layer_fixture.py smoke-ppt/ppt-layer-input.pptx
           ./build/dung-smoketest --program /usr/lib/libreoffice/program --ppt fixtures/mau-trinh-chieu.pptx \
             --out smoke-ppt 2>&1 | tee report/linux-ppt.log
           python3 tests/ppt/verify_pptx.py "$(cat smoke-ppt/saved-path.txt)" 2>&1 | tee report/linux-ppt-verify.log
@@ -691,6 +692,8 @@ jobs:
             python tests/fixtures/make_fixtures.py fixtures
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
+          python tests/ppt/make_layer_fixture.py smoke-ppt/ppt-layer-input.pptx
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--ppt", "fixtures/mau-trinh-chieu.pptx", "--out", "$PWD/smoke-ppt") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-ppt.log -RedirectStandardError report/windows-ppt.err.log
           if (-not $p.WaitForExit(420000)) { Stop-Process $p -Force; Write-Host "::error::PowerPoint test timeout"; exit 1 }
           Get-Content report/windows-ppt.log

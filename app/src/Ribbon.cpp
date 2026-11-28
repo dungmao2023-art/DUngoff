@@ -285,6 +285,8 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     {QStringLiteral("ppt.textbox"), tr("Hộp văn bản"), 0xE8D2, QStringLiteral("T"), false},
                     {QStringLiteral("ppt.rect"), tr("Hình chữ nhật"), 0xE739, QStringLiteral("▭"), false},
                     {QStringLiteral("ppt.image"), tr("Ảnh"), 0xEB9F, QStringLiteral("🖼"), false},
+                    {QStringLiteral("ppt.layerUp"), tr("Đưa lớp lên"), 0xE74A, QStringLiteral("↑"), false},
+                    {QStringLiteral("ppt.layerDown"), tr("Đưa lớp xuống"), 0xE74B, QStringLiteral("↓"), false},
                     {QStringLiteral(".uno:InsertTable#{\"Columns\":{\"type\":\"long\",\"value\":\"3\"},\"Rows\":{\"type\":\"long\",\"value\":\"2\"}}"), tr("Bảng 3×2"), 0xE80A, QStringLiteral("▦"), false},
                 }}}},
             {tr("Trình chiếu"), {{tr("Trình chiếu"), {

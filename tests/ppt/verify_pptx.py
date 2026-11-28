@@ -59,5 +59,28 @@ check(any(sh.shape_type == 1 and not sh.has_text_frame or sh.shape_type == 1 for
 note = slides[0].notes_slide.notes_text_frame.text if slides[0].has_notes_slide else ""
 check("Ghi chu nguoi noi" in note, f"Ghi chú người nói của trang 1 đã lưu (thực tế: {note!r})")
 
+# Independent two-shape fixture: exported shape order, geometry and text.
+from pathlib import Path
+layer_dir = Path(path).parent
+def layer_shapes(filename):
+    deck = Presentation(layer_dir / filename)
+    check(len(deck.slides) == 1, filename + ": slide identity")
+    shapes = list(deck.slides[0].shapes)
+    order = [s.text for s in shapes if s.has_text_frame]
+    info = {s.text: (s.left, s.top, s.width, s.height) for s in shapes if s.has_text_frame}
+    print(filename, order, info)
+    check(len(shapes) == 2 and len(info) == 2, filename + ": both objects retained")
+    return order, info
+baseline, geometry = layer_shapes("ppt-layer-baseline.pptx")
+check(baseline == ["LAYER_A", "LAYER_B"], "original object order")
+for filename, expected in (
+    ("ppt-layer-forward.pptx", ["LAYER_B", "LAYER_A"]),
+    ("ppt-layer-forward-undone.pptx", baseline),
+    ("ppt-layer-backward.pptx", ["LAYER_B", "LAYER_A"]),
+    ("ppt-layer-backward-undone.pptx", baseline),
+):
+    order, info = layer_shapes(filename)
+    check(order == expected, filename + ": native layer order")
+    check(info == geometry, filename + ": object geometry and text preserved")
 print("\nKẾT QUẢ XÁC MINH PPTX:", "CÓ LỖI" if fail else "TẤT CẢ ĐẠT")
 sys.exit(1 if fail else 0)
