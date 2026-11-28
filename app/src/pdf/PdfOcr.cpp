@@ -80,8 +80,9 @@ static OcrResult runTesseract(const QString& image, const QString& language, int
             if(!model.isFile() || model.size()<=0) return fail(QStringLiteral("Gói OCR offline thiếu dữ liệu ngôn ngữ: ")+lang);
         }
         args << QStringLiteral("--tessdata-dir") << data;
-        if(!pdfBase.isEmpty() && !QFileInfo(QDir(data).filePath(QStringLiteral("pdf.ttf"))).isFile())
-            return fail(QStringLiteral("Gói OCR offline thiếu pdf.ttf để xuất PDF tìm kiếm được."));
+        // Modern Tesseract includes its own glyphless PDF font (pdf_ttf).
+        // Older builds may need pdf.ttf; let the actual PDF export and its
+        // validation determine success instead of rejecting newer packages.
     }
     if (!pdfBase.isEmpty()) args << QStringLiteral("--dpi") << QString::number(dpi) << QStringLiteral("pdf");
     proc.setArguments(args);

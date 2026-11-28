@@ -458,7 +458,7 @@ jobs:
           $data = Join-Path $ocr "share/tessdata"
           $tess = Join-Path $bin "tesseract.exe"
           $qtbin = Join-Path $env:QT_ROOT_DIR "bin"
-          foreach ($file in @($tess, (Join-Path $data "vie.traineddata"), (Join-Path $data "eng.traineddata"), (Join-Path $data "osd.traineddata"), (Join-Path $data "pdf.ttf"), (Join-Path $qtbin "Qt6Core.dll"))) {
+          foreach ($file in @($tess, (Join-Path $data "vie.traineddata"), (Join-Path $data "eng.traineddata"), (Join-Path $data "osd.traineddata"), (Join-Path $qtbin "Qt6Core.dll"))) {
             if (!(Test-Path -LiteralPath $file -PathType Leaf)) { throw "Missing OCR/Qt dependency: $file" }
           }
           $env:QT_QPA_PLATFORM = "offscreen"
