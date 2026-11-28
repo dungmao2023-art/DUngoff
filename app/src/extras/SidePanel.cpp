@@ -333,8 +333,8 @@ QWidget* SidePanel::buildWorkManager() {
     row->addWidget(new QLabel(tr("Dự án"),w));
     m_projectPicker=new QComboBox(w);m_projectPicker->setObjectName(QStringLiteral("WorkProjectPicker"));
     row->addWidget(m_projectPicker,1);
-    auto* add=new QPushButton(tr("+ Dự án"),w);add->setObjectName(QStringLiteral("WorkPrimary"));row->addWidget(add);
-    m_editProject=new QPushButton(tr("Sửa dự án / Thành viên"),w);row->addWidget(m_editProject);
+    auto* add=new QPushButton(tr("+ Dự án"),w);add->setObjectName(QStringLiteral("WorkAddProject"));row->addWidget(add);
+    m_editProject=new QPushButton(tr("Sửa dự án / Thành viên"),w);m_editProject->setObjectName(QStringLiteral("WorkEditProject"));row->addWidget(m_editProject);
     v->addLayout(row);
     m_workViews=new QTabWidget(w);m_workViews->setObjectName(QStringLiteral("WorkViews"));
     auto* boardPage=new QWidget(w);auto* bv=new QVBoxLayout(boardPage);
@@ -349,7 +349,7 @@ QWidget* SidePanel::buildWorkManager() {
         m_columnTitles[i]=new QLabel(kWorkStatus[i],col);
         m_columnTitles[i]->setStyleSheet(QStringLiteral("font-weight:600;color:%1;").arg(colors[i]));
         head->addWidget(m_columnTitles[i],1);
-        m_addTask[i]=new QPushButton(QStringLiteral("+"),col);
+        m_addTask[i]=new QPushButton(QStringLiteral("+"),col);m_addTask[i]->setObjectName(QStringLiteral("WorkAddTask%1").arg(i));
         m_addTask[i]->setAccessibleName(tr("Thêm việc: %1").arg(kWorkStatus[i]));
         head->addWidget(m_addTask[i]);cv->addLayout(head);
         auto* list=new BoardList(col);list->setObjectName(QStringLiteral("WorkColumn%1").arg(i));
@@ -405,9 +405,9 @@ void SidePanel::editProject(bool create) {
     auto p=pi<0?QJsonObject{}:m_workProjects[pi].toObject();
     QDialog d(this);d.setWindowTitle(create?tr("Tạo dự án"):tr("Sửa dự án"));d.resize(640,440);
     auto* v=new QVBoxLayout(&d);auto* form=new QFormLayout;
-    auto* name=new QLineEdit(field(p,"name"),&d);name->setMaxLength(200);form->addRow(tr("Tên dự án"),name);
+    auto* name=new QLineEdit(field(p,"name"),&d);name->setObjectName(QStringLiteral("WorkProjectName"));name->setMaxLength(200);form->addRow(tr("Tên dự án"),name);
     v->addLayout(form);v->addWidget(new QLabel(tr("Người liên quan — mỗi người một dòng, liên hệ không bắt buộc"),&d));
-    auto* table=new QTableWidget(0,2,&d);table->setHorizontalHeaderLabels({tr("Tên"),tr("Điện thoại / Email / Liên hệ")});
+    auto* table=new QTableWidget(0,2,&d);table->setObjectName(QStringLiteral("WorkProjectPeople"));table->setHorizontalHeaderLabels({tr("Tên"),tr("Điện thoại / Email / Liên hệ")});
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);table->setSelectionBehavior(QAbstractItemView::SelectRows);
     auto addPerson=[table](const QJsonObject& person){
         const int row=table->rowCount();table->insertRow(row);
@@ -448,15 +448,15 @@ void SidePanel::editTask(const QString& id,int status) {
     auto task=ti<0?QJsonObject{}:m_tasks[ti].toObject();
     QDialog d(this);d.setWindowTitle(ti<0?tr("Thêm công việc"):tr("Sửa công việc"));d.resize(480,380);
     auto* v=new QVBoxLayout(&d);auto* f=new QFormLayout;
-    auto* title=new QLineEdit(field(task,"title"),&d);title->setMaxLength(300);f->addRow(tr("Tên công việc"),title);
+    auto* title=new QLineEdit(field(task,"title"),&d);title->setObjectName(QStringLiteral("WorkTaskTitle"));title->setMaxLength(300);f->addRow(tr("Tên công việc"),title);
     auto* desc=new QPlainTextEdit(&d);desc->setPlainText(field(task,"description"));desc->setMaximumHeight(100);f->addRow(tr("Nội dung"),desc);
-    auto* st=new QComboBox(&d);st->addItems(kWorkStatus);st->setCurrentIndex(qBound(0,task.value(QStringLiteral("status")).toInt(status),3));f->addRow(tr("Trạng thái"),st);
+    auto* st=new QComboBox(&d);st->setObjectName(QStringLiteral("WorkTaskStatus"));st->addItems(kWorkStatus);st->setCurrentIndex(qBound(0,task.value(QStringLiteral("status")).toInt(status),3));f->addRow(tr("Trạng thái"),st);
     auto* pr=new QComboBox(&d);pr->addItems(kPriority);pr->setCurrentIndex(qBound(0,task.value(QStringLiteral("priority")).toInt(1),2));f->addRow(tr("Ưu tiên"),pr);
-    auto* who=new QComboBox(&d);who->addItem(tr("Chưa giao"),QString());
+    auto* who=new QComboBox(&d);who->setObjectName(QStringLiteral("WorkTaskPerson"));who->addItem(tr("Chưa giao"),QString());
     for(const auto& x:p.value(QStringLiteral("people")).toArray()){const auto person=x.toObject();who->addItem(field(person,"name"),field(person,"id"));who->setItemData(who->count()-1,field(person,"contact"),Qt::ToolTipRole);}
     who->setCurrentIndex(qMax(0,who->findData(field(task,"person"))));f->addRow(tr("Người phụ trách"),who);
     auto* dueRow=new QWidget(&d);auto* dr=new QHBoxLayout(dueRow);dr->setContentsMargins(0,0,0,0);
-    auto* hasDue=new QCheckBox(tr("Có hạn chót"),dueRow);auto* due=new QDateEdit(dueRow);due->setCalendarPopup(true);due->setDisplayFormat(QStringLiteral("dd/MM/yyyy"));
+    auto* hasDue=new QCheckBox(tr("Có hạn chót"),dueRow);hasDue->setObjectName(QStringLiteral("WorkTaskHasDue"));auto* due=new QDateEdit(dueRow);due->setCalendarPopup(true);due->setDisplayFormat(QStringLiteral("dd/MM/yyyy"));
     const auto date=QDate::fromString(field(task,"due"),Qt::ISODate);hasDue->setChecked(date.isValid());due->setDate(date.isValid()?date:QDate::currentDate());due->setEnabled(hasDue->isChecked());
     connect(hasDue,&QCheckBox::toggled,due,&QDateEdit::setEnabled);dr->addWidget(hasDue);dr->addWidget(due);f->addRow(tr("Hạn chót"),dueRow);
     v->addLayout(f);auto* buttons=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&d);v->addWidget(buttons);
@@ -604,7 +604,11 @@ QWidget* SidePanel::buildCalendar() {
     connect(del, &QPushButton::clicked, this, [this] {
         auto* it = m_eventList->currentItem();
         if (!it) return;
-        if(it->data(Qt::UserRole+1).isValid()){const auto id=it->data(Qt::UserRole+1).toString();editTask(id);return;}
+        if(it->data(Qt::UserRole+1).isValid()){
+            const int index=taskIndex(it->data(Qt::UserRole+1).toString());
+            if(index>=0&&QMessageBox::question(this,tr("Xóa công việc"),tr("Xóa công việc dự án này khỏi Kanban và Lịch?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)==QMessageBox::Yes){m_tasks.removeAt(index);refreshBoard();refreshEvents();markCalendar();scheduleSave();}
+            return;
+        }
         const int idx = it->data(Qt::UserRole).toInt();
         if (idx < 0 || idx >= m_events.size()) return;
         m_events.removeAt(idx);

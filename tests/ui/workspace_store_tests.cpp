@@ -5,6 +5,12 @@
 #include <QComboBox>
 #include <QListWidget>
 #include <QTabWidget>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QLineEdit>
+#include <QTableWidget>
+#include <QCheckBox>
+#include <QTimer>
 #include <QTemporaryDir>
 #include "../../app/src/extras/DriveFolder.h"
 #include <QPushButton>
@@ -121,6 +127,50 @@ int main(int argc,char** argv) {
                 if(old.value("id")==next.value("id")||imported.value("tasks").toArray().size()!=1||
                    imported.value("tasks").toArray().at(0).toObject().value("person")!=next.value("people").toArray().at(0).toObject().value("id"))result=24;
                 auto broken=snapshot;broken.insert("version",99);if(panel.importWorkProject(broken))result=25;
+            }
+        }
+    }
+    if(!result){
+        SidePanel panel;panel.showPage(1);
+        auto* add=panel.findChild<QPushButton*>(QStringLiteral("WorkAddProject"));
+        auto* addTask=panel.findChild<QPushButton*>(QStringLiteral("WorkAddTask0"));
+        auto* picker=panel.findChild<QComboBox*>(QStringLiteral("WorkProjectPicker"));
+        auto* calendar=panel.findChild<QListWidget*>(QStringLiteral("WorkCalendarEvents"));
+        if(!add||!addTask||!picker||!calendar)result=26;
+        else{
+            QTimer::singleShot(0,&panel,[&]{
+                auto* d=qobject_cast<QDialog*>(QApplication::activeModalWidget());
+                if(!d){result=27;return;}
+                auto* name=d->findChild<QLineEdit*>(QStringLiteral("WorkProjectName"));
+                auto* people=d->findChild<QTableWidget*>(QStringLiteral("WorkProjectPeople"));
+                auto* buttons=d->findChild<QDialogButtonBox*>();
+                if(!name||!people||!buttons){result=27;d->reject();return;}
+                name->setText(QStringLiteral("Dự án mới"));
+                people->insertRow(0);auto* n=new QTableWidgetItem(QStringLiteral("Hà"));
+                n->setData(Qt::UserRole,QStringLiteral("person-test"));
+                people->setItem(0,0,n);people->setItem(0,1,new QTableWidgetItem(QStringLiteral("")));
+                buttons->button(QDialogButtonBox::Save)->click();
+            });
+            add->click();
+            if(!result&&picker->currentText()!=QStringLiteral("Dự án mới"))result=28;
+            if(!result){
+                QTimer::singleShot(0,&panel,[&]{
+                    auto* d=qobject_cast<QDialog*>(QApplication::activeModalWidget());
+                    if(!d){result=29;return;}
+                    auto* title=d->findChild<QLineEdit*>(QStringLiteral("WorkTaskTitle"));
+                    auto* who=d->findChild<QComboBox*>(QStringLiteral("WorkTaskPerson"));
+                    auto* due=d->findChild<QCheckBox*>(QStringLiteral("WorkTaskHasDue"));
+                    auto* status=d->findChild<QComboBox*>(QStringLiteral("WorkTaskStatus"));
+                    auto* buttons=d->findChild<QDialogButtonBox*>();
+                    if(!title||!who||!due||!status||!buttons||who->count()!=2||who->itemText(1)!=QStringLiteral("Hà")){result=29;d->reject();return;}
+                    title->setText(QStringLiteral("Kiểm tra Kanban"));who->setCurrentIndex(1);due->setChecked(true);status->setCurrentIndex(2);
+                    buttons->button(QDialogButtonBox::Save)->click();
+                });
+                addTask->click();
+                auto* c2=panel.findChild<QListWidget*>(QStringLiteral("WorkColumn2"));
+                if(!result&&(!c2||c2->count()!=1||!calendar->count()||!panel.flush()))result=30;
+                if(!result){const auto snap=panel.exportWorkProject();const auto tasks=snap.value("tasks").toArray();
+                    if(tasks.size()!=1||tasks.at(0).toObject().value("person").toString()!=QStringLiteral("person-test")||tasks.at(0).toObject().value("status").toInt()!=2)result=31;}
             }
         }
     }
