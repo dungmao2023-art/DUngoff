@@ -12,7 +12,7 @@
 #include "recovery/RecoveryStore.h"
 #include "word/WordActions.h"
 #include "HomePage.h"
-#include "extras/ProjectsPage.h"
+#include "extras/DonateInfo.h"
 #include "extras/SidePanel.h"
 #include "extras/DriveFolder.h"
 #include <QJsonDocument>
@@ -166,6 +166,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     ch->setContentsMargins(0, 0, 0, 0);
     ch->setSpacing(0);
     rv->addWidget(content, 1);
+    auto* motto=new QLabel(donate::slogan(),right);
+    motto->setObjectName(QStringLiteral("OfficeSlogan"));
+    motto->setTextFormat(Qt::PlainText);motto->setWordWrap(true);motto->setAlignment(Qt::AlignCenter);
+    motto->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Minimum);
+    motto->setStyleSheet(QStringLiteral("background:#F4F8FF;color:#243B60;font-weight:700;font-size:12px;padding:6px 10px;border-top:1px solid #DCE5F2;"));
+    rv->addWidget(motto);
     h->addWidget(right, 1);
 
     m_stack = new QStackedWidget(content);
@@ -211,8 +217,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     });
     m_stack->addWidget(m_home);
     m_stack->addWidget(m_docArea);
-    m_projects = new ProjectsPage(m_stack);
-    m_stack->addWidget(m_projects);
+    m_donate = buildDonatePage();
+    m_stack->addWidget(m_donate);
     tpl::seedFromBundled(QCoreApplication::applicationDirPath()); // cài/cập nhật gói mẫu đi kèm bộ cài (nếu mới hơn)
     m_templates = new TemplatesPage(m_stack);
     m_stack->addWidget(m_templates);
@@ -471,9 +477,8 @@ QWidget* MainWindow::buildSidebar() {
     auto* excel = make(tr("Bảng tính Excel"), app(QStringLiteral("X"), theme::kExcel), false);
     auto* ppt = make(tr("PowerPoint"), app(QStringLiteral("P"), theme::kPowerPoint), false);
     auto* pdf = make(tr("Công cụ PDF"), app(QStringLiteral("PDF"), theme::kPdf), false);
-    section(tr("TẬP TIN & DỰ ÁN"));
+    section(tr("TẬP TIN & CÔNG CỤ"));
     auto* tmpl = make(tr("Kho mẫu"), sym("templates"), true);
-    auto* proj = make(tr("Dự án"), sym("projects"), true);
     auto* tools = make(tr("Công cụ"), sym("tools"), true);
     section(tr("QUẢN TRỊ CÔNG VIỆC"));
     auto* notes=make(tr("Ghi chú"),app(QStringLiteral("N"),QColor("#9C6F2E")),true);
@@ -489,6 +494,9 @@ QWidget* MainWindow::buildSidebar() {
     drive->setToolTip(tr("Chọn thư mục đồng bộ Google Drive trên máy"));
     auto* open = make(tr("Mở tệp"), sym("open"), false);
     auto* about = make(tr("Giới thiệu"), sym("about"), false);
+    auto* donateBtn=make(tr("Ủng hộ tự nguyện"),shell::badge(QStringLiteral("♥"),QColor("#267B69"),Qt::white,30,dpr),true);
+    connect(donateBtn,&QPushButton::clicked,this,&MainWindow::showDonate);
+    side->setProperty("donateBtn",QVariant::fromValue<QObject*>(donateBtn));
     bv->addStretch(1);
 
     // Keep feedback prominent even when the navigation list scrolls.
@@ -528,7 +536,6 @@ QPushButton#FeedbackNav:focus { border:2px solid #B9D0FF; }
     pdf->setToolTip(tr("Mở tệp PDF để xem và dùng công cụ PDF"));
     connect(home, &QPushButton::clicked, this, &MainWindow::showHome);
     connect(docs, &QPushButton::clicked, this, &MainWindow::showDocuments);
-    connect(proj, &QPushButton::clicked, this, &MainWindow::showProjects);
     connect(tmpl, &QPushButton::clicked, this, &MainWindow::showTemplates);
     connect(tools, &QPushButton::clicked, this, &MainWindow::showToolbox);
     connect(word, &QPushButton::clicked, this, [this] { newDoc(DocKind::Text); });
@@ -539,7 +546,6 @@ QPushButton#FeedbackNav:focus { border:2px solid #B9D0FF; }
     connect(about, &QPushButton::clicked, this, &MainWindow::showAbout);
     side->setProperty("homeBtn", QVariant::fromValue<QObject*>(home));
     side->setProperty("docsBtn", QVariant::fromValue<QObject*>(docs));
-    side->setProperty("projBtn", QVariant::fromValue<QObject*>(proj));
     side->setProperty("tmplBtn", QVariant::fromValue<QObject*>(tmpl));
     side->setProperty("toolBtn", QVariant::fromValue<QObject*>(tools));
     setProperty("sidebar", QVariant::fromValue<QObject*>(side));
@@ -666,7 +672,7 @@ void MainWindow::showPalette() {
     add("close", tr("Đóng tài liệu"), QStringLiteral("Ctrl+W"));
     add("templates", tr("Kho mẫu"));
     add("tools", tr("Công cụ"));
-    add("projects", tr("Dự án"));
+    add("donate",tr("Ủng hộ tự nguyện · VietQR"));
     add("work",tr("Ghi chú"));add("calendar",tr("Quản lý công việc"));add("contacts",tr("Danh bạ liên hệ"));
     add("drive",tr("Google Drive · thư mục đồng bộ"));
     add("zoomIn", tr("Phóng to"), QStringLiteral("Ctrl+="));
@@ -685,7 +691,7 @@ void MainWindow::runCommand(const QString& id) {
     else if (id == QLatin1String("docs")) showDocuments();
     else if (id == QLatin1String("templates")) showTemplates();
     else if (id == QLatin1String("tools")) showToolbox();
-    else if (id == QLatin1String("projects")) showProjects();
+    else if (id == QLatin1String("donate")) showDonate();
     else if (id == QLatin1String("work")) showWork(0);
     else if (id == QLatin1String("calendar")) showWork(1);
     else if (id == QLatin1String("contacts")) showWork(2);
@@ -849,11 +855,32 @@ void MainWindow::showWork(int index) {
     refreshStatus();
 }
 
-void MainWindow::showProjects() {
-    m_stack->setCurrentWidget(m_projects);
-    if (auto* side = qobject_cast<QWidget*>(property("sidebar").value<QObject*>()))
-        if (auto* b = qobject_cast<QPushButton*>(side->property("projBtn").value<QObject*>())) b->setChecked(true);
+void MainWindow::showDonate() {
+    m_stack->setCurrentWidget(m_donate);
+    if(auto* b=qobject_cast<QPushButton*>(m_sideBar->property("donateBtn").value<QObject*>()))b->setChecked(true);
     refreshStatus();
+}
+
+QWidget* MainWindow::buildDonatePage() {
+    auto* scroll=new QScrollArea(m_stack);scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);
+    auto* body=new QWidget;scroll->setWidget(body);auto* v=new QVBoxLayout(body);
+    v->setContentsMargins(24,20,24,20);v->setSpacing(12);
+    auto* heading=new QLabel(tr("Ủng hộ Dũng Office"),body);
+    heading->setStyleSheet(QStringLiteral("font-size:26px;font-weight:700;color:#17294D;"));heading->setWordWrap(true);v->addWidget(heading);
+    auto* slogan=new QLabel(donate::slogan(),body);slogan->setWordWrap(true);slogan->setTextFormat(Qt::PlainText);
+    slogan->setStyleSheet(QStringLiteral("font-size:19px;font-weight:700;color:#174581;padding:12px;background:#E8F0FF;border-radius:8px;"));v->addWidget(slogan);
+    auto* intro=new QLabel(tr("Dũng Office miễn phí và cập nhật trọn đời. Nếu bạn muốn góp phần duy trì và phát triển phần mềm, bạn có thể ủng hộ tự nguyện. Không ủng hộ vẫn sử dụng đầy đủ các chức năng miễn phí."),body);intro->setWordWrap(true);v->addWidget(intro);
+    auto* card=new QFrame(body);card->setStyleSheet(QStringLiteral("QFrame{background:white;border:1px solid #DCE5F2;border-radius:10px;} QLabel{border:0;}"));
+    auto* cv=new QVBoxLayout(card);cv->setContentsMargins(18,14,18,18);
+    auto* qrTitle=new QLabel(tr("VietQR · Chuyển khoản tự nguyện"),card);qrTitle->setAlignment(Qt::AlignCenter);qrTitle->setStyleSheet(QStringLiteral("font-size:17px;font-weight:700;color:#267B69;"));cv->addWidget(qrTitle);
+    auto* qr=new QLabel(card);qr->setObjectName(QStringLiteral("DonationVietQR"));qr->setPixmap(donate::qrPixmap());qr->setAlignment(Qt::AlignCenter);qr->setAccessibleName(tr("VietQR Techcombank"));cv->addWidget(qr,0,Qt::AlignHCenter);
+    auto* bank=new QLabel(tr("Ngân hàng: <b>TECHCOMBANK</b><br>Chủ tài khoản: <b>Trần Văn Dũng</b><br>Số tài khoản: <b>%1</b>").arg(donate::account()),card);
+    bank->setTextFormat(Qt::RichText);bank->setAlignment(Qt::AlignCenter);bank->setTextInteractionFlags(Qt::TextSelectableByMouse);bank->setStyleSheet(QStringLiteral("font-size:15px;color:#17294D;"));cv->addWidget(bank);
+    auto* copy=new QPushButton(tr("Sao chép số tài khoản"),card);cv->addWidget(copy,0,Qt::AlignHCenter);
+    auto* status=new QLabel(card);status->setAlignment(Qt::AlignCenter);cv->addWidget(status);
+    connect(copy,&QPushButton::clicked,card,[status]{QApplication::clipboard()->setText(donate::account());status->setText(QObject::tr("Đã sao chép số tài khoản."));});
+    auto* hint=new QLabel(tr("Mở ứng dụng ngân hàng, quét QR, tự nhập số tiền và kiểm tra đúng tên người nhận trước khi xác nhận. Mã không chứa số tiền cố định."),card);hint->setWordWrap(true);hint->setAlignment(Qt::AlignCenter);cv->addWidget(hint);
+    v->addWidget(card);v->addStretch(1);return scroll;
 }
 
 QWidget* MainWindow::buildFeedbackPage() {
@@ -890,6 +917,7 @@ QPushButton#FeedbackSend:disabled { background:#DCE5F2; color:#697994; border-co
     promise->setWordWrap(true);
     promise->setStyleSheet(QStringLiteral("font-size:16px;font-weight:700;color:#2864BA;"));
     hl->addWidget(promise);
+    auto* motto=new QLabel(donate::slogan(),hero);motto->setWordWrap(true);motto->setStyleSheet(QStringLiteral("font-size:15px;font-weight:700;color:#174581;"));hl->addWidget(motto);
     auto* intro = new QLabel(tr("Mỗi góp ý của bạn giúp tôi hiểu những khó khăn khi làm việc và cải tiến phần mềm tốt hơn. Hãy chia sẻ điều bạn muốn thay đổi, tính năng cần thêm hoặc lỗi đang gặp."), hero);
     intro->setWordWrap(true); hl->addWidget(intro);
     root->addWidget(hero);
@@ -1170,7 +1198,7 @@ void MainWindow::refreshStatus() {
         } else if (m_stack->currentWidget() != m_home) k.clear();
         m_top->setActive(k);
     }
-    m_status->setText(docs ? t->statusText() : (m_stack->currentWidget() == m_projects ? tr("Dự án") : m_stack->currentWidget() == m_templates ? tr("Thư viện mẫu") : m_stack->currentWidget() == m_toolbox ? tr("Công cụ") : m_stack->currentWidget() == m_feedback ? tr("Góp ý") : tr("Trang chủ")));
+    m_status->setText(docs ? t->statusText() : (m_stack->currentWidget() == m_donate ? tr("Ủng hộ tự nguyện") : m_stack->currentWidget() == m_templates ? tr("Thư viện mẫu") : m_stack->currentWidget() == m_toolbox ? tr("Công cụ") : m_stack->currentWidget() == m_feedback ? tr("Góp ý") : tr("Trang chủ")));
     m_toolLabel->setVisible(docs);
     m_saveLabel->setVisible(docs);
     if (docs) {
@@ -1294,7 +1322,8 @@ void MainWindow::addRecent(const QString& path) {
 void MainWindow::showAbout() {
     QMessageBox::about(this, tr("Giới thiệu Dũng Office"),
         tr("<h3>Dũng Office %1</h3>"
-           "<p>Bộ ứng dụng văn phòng miễn phí, ngoại tuyến, không cần tài khoản.</p>"
+           "<p>Bộ ứng dụng văn phòng miễn phí, ngoại tuyến, không cần tài khoản. Cập nhật miễn phí trọn đời.</p>"
+           "<p><b>%4</b></p>"
            "<p><b>Nguyên tắc dữ liệu:</b> tệp gốc không bao giờ bị ghi đè mặc định; mọi thay đổi được lưu "
            "vào tệp mới (Lưu thành). Định dạng chưa bảo toàn được sẽ mở ở chế độ chỉ đọc.</p>"
            "<p>Xử lý tài liệu dựa trên các module của LibreOffice (MPL-2.0) qua LibreOfficeKit.<br>%2<br>"
@@ -1302,7 +1331,7 @@ void MainWindow::showAbout() {
            "<p>Dũng Office không liên kết với The Document Foundation. LibreOffice là nhãn hiệu của "
            "The Document Foundation.</p>")
             .arg(QStringLiteral(DUNG_VERSION), EngineHost::instance().versionText().toHtmlEscaped(),
-                 QDir::toNativeSeparators(EngineHost::instance().runtimeDir()).toHtmlEscaped()));
+                 QDir::toNativeSeparators(EngineHost::instance().runtimeDir()).toHtmlEscaped(),donate::slogan().toHtmlEscaped()));
 }
 
 void MainWindow::closeEvent(QCloseEvent* e) {
@@ -1312,7 +1341,6 @@ void MainWindow::closeEvent(QCloseEvent* e) {
         QMessageBox::warning(this,tr("Dũng Office"),tr("Chưa thể đóng ứng dụng: dữ liệu công việc chưa lưu được. Kiểm tra thư mục dữ liệu và thử Lưu ngay."));
         return;
     }
-    m_projects->flush();
     while (m_tabs->count() > 0) {
         selectDocumentTab(0);
         showDocuments();
@@ -1450,7 +1478,7 @@ int MainWindow::captureShots(const QString& dir) {
         {"home", [this] { showHome(); }},
         {"templates", [this] { showTemplates(); }},
         {"toolbox", [this] { showToolbox(); }},
-        {"projects", [this] { showProjects(); }},
+        {"donate", [this] { showDonate(); }},
         {"feedback", [this] { showFeedback(); }},
         {"notes",[this]{showWork(0);}},
         {"calendar",[this]{showWork(1);}},

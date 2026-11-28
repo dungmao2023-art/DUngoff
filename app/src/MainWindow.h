@@ -13,7 +13,6 @@ class Ribbon;
 class HomePage;
 class DocumentTab;
 class SidePanel;
-class ProjectsPage;
 class TemplatesPage;
 class ToolboxPage;
 class QPushButton;
@@ -51,7 +50,8 @@ private:
     bool closeTab(int index);
     void showHome();
     void showDocuments();
-    void showProjects();
+    void showDonate();
+    QWidget* buildDonatePage();
     void showWork(int index);
     void showDrive();
     void showTemplates();
@@ -82,7 +82,7 @@ private:
     QLabel* m_toolLabel;
     QLabel* m_saveLabel;
     SidePanel* m_side;
-    ProjectsPage* m_projects;
+    QWidget* m_donate = nullptr;
     TemplatesPage* m_templates;
     ToolboxPage* m_toolbox;
     QLabel* m_zoomLabel;
