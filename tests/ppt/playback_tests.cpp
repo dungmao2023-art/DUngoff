@@ -225,6 +225,15 @@ int main(int argc,char** argv){
     auto* show=new SlideShow(doc.get(),0,nullptr,false);
     QApplication::processEvents();
     const auto before=show->grab().toImage();
+    key(show,Qt::Key_F1);
+    const auto help=show->grab().toImage();
+    key(show,Qt::Key_Right); // help must consume navigation keys
+    if(show->grab().toImage()!=help){std::cerr<<"FAIL help consumed navigation"<<std::endl;return 1;}
+    key(show,Qt::Key_Escape);
+    if(help==before||show->grab().toImage()!=before||doc->currentPart()!=originalPart){
+        std::cerr<<"FAIL presenter help does not restore slide"<<std::endl;return 1;
+    }
+    std::cout<<"PASS presenter help overlay and unchanged slide"<<std::endl;
     std::cout<<"Before click: "<<before.width()<<"x"<<before.height()<<" blue="<<bluePixels(before)<<" red="<<redPixels(before)<<std::endl;
     QPointer<SlideShow> safe(show);
     // Laser is a transient overlay, never a document operation or an animation click.

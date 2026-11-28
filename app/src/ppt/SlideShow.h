@@ -35,6 +35,9 @@ private:
     void resetEntrance();
     void stopTransition();
     void startTransition(const QImage& previous);
+    void chooseSlide();
+    void toggleHelp();
+    void paintHelp(QPainter& painter);
     QImage m_transitionFrom;
     QTimer m_transitionTimer;
     QElapsedTimer m_transitionClock;
@@ -62,5 +65,6 @@ private:
     int m_intervalMs = 0;
     bool m_paused = false;
     bool m_laserMode = false;
+    bool m_help = false;
     QPointF m_laserPoint{-1,-1};
 };

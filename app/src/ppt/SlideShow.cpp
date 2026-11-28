@@ -7,6 +7,9 @@
 #include <QSet>
 #include <iostream>
 #include <QToolTip>
+#include <QInputDialog>
+#include <QStringList>
+#include <QPointer>
 #include <QCursor>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -39,6 +42,8 @@ SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool f
     setWindowModality(Qt::WindowModal);
     setWindowTitle(tr("Trình chiếu"));
     setFocusPolicy(Qt::StrongFocus);
+    setAccessibleName(tr("Trình chiếu PowerPoint"));
+    setAccessibleDescription(tr("F1: trợ giúp; G: chọn slide; L: laser; phím mũi tên: chuyển; Escape: thoát."));
     if (fullscreen) setCursor(Qt::BlankCursor);
     m_doc->documentSize(m_w, m_h);
     for(int i=0;i<m_count;++i) m_visible.append(!hidden(i));
@@ -53,7 +58,7 @@ SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool f
         }
         showFullScreen();
     }
-    else { setWindowTitle(tr("Xem trước slide — mũi tên chuyển trang · số + Enter đến slide · L laser · B/W màn trống · Esc đóng")); resize(960, 600); show(); }
+    else { setWindowTitle(tr("Xem trước slide — F1 trợ giúp · G chọn slide · L laser · Esc đóng")); resize(960, 600); show(); }
     render();
     restartAdvance();
     setFocus(Qt::OtherFocusReason);
@@ -66,7 +71,7 @@ bool SlideShow::hidden(int part) {
 
 void SlideShow::restartAdvance() {
     m_advance.stop();
-    if(m_transitionTimer.isActive())return;
+    if(m_transitionTimer.isActive()||m_help)return;
     const int delay=slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
                                                 !m_digits.isEmpty(),!m_img.isNull());
     if(delay>0) m_advance.start(delay);
@@ -307,9 +312,66 @@ void SlideShow::paintObjectMotion(QPainter& painter,const QRectF& slide,qreal pr
     }
     painter.restore();
 }
+void SlideShow::toggleHelp(){
+    m_help=!m_help;m_digits.clear();
+    if(m_help){stopTransition();m_advance.stop();m_laserPoint=QPointF(-1,-1);unsetCursor();}
+    else {if(m_laserMode||isFullScreen())setCursor(Qt::BlankCursor);restartAdvance();}
+    update();
+}
+void SlideShow::chooseSlide(){
+    const auto indices=slideshow::visibleSlideIndices(m_visible);
+    if(indices.isEmpty())return;
+    QStringList choices;
+    for(int i:indices)choices<<tr("Slide %1").arg(i+1);
+    m_advance.stop();stopTransition();m_digits.clear();
+    QPointer<SlideShow> safe(this);bool ok=false;
+    const auto chosen=QInputDialog::getItem(this,tr("Đi đến slide"),tr("Chọn trang chiếu (không hiển thị slide đã ẩn):"),
+        choices,qMax(0,int(indices.indexOf(m_part))),false,&ok);
+    if(!safe)return;
+    const int row=choices.indexOf(chosen);
+    if(ok&&row>=0&&row<indices.size()){
+        m_blank=0;
+        if(m_part!=indices[row]){m_part=indices[row];render();}
+    }
+    update();restartAdvance();setFocus(Qt::OtherFocusReason);
+}
+void SlideShow::paintHelp(QPainter& p){
+    p.save();
+    p.fillRect(rect(),QColor(15,23,42,225));
+    p.setRenderHint(QPainter::Antialiasing);
+    const qreal w=qMin(qreal(width()-16),qreal(620)),h=qMin(qreal(height()-16),qreal(428));
+    if(w<=0||h<=0){p.restore();return;}
+    const QRectF area((width()-w)/2,(height()-h)/2,w,h);
+    p.setPen(Qt::NoPen);p.setBrush(QColor("#FFFFFF"));p.drawRoundedRect(area,12,12);
+    const qreal scale=qMin(w/620.0,h/428.0);
+    p.translate(area.center());p.scale(scale,scale);p.translate(-310,-214);
+    QFont font=p.font();font.setPixelSize(24);font.setBold(true);p.setFont(font);
+    p.setPen(QColor("#172554"));p.drawText(QRectF(24,12,572,38),Qt::AlignLeft|Qt::AlignVCenter,tr("Điều khiển trình chiếu"));
+    font.setPixelSize(15);font.setBold(false);p.setFont(font);
+    const QList<QPair<QString,QString>> controls{
+        {tr("→ / Space"),tr("Hiệu ứng hoặc slide tiếp theo")},
+        {tr("←"),tr("Quay lại")},
+        {tr("G"),tr("Chọn slide trong danh sách")},
+        {tr("Số + Enter"),tr("Đi nhanh đến slide theo số")},
+        {tr("L"),tr("Bật / tắt bút laser")},
+        {tr("B / W"),tr("Màn hình đen / trắng")},
+        {tr("T"),tr("Tạm dừng / tiếp tục tự chuyển")},
+        {tr("Home / End"),tr("Slide đầu / cuối")},
+        {tr("Esc"),tr("Thoát trình chiếu")}
+    };
+    for(int k=0;k<controls.size();++k){
+        const int y=58+k*32;
+        if(k%2==0)p.fillRect(QRectF(20,y,580,30),QColor("#F1F5F9"));
+        p.setPen(QColor("#0F766E"));p.drawText(QRectF(31,y,160,30),Qt::AlignVCenter|Qt::AlignLeft,controls[k].first);
+        p.setPen(QColor("#334155"));p.drawText(QRectF(200,y,390,30),Qt::AlignVCenter|Qt::AlignLeft,controls[k].second);
+    }
+    p.setPen(QColor("#475569"));p.drawText(QRectF(24,365,572,43),Qt::AlignCenter,tr("F1, Esc hoặc nhấp chuột để quay lại trình chiếu"));
+    p.restore();
+}
 void SlideShow::paintEvent(QPaintEvent*) {
     QPainter p(this);
     p.fillRect(rect(), m_blank == 2 ? Qt::white : Qt::black);
+    if(m_help){paintHelp(p);return;}
     if (m_blank) return;
     if (m_part < 0) {
         p.setPen(Qt::white);
@@ -352,6 +414,14 @@ void SlideShow::paintEvent(QPaintEvent*) {
 void SlideShow::resizeEvent(QResizeEvent*) { render(); restartAdvance(); }
 
 void SlideShow::keyPressEvent(QKeyEvent* e) {
+    if(m_help){
+        if(!e->isAutoRepeat()&&(e->key()==Qt::Key_F1||e->key()==Qt::Key_Escape))toggleHelp();
+        e->accept();return;
+    }
+    if(!(e->modifiers()&(Qt::ControlModifier|Qt::AltModifier|Qt::MetaModifier))){
+        if(e->key()==Qt::Key_F1){if(!e->isAutoRepeat())toggleHelp();e->accept();return;}
+        if(e->key()==Qt::Key_G){if(!e->isAutoRepeat())chooseSlide();e->accept();return;}
+    }
     if (e->key()>=Qt::Key_0 && e->key()<=Qt::Key_9 &&
         !(e->modifiers() & (Qt::ControlModifier|Qt::AltModifier|Qt::MetaModifier))) {
         if (m_digits.size()<9) m_digits+=QChar(ushort('0'+e->key()-Qt::Key_0));
@@ -417,6 +487,7 @@ void SlideShow::keyPressEvent(QKeyEvent* e) {
 }
 
 void SlideShow::mousePressEvent(QMouseEvent* e) {
+    if(m_help){toggleHelp();e->accept();return;}
     m_digits.clear();
     if (e->button() == Qt::RightButton) go(-1);
     else if (e->button() == Qt::LeftButton && m_laserMode && !m_blank) {

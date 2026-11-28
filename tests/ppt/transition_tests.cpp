@@ -14,6 +14,8 @@ int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     int errors = 0;
     auto check = [&](bool ok, const char* msg) { std::cout << (ok ? "PASS " : "FAIL ") << msg << '\n'; if (!ok) ++errors; };
+    check(slideshow::visibleSlideIndices({true,false,true,false,true})==QVector<int>({0,2,4})&&
+          slideshow::visibleSlideIndices({false,false}).isEmpty(),"slide chooser excludes hidden slides");
     const QList<Shape> presetShapes{{1,"Title"},{2,"Text"},{3,"Picture"}};
     QList<Shape> selectedPreset;
     check(selectPresetShapes(presetShapes,{3,1},&selectedPreset).ok&&selectedPreset.size()==2&&
