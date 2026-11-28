@@ -65,6 +65,8 @@ int main(int argc,char** argv){
     if(!engine){std::cerr<<err<<std::endl;return 1;}
     auto doc=engine->open(pathOf(animated),&err);
     if(!doc){std::cerr<<err<<std::endl;return 1;}
+    doc->setClientView(512,512,7680,7680,0,0,7680,7680);
+    doc->waitInputIdle(350,4000);
     std::cout<<"Native animation metadata: "<<doc->presentationInfo()<<std::endl;
     const bool supported=doc->supportsSlideLayers();
     std::cout<<"Native layer ABI: "<<supported<<std::endl;
@@ -75,6 +77,7 @@ int main(int argc,char** argv){
     auto* show=new SlideShow(doc.get(),0,nullptr,false);
     QApplication::processEvents();
     const auto before=show->grab().toImage();
+    std::cout<<"Before click: "<<before.width()<<"x"<<before.height()<<" blue="<<bluePixels(before)<<" red="<<redPixels(before)<<std::endl;
     QPointer<SlideShow> safe(show);
     key(show,Qt::Key_Right);
     // Older system engines without the layer ABI must still render an intact
@@ -96,6 +99,5 @@ int main(int argc,char** argv){
         a>b+500&&r0>500&&r1>500&&std::abs(r0-r1)<100&&doc->currentPart()==originalPart;
     std::cout<<(ok?"PASS":"FAIL")<<" actual entrance click/back preserves neighbour and editor slide"<<std::endl;
     delete show;
-    doc.reset();engine.reset();
-    return ok?0:1;
+    std::_Exit(ok?0:1);
 }

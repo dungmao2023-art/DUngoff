@@ -3,7 +3,7 @@
 #include "SimpleEntrance.h"
 #include <QJsonDocument>
 #include <QJsonArray>
-#include <QDebug>
+#include <iostream>
 #include <QToolTip>
 #include <QCursor>
 #include <QKeyEvent>
@@ -87,6 +87,9 @@ void SlideShow::render() {
     const bool alreadyShown=m_entrancePart==m_part&&!m_entrancePending&&!m_afterEntrance.isNull();
     resetEntrance();
     m_img = QImage();
+    if(m_w<=0||m_h<=0)m_doc->documentSize(m_w,m_h);
+    if(qEnvironmentVariableIsSet("DUNG_PPT_LAYER_TRACE"))
+        std::cerr<<"Render part="<<m_part<<" count="<<m_count<<" doc="<<m_w<<"x"<<m_h<<" window="<<width()<<"x"<<height()<<std::endl;
     if (m_part < 0 || m_part >= m_count || m_w <= 0 || m_h <= 0 ||
         m_w > std::numeric_limits<int>::max() || m_h > std::numeric_limits<int>::max() ||
         width() <= 0 || height() <= 0) return;
@@ -99,12 +102,15 @@ void SlideShow::render() {
     m_img = QImage(pw, ph, QImage::Format_ARGB32_Premultiplied);
     if (m_img.isNull()) return;
     m_img.fill(Qt::white);
-    if(!m_doc->paintPartTile(m_img.bits(), m_part, pw, ph, 0, 0, int(m_w), int(m_h)))
-        m_img=QImage(); // Stop autoplay; paintEvent shows a render-unavailable message.
-    if(!m_img.isNull()&&prepareEntrance()){
+    // Prefer native layers for supported animations; never require the
+    // unrelated static tile renderer to succeed first.
+    if(prepareEntrance()){
         if(alreadyShown){m_entrancePending=false;m_img=m_afterEntrance;}
         else m_img=m_beforeEntrance;
+        return;
     }
+    if(!m_doc->paintPartTile(m_img.bits(), m_part, pw, ph, 0, 0, int(m_w), int(m_h)))
+        m_img=QImage(); // Stop autoplay; paintEvent shows a render-unavailable message.
 }
 void SlideShow::resetEntrance(){
     m_beforeEntrance={};m_afterEntrance={};m_entrancePending=false;m_entrancePart=-1;
@@ -114,24 +120,25 @@ bool SlideShow::prepareEntrance(){
     if(!m_doc->supportsSlideLayers())return false;
     const bool trace=qEnvironmentVariableIsSet("DUNG_PPT_LAYER_TRACE");
     const auto info=QJsonDocument::fromJson(QByteArray::fromStdString(m_doc->presentationInfo())).object();
+    if(trace)std::cerr<<"Entrance prepare part="<<m_part<<" image="<<m_img.width()<<"x"<<m_img.height()<<std::endl;
     QJsonObject slide;
     for(const auto& item:info.value("slides").toArray()){
         const auto candidate=item.toObject();if(candidate.value("index").toInt(-1)==m_part){slide=candidate;break;}
     }
     QString target;
     if(!slideshow::findSimpleEntrance(slide.value("animations").toObject().value("root").toObject(),&target)){
-        if(trace)qInfo()<<"Entrance metadata not supported";
+        if(trace)std::cerr<<"Entrance metadata not supported"<<std::endl;
         return false;
     }
     const auto hash=slide.value("hash").toString();
     dung::Document::SlideLayers layers;
     if(!m_doc->renderSlideLayers(m_part,hash.toStdString(),qMin(1280,m_img.width()),qMin(1280,m_img.height()),layers)){
-        if(trace)qInfo()<<"Native slide renderer failed";
+        if(trace)std::cerr<<"Native slide renderer failed"<<std::endl;
         return false;
     }
-    if(trace)qInfo()<<"Native layers"<<layers.width<<layers.height<<layers.rgba<<layers.layers.size();
+    if(trace)std::cerr<<"Native layers "<<layers.width<<"x"<<layers.height<<" rgba="<<layers.rgba<<" count="<<layers.layers.size()<<std::endl;
     // Log all synthetic-fixture metadata before applying conservative policy.
-    if(trace)for(const auto& layer:layers.layers)qInfo().noquote()<<QString::fromStdString(layer.json)<<"bytes"<<layer.pixels.size();
+    if(trace)for(const auto& layer:layers.layers)std::cerr<<layer.json<<" bytes="<<layer.pixels.size()<<std::endl;
     QImage before(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
     QImage after(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
     if(before.isNull()||after.isNull())return false;
@@ -144,19 +151,19 @@ bool SlideShow::prepareEntrance(){
         // Master placeholder layers have no pixels. They cannot be silently
         // omitted: resolving real dynamic fields requires a separate implementation.
         if(layer.pixels.size()!=size_t(layers.width)*layers.height*4||(type!="bitmap"&&type!="animated")){
-            if(trace)qInfo()<<"Unsupported native layer type or size"<<type<<group;
+            if(trace)std::cerr<<"Unsupported native layer type or size "<<type.toStdString()<<" "<<group.toStdString()<<std::endl;
             return false;
         }
         if(group=="Background")background=true;
         if(group!="Background"&&group!="MasterPage"&&group!="DrawPage"){
-            if(trace)qInfo()<<"Unsupported native layer group"<<group;
+            if(trace)std::cerr<<"Unsupported native layer group "<<group.toStdString()<<std::endl;
             return false;
         }
         const QImage img(layer.pixels.data(),layers.width,layers.height,layers.width*4,
                          layers.rgba?QImage::Format_RGBA8888_Premultiplied:QImage::Format_ARGB32_Premultiplied);
         if(type=="animated"){
             if(content.value("hash").toString()!=target||!content.value("initVisible").isBool()||content.value("initVisible").toBool()){
-                if(trace)qInfo()<<"Native animation target or visibility mismatch"<<target<<content;
+                if(trace)std::cerr<<"Native animation target or visibility mismatch "<<target.toStdString()<<" "<<QJsonDocument(content).toJson(QJsonDocument::Compact).constData()<<std::endl;
                 return false;
             }
             ++entrance;
@@ -165,7 +172,7 @@ bool SlideShow::prepareEntrance(){
     }
     p.end();q.end();
     if(!background||entrance!=1||before==after){
-        if(trace)qInfo()<<"Invalid entrance composition"<<background<<entrance<<(before==after);
+        if(trace)std::cerr<<"Invalid entrance composition "<<background<<" "<<entrance<<" "<<(before==after)<<std::endl;
         return false;
     }
     m_beforeEntrance=before;m_afterEntrance=after;m_entrancePending=true;m_entrancePart=m_part;
