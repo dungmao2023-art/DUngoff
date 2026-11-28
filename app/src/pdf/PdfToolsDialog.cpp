@@ -1697,7 +1697,7 @@ QWidget* PdfToolsDialog::buildSearch() {
     canvas->undoEdit=[=]{if(session->active()&&undoSession->isEnabled())undoSession->click();};
     canvas->redoEdit=[=]{if(session->active()&&redoSession->isEnabled())redoSession->click();};
     canvas->saveEdit=[=]{if(session->active()&&finishSession->isEnabled())finishSession->click();};
-    canvas->findText=[=]{findToggle->setChecked(true);query->setFocus();query->selectAll();};
+    canvas->findText=[=]{findToggle->setChecked(true);query->setFocus(Qt::ShortcutFocusReason);query->selectAll();};
     connect(cancelSession,&QPushButton::clicked,w,[=]{
         if(!session->active())return;
         if(session->changes&&QMessageBox::question(this,tr("Hủy phiên PDF"),tr("Bỏ tất cả chỉnh sửa chưa lưu?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;

@@ -123,7 +123,7 @@ int main(int argc,char** argv){
             QKeyEvent event(QEvent::KeyPress,key,mods);QApplication::sendEvent(canvas,&event);
         };
         note->click();
-        check(note->isChecked()&&canvas->hasFocus(),"placement mode focuses page");
+        check(note->isChecked()&&dlg->focusWidget()==canvas,"placement mode focuses page");
         pressKey(Qt::Key_Escape);
         check(!note->isChecked()&&dlg->isVisible()&&dungpdf::fingerprint(source)==hash,"Escape cancels placement without closing or modifying PDF");
         const int beforePage=page->value();
@@ -131,8 +131,14 @@ int main(int argc,char** argv){
         check(page->value()==(beforePage==1?2:1),"keyboard navigates document pages");
         pressKey(beforePage==1?Qt::Key_PageUp:Qt::Key_PageDown,Qt::ControlModifier);
         check(page->value()==beforePage,"keyboard returns to previous page");
+        // Offscreen Qt may not activate the top-level window after a modal
+        // progress dialog. Verify its remembered focus target as well as the UI.
+        dlg->activateWindow();canvas->setFocus(Qt::OtherFocusReason);
+        QApplication::processEvents();
         pressShortcut(QKeySequence::Find);
-        check(!search->isHidden()&&query->hasFocus(),"find shortcut opens and focuses search");
+        QApplication::processEvents();
+        check(!search->isHidden()&&searchToggle->isChecked()&&dlg->focusWidget()==query,
+              "find shortcut opens and focuses search");
         searchToggle->click();
         start->click();
         const auto base=file->text();
