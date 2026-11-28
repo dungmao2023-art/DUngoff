@@ -1,3 +1,12 @@
+# V2 — kiểm lại bản phát hành đã có (28/11/2026)
+
+- Main hiện ghim `engine-26.8.3.2-headless`, SHA256 `cb7664001dfb51a31467f2b1849e294e6564d607a91baea5c4efa215010ad492`. V1 giữ nguyên bản phát hành và checksum riêng.
+- Port công cụ độc lập từ #160: [preflight PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/46090130724), [CI PASS](https://github.com/dungmao2023-art/DUngoff/actions/runs/46090130758). Chỉ nhận V2 đúng checksum đã ghim, không tải bản thay thế không xác minh. Backup V1 trên runner là artifact 30 ngày, không thay thế bản phát hành gốc hoặc backup dài hạn của tác giả.
+- Probe Python UNO chạy trong tiến trình/profile riêng, KHÔNG chứng minh chỉnh sửa tài liệu đang mở qua LOK. Không dùng kết quả đó để bật tính năng UI chưa kiểm chứng. Native transform trên Windows vẫn cần kiểm thử riêng (#183/#184). Không quyết định rebuild từ kết quả Linux.
+- Word #182 Windows/Linux CI PASS (46112460256), đã merge. Không thay đổi mức nghiệm thu GUI.
+
+---
+
 # Danh sách kiểm trước khi build lại engine (một lần)
 
 Quyết định của tác giả (25/11/2026): build lại engine **một lần**, và lần này phải gỡ được các vấn đề
