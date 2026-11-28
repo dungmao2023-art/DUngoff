@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MPL-2.0
 """Fetch only a fixed immutable PDFium release, verify GitHub's asset digest BEFORE extraction."""
-import hashlib, json, pathlib, re, shutil, sys, tarfile, tempfile, urllib.request
+import hashlib, json, os, pathlib, re, shutil, sys, tarfile, tempfile, urllib.request
 TAG = "chromium/8179"
 REPO = "bblanchon/pdfium-binaries"
 def main():
@@ -10,7 +10,13 @@ def main():
     if root.exists():
         raise RuntimeError("SDK destination already exists")
     api = "https://api.github.com/repos/" + REPO + "/releases/tags/chromium%2F8179"
-    req = urllib.request.Request(api, headers={"Accept":"application/vnd.github+json","User-Agent":"DungOffice-PDFium-SDK","X-GitHub-Api-Version":"2022-11-28"})
+    headers = {"Accept":"application/vnd.github+json","User-Agent":"DungOffice-PDFium-SDK","X-GitHub-Api-Version":"2022-11-28"}
+    # Shared CI runner IPs can exhaust the anonymous API limit. Authorize
+    # only the fixed GitHub API metadata request, never the asset download.
+    token = os.environ.get("GH_TOKEN")
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    req = urllib.request.Request(api, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as response:
         release = json.load(response)
     if release.get("tag_name") != TAG or not release.get("immutable") or release.get("draft") or release.get("prerelease"):

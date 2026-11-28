@@ -42,6 +42,8 @@ jobs:
           if sudo apt-get install -y --no-install-recommends qt6-pdf-dev 2>&1 | tee report/linux-qtpdf-install.log | tail -2; then :; fi
           dpkg -s qt6-pdf-dev >/dev/null 2>&1 && echo "QTPDF=có" | tee -a report/linux-qtpdf-install.log || echo "QTPDF=không" | tee -a report/linux-qtpdf-install.log
       - name: Build
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -o pipefail
           python3 scripts/fetch-pdfium-sdk.py linux build/pdfium | tee report/linux-pdfium-sdk.log
@@ -405,6 +407,8 @@ jobs:
           Copy-Item (Join-Path $bin.DirectoryName "*") -Destination (New-Item -ItemType Directory -Force build/qpdf) -Recurse
           & build/qpdf/qpdf.exe --version
       - name: Build
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python scripts/fetch-pdfium-sdk.py windows build/pdfium *>&1 | Tee-Object report/windows-pdfium-sdk.log
           if ($LASTEXITCODE) { exit 1 }
