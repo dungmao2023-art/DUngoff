@@ -199,6 +199,54 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             return true;
         }
         safeTab->stepPart(page - 1 - d->currentPart());
+    } else if (id == QLatin1String("ppt.resizeObject")) {
+        if(d->readOnly()||tab->pptNotesMode())return true;
+        // Only the native graphic-selection bounds are used; never infer size
+        // from the canvas zoom or from an unrelated text selection.
+        const PptEditTarget target(tab);
+        static const QRegularExpression rect(QStringLiteral("^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*([1-9]\\d*)\\s*,\\s*([1-9]\\d*)(?:\\s*,|\\s*$)"));
+        const auto bounds=rect.match(QString::fromStdString(target.graphic));
+        bool wOk=false,hOk=false;
+        const int w=bounds.captured(1).toInt(&wOk),h=bounds.captured(2).toInt(&hOk);
+        if(!bounds.hasMatch()||!wOk||!hOk||w>100000||h>100000||!target.selected.empty()){
+            QMessageBox::information(tab,QObject::tr("Đổi kích thước"),QObject::tr("Chọn hình hoặc ảnh trên slide, không ở chế độ sửa chữ."));
+            return true;
+        }
+        QDialog dlg(tab);
+        dlg.setWindowTitle(QObject::tr("Đổi kích thước đối tượng"));
+        auto* layout=new QVBoxLayout(&dlg);
+        auto* form=new QFormLayout;
+        auto* width=new QDoubleSpinBox(&dlg);
+        auto* height=new QDoubleSpinBox(&dlg);
+        for(auto* field:{width,height}){
+            field->setRange(0.1,100.0);field->setDecimals(2);field->setSuffix(QObject::tr(" cm"));
+        }
+        width->setValue(w*2.54/1440.0);height->setValue(h*2.54/1440.0);
+        auto* lock=new QCheckBox(QObject::tr("Giữ tỷ lệ vùng chọn"),&dlg);lock->setChecked(true);
+        form->addRow(QObject::tr("Rộng:"),width);form->addRow(QObject::tr("Cao:"),height);
+        layout->addLayout(form);layout->addWidget(lock);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);
+        layout->addWidget(buttons);
+        QObject::connect(buttons,&QDialogButtonBox::accepted,&dlg,&QDialog::accept);
+        QObject::connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        QObject::connect(width,&QDoubleSpinBox::valueChanged,&dlg,[&](double v){
+            if(lock->isChecked()){QSignalBlocker b(height);height->setValue(v*double(h)/w);}
+        });
+        QObject::connect(height,&QDoubleSpinBox::valueChanged,&dlg,[&](double v){
+            if(lock->isChecked()){QSignalBlocker b(width);width->setValue(v*double(w)/h);}
+        });
+        if(w*2.54/1440.0>100.0||h*2.54/1440.0>100.0)return true;
+        if(dlg.exec()!=QDialog::Accepted||!target.verify(true)||tab->pptNotesMode())return true;
+        const int newW=qRound(width->value()*1440.0/2.54),newH=qRound(height->value()*1440.0/2.54);
+        if(lock->isChecked()&&qAbs(double(newW)/w-double(newH)/h)>0.01){
+            QMessageBox::warning(tab,QObject::tr("Đổi kích thước"),QObject::tr("Kích thước vượt giới hạn giữ tỷ lệ. Chưa sửa tài liệu."));
+            return true;
+        }
+        if(qAbs(newW-w)<=3&&qAbs(newH-h)<=3)return true;
+        // LOK converts the transform dimensions from twips into engine units.
+        d->command(".uno:TransformDialog",dung::word::join({
+            dung::word::argLong("TransformWidth",newW),dung::word::argLong("TransformHeight",newH)}));
+        d->waitInputIdle();tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.alignObjects")) {
         if(d->readOnly())return true;
         const PptEditTarget target(tab);

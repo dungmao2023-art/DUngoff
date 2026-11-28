@@ -136,5 +136,14 @@ for mode, axis, factor in (
                   for j in (1-axis,2,3)),filename+": other axis and dimensions preserved")
     undo_order, undo=layer_shapes("ppt-align-"+mode+"-undone.pptx")
     check(undo_order==align_order and undo==original,filename+": Undo restores original geometry")
+# Real native resize: dimensions in PPTX EMU, independent baseline and Undo.
+resize_order, resize_base=layer_shapes("ppt-resize-baseline.pptx")
+order, resized=layer_shapes("ppt-resize-edited.pptx")
+check(order==resize_order and resized.keys()==resize_base.keys(), "resize preserves text and object order")
+if resized.keys()==resize_base.keys() and "LAYER_A" in resized and "LAYER_B" in resized:
+    check(abs(resized["LAYER_A"][2]-2743200)<=720 and abs(resized["LAYER_A"][3]-1371600)<=720,
+          "resize applies requested 3 x 1.5 inch dimensions")
+    check(resized["LAYER_B"]==resize_base["LAYER_B"], "resize preserves neighbouring object")
+check(layer_shapes("ppt-resize-undone.pptx")==(resize_order,resize_base), "resize Undo restores exact geometry")
 print("\nKẾT QUẢ XÁC MINH PPTX:", "CÓ LỖI" if fail else "TẤT CẢ ĐẠT")
 sys.exit(1 if fail else 0)
