@@ -368,6 +368,31 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
     }
     fill.reset();
 
+    step("Excel — tìm/thay chữ thuần, phân biệt hoa thường và sheet");
+    auto search=engine->open(xlsx.parent_path()/"excel-search-input.xlsx",&err);
+    check(bool(search),"Mở fixture tìm/thay: "+err);
+    if(search){
+        search->setClientView(512,512,7680,7680,0,0,7680,7680);
+        search->setPart(0);gotoCell(*search,"A1");
+        auto snap=[&](const char* filename){
+            const auto dest=out/filename;
+            fs::remove(dest,ec);
+            const auto saved=search->saveAs(dest);
+            check(saved.ok,std::string("Lưu tìm/thay ")+filename+": "+saved.message);
+        };
+        snap("excel-search-baseline.xlsx");
+        search->command(".uno:ExecuteSearch",ex::replaceAll("MẪU_CASE","ĐÃ_CASE",true));
+        search->waitInputIdle();settle();snap("excel-search-exact.xlsx");
+        search->command(".uno:Undo");search->waitInputIdle();settle();snap("excel-search-exact-undone.xlsx");
+        search->command(".uno:ExecuteSearch",ex::replaceAll("mẫu_case","ĐÃ_CASE",false));
+        search->waitInputIdle();settle();snap("excel-search-insensitive.xlsx");
+        search->command(".uno:Undo");search->waitInputIdle();settle();snap("excel-search-insensitive-undone.xlsx");
+        search->command(".uno:ExecuteSearch",ex::replaceAll("[literal.+]","LITERAL",true));
+        search->waitInputIdle();settle();snap("excel-search-literal.xlsx");
+        search->command(".uno:Undo");search->waitInputIdle();settle();snap("excel-search-literal-undone.xlsx");
+    }
+    search.reset();
+
     // ======================= Tệp stress 5000 dòng =======================
     if (!stress.empty() && fs::exists(stress)) {
         fs::path s2 = out / "stress-goc.xlsx";

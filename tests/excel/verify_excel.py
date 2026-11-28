@@ -169,6 +169,21 @@ if __name__ == "__main__":
         check(source == [10,20,30,40], name+": source values preserved")
         check(formulas == expected, name+": relative formulas and Undo")
         check(candidate["D1"].value=="KEEP_FILL_NEIGHBOUR", name+": unrelated cell preserved")
+    for name, expected in (
+        ("excel-search-baseline.xlsx", ("MẪU_CASE", "mẫu_case", "[literal.+]")),
+        ("excel-search-exact.xlsx", ("ĐÃ_CASE", "mẫu_case", "[literal.+]")),
+        ("excel-search-exact-undone.xlsx", ("MẪU_CASE", "mẫu_case", "[literal.+]")),
+        ("excel-search-insensitive.xlsx", ("ĐÃ_CASE", "ĐÃ_CASE", "[literal.+]")),
+        ("excel-search-insensitive-undone.xlsx", ("MẪU_CASE", "mẫu_case", "[literal.+]")),
+        ("excel-search-literal.xlsx", ("MẪU_CASE", "mẫu_case", "LITERAL")),
+        ("excel-search-literal-undone.xlsx", ("MẪU_CASE", "mẫu_case", "[literal.+]")),
+    ):
+        wb = openpyxl.load_workbook(fill_dir / name)
+        sheet = wb["Search"]
+        check(tuple(sheet[f"A{i}"].value for i in (1,2,3)) == expected, name+": exact literal and case policy")
+        check(sheet["A4"].value == "00123" and sheet["A4"].data_type == "s", name+": leading zero text preserved")
+        check(sheet["B1"].value == '=LEN("MẪU_CASE")' and sheet["B1"].data_type == "f", name+": formula preserved")
+        check(wb.sheetnames == ["Search", "Other"] and wb["Other"]["A1"].value == "MẪU_CASE", name+": other sheet unchanged")
     if len(sys.argv) >= 4:
         stress(sys.argv[2], sys.argv[3])
     print("\nKẾT QUẢ XÁC MINH EXCEL: " + ("CÓ LỖI" if fails else "ĐẠT"))

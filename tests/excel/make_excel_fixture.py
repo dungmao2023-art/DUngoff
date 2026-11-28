@@ -53,6 +53,15 @@ def build(dest):
     sheet["B1"] = "=A1*2"
     sheet["D1"] = "KEEP_FILL_NEIGHBOUR"
     fill.save(os.path.join(dest, "excel-native-fill-input.xlsx"))
+    search = Workbook()
+    sheet = search.active
+    sheet.title = "Search"
+    sheet["A1"], sheet["A2"], sheet["A3"] = "MẪU_CASE", "mẫu_case", "[literal.+]"
+    sheet["A4"] = "00123"
+    sheet["B1"] = '=LEN("MẪU_CASE")'
+    other = search.create_sheet("Other")
+    other["A1"] = "MẪU_CASE"
+    search.save(os.path.join(dest, "excel-search-input.xlsx"))
     return p
 
 
