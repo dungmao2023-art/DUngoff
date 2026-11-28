@@ -28,9 +28,24 @@ QString bundledTesseract(const QString& applicationDir) {
     const QFileInfo executable(QDir(applicationDir).filePath(relative));
     return executable.isFile() && executable.isExecutable() ? executable.absoluteFilePath() : QString{};
 }
+QString installedTesseract(const QStringList& programRoots) {
+#ifdef Q_OS_WIN
+    for(const auto& root:programRoots){
+        if(root.isEmpty()||!QDir::isAbsolutePath(root))continue;
+        const QFileInfo exe(QDir(root).filePath(QStringLiteral("Tesseract-OCR/tesseract.exe")));
+        if(exe.isFile()&&exe.isExecutable())return exe.absoluteFilePath();
+    }
+#else
+    Q_UNUSED(programRoots);
+#endif
+    return {};
+}
 QString findTesseract() {
     const auto local=bundledTesseract(QCoreApplication::applicationDirPath());
-    return local.isEmpty()?QStandardPaths::findExecutable(QStringLiteral("tesseract")):local;
+    if(!local.isEmpty())return local;
+    const auto onPath=QStandardPaths::findExecutable(QStringLiteral("tesseract"));
+    if(!onPath.isEmpty())return onPath;
+    return installedTesseract({qEnvironmentVariable("ProgramW6432"),qEnvironmentVariable("ProgramFiles"),qEnvironmentVariable("ProgramFiles(x86)")});
 }
 bool validOcrLayout(int layout) {
     return layout == 3 || layout == 6 || layout == 7 || layout == 11;
@@ -52,7 +67,7 @@ static OcrResult runTesseract(const QString& image, const QString& language, int
         || qint64(dimensions.width()) * dimensions.height() > 36000000)
         return fail(QStringLiteral("Ảnh OCR không đọc được kích thước hoặc vượt giới hạn 36 triệu điểm ảnh."));
     const QString exe = findTesseract();
-    if (exe.isEmpty()) return fail(QStringLiteral("Thiếu Tesseract: đặt gói OCR cạnh Dũng Office hoặc cài Tesseract vào PATH."));
+    if (exe.isEmpty()) return fail(QStringLiteral("Thiếu Tesseract: đặt gói OCR cạnh Dũng Office, cài Tesseract vào thư mục chuẩn của Windows hoặc thêm vào PATH."));
     QProcess proc;
     proc.setProgram(exe);
     QStringList args{input.absoluteFilePath(), pdfBase.isEmpty() ? QStringLiteral("stdout") : pdfBase,

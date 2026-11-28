@@ -77,6 +77,17 @@ int main(int argc, char** argv) {
 #endif
     if(dungpdf::bundledTesseract(package)!=QFileInfo(dummy).absoluteFilePath())return 1;
     if(!probe.remove()||!dungpdf::bundledTesseract(package).isEmpty())return 1;
+#ifdef Q_OS_WIN
+    const QString programRoot=temp.filePath(QStringLiteral("Program Files test"));
+    const QString installed=QDir(programRoot).filePath(QStringLiteral("Tesseract-OCR/tesseract.exe"));
+    if(!QDir().mkpath(QFileInfo(installed).absolutePath()))return 1;
+    if(!dungpdf::installedTesseract({QStringLiteral("."),programRoot}).isEmpty())return 1;
+    QFile installedProbe(installed);
+    if(!installedProbe.open(QIODevice::WriteOnly)||installedProbe.write("discovery only")!=14)return 1;
+    installedProbe.close();
+    if(dungpdf::installedTesseract({QStringLiteral("."),programRoot})!=QFileInfo(installed).absoluteFilePath())return 1;
+    if(!installedProbe.remove()||!dungpdf::installedTesseract({programRoot}).isEmpty())return 1;
+#endif
     // Also exercise paths with Vietnamese characters and spaces on Windows.
     const QString samples=temp.filePath(QStringLiteral("Ảnh kiểm thử"));
     if(!QDir().mkpath(samples))return 1;
