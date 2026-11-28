@@ -325,6 +325,20 @@ int main(int argc, char** argv) {
     CHECK(extract({reordered, {}}, QStringLiteral("1"), first).ok && qdfOf(first).contains("(A 3)"), "Trang đầu bản sắp xếp là trang 3 gốc");
     CHECK(!reorder({a, {}}, QStringLiteral("1,1,3"), P(QStringLiteral("invalid-order.pdf"))).ok, "Từ chối trang trùng");
     CHECK(!reorder({a, {}}, QStringLiteral("1,3"), P(QStringLiteral("invalid-order.pdf"))).ok, "Từ chối thiếu trang");
+    const auto identity=fingerprint(a);
+    const auto visualDest=P(QStringLiteral("visual-order.pdf"));
+    CHECK(identity.size()==32&&organizePages({a,{}},{3,1},3,identity,visualDest).ok&&
+          info(visualDest).pages==2,"visual organize combines reorder and removal");
+    const auto visualFirst=P(QStringLiteral("visual-first.pdf"));
+    CHECK(extract({visualDest,{}},QStringLiteral("1"),visualFirst).ok&&qdfOf(visualFirst).contains("(A 3)"),
+          "visual organizer keeps exact chosen order");
+    const auto invalidVisual=P(QStringLiteral("visual-invalid.pdf"));
+    CHECK(!organizePages({a,{}},{1,1},3,identity,invalidVisual).ok&&
+          !organizePages({a,{}},{4},3,identity,invalidVisual).ok&&
+          !organizePages({a,{}},{},3,identity,invalidVisual).ok&&
+          !organizePages({a,{}},{1},3,QByteArray(32,'x'),invalidVisual).ok&&!QFile::exists(invalidVisual),
+          "visual organizer rejects invalid selection and stale fingerprint");
+    CHECK(readFile(a)==aBytes,"visual organizer preserves original PDF bytes");
     CHECK(!reorder({a, {}}, QStringLiteral("3,1,2"), a, true).ok && readFile(a) == aBytes, "Không ghi đè nguồn khi sắp xếp");
 
     // --- remove specified pages, keep original order.
