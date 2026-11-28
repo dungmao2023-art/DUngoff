@@ -55,6 +55,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] P03.1 F5/Shift+F5, chuyển slide/phím ESC, quay đúng slide; toàn màn hình/cửa sổ, màn hình ngoài.
 - [ ] P04.1 Transition cơ bản, thời gian và advance; áp dụng cho một/nhiều slide; theme/master/layout cơ bản.
 - [ ] P05.1 Appear/Fade, nhiều đối tượng, click, duration/delay/order; phát thật PowerPoint/Impress, không ghi đè timing cũ.
+  - 28/11: hỗ trợ chọn nhóm đối tượng cấp ngoài làm một mục animation, dùng ID nhóm thay vì ID con; không cho chọn nhóm lồng hoặc đối tượng con, vẫn chặn ID trùng và timing cũ. Test XML và hoàn nguyên byte gốc f9daccf502d5a193030d7ed5275fbf1d2ebc4d4a; CI và playback thật chưa xác nhận.
 
 ### B1 — PDF: ca xử lý tài liệu
 - [ ] D01.1 Đọc PDF văn bản/scan/mật khẩu, trang/zoom, tìm tiếng Việt, chọn/copy chữ, hiển thị kết quả; lỗi mật khẩu rõ.
