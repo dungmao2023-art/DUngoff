@@ -109,8 +109,14 @@ int main(int argc,char** argv){
             QKeyEvent event(QEvent::KeyPress,int(combo.key()),combo.keyboardModifiers());
             QApplication::sendEvent(canvas,&event);
         };
+        // Offscreen Qt may not activate the top-level window after a modal
+        // progress dialog. Verify its remembered focus target as well as the UI.
+        dlg->activateWindow();canvas->setFocus(Qt::OtherFocusReason);
+        QApplication::processEvents();
         pressShortcut(QKeySequence::Find);
-        check(!search->isHidden()&&query->hasFocus(),"find shortcut opens and focuses search");
+        QApplication::processEvents();
+        check(!search->isHidden()&&searchToggle->isChecked()&&dlg->focusWidget()==query,
+              "find shortcut opens and focuses search");
         searchToggle->click();
         start->click();
         const auto base=file->text();
