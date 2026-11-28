@@ -201,6 +201,30 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             return true;
         }
         safeTab->stepPart(page - 1 - d->currentPart());
+    } else if (id == QLatin1String("ppt.rotateObject")) {
+        if(d->readOnly()||tab->pptNotesMode())return true;
+        const PptEditTarget target(tab);
+        static const QRegularExpression rect(QStringLiteral("^\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*,\\s*([1-9]\\d*)\\s*,\\s*([1-9]\\d*)(?:\\s*,|\\s*$)"));
+        const auto bounds=rect.match(QString::fromStdString(target.graphic));
+        bool xok=false,yok=false,wok=false,hok=false;
+        const int x=bounds.captured(1).toInt(&xok),y=bounds.captured(2).toInt(&yok),
+                  w=bounds.captured(3).toInt(&wok),h=bounds.captured(4).toInt(&hok);
+        if(!bounds.hasMatch()||!xok||!yok||!wok||!hok||qAbs(qint64(x))>100000||qAbs(qint64(y))>100000||w>100000||h>100000||!target.selected.empty()){
+            QMessageBox::information(tab,QObject::tr("Xoay đối tượng"),QObject::tr("Chọn hình hoặc ảnh, không sửa chữ."));
+            return true;
+        }
+        bool ok=false;
+        const double degrees=QInputDialog::getDouble(tab,QObject::tr("Xoay đối tượng"),
+            QObject::tr("Góc xoay tương đối quanh tâm vùng chọn (độ; dương = ngược chiều kim đồng hồ)"),90,-360,360,2,&ok);
+        if(!ok||!target.verify(true)||qAbs(degrees)<0.005)return true;
+        // LibreOffice SetGeoAttrToMarked reads BOTH pivot items whenever the angle changes.
+        // LOK graphic bounds and transform arguments are in twips.
+        d->command(".uno:TransformDialog",dung::word::join({
+            dung::word::argLong("TransformRotationDeltaAngle",qRound(degrees*100)),
+            dung::word::argLong("TransformRotationX",x+w/2),
+            dung::word::argLong("TransformRotationY",y+h/2)}));
+        d->waitInputIdle();
+        if(target.tab&&target.tab->document()==d&&target.tab->view())target.tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.resizeObject")) {
         if(d->readOnly()||tab->pptNotesMode())return true;
         // Only the native graphic-selection bounds are used; never infer size
