@@ -116,6 +116,11 @@ BlankReport findBlankPages(const Input& in);
 Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace = false,
                         const BlankReport* confirmed = nullptr);
 
+// Interactive PDF note and basic AcroForm text field (new copy only).
+Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest);
+struct TextForm { bool ok=false; QString error; QStringList names; QStringList values; };
+TextForm textFormFields(const Input& in);
+Result fillTextField(const Input& in,const QString& name,const QString& value,const QString& dest);
 // Chuỗi chỉ gồm ký tự ASCII in được (32..126)? Dùng để báo trước cho người dùng khi nhập chữ đánh số/đóng dấu.
 bool isAsciiText(const QString& s);
 
