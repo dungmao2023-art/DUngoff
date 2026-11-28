@@ -8,7 +8,8 @@ import zlib
 from pathlib import Path
 from docx import Document
 from docx.enum.section import WD_SECTION_START
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
@@ -59,63 +60,102 @@ def png(path, layout, color):
     data = b"".join(b"\0"+r for r in rows)
     path.write_bytes(b"\x89PNG\r\n\x1a\n"+chunk(b"IHDR",struct.pack(">IIBBBBB",w,h,8,2,0,0,0))+chunk(b"IDAT",zlib.compress(data))+chunk(b"IEND",b""))
 
+def frame(doc, width, height, style="Normal", color="CBD5E1"):
+    # A real editable Word table cell, with minimum height (grows with content).
+    table = doc.add_table(rows=1, cols=1)
+    table.autofit = False
+    table.columns[0].width = Cm(width)
+    cell = table.cell(0,0)
+    cell.width = Cm(width)
+    cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
+    table.rows[0].height = Cm(height)
+    table.rows[0].height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+    pr = cell._tc.get_or_add_tcPr()
+    margins = OxmlElement("w:tcMar")
+    for side in ("top", "left", "bottom", "right"):
+        edge = OxmlElement("w:"+side)
+        edge.set(qn("w:w"), "120")
+        edge.set(qn("w:type"), "dxa")
+        margins.append(edge)
+    pr.append(margins)
+    borders = OxmlElement("w:tcBorders")
+    for side in ("top", "left", "bottom", "right"):
+        edge = OxmlElement("w:"+side)
+        edge.set(qn("w:val"), "single")
+        edge.set(qn("w:sz"), "4")
+        edge.set(qn("w:color"), color)
+        borders.append(edge)
+    pr.append(borders)
+    cell.paragraphs[0].style = doc.styles[style]
+    return cell
+
 def make(root, index):
     name, color = NAMES[index], COLORS[index]
     doc = Document()
     sec = doc.sections[0]
     sec.page_width, sec.page_height = Cm(21), Cm(29.7)
-    sec.top_margin = sec.bottom_margin = Cm(1.8)
+    sec.top_margin = sec.bottom_margin = Cm(2)
     sec.left_margin = sec.right_margin = Cm(2)
     normal = doc.styles["Normal"]
     normal.font.name = "Times New Roman" if index in (0,4) else "Arial"
     normal.font.size = Pt(11)
     normal.paragraph_format.space_after = Pt(6)
+    normal.paragraph_format.line_spacing = 1.15
+    normal.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     for level in (1,2,3):
         style = doc.styles[f"Heading {level}"]
         style.font.name = normal.font.name
+        style.font.size = Pt({1:24,2:14,3:12}[level])
         style.font.color.rgb = RGBColor.from_string(color)
+        style.paragraph_format.space_before = Pt(4)
+        style.paragraph_format.space_after = Pt(6)
+        style.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    title = doc.styles["Title"]
+    title.font.name = normal.font.name
+    title.font.size = Pt(28)
+    title.font.bold = True
+    title.font.color.rgb = RGBColor.from_string(color)
+    title.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
     footer = sec.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    footer.add_run("Dũng Office • Trang ")
     field = OxmlElement("w:fldSimple")
     field.set(qn("w:instr"), "PAGE")
     footer._p.append(field)
-    if index <= 2:
-        text(doc, ["BẢN TIN CUỐI TUẦN", "TẠP CHÍ", "BẢN TIN NỘI BỘ"][index], 30, color, True, WD_ALIGN_PARAGRAPH.CENTER)
-        text(doc, "Số [01]  •  [Tháng / Năm]  •  [Tên đơn vị]", 10, color, False, WD_ALIGN_PARAGRAPH.CENTER)
-        doc.add_heading("Tiêu đề bài viết chính", 1)
-        text(doc, "Thay dòng này bằng lời dẫn ngắn của bạn.", 14, color)
-        if index == 1:
-            t = doc.add_table(rows=1, cols=1)
-            t.style = "Table Grid"
-            cell = t.cell(0,0)
-            cell.text = "[Chèn ảnh bìa tại đây]"
-            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-            t.rows[0].height = Cm(5)
+    # No demo article, sample names or fake dates: every body cell starts empty.
+    frame(doc,17,1.7,"Title",color)
+    frame(doc,17,0.8,"Subtitle")
+    if index in (0,1,2):
+        if index==1:
+            frame(doc,17,4.7)
         sec = doc.add_section(WD_SECTION_START.CONTINUOUS)
         set_cols(sec,COLS[index])
-        for title in ("Bài viết chính", "Góc nhìn", "Tin ngắn"):
-            doc.add_heading(title,2)
-            doc.add_paragraph("Nhập nội dung tại đây. Văn bản tự chảy qua các cột, không cần tự kẻ bảng.")
-        text(doc, "“Thêm một câu trích dẫn đáng nhớ.”", 14, color, True)
+        width=(17-(COLS[index]-1)*0.635)/COLS[index]-0.2
+        for col in range(COLS[index]):
+            frame(doc,width,1.2,"Heading 2",color)
+            frame(doc,width,5.5 if index==1 else 7.5)
+            if col+1<COLS[index]:
+                doc.add_paragraph().add_run().add_break(WD_BREAK.COLUMN)
+        doc.add_paragraph()
     elif index == 3:
-        text(doc,"[TÊN TRƯỜNG / ĐƠN VỊ]",14,color,True,WD_ALIGN_PARAGRAPH.CENTER)
-        text(doc,"BÁO CÁO HỌC TẬP",30,color,True,WD_ALIGN_PARAGRAPH.CENTER)
-        text(doc,"[Tên đề tài] • [Họ tên] • [Lớp]",14,color,False,WD_ALIGN_PARAGRAPH.CENTER)
-        for title in ("Mở đầu", "Nội dung", "Kết luận", "Tài liệu tham khảo"):
-            doc.add_heading(title,1)
-            doc.add_paragraph("[Nhập nội dung]")
+        frame(doc,17,4.7)
+        for _ in range(2):
+            frame(doc,17,1.2,"Heading 2",color)
+            frame(doc,17,4)
+        doc.add_paragraph()
     else:
-        text(doc,"[TÊN ĐƠN VỊ]",12,color,True,WD_ALIGN_PARAGRAPH.CENTER)
-        text(doc,"BIÊN BẢN CUỘC HỌP",24,color,True,WD_ALIGN_PARAGRAPH.CENTER)
-        for label in ("Thời gian", "Địa điểm", "Thành phần"):
-            doc.add_paragraph(label+": [Điền thông tin]")
-        doc.add_heading("Nội dung và kết luận",1)
+        frame(doc,17,2.5)
         table=doc.add_table(rows=4,cols=3)
         table.style="Table Grid"
-        for cell,value in zip(table.rows[0].cells,("Nội dung","Phụ trách","Thời hạn")):
-            cell.text=value
-        doc.add_paragraph("Người lập biên bản                         Người chủ trì")
+        table.autofit=False
+        for column in table.columns:
+            column.width=Cm(17/3)
+        for row in table.rows:
+            row.height=Cm(1.2)
+            row.height_rule=WD_ROW_HEIGHT_RULE.AT_LEAST
+            for cell in row.cells:
+                cell.width=Cm(17/3)
+        frame(doc,17,3)
+        doc.add_paragraph()
     path=root/"layouts"/(name+".docx")
     doc.save(path)
     png(Path(str(path)+".png"),index,color)
@@ -128,7 +168,11 @@ def verify(root):
     for i,row in enumerate(rows):
         path=root/row[0]
         doc=Document(path)
-        assert len(doc.paragraphs)>3 and doc.sections[0].page_width==Cm(21)
+        assert len(doc.tables)>=4 and doc.sections[0].page_width==Cm(21)
+        assert all(not p.text.strip() for p in doc.paragraphs)
+        assert all(not cell.text.strip() for table in doc.tables for row in table.rows for cell in row.cells)
+        assert all(s.left_margin==Cm(2) and s.right_margin==Cm(2) for s in doc.sections)
+        assert doc.styles["Normal"].font.size==Pt(11)
         assert (Path(str(path)+".png")).read_bytes().startswith(b"\x89PNG")
         assert int(doc.sections[-1]._sectPr.find(qn("w:cols")).get(qn("w:num"),"1"))==COLS[i]
         assert row[4]=="DOCX"
@@ -146,7 +190,7 @@ def main():
     root.mkdir(parents=True,exist_ok=False)
     (root/"layouts").mkdir()
     (root/CAT).parent.mkdir()
-    (root/"manifest.json").write_text(json.dumps({"id":"word-layouts","name":"Bố cục Word","version":"2026.1"},ensure_ascii=False),encoding="utf-8")
+    (root/"manifest.json").write_text(json.dumps({"id":"word-layouts","name":"Bố cục Word","version":"2026.2"},ensure_ascii=False),encoding="utf-8")
     with (root/CAT).open("w",encoding="utf-8",newline="") as f:
         writer=csv.writer(f)
         writer.writerow(["Duong_dan","Tinh_trang","Nguon_goc","URL","Dinh_dang"])

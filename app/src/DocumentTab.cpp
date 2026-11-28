@@ -305,7 +305,7 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         search->setPlaceholderText(tr("Tìm mẫu…"));
         tv->addWidget(search);
         auto* list = new QListWidget(templates);
-        list->setWordWrap(true);list->setIconSize(QSize(44,62));
+        list->setWordWrap(true);
         list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         tv->addWidget(list, 1);
         auto* hint = new QLabel(tr("Mẫu tham khảo. Tạo tệp mới, không thay tài liệu đang mở."), templates);
@@ -323,10 +323,8 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         tv->addWidget(use);
         auto reload = [=] {
             list->clear();
-            QList<tpl::LibInfo> libraries;
-            if(ext==QLatin1String("docx"))libraries<<tpl::installed(QStringLiteral("word-layouts"));
-            libraries<<tpl::installed();
-            for(const auto& lib:libraries)if (lib.valid) {
+            const auto lib = tpl::installed();
+            if (lib.valid) {
                 const QString root = QFileInfo(lib.root).canonicalFilePath();
                 if (!root.isEmpty()) for (const auto& e : tpl::entries(lib)) {
                     const QFileInfo fi(QDir(lib.root).filePath(e.relPath));
@@ -340,13 +338,6 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
                         !e.relPath.contains(search->text().trimmed(), Qt::CaseInsensitive)) continue;
                     auto* item = new QListWidgetItem(title, list);
                     item->setData(Qt::UserRole, e.relPath);
-                    item->setData(Qt::UserRole+1,lib.id);
-                    if(lib.id==QLatin1String("word-layouts")){
-                        const auto preview=QFileInfo(path+QStringLiteral(".png"));
-                        if(preview.isFile()&&!preview.isSymLink()&&preview.canonicalFilePath().startsWith(root+QLatin1Char('/')))
-                            item->setIcon(QIcon(preview.absoluteFilePath()));
-                        item->setSizeHint(QSize(0,70));
-                    }
                     item->setToolTip(e.relPath + QStringLiteral(" · ") + e.status);
                 }
             }
@@ -357,7 +348,7 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
             auto* item = list->currentItem();
             if (!item) return;
             // Đọc lại gói đang cài: không sử dụng đường dẫn cũ sau khi cập nhật thư viện.
-            const auto lib = tpl::installed(item->data(Qt::UserRole+1).toString());
+            const auto lib = tpl::installed();
             const QString rel = item->data(Qt::UserRole).toString();
             const QString root = QFileInfo(lib.root).canonicalFilePath();
             const QFileInfo fi(QDir(lib.root).filePath(rel));
@@ -720,6 +711,61 @@ QLabel#AssistantGroup { color:#6B7A99; font-size:11px; font-weight:700; padding-
                 dung::word::handleAction(command, this, this);
             });
         };
+        group(tr("BỐ CỤC DỰNG SẴN"));
+        auto* layoutHint=new QLabel(tr("Khung trống, đã căn lề và định dạng. Chọn bố cục để tạo tài liệu mới, không đổi tài liệu đang mở."),body);
+        layoutHint->setWordWrap(true);av->addWidget(layoutHint);
+        auto* layouts=new QListWidget(body);
+        layouts->setObjectName(QStringLiteral("WordLayoutGallery"));
+        layouts->setIconSize(QSize(52,73));layouts->setWordWrap(true);
+        layouts->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        layouts->setFixedHeight(255);av->addWidget(layouts);
+        auto* useLayout=new QPushButton(tr("Dùng bố cục này"),body);
+        useLayout->setObjectName(QStringLiteral("WordUseLayout"));useLayout->setEnabled(false);av->addWidget(useLayout);
+        auto loadLayouts=[=]{
+            layouts->clear();
+            const auto lib=tpl::installed(QStringLiteral("word-layouts"));
+            if(!lib.valid){layoutHint->setText(tr("Chưa có gói bố cục Word. Kiểm tra bản cài."));return;}
+            const auto root=QFileInfo(lib.root).canonicalFilePath();
+            if(root.isEmpty())return;
+            for(const auto& entry:tpl::entries(lib)){
+                const QFileInfo file(QDir(lib.root).filePath(entry.relPath));
+                const auto path=file.canonicalFilePath();
+                if(!file.isFile()||file.isSymLink()||file.suffix().compare(QLatin1String("docx"),Qt::CaseInsensitive)!=0||
+                   !path.startsWith(root+QLatin1Char('/')))continue;
+                auto* item=new QListWidgetItem(file.completeBaseName(),layouts);
+                item->setData(Qt::UserRole,entry.relPath);
+                const QFileInfo preview(path+QStringLiteral(".png"));
+                if(preview.isFile()&&!preview.isSymLink()&&preview.canonicalFilePath().startsWith(root+QLatin1Char('/')))
+                    item->setIcon(QIcon(preview.absoluteFilePath()));
+                item->setSizeHint(QSize(0,82));
+                item->setToolTip(tr("Sơ đồ bố cục; nội dung trống, sửa được."));
+            }
+            layoutHint->setText(tr("Chọn khung trống có sẵn. Lề, cột, kiểu chữ và khoảng cách đã được định hình."));
+        };
+        auto createLayout=[=]{
+            const auto* item=layouts->currentItem();if(!item)return;
+            const auto lib=tpl::installed(QStringLiteral("word-layouts"));
+            const auto rel=item->data(Qt::UserRole).toString();
+            const auto root=QFileInfo(lib.root).canonicalFilePath();
+            const QFileInfo file(QDir(lib.root).filePath(rel));
+            const auto src=file.canonicalFilePath();
+            bool listed=false;
+            if(lib.valid)for(const auto& entry:tpl::entries(lib))if(entry.relPath==rel){listed=true;break;}
+            if(!listed||root.isEmpty()||!src.startsWith(root+QLatin1Char('/'))||!file.isFile()||file.isSymLink()||
+               file.suffix().compare(QLatin1String("docx"),Qt::CaseInsensitive)!=0){
+                QMessageBox::warning(this,tr("Bố cục Word"),tr("Bố cục không còn hợp lệ."));loadLayouts();return;
+            }
+            QString dst=QFileDialog::getSaveFileName(this,tr("Tạo tài liệu theo bố cục"),
+                QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(file.fileName()),tr("Word (*.docx)"));
+            if(dst.isEmpty())return;
+            if(!dst.endsWith(QLatin1String(".docx"),Qt::CaseInsensitive))dst+=QStringLiteral(".docx");
+            QString error;
+            if(!tpl::makeWorkingCopy(src,dst,&error)){QMessageBox::warning(this,tr("Bố cục Word"),error);return;}
+            emit templateCopyRequested(dst);
+        };
+        connect(layouts,&QListWidget::currentItemChanged,this,[=](QListWidgetItem* item,QListWidgetItem*){useLayout->setEnabled(item!=nullptr);});
+        connect(useLayout,&QPushButton::clicked,this,createLayout);
+        connect(layouts,&QListWidget::itemDoubleClicked,this,createLayout);
         group(tr("TIÊU ĐỀ & TRANG"));
         action(tr("Tiêu đề 1 (đoạn hiện tại)"), "word:style1");
         action(tr("Tiêu đề 2 (đoạn hiện tại)"), "word:style2");
@@ -764,7 +810,9 @@ QLabel#AssistantGroup { color:#6B7A99; font-size:11px; font-weight:700; padding-
         middle->addWidget(assistant);
         initCollapsed(assistant);
         connect(toggle, &QPushButton::clicked, this, [=] {
-            slidePanel(assistant, !panelExpanded(assistant), 282, toggle, false, tr("Tôi\nmuốn"));
+            const bool open=!panelExpanded(assistant);
+            if(open)loadLayouts();
+            slidePanel(assistant, open, 282, toggle, false, tr("Tôi\nmuốn"));
         });
     }
     if (m_pdfCompareButton) {
