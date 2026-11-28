@@ -445,13 +445,19 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         buttons->addWidget(add); buttons->addWidget(edit); buttons->addStretch(); root->addLayout(buttons);
         auto* presetRow=new QHBoxLayout;
         auto* preset=new QComboBox(&dialog);
-        preset->addItems({QObject::tr("Từng đối tượng · mỗi lần nhấp"),QObject::tr("Lần lượt tự động · một lần nhấp"),QObject::tr("Đồng thời · một lần nhấp")});
-        preset->setToolTip(QObject::tr("Mờ dần 0,5 giây cho mỗi đối tượng. Sau khi áp dụng có thể chỉnh riêng từng dòng."));
+        preset->addItems({QObject::tr("Xuất hiện · từng lần nhấp"),
+                          QObject::tr("Mờ dần · từng lần nhấp"),
+                          QObject::tr("Mờ dần · lần lượt tự động"),
+                          QObject::tr("Mờ dần · đồng thời")});
+        preset->setToolTip(QObject::tr("Xuất hiện tức thì hoặc mờ dần 0,5 giây. Có thể chỉnh riêng từng dòng."));
+        auto* presetHint=new QLabel(QObject::tr("Xuất hiện là hiệu ứng đơn giản nhất. Mờ dần và tự động được ghi vào bản PPTX; trình chiếu trong ứng dụng chưa hỗ trợ đầy đủ."),&dialog);
+        presetHint->setWordWrap(true);
         auto* quick=new QPushButton(QObject::tr("Áp dụng mẫu"),&dialog);
         quick->setEnabled(shapes.size()<=100);
         if(shapes.size()>100)quick->setToolTip(QObject::tr("Slide có hơn 100 đối tượng. Hãy thêm từng đối tượng cần thiết."));
         presetRow->addWidget(new QLabel(QObject::tr("Hoạt ảnh nhanh:"),&dialog));
         presetRow->addWidget(preset,1);presetRow->addWidget(quick);root->addLayout(presetRow);
+        root->addWidget(presetHint);
         auto* list = new AnimationOrderList(&dialog); list->setSelectionMode(QAbstractItemView::SingleSelection);
         list->setDragDropMode(QAbstractItemView::InternalMove);
         list->setDefaultDropAction(Qt::MoveAction);

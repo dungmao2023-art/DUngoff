@@ -23,18 +23,20 @@ struct AnimationTiming { int click=0, startMs=0, endMs=0; };
 // Deterministic per-click timeline. The first row must be click; no auto-start on slide entry yet.
 Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTiming>* timing);
 // Student-friendly presets: one click per object, one click for a cascade, or all together.
-enum class AnimationPreset { ClickEach, Cascade, Together };
+enum class AnimationPreset { AppearClickEach, ClickEach, Cascade, Together };
 inline Result makeAnimationPreset(const QList<Shape>& shapes, AnimationPreset preset,
                                   QList<AnimationOptions>* output) {
     if(!output || shapes.isEmpty() || shapes.size()>100)
         return {false,QStringLiteral("Chọn từ 1 đến 100 đối tượng; không cắt bớt danh sách.")};
-    if(preset!=AnimationPreset::ClickEach && preset!=AnimationPreset::Cascade && preset!=AnimationPreset::Together)
+    if(preset!=AnimationPreset::AppearClickEach && preset!=AnimationPreset::ClickEach &&
+       preset!=AnimationPreset::Cascade && preset!=AnimationPreset::Together)
         return {false,QStringLiteral("Kiểu hoạt ảnh không hợp lệ.")};
     QList<AnimationOptions> candidate;
     for(const auto& shape:shapes){
         AnimationOptions effect;
         effect.shapeId=shape.id;
-        effect.fade=true;
+        effect.fade=preset!=AnimationPreset::AppearClickEach;
+        if(!effect.fade)effect.durationMs=100;
         if(!candidate.isEmpty()){
             if(preset==AnimationPreset::Cascade)effect.trigger=AnimationTrigger::AfterPrevious;
             else if(preset==AnimationPreset::Together)effect.trigger=AnimationTrigger::WithPrevious;

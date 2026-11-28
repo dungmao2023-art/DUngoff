@@ -17,6 +17,12 @@ int main(int argc, char** argv) {
     const QList<Shape> presetShapes{{1,"Title"},{2,"Text"},{3,"Picture"}};
     QList<AnimationOptions> presetEffects;
     QList<AnimationTiming> presetTiming;
+    check(makeAnimationPreset(presetShapes,AnimationPreset::AppearClickEach,&presetEffects).ok &&
+          planAnimation(presetEffects,&presetTiming).ok && presetTiming.size()==3 &&
+          presetTiming[0].click==1 && presetTiming[2].click==3 &&
+          presetTiming[2].startMs==0 && presetTiming[2].endMs==1 &&
+          !presetEffects[0].fade && !presetEffects[1].fade && !presetEffects[2].fade &&
+          !presetEffects[2].exit,"preset: instant entrances without fade, one click per object");
     check(makeAnimationPreset(presetShapes,AnimationPreset::ClickEach,&presetEffects).ok &&
           planAnimation(presetEffects,&presetTiming).ok && presetTiming.size()==3 &&
           presetTiming[0].click==1 && presetTiming[2].click==3 &&
