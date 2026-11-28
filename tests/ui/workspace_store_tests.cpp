@@ -5,6 +5,8 @@
 #include <QComboBox>
 #include <QListWidget>
 #include <QTabWidget>
+#include <QTemporaryDir>
+#include "../../app/src/extras/DriveFolder.h"
 #include <QPushButton>
 #include <QPlainTextEdit>
 #include <QJsonArray>
@@ -78,7 +80,7 @@ int main(int argc,char** argv) {
     if(!result){
         const QJsonObject p1{{"id","p1"},{"name","Dự án A"},{"people",QJsonArray{QJsonObject{{"id","u1"},{"name","Nguyễn An"},{"contact",""}}}}};
         const QJsonObject p2{{"id","p2"},{"name","Dự án B"}};
-        const QJsonObject task1{{"id","t1"},{"project","p1"},{"title","Việc A"},{"person","u1"},{"status",0},{"due",QDate::currentDate().toString(Qt::ISODate)}};
+        const QJsonObject task1{{"id","t1"},{"project","p1"},{"title","Việc A"},{"person","u1"},{"status",0},{"priority",1},{"due",QDate::currentDate().toString(Qt::ISODate)}};
         const QJsonObject task2{{"id","t2"},{"project","p2"},{"title","Việc B"},{"status",3}};
         auto data=workspace::load(QStringLiteral("workspace"));
         data.insert("workProjects",QJsonArray{p1,p2});data.insert("workTasks",QJsonArray{task1,task2});
@@ -93,6 +95,33 @@ int main(int argc,char** argv) {
             else {picker->setCurrentIndex(2);if(c0->count()!=0||c3->count()!=1||!c3->item(0)->text().contains(QStringLiteral("Việc B")))result=17;
                 else {auto* editor=panel.findChild<QPlainTextEdit*>(QStringLiteral("WorkspaceNoteEditor"));editor->setPlainText(QStringLiteral("keep projects"));
                     if(!panel.flush()||workspace::load(QStringLiteral("workspace")).value("workTasks")!=data.value("workTasks"))result=18;}}
+        }
+    }
+    if(!result){
+        QTemporaryDir tmp;
+        const auto office=drivefolder::office(tmp.path());
+        if(!tmp.isValid()||office.isEmpty())result=19;
+        else {
+            for(const auto& cat:drivefolder::categories())if(!QFileInfo(QDir(office).filePath(cat)).isDir())result=20;
+            const auto source=QDir(tmp.path()).filePath(QStringLiteral("Báo cáo.docx"));
+            const auto folder=drivefolder::child(office,QStringLiteral("Word"));
+            if(!writeRaw(source,"doc")||drivefolder::category(source)!=QStringLiteral("Word"))result=21;
+            else {
+                const auto a=drivefolder::copyFile(source,folder),b=drivefolder::copyFile(source,folder);
+                if(a.isEmpty()||b.isEmpty()||a==b||readRaw(a)!="doc"||readRaw(b)!="doc"||!drivefolder::inFolder(a,folder)||drivefolder::inFolder(source,folder))result=22;
+            }
+        }
+        if(!result){
+            SidePanel panel;panel.showPage(1);
+            const auto snapshot=panel.exportWorkProject();
+            if(snapshot.isEmpty()||!panel.importWorkProject(snapshot))result=23;
+            else {
+                const auto imported=panel.exportWorkProject();
+                const auto old=snapshot.value("project").toObject(),next=imported.value("project").toObject();
+                if(old.value("id")==next.value("id")||imported.value("tasks").toArray().size()!=1||
+                   imported.value("tasks").toArray().at(0).toObject().value("person")!=next.value("people").toArray().at(0).toObject().value("id"))result=24;
+                auto broken=snapshot;broken.insert("version",99);if(panel.importWorkProject(broken))result=25;
+            }
         }
     }
     QDir(dir).removeRecursively();

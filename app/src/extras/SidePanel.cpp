@@ -41,6 +41,8 @@
 #include <QDropEvent>
 #include <QUuid>
 #include <functional>
+#include <QHash>
+#include <QSet>
 
 namespace {
 const QStringList kWorkStatus{QObject::tr("Chưa làm"), QObject::tr("Đang làm"), QObject::tr("Chờ duyệt"), QObject::tr("Hoàn thành")};
@@ -473,6 +475,48 @@ void SidePanel::editTask(const QString& id,int status) {
         connect(del,&QPushButton::clicked,&d,[&]{if(QMessageBox::question(&d,tr("Xóa việc"),tr("Xóa công việc này?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)==QMessageBox::Yes){m_tasks.removeAt(ti);d.accept();}});}
     if(d.exec()==QDialog::Accepted){refreshBoard();refreshEvents();markCalendar();scheduleSave();}
 }
+QJsonObject SidePanel::exportWorkProject() const {
+    const int pi=projectIndex();if(!m_readable||pi<0)return {};
+    const auto project=m_workProjects[pi].toObject();QJsonArray tasks;
+    for(const auto& x:m_tasks)if(field(x.toObject(),"project")==field(project,"id"))tasks.append(x);
+    return QJsonObject{{QStringLiteral("format"),QStringLiteral("dungoffice-kanban")},{QStringLiteral("version"),1},
+                       {QStringLiteral("project"),project},{QStringLiteral("tasks"),tasks}};
+}
+bool SidePanel::importWorkProject(const QJsonObject& snapshot) {
+    if(!m_readable||field(snapshot,"format")!=QStringLiteral("dungoffice-kanban")||
+       snapshot.value(QStringLiteral("version")).toInt()!=1||!snapshot.value(QStringLiteral("project")).isObject()||
+       !snapshot.value(QStringLiteral("tasks")).isArray())return false;
+    auto project=snapshot.value(QStringLiteral("project")).toObject();
+    const auto oldId=field(project,"id"),newId=uid();
+    if(oldId.isEmpty()||field(project,"name").trimmed().isEmpty()||!project.value(QStringLiteral("people")).isArray())return false;
+    const auto sourcePeople=project.value(QStringLiteral("people")).toArray();
+    const auto sourceTasks=snapshot.value(QStringLiteral("tasks")).toArray();
+    if(sourcePeople.size()>10000||sourceTasks.size()>100000)return false;
+    QHash<QString,QString> ids;QJsonArray people,tasks;
+    for(const auto& x:sourcePeople){
+        auto p=x.toObject();const auto old=field(p,"id");
+        if(old.isEmpty()||ids.contains(old)||field(p,"name").trimmed().isEmpty())return false;
+        const auto next=uid();ids.insert(old,next);p.insert(QStringLiteral("id"),next);people.append(p);
+    }
+    QSet<QString> taskIds;
+    for(const auto& x:sourceTasks){
+        auto task=x.toObject();const auto old=field(task,"id"),person=field(task,"person");
+        const int state=task.value(QStringLiteral("status")).toInt(-1),priority=task.value(QStringLiteral("priority")).toInt(-1);
+        const auto date=field(task,"due");
+        if(old.isEmpty()||taskIds.contains(old)||field(task,"project")!=oldId||field(task,"title").trimmed().isEmpty()||
+           state<0||state>3||priority<0||priority>2||(!person.isEmpty()&&!ids.contains(person))||
+           (!date.isEmpty()&&!QDate::fromString(date,Qt::ISODate).isValid()))return false;
+        taskIds.insert(old);task.insert(QStringLiteral("id"),uid());task.insert(QStringLiteral("project"),newId);
+        task.insert(QStringLiteral("person"),ids.value(person));tasks.append(task);
+    }
+    project.insert(QStringLiteral("id"),newId);project.insert(QStringLiteral("name"),field(project,"name")+tr(" (bản tải xuống)"));
+    project.insert(QStringLiteral("people"),people);
+    const auto beforeProjects=m_workProjects,beforeTasks=m_tasks;
+    m_workProjects.append(project);for(const auto& task:tasks)m_tasks.append(task);
+    scheduleSave();
+    if(!flush()){m_workProjects=beforeProjects;m_tasks=beforeTasks;refreshProjects();return false;}
+    refreshProjects(newId);return true;
+}
 void SidePanel::moveTask(const QString& id,int status) {
     const int i=taskIndex(id);if(i<0||status<0||status>3)return;
     auto task=m_tasks[i].toObject();if(task.value(QStringLiteral("status")).toInt()==status)return;
@@ -520,7 +564,7 @@ QWidget* SidePanel::buildCalendar() {
     row->addWidget(m_eventTitle, 1);
     row->addWidget(add);
     detail->addLayout(row);
-    m_eventList = new QListWidget(details);
+    m_eventList = new QListWidget(details);m_eventList->setObjectName(QStringLiteral("WorkCalendarEvents"));
     detail->addWidget(m_eventList,1);
     auto* del = new QPushButton(tr("Xoá mục đang chọn"), w);
     detail->addWidget(del);
@@ -595,7 +639,7 @@ void SidePanel::refreshEvents() {
         const auto task=x.toObject();
         if(field(task,"project")!=field(p,"id")||field(task,"due")!=day)continue;
         const int st=qBound(0,task.value(QStringLiteral("status")).toInt(),3);
-        auto* it=new QListWidgetItem(QStringLiteral("[%1] %2 — %3").arg(kWorkStatus[st],field(task,"title"),personName(p,field(task,"person"))));
+        auto* it=new QListWidgetItem(QStringLiteral("[%1] %2 — %3").arg(kWorkStatus[st],field(task,"title"),personName(p,field(task,"person")).isEmpty()?tr("Chưa giao"):personName(p,field(task,"person"))));
         it->setData(Qt::UserRole+1,field(task,"id"));m_eventList->addItem(it);
     }
 }

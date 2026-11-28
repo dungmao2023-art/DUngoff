@@ -25,6 +25,8 @@ public:
     explicit SidePanel(QWidget* parent = nullptr);
     void toggleContent();
     void showPage(int index);
+    QJsonObject exportWorkProject() const;
+    bool importWorkProject(const QJsonObject& snapshot);
     bool flush(); // ghi ngay các thay đổi đang chờ (gọi khi đóng ứng dụng)
 
 private:
