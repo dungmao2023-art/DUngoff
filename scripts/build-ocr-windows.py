@@ -17,6 +17,8 @@ ASSETS = [
     ("tessdata_fast", DATA, "vie.traineddata", "tessdata/vie.traineddata", "e54a5912fb634c581c4a45ae9f37cbc021ec7140", 531275),
     ("tessdata_fast", DATA, "LICENSE", "notices/tessdata_fast-LICENSE", "d645695673349e3947e8e5ae42332d0ac3164cd7", 11358),
     ("tesseract", TESS, "tessdata/pdf.ttf", "tessdata/pdf.ttf", "d1472b20ef1aebbf5e11573867e9ac13873681b9", 572),
+    ("tesseract", TESS, "tessdata/configs/pdf", "tessdata/configs/pdf", "59645d71ce52a143d819f2057c8c4e9ce2d46e40", 22),
+    ("tesseract", TESS, "tessdata/configs/txt", "tessdata/configs/txt", "a0cc952977f0f3562a5c94011c13044ace865519", 166),
     ("tesseract", TESS, "LICENSE", "notices/tesseract-LICENSE", "d645695673349e3947e8e5ae42332d0ac3164cd7", 11358),
 ]
 
@@ -68,6 +70,19 @@ def verify(root):
                                      env=env, text=True, timeout=30)
     if not {"eng", "vie"} <= set(result.splitlines()):
         raise RuntimeError("OCR languages missing: " + result)
+    # Exercise the actual PDF output config, not just --version/--list-langs.
+    # A tiny PGM needs no external Python imaging library.
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="dung-ocr-probe-") as tmp:
+        probe = Path(tmp) / "probe.pgm"
+        probe.write_bytes(b"P5\n256 256\n255\n" + bytes([255]) * 65536)
+        base = Path(tmp) / "out"
+        subprocess.run([str(exe), str(probe), str(base), "--tessdata-dir",
+                        str(root / "tessdata"), "-l", "eng", "--psm", "6",
+                        "--dpi", "300", "pdf"], env=env, check=True, timeout=30)
+        output = base.with_suffix(".pdf")
+        if not output.is_file() or not output.read_bytes().startswith(b"%PDF-"):
+            raise RuntimeError("OCR runtime cannot generate PDF output")
     print("Verified OCR runtime: " + str(root))
 
 def build(root, work):

@@ -65,8 +65,12 @@ static OcrResult runTesseract(const QString& image, const QString& language, int
             if(!model.isFile() || model.size()<=0) return fail(QStringLiteral("Gói OCR offline thiếu dữ liệu ngôn ngữ: ")+lang);
         }
         args << QStringLiteral("--tessdata-dir") << data;
-        if(!pdfBase.isEmpty() && !QFileInfo(QDir(data).filePath(QStringLiteral("pdf.ttf"))).isFile())
-            return fail(QStringLiteral("Gói OCR offline thiếu pdf.ttf để xuất PDF tìm kiếm được."));
+        if(!pdfBase.isEmpty()){
+            if(!QFileInfo(QDir(data).filePath(QStringLiteral("pdf.ttf"))).isFile())
+                return fail(QStringLiteral("Gói OCR offline thiếu pdf.ttf để xuất PDF tìm kiếm được."));
+            if(!QFileInfo(QDir(data).filePath(QStringLiteral("configs/pdf"))).isFile())
+                return fail(QStringLiteral("Gói OCR offline thiếu cấu hình xuất PDF của Tesseract. Hãy cài lại gói OCR."));
+        }
     }
     if (!pdfBase.isEmpty()) args << QStringLiteral("--dpi") << QString::number(dpi) << QStringLiteral("pdf");
     proc.setArguments(args);
