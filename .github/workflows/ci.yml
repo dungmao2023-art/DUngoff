@@ -437,6 +437,27 @@ jobs:
           if (-not $exe) { Write-Host "::error::Không thấy dung-pdftest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-pdftest.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: Dựng OCR Windows độc lập (Tesseract 5.5.1, vcpkg ghim commit)
+        run: |
+          python scripts/build-ocr-windows.py build/ocr-runtime --work build/vcpkg-ocr *>&1 | Tee-Object report/windows-ocr-build.log
+          if ($LASTEXITCODE) { exit 1 }
+      - name: OCR offline thật trên Windows (vi/en, PDF tìm kiếm được)
+        run: |
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-ocrtest.exe | Select-Object -First 1
+          if (-not $exe) { exit 1 }
+          $bundle = Join-Path $exe.DirectoryName "tesseract"
+          Copy-Item -Recurse build/ocr-runtime $bundle
+          $savedPath = $env:PATH
+          try {
+            $env:PATH = "$($exe.DirectoryName);$env:QT_ROOT_DIR\bin;$env:SystemRoot\System32"
+            $env:DUNG_OCR_REQUIRE_BUNDLE = "1"
+            & $exe.FullName *>&1 | Tee-Object report/windows-ocrtest.log
+            if ($LASTEXITCODE) { exit 1 }
+          } finally {
+            $env:PATH = $savedPath
+            Remove-Item Env:DUNG_OCR_REQUIRE_BUNDLE -ErrorAction SilentlyContinue
+            Remove-Item -Recurse -Force $bundle
+          }
       - name: Kiểm thử tiện ích bảng tính trên Windows
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-tabletest.exe | Select-Object -First 1
@@ -866,7 +887,7 @@ jobs:
       - name: Đóng gói thư mục chạy được
         run: |
           $dict = if ("${{ steps.dictvi.outcome }}" -eq "success") { "build/dict-vi-src" } else { "" }
-          ./scripts/package-windows.ps1 -BuildDir build/out -EngineDir build/lo/engine -QtDir $env:QT_ROOT_DIR -QpdfDir build/qpdf -PdfiumDir build/pdfium -OutDir build/dist -DictViDir $dict *>&1 | Tee-Object report/windows-package.log
+          ./scripts/package-windows.ps1 -BuildDir build/out -EngineDir build/lo/engine -QtDir $env:QT_ROOT_DIR -QpdfDir build/qpdf -PdfiumDir build/pdfium -OcrDir build/ocr-runtime -OutDir build/dist -DictViDir $dict *>&1 | Tee-Object report/windows-package.log
       - name: Kiểm tra từ điển tiếng Việt tách riêng khỏi ứng dụng và engine
         run: |
           $app = "build/dist/DungOffice"

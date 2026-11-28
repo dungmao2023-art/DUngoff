@@ -1,18 +1,7 @@
-# Gói OCR offline tùy chọn
+# OCR offline Windows
 
-Tesseract upstream: https://github.com/tesseract-ocr/tesseract (Apache-2.0). Dữ liệu ngôn ngữ: https://github.com/tesseract-ocr/tessdata . Phải xác minh license, checksum và phiên bản thực tế của từng binary, traineddata, pdf.ttf và DLL phụ thuộc trước khi phân phối.
+`scripts/build-ocr-windows.py build/ocr-runtime --work build/vcpkg-ocr` builds Tesseract 5.5.1 separately from Office using vcpkg commit `74e6536215718009aae747d86d84b78376bf9e09`, release-only dynamic dependencies. English and Vietnamese tessdata_fast 4.1.0 and the upstream PDF text-layer font are pinned by Git blob and size. The bundle includes dependency notices and a SHA-256 manifest; the packaging script verifies the runtime again.
 
-Bố cục dự kiến cạnh DungOffice.exe:
+CI requires a real English/Vietnamese OCR and searchable PDF test using the local executable without an installed Tesseract in PATH. No network access is needed at app runtime. Windows packaging places the runtime in `tesseract/` next to DungOffice.exe.
 
-```
-tesseract/
-  tesseract.exe
-  [runtime DLL dependencies]
-  tessdata/
-    eng.traineddata
-    vie.traineddata
-    pdf.ttf
-  [LICENSE / NOTICE / dependency notices]
-```
-
-Linux dùng tên tesseract không đuôi exe. Ưu tiên runtime cố định theo thư mục ứng dụng, truyền --tessdata-dir rõ ràng; nếu không có thì dùng Tesseract trong PATH. Không tự tải, không shell, không gửi ảnh ra mạng. OCR bản sao PDF cần font pdf.ttf. Chưa đóng gói bất kỳ binary hoặc model mới nào ở PR này; cần nghiệm thu installer sạch không có PATH Tesseract, OCR vie/eng và PDF searchable thực tế trước khi đưa vào bộ cài.
+Before public distribution: review all dependency licenses/source obligations and verify installed runtime on a clean Windows machine. The first build may be expensive; do not claim a completed installer before CI passes.

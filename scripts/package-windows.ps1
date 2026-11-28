@@ -8,6 +8,7 @@ param(
   [Parameter(Mandatory = $true)][string]$OutDir,
   [string]$QpdfDir = "",
   [string]$PdfiumDir = "",
+  [string]$OcrDir = "",
   # Thư mục chứa từ điển tiếng Việt đã tải (scripts\fetch-dict-vi.ps1). Từ điển là thành phần GPL RIÊNG:
   # được dựng ở <OutDir>\dict-vi (ngoài thư mục ứng dụng) để bộ cài đóng thành thành phần tuỳ chọn.
   [string]$DictViDir = ""
@@ -73,6 +74,15 @@ if ($QpdfDir -and (Test-Path (Join-Path $QpdfDir "qpdf.exe"))) {
 } else { Write-Warning "Không có qpdf: Công cụ PDF sẽ báo thiếu thành phần." }
 
 $root = Resolve-Path "$PSScriptRoot\.."
+if ($OcrDir) {
+  python (Join-Path $PSScriptRoot "build-ocr-windows.py") $OcrDir --verify
+  if ($LASTEXITCODE) { throw "Gói OCR chưa xác minh" }
+  Copy-Item -Recurse $OcrDir (Join-Path $app "tesseract")
+  python (Join-Path $PSScriptRoot "build-ocr-windows.py") (Join-Path $app "tesseract") --verify
+  if ($LASTEXITCODE) { throw "Gói OCR đóng gói không hợp lệ" }
+} elseif ($env:GITHUB_ACTIONS -eq "true") {
+  throw "Thiếu OCR offline Windows"
+}
 
 # --- Từ điển tiếng Việt (GPL): KHÔNG để lẫn trong engine/ứng dụng ---
 # 1) Gỡ mọi từ điển tiếng Việt nếu bản engine có sẵn (tránh phân phối dữ liệu GPL không tách bạch trong thư mục engine).
