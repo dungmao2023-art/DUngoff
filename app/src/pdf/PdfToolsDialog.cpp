@@ -1135,13 +1135,22 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* canvas=new PdfTextCanvas(w);
     auto* split=new QSplitter(Qt::Horizontal,w);split->addWidget(canvas);split->addWidget(text);split->setStretchFactor(0,2);split->setStretchFactor(1,1);root->addWidget(split,3);
     auto* copy=new QPushButton(tr("Sao chép chữ đã chọn trên trang"),w);copy->setEnabled(false);root->addWidget(copy);
-    connect(copy,&QPushButton::clicked,w,[=]{if(!canvas->selectedText.isEmpty())QApplication::clipboard()->setText(canvas->selectedText);});
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
     auto clear=[=]{snapshot->reset();list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);status->clear();};
+    auto rejectStale=[=]{
+        clear();
+        status->setText(tr("PDF nguồn đã thay đổi. Hãy tìm lại."));
+    };
+    connect(copy,&QPushButton::clicked,w,[=]{
+        if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
+        if(!canvas->selectedText.isEmpty())QApplication::clipboard()->setText(canvas->selectedText);
+    });
     canvas->select=[=](QPointF from,QPointF to){
         const auto* item=list->currentItem();
-        if(!item||!snapshot->has_value()||!snapshot->value().unchanged()){canvas->setSelection({});copy->setEnabled(false);return;}
+        if(!item){canvas->setSelection({});copy->setEnabled(false);return;}
+        if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
         const auto selected=printrender::selectText(snapshot->value().path,item->data(Qt::UserRole).toInt(),from,to);
+        if(!snapshot->value().unchanged()){rejectStale();return;}
         canvas->setSelection(selected);copy->setEnabled(!selected.text.isEmpty());
         if(!selected.error.isEmpty())status->setText(selected.error);
     };
@@ -1196,6 +1205,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         }
         if(!error.isEmpty()){status->setText(error);return;}
         auto preview=printrender::previewText(snapshot->value().path,item->data(Qt::UserRole).toInt(),QSize(1000,1400),query->text(),match->isChecked());
+        if(!snapshot->value().unchanged()){rejectStale();return;}
         if(!preview.error.isEmpty())status->setText(preview.error);
         else canvas->setPage(std::move(preview));
         text->setPlainText(extracted.normalized(QString::NormalizationForm_C));
