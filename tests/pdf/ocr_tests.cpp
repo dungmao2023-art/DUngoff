@@ -52,6 +52,21 @@ int main(int argc, char** argv) {
     for (const int mode : {-1, 0, 4, 13}) if (dungpdf::validOcrLayout(mode)) return 1;
     const auto invalid = dungpdf::recognizeImage(en, QStringLiteral("eng"), 99);
     if (invalid.ok || invalid.error.isEmpty()) return 1;
+    // A compact but over-wide raster must be rejected before starting Tesseract.
+    const QString wide = temp.filePath(QStringLiteral("too-wide.png"));
+    QImage wideImage(12001, 2, QImage::Format_RGB32);
+    wideImage.fill(Qt::white);
+    if (!wideImage.save(wide, "PNG")) return 1;
+    const auto oversized = dungpdf::recognizeImage(wide, QStringLiteral("eng"));
+    if (oversized.ok || !oversized.error.contains(QStringLiteral("36"))) return 1;
+    const QString rejectedPdf = temp.filePath(QStringLiteral("too-wide.pdf"));
+    if (dungpdf::searchableImagePdf(wide, QStringLiteral("eng"), 300, rejectedPdf).ok ||
+        QFileInfo::exists(rejectedPdf)) return 1;
+    const QString corrupt = temp.filePath(QStringLiteral("corrupt.png"));
+    QFile bad(corrupt);
+    if (!bad.open(QIODevice::WriteOnly) || bad.write("not an image") != 12) return 1;
+    bad.close();
+    if (dungpdf::recognizeImage(corrupt, QStringLiteral("eng")).ok) return 1;
     const QString line = temp.filePath(QStringLiteral("line.png"));
     if (!sample(line, {QStringLiteral("DUNG OFFICE 12345")})) return 1;
     const auto single = dungpdf::recognizeImage(line, QStringLiteral("eng"), 7);
