@@ -32,7 +32,11 @@ NumParse parseNumber(const QString &sIn, bool vi)
     bool pct = false;
     if (s.endsWith(QLatin1Char('%'))) { pct = true; s.chop(1); s = s.trimmed(); }
     bool neg = false;
-    if (s.startsWith(QLatin1Char('(')) && s.endsWith(QLatin1Char(')'))) { neg = true; s = s.mid(1, s.size() - 2); }
+    if (s.startsWith(QLatin1Char('(')) && s.endsWith(QLatin1Char(')'))) {
+        neg = true; s = s.mid(1, s.size() - 2);
+        // Parentheses already encode the sign: do not reinterpret a second sign.
+        if (s.startsWith(QLatin1Char('-')) || s.startsWith(QLatin1Char('+'))) return r;
+    }
     if (s.startsWith(QLatin1Char('-'))) { neg = true; s = s.mid(1); }
     else if (s.startsWith(QLatin1Char('+'))) s = s.mid(1);
     if (s.isEmpty()) return r;
@@ -59,11 +63,21 @@ NumParse parseNumber(const QString &sIn, bool vi)
     if (s.count(thou)==1 && di<0 && intPart.size()>=4 && s.size()-s.indexOf(thou)-1==3) r.ambiguous=true;
     if (di>=1 && di<=3 && !intPart.contains(thou) && !s.contains(thou) && decPart.size()==3) r.ambiguous=true;
     if (intPart.isEmpty()) intPart = QStringLiteral("0");
+    // Excel numeric cells retain at most 15 significant decimal digits.
+    // Preserve identifiers and amounts that would otherwise be silently rounded,
+    // including when grouping or currency markers hid a long integer.
+    if (intPart.size() > 15 || (intPart.size() > 1 && intPart.startsWith(QLatin1Char('0')))) return r;
+    QString significant = intPart + decPart;
+    while (significant.startsWith(QLatin1Char('0'))) significant.remove(0, 1);
+    while (significant.endsWith(QLatin1Char('0'))) significant.chop(1);
+    if (significant.size() > 15) return r;
     bool ok = false;
     const double v = (intPart + (decPart.isEmpty() ? QString() : QStringLiteral(".") + decPart)).toDouble(&ok);
     if (!ok || !std::isfinite(v)) return r;
+    const double result = (neg ? -v : v) / (pct ? 100.0 : 1.0);
+    if (result == 0.0 && !significant.isEmpty()) return r; // underflow, not a true zero
     r.ok = true;
-    r.value = (neg ? -v : v) / (pct ? 100.0 : 1.0);
+    r.value = result;
     return r;
 }
 
