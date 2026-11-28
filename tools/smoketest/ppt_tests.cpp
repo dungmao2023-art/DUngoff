@@ -622,12 +622,21 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
     if(master){
         master->setClientView(512,512,7680,7680,0,0,7680,7680);
         renderHash(*master,0);
-        const auto first=master->partHash(0);
-        check(master->partCount()==2&&!first.empty(),"Two normal slides share a master");
+        const auto first=master->partHash(0), second=master->partHash(1);
+        check(master->partCount()==2&&!first.empty()&&!second.empty()&&first!=second,"Two distinct normal slides");
         master->command(".uno:MasterPage",R"({"MasterPage":{"type":"boolean","value":false}})");master->waitInputIdle(350,4000);
         const auto hash=master->partHash(0);
-        const bool entered=master->partCount()==1&&!hash.empty()&&hash!=first;
-        check(entered,"Native master mode, one master instead of two slides; count="+std::to_string(master->partCount())+" first="+first+" master="+hash);
+        // PPTX layouts can import as separate native master pages. LOK's
+        // getParts() switches to GetMasterSdPageCount in master mode.
+        // Require all master identities to differ from both ordinary slides;
+        // the independent OOXML verifier still requires the actual master edit.
+        const int count=master->partCount();
+        bool entered=count>0&&!hash.empty();
+        for(int i=0;i<count&&entered;++i){
+            const auto id=master->partHash(i);
+            entered=!id.empty()&&id!=first&&id!=second;
+        }
+        check(entered,"Native master mode with distinct page identities; count="+std::to_string(count)+" first="+first+" master="+hash);
         if(entered){
             master->setPart(0);renderHash(*master,0);
             master->command(".uno:Text");master->waitInputIdle(350,4000);
@@ -637,7 +646,7 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
             master->waitInputIdle(350,4000);master->typeText(u"DUNG_MASTER_MARKER");master->waitInputIdle(350,4000);
             master->postKey(LOK_KEYEVENT_KEYINPUT,0,1281);master->postKey(LOK_KEYEVENT_KEYUP,0,1281);master->waitInputIdle();
             master->command(".uno:CloseMasterView");master->waitInputIdle(350,4000);
-            check(master->partCount()==2&&master->partHash(0)==first,"Return to original normal slides");
+            check(master->partCount()==2&&master->partHash(0)==first&&master->partHash(1)==second,"Return to both original normal slides in order");
             auto dest=out/"ppt-master-edited.pptx";fs::remove(dest,ec);
             auto saved=master->saveAs(dest);check(saved.ok,"Save master change: "+saved.message);
         }

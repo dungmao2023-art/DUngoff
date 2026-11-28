@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 #define LOK_USE_UNSTABLE_API
+#include <algorithm>
 #include "DocumentTab.h"
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -1018,16 +1019,27 @@ bool DocumentTab::setPptMasterMode(bool master) {
     m_doc->waitInputIdle();
     if(master){
         m_beforeMasterPart=m_doc->currentPart();
-        m_normalFirstHash=m_doc->partHash(0);
-        if(m_normalFirstHash.empty())return false;
+        m_normalPartHashes.clear();
+        const int count=m_doc->partCount();
+        for(int i=0;i<count;++i){
+            const auto hash=m_doc->partHash(i);
+            if(hash.empty()){m_normalPartHashes.clear();return false;}
+            m_normalPartHashes.push_back(hash);
+        }
+        if(m_normalPartHashes.empty())return false;
         // The desktop SlideMasterPage command routes through the pane framework.
         // MasterPage enters EditMode::MasterPage directly in DrawViewShell.
         m_doc->command(".uno:MasterPage",R"({"MasterPage":{"type":"boolean","value":false}})");
     }else m_doc->command(".uno:CloseMasterView");
     m_doc->waitInputIdle(350,4000);
-    const auto first=m_doc->partHash(0);
-    const bool verified=!first.empty()&&m_doc->partCount()>0&&
-        (master?first!=m_normalFirstHash:first==m_normalFirstHash);
+    const int count=m_doc->partCount();
+    bool verified=count>0&&(master||static_cast<size_t>(count)==m_normalPartHashes.size());
+    for(int i=0;i<count&&verified;++i){
+        const auto hash=m_doc->partHash(i);
+        verified=!hash.empty()&&(master?
+            std::find(m_normalPartHashes.begin(),m_normalPartHashes.end(),hash)==m_normalPartHashes.end():
+            hash==m_normalPartHashes[static_cast<size_t>(i)]);
+    }
     if(!verified){
         if(master){
             m_doc->command(".uno:CloseMasterView");

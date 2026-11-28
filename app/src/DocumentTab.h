@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 #pragma once
+#include <vector>
 #include "dung/Engine.h"
 #include "recovery/RecoveryStore.h"
 
@@ -113,7 +114,7 @@ private:
     bool m_pptNotes = false;
     bool m_pptMaster = false;
     int m_beforeMasterPart = 0;
-    std::string m_normalFirstHash;
+    std::vector<std::string> m_normalPartHashes;
     bool m_rebuildingParts = false;
     QTimer* m_autosave = nullptr;
     int m_autosaveDeferrals=0;
