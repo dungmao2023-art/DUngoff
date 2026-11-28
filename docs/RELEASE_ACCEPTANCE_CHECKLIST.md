@@ -71,6 +71,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 ### B1 — PDF: ca xử lý tài liệu
 - [ ] D01.1 Đọc PDF văn bản/scan/mật khẩu, trang/zoom, tìm tiếng Việt, chọn/copy chữ, hiển thị kết quả; lỗi mật khẩu rõ.
 - [ ] D02.1 Gộp/tách/xoay/xóa/sắp xếp/nén; preview, page count, hash nguồn, đích không ghi đè; xác nhận trước khi bỏ mã hóa.
+  - 28/11: bỏ trang trắng yêu cầu xác nhận đúng số trang/danh sách, kiểm metadata nguồn sau modal và trước worker; core so sánh lại blank set/page count trước xuất. Test từ chối preview lỗi thời, không tạo đích, giữ nguyên nguồn. Không tuyên bố phát hiện trang trắng bằng mắt; CI/GUI chờ.
 - [ ] D03.1 Chỉnh bản sao ODG chữ/ảnh/hình, Undo, xuất PDF, đối chiếu layout; thông báo giới hạn, không gọi là sửa stream gốc.
 - [ ] D05.1 Watermark, số trang, chữ Unicode và ảnh; xem trước, font nhúng, đúng vị trí/trang.
 - [ ] D06.1 OCR vie/eng trên Windows thật: đa trang, hủy, TXT/searchable PDF; kiểm chất lượng chữ và lớp text; cảnh báo raster, không trộn nguồn đổi.

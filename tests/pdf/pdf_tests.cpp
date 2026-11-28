@@ -616,7 +616,14 @@ int main(int argc, char** argv) {
         CHECK(!br.notes.isEmpty(), "trang trắng: báo kèm giới hạn của phép kiểm tra");
         const BlankReport none = findBlankPages({a, {}});
         CHECK(none.ok && none.blank.isEmpty(), "trang trắng: tệp không có trang trắng cho danh sách rỗng");
-        r = removeBlankPages({bl, {}}, P(QStringLiteral("het-trang-trang.pdf")));
+        BlankReport wrong=br;wrong.blank.removeLast();
+        const auto stale=P(QStringLiteral("blank-stale-preview.pdf"));
+        CHECK(!removeBlankPages({bl,{}},stale,false,&wrong).ok&&!QFileInfo::exists(stale),
+              "blank removal rejects changed confirmed page set");
+        wrong=br;++wrong.pages;
+        CHECK(!removeBlankPages({bl,{}},stale,false,&wrong).ok&&!QFileInfo::exists(stale),
+              "blank removal rejects changed confirmed page count");
+        r = removeBlankPages({bl, {}}, P(QStringLiteral("het-trang-trang.pdf")),false,&br);
         CHECK(r.ok && info(P(QStringLiteral("het-trang-trang.pdf"))).pages == 3, "bỏ trang trắng: còn 3 trang (7 trừ 4)");
         CHECK(readFile(bl) == blBytes, "bỏ trang trắng: tệp nguồn giữ nguyên từng byte");
         r = removeBlankPages({a, {}}, P(QStringLiteral("khong-bo.pdf")));
