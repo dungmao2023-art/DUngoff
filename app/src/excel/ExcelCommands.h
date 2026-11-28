@@ -85,12 +85,20 @@ inline std::string fillColor(unsigned rgb) { return "{" + numArg("BackgroundColo
 inline std::string columnWidth(long hundredthMm) { return "{" + numArg("ColumnWidth", "long", hundredthMm) + "}"; }
 inline std::string rowHeight(long hundredthMm) { return "{" + numArg("RowHeight", "long", hundredthMm) + "}"; }
 // ---- Tìm & thay thế. Mặc định CHỈ thay trong giá trị/văn bản, không động vào công thức. ----
-inline std::string replaceAll(const std::string& find, const std::string& repl) {
+// Explicit literal, current-sheet-only search. Do not inherit regex or all-sheet
+// preferences from an earlier native search. CellType 1 = values.
+inline std::string searchArgs(const std::string& find, const std::string& repl, int command, bool matchCase) {
     return "{" + strArg("SearchItem.SearchString", find) + "," + strArg("SearchItem.ReplaceString", repl) + "," +
-           numArg("SearchItem.Command", "long", 3) + "," + numArg("SearchItem.CellType", "long", 1) + "}";
+           numArg("SearchItem.Command", "long", command) + "," + numArg("SearchItem.CellType", "long", 1) + "," +
+           numArg("SearchItem.AlgorithmType", "long", 0) + "," + numArg("SearchItem.SearchFlags", "long", 0) + "," +
+           numArg("SearchItem.TransliterateFlags", "long", matchCase ? 0 : 0x100) + "," +
+           boolArg("SearchItem.AllTables", false) + "," + boolArg("SearchItem.Backward", false) + "}";
 }
-inline std::string findNext(const std::string& find) {
-    return "{" + strArg("SearchItem.SearchString", find) + "," + numArg("SearchItem.Command", "long", 0) + "}";
+inline std::string replaceAll(const std::string& find, const std::string& repl, bool matchCase = false) {
+    return searchArgs(find, repl, 3, matchCase);
+}
+inline std::string findNext(const std::string& find, bool matchCase = false) {
+    return searchArgs(find, "", 0, matchCase);
 }
 // Chuyển cm -> 1/100 mm
 inline long cmToHundredthMm(double cm) { return (long)(cm * 1000.0 + 0.5); }
