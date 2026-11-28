@@ -508,6 +508,14 @@ int main(int argc, char** argv) {
     testUnits();
     testScan();
     testPatchXml();
+    {
+        const QByteArray source="<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body><w:p><w:r><w:t>HEADING_KEEP</w:t></w:r></w:p><w:sectPr/></w:body></w:document>";
+        QByteArray patched;QString error;
+        check(createTocXml(source,2,&patched,&error)&&patched.contains("TOC \\o \"1-2\"")&&patched.contains("HEADING_KEEP")&&patched.contains("<w:sectPr/>"),"create real TOC field, preserve body and section");
+        QByteArray duplicate;
+        check(!createTocXml(patched,2,&duplicate,&error),"existing TOC not duplicated");
+        check(!createTocXml(source,4,&duplicate,&error),"reject unsupported level");
+    }
     testZip(tmp);
     if (!docxDir.isEmpty()) testRealDocs(docxDir, tmp);
     QDir(tmp).removeRecursively();
