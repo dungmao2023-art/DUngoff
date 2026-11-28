@@ -8,6 +8,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QPixmap>
 #include <QPointer>
@@ -171,6 +172,45 @@ int main(int argc,char** argv){
     std::string err;
     auto engine=dung::Engine::create(pathOf(args[1]),pathOf(temp.filePath("profile")),pathOf(temp.filePath("work")),&err);
     if(!engine){std::cerr<<err<<std::endl;return 1;}
+    // The diagram must be a real editable PPTX rendered by the engine,
+    // not just well-formed XML or an image preview.
+    {
+        const auto source=QFileInfo(args[2]).absolutePath()+"/ppt-diagram-input.pptx";
+        const auto fingerprint=ppttransition::sourceFingerprint(source);
+        if(fingerprint.isEmpty()){std::cerr<<"FAIL diagram fixture missing"<<std::endl;return 1;}
+        auto original=engine->open(pathOf(source),&err);
+        if(!original||original->partCount()!=2){std::cerr<<"FAIL open diagram fixture"<<std::endl;return 1;}
+        auto render=[](dung::Document* doc,int part){
+            long w=0,h=0;doc->documentSize(w,h);
+            if(w<=0||h<=0)return QImage{};
+            QImage frame(640,480,QImage::Format_ARGB32_Premultiplied);frame.fill(Qt::white);
+            if(!doc->paintPartTile(frame.bits(),part,640,480,0,0,int(w),int(h)))return QImage{};
+            return frame;
+        };
+        const auto blank=render(original.get(),0),neighbour=render(original.get(),1);
+        if(blank.isNull()||neighbour.isNull()||blank==neighbour){std::cerr<<"FAIL diagram baseline"<<std::endl;return 1;}
+        for(const auto layout:{pptdiagram::Layout::Process,pptdiagram::Layout::MindMap}){
+            pptdiagram::Options o;o.title=QStringLiteral("Sơ đồ thử nghiệm");
+            o.items={QStringLiteral("Ý tưởng"),QStringLiteral("Chuẩn bị"),QStringLiteral("Thực hiện"),QStringLiteral("Kết quả")};o.layout=layout;
+            const auto path=temp.filePath(QStringLiteral("diagram-%1.pptx").arg(int(layout)));
+            const auto made=ppttransition::createDiagramCopy(source,path,1,o,fingerprint);
+            if(!made.ok){std::cerr<<"FAIL diagram export "<<made.error.toStdString()<<std::endl;return 1;}
+            QString error;QList<pptdiagram::Node> planned;pptdiagram::plan(o,&planned);
+            const auto shapes=ppttransition::slideShapes(path,1,&error);
+            // Native shape inventory includes the attached connectors where supported.
+            if(shapes.size()<planned.size()){
+                std::cerr<<"FAIL diagram editable shape inventory "<<error.toStdString()<<std::endl;return 1;
+            }
+            auto generated=engine->open(pathOf(path),&err);
+            if(!generated||generated->partCount()!=2){std::cerr<<"FAIL open exported diagram "<<err<<std::endl;return 1;}
+            const auto changed=render(generated.get(),0),other=render(generated.get(),1);
+            if(changed.isNull()||changed==blank||bluePixels(changed)<500||other!=neighbour||
+               ppttransition::sourceFingerprint(source)!=fingerprint){
+                std::cerr<<"FAIL diagram rendered pixels or unchanged neighbour"<<std::endl;return 1;
+            }
+            std::cout<<"PASS native diagram render and editable shapes "<<int(layout)<<std::endl;
+        }
+    }
     auto doc=engine->open(pathOf(animated),&err);
     if(!doc){std::cerr<<err<<std::endl;return 1;}
     doc->setClientView(512,512,7680,7680,0,0,7680,7680);
@@ -185,6 +225,15 @@ int main(int argc,char** argv){
     auto* show=new SlideShow(doc.get(),0,nullptr,false);
     QApplication::processEvents();
     const auto before=show->grab().toImage();
+    key(show,Qt::Key_F1);
+    const auto help=show->grab().toImage();
+    key(show,Qt::Key_Right); // help must consume navigation keys
+    if(show->grab().toImage()!=help){std::cerr<<"FAIL help consumed navigation"<<std::endl;return 1;}
+    key(show,Qt::Key_Escape);
+    if(help==before||show->grab().toImage()!=before||doc->currentPart()!=originalPart){
+        std::cerr<<"FAIL presenter help does not restore slide"<<std::endl;return 1;
+    }
+    std::cout<<"PASS presenter help overlay and unchanged slide"<<std::endl;
     std::cout<<"Before click: "<<before.width()<<"x"<<before.height()<<" blue="<<bluePixels(before)<<" red="<<redPixels(before)<<std::endl;
     QPointer<SlideShow> safe(show);
     // Laser is a transient overlay, never a document operation or an animation click.
@@ -204,6 +253,22 @@ int main(int argc,char** argv){
         withLaser==afterLaserClick&&show->grab().toImage()==before&&doc->currentPart()==originalPart;
     std::cout<<(laserOk?"PASS":"FAIL")<<" laser overlay visible, click does not advance, toggle restores original pixels"<<std::endl;
     if(!laserOk)std::_Exit(1);
+    key(show,Qt::Key_I);
+    const QPointF end=center+QPointF(45,15);
+    QMouseEvent penPress(QEvent::MouseButtonPress,center,global,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+    QCoreApplication::sendEvent(show,&penPress);
+    QMouseEvent penMove(QEvent::MouseMove,end,show->mapToGlobal(end.toPoint()),Qt::NoButton,Qt::LeftButton,Qt::NoModifier);
+    QCoreApplication::sendEvent(show,&penMove);
+    QMouseEvent penRelease(QEvent::MouseButtonRelease,end,show->mapToGlobal(end.toPoint()),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+    QCoreApplication::sendEvent(show,&penRelease);
+    const bool drawn=safe&&safe->isVisible()&&show->grab().toImage()!=before;
+    key(show,Qt::Key_U);
+    const bool undoInk=show->grab().toImage()==before;
+    QCoreApplication::sendEvent(show,&penPress);QCoreApplication::sendEvent(show,&penRelease);
+    key(show,Qt::Key_E);key(show,Qt::Key_I);
+    const bool inkOk=drawn&&undoInk&&show->grab().toImage()==before&&doc->currentPart()==originalPart;
+    std::cout<<(inkOk?"PASS":"FAIL")<<" temporary ink drawing, undo, clear and unchanged slide"<<std::endl;
+    if(!inkOk)std::_Exit(1);
     key(show,Qt::Key_Right);
     // Older system engines without the layer ABI must still render an intact
     // static show and navigate normally, never claim animation support.
@@ -280,5 +345,56 @@ int main(int argc,char** argv){
                       fadeShow->grab().toImage()==hidden;
     std::cout<<(fadeOk?"PASS":"FAIL")<<" native timed fade entrance with intermediate pixels"<<std::endl;
     delete fadeShow;
-    std::_Exit(fadeOk?0:1);
+    if(!fadeOk)std::_Exit(1);
+    // A one-slide deck with an entrance must autoplay its remaining
+    // animation, stay visible, and stop when every effect is complete.
+    auto* timed=new SlideShow(fadeDoc.get(),0,nullptr,false,nullptr,1000);
+    QPointer<SlideShow> liveTimed(timed);
+    QApplication::processEvents();
+    const auto timedHidden=timed->grab().toImage();
+    pump(2300);
+    if(!liveTimed||!liveTimed->isVisible()){
+        std::cerr<<"FAIL last slide autoplay closed the show"<<std::endl;std::_Exit(1);
+    }
+    const auto timedFinished=timed->grab().toImage();
+    pump(1200);
+    const bool autoOk=liveTimed&&liveTimed->isVisible()&&
+        bluePixels(timedFinished)>bluePixels(timedHidden)+500&&timed->grab().toImage()==timedFinished;
+    std::cout<<(autoOk?"PASS":"FAIL")<<" autoplay completes final slide entrance and stops"<<std::endl;
+    delete timed;if(!autoOk)std::_Exit(1);
+    // Exercise real exported OOXML motion with native layer metadata, not just
+    // the synthetic renderer. A static fallback on a one-slide fixture closes
+    // on next, so it cannot be mistaken for successful animation playback.
+    for(const auto filter:{ppttransition::AnimationFilter::FlyLeft,ppttransition::AnimationFilter::Zoom}){
+        auto motionOptions=options;motionOptions.filter=filter;motionOptions.durationMs=1200;
+        const bool zoom=filter==ppttransition::AnimationFilter::Zoom;
+        const auto file=temp.filePath(zoom?"zoom-entrance.pptx":"fly-entrance.pptx");
+        const auto made=ppttransition::createAnimationCopy(args[2],file,1,motionOptions);
+        if(!made.ok){std::cerr<<"FAIL motion export "<<made.error.toStdString()<<std::endl;std::_Exit(1);}
+        auto motionDoc=engine->open(pathOf(file),&err);
+        if(!motionDoc){std::cerr<<"FAIL motion open "<<err<<std::endl;std::_Exit(1);}
+        motionDoc->setClientView(512,512,7680,7680,0,0,7680,7680);
+        motionDoc->waitInputIdle(350,4000);
+        std::cout<<(zoom?"Zoom":"Fly")<<" metadata: "<<motionDoc->presentationInfo()<<std::endl;
+        const auto originalPart=motionDoc->currentPart();
+        auto* motionShow=new SlideShow(motionDoc.get(),0,nullptr,false);
+        QPointer<SlideShow> liveMotion(motionShow);
+        QApplication::processEvents();
+        const auto initial=motionShow->grab().toImage();
+        key(motionShow,Qt::Key_Right);
+        if(!liveMotion||!liveMotion->isVisible()){
+            std::cerr<<"FAIL native motion treated as static slide"<<std::endl;std::_Exit(1);
+        }
+        pump(350);const auto moving=motionShow->grab().toImage();
+        pump(1000);const auto final=motionShow->grab().toImage();
+        key(motionShow,Qt::Key_Left);
+        const auto reversed=motionShow->grab().toImage();
+        const bool motionOk=initial!=moving&&moving!=final&&bluePixels(final)>bluePixels(initial)+500&&
+            initial==reversed&&redPixels(initial)>500&&
+            std::abs(redPixels(initial)-redPixels(final))<100&&motionDoc->currentPart()==originalPart;
+        std::cout<<(motionOk?"PASS":"FAIL")<<" actual "<<(zoom?"Zoom":"Fly")<<" entrance frames and reverse"<<std::endl;
+        delete motionShow;
+        if(!motionOk)std::_Exit(1);
+    }
+    std::_Exit(0);
 }

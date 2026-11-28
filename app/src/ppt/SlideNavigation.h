@@ -25,11 +25,18 @@ inline int adjacentVisible(const QVector<bool>& visible,int current,int directio
         if(visible[i])return i;
     return -1;
 }
-// Session-only autoplay: stop on the final visible slide, never wrap.
+// Session-only autoplay: finish pending effects even on the final slide,
+// then stop without closing or wrapping.
 inline int autoAdvanceDelay(const QVector<bool>& visible,int current,int intervalMs,
-                            bool paused,bool blank,bool enteringNumber,bool rendered) {
-    return intervalMs>=1000 && intervalMs<=600000 && !paused && !blank &&
-           !enteringNumber && rendered && adjacentVisible(visible,current,1)>=0 ? intervalMs : 0;
+                            bool paused,bool blank,bool enteringNumber,bool rendered,bool pendingEffects=false) {
+    return current>=0&&current<visible.size()&&visible[current]&&
+           intervalMs>=1000 && intervalMs<=600000 && !paused && !blank &&
+           !enteringNumber && rendered && (pendingEffects||adjacentVisible(visible,current,1)>=0) ? intervalMs : 0;
+}
+inline QVector<int> visibleSlideIndices(const QVector<bool>& visible) {
+    QVector<int> result;
+    for(int k=0;k<visible.size();++k)if(visible[k])result.append(k);
+    return result;
 }
 inline int jumpTo(const QVector<bool>& visible,const QString& digits) {
     bool ok=false;

@@ -793,10 +793,56 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         auto* presetHint=new QLabel(QObject::tr("15 kiểu hiệu ứng vào/ra. Hiệu ứng nâng cao được ghi vào bản PPTX; trình chiếu trong ứng dụng chưa hỗ trợ đầy đủ."),&dialog);
         presetHint->setWordWrap(true);
         auto* quick=new QPushButton(QObject::tr("Áp dụng mẫu"),&dialog);
-        quick->setEnabled(shapes.size()<=100);
-        if(shapes.size()>100)quick->setToolTip(QObject::tr("Slide có hơn 100 đối tượng. Hãy thêm từng đối tượng cần thiết."));
+        auto* subset=new QPushButton(QObject::tr("Chọn đối tượng…"),&dialog);
+        QList<unsigned> selectedIds;
+        if(shapes.size()<=100)for(const auto& item:shapes)selectedIds.append(item.id);
+        auto refreshSubset=[&]{
+            const bool valid=!selectedIds.isEmpty()&&selectedIds.size()<=100;
+            quick->setEnabled(valid);
+            subset->setText(selectedIds.size()==shapes.size()?QObject::tr("Tất cả (%1)").arg(shapes.size()):
+                selectedIds.isEmpty()?QObject::tr("Chọn đối tượng…"):QObject::tr("Đã chọn %1/%2").arg(selectedIds.size()).arg(shapes.size()));
+            subset->setAccessibleName(QObject::tr("Chọn đối tượng dùng hoạt ảnh nhanh"));
+            quick->setToolTip(valid?QObject::tr("Tạo hoạt ảnh cho %1 đối tượng đã chọn.").arg(selectedIds.size()):
+                QObject::tr("Chọn từ 1 đến 100 đối tượng trước."));
+        };
+        refreshSubset();
+        QObject::connect(subset,&QPushButton::clicked,&dialog,[&]{
+            QDialog picker(&dialog);picker.setWindowTitle(QObject::tr("Chọn đối tượng dùng mẫu"));picker.resize(390,420);
+            auto* column=new QVBoxLayout(&picker);
+            auto* hint=new QLabel(QObject::tr("Chỉ các đối tượng được tích mới nhận hiệu ứng. Thứ tự theo danh sách slide."),&picker);
+            hint->setWordWrap(true);column->addWidget(hint);
+            auto* objects=new QListWidget(&picker);
+            for(const auto& item:shapes){
+                const int index=shape->findData(item.id);
+                auto* row=new QListWidgetItem(index>=0?shape->itemText(index):item.name,objects);
+                row->setFlags(row->flags()|Qt::ItemIsUserCheckable);row->setData(Qt::UserRole,item.id);
+                row->setCheckState(selectedIds.contains(item.id)?Qt::Checked:Qt::Unchecked);
+            }
+            auto* tools=new QHBoxLayout;auto* all=new QPushButton(QObject::tr("Chọn tất cả"),&picker);
+            auto* none=new QPushButton(QObject::tr("Bỏ chọn"),&picker);
+            all->setEnabled(shapes.size()<=100);tools->addWidget(all);tools->addWidget(none);tools->addStretch();
+            column->addLayout(tools);column->addWidget(objects,1);
+            auto* count=new QLabel(&picker);column->addWidget(count);
+            auto* controls=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&picker);
+            controls->button(QDialogButtonBox::Ok)->setText(QObject::tr("Dùng các mục đã chọn"));column->addWidget(controls);
+            auto checked=[&]{QList<unsigned> result;for(int k=0;k<objects->count();++k)
+                if(objects->item(k)->checkState()==Qt::Checked)result.append(objects->item(k)->data(Qt::UserRole).toUInt());return result;};
+            auto updateCount=[&]{const auto n=checked().size();count->setText(QObject::tr("%1 đã chọn · tối đa 100").arg(n));
+                controls->button(QDialogButtonBox::Ok)->setEnabled(n>0&&n<=100);};
+            auto checkAll=[&](Qt::CheckState state){
+                {QSignalBlocker block(objects);for(int k=0;k<objects->count();++k)objects->item(k)->setCheckState(state);}
+                updateCount();
+            };
+            QObject::connect(all,&QPushButton::clicked,&picker,[&]{checkAll(Qt::Checked);});
+            QObject::connect(none,&QPushButton::clicked,&picker,[&]{checkAll(Qt::Unchecked);});
+            QObject::connect(objects,&QListWidget::itemChanged,&picker,[&](QListWidgetItem*){updateCount();});
+            QObject::connect(controls,&QDialogButtonBox::accepted,&picker,&QDialog::accept);
+            QObject::connect(controls,&QDialogButtonBox::rejected,&picker,&QDialog::reject);
+            updateCount();
+            if(picker.exec()==QDialog::Accepted){selectedIds=checked();refreshSubset();}
+        });
         presetRow->addWidget(new QLabel(QObject::tr("Hoạt ảnh nhanh:"),&dialog));
-        presetRow->addWidget(preset,1);presetRow->addWidget(quick);root->addLayout(presetRow);
+        presetRow->addWidget(preset,1);presetRow->addWidget(subset);presetRow->addWidget(quick);root->addLayout(presetRow);
         root->addWidget(presetHint);
         auto* list = new AnimationOrderList(&dialog); list->setSelectionMode(QAbstractItemView::SingleSelection);
         list->setDragDropMode(QAbstractItemView::InternalMove);
@@ -805,6 +851,16 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         list->setDropIndicatorShown(true);
         list->setToolTip(QObject::tr("Kéo thả dòng để đổi thứ tự phát"));
         root->addWidget(list,1);
+        // Read-only visual timing for the selected click group. The list stays
+        // the source of truth for reordering and editing, even on small screens.
+        auto* timelineCaption=new QLabel(&dialog);
+        timelineCaption->setWordWrap(true);
+        auto* timelineGraphic=new QLabel(&dialog);
+        timelineGraphic->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Fixed);
+        timelineGraphic->setFixedHeight(104);
+        timelineGraphic->setAlignment(Qt::AlignCenter);
+        timelineGraphic->setAccessibleName(QObject::tr("Biểu đồ thời gian hoạt ảnh của nhóm nhấp đang chọn"));
+        root->addWidget(timelineCaption);root->addWidget(timelineGraphic);
         auto* order = new QHBoxLayout;
         auto* up = new QPushButton(QObject::tr("↑ Lên"), &dialog); auto* down = new QPushButton(QObject::tr("↓ Xuống"), &dialog);
         auto* remove = new QPushButton(QObject::tr("Xóa dòng"), &dialog);
@@ -816,6 +872,51 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             ppttransition::AnimationOptions o; o.shapeId=shape->currentData().toUInt(); o.fade=effect->currentIndex()==1; o.exit=direction->currentIndex()==1;
             if(effect->currentIndex()>1)o.filter=static_cast<ppttransition::AnimationFilter>(effect->currentIndex()-1);
             o.durationMs=qRound(duration->value()*1000); o.delayMs=qRound(delay->value()*1000); o.trigger=ppttransition::AnimationTrigger(trigger->currentIndex()); return o;
+        };
+        auto drawTimeline=[&]{
+            QList<ppttransition::AnimationTiming> plan;
+            const auto valid=ppttransition::planAnimation(effects,&plan);
+            timelineGraphic->setVisible(valid.ok&&!plan.isEmpty());
+            timelineCaption->setVisible(valid.ok&&!plan.isEmpty());
+            if(!valid.ok||plan.isEmpty())return;
+            const int selected=qBound(0,list->currentRow(),int(plan.size())-1);
+            const int click=plan[selected].click;
+            QList<int> group;int total=0;
+            for(int k=0;k<plan.size();++k)if(plan[k].click==click){
+                group.append(k);total=qMax(total,plan[k].endMs);
+            }
+            const int shown=qMin(4,int(group.size()));
+            const int offset=qBound(0,int(group.indexOf(selected))-shown/2,qMax(0,int(group.size())-shown));
+            const int w=560,h=104,axisLeft=76,axisRight=w-16,axisWidth=axisRight-axisLeft;
+            QPixmap pix(w,h);pix.fill(QColor("#FFFFFF"));
+            QPainter painter(&pix);painter.setRenderHint(QPainter::Antialiasing);
+            const int span=qMax(1,total);
+            painter.setPen(QColor("#64748B"));auto font=painter.font();font.setPixelSize(10);painter.setFont(font);
+            for(int tick=0;tick<=4;++tick){
+                const int x=axisLeft+axisWidth*tick/4;
+                painter.setPen(QColor("#E2E8F0"));painter.drawLine(x,18,x,h-5);
+                painter.setPen(QColor("#64748B"));
+                const QString label=QString::number(span*tick/4000.0,'f',span<1000?2:1)+QStringLiteral("s");
+                painter.drawText(QRectF(x-25,0,50,17),Qt::AlignCenter,label);
+            }
+            for(int k=0;k<shown;++k){
+                const int row=group[offset+k];const int y=22+k*19;
+                const auto& p=plan[row];const auto& o=effects[row];
+                painter.setPen(QColor("#334155"));
+                painter.drawText(QRectF(3,y,70,16),Qt::AlignLeft|Qt::AlignVCenter,
+                    QObject::tr("Dòng %1").arg(row+1));
+                const qreal x=axisLeft+qreal(axisWidth)*p.startMs/span;
+                const qreal end=axisLeft+qreal(axisWidth)*p.endMs/span;
+                const QRectF bar(qMin(x,qreal(axisRight-3)),y+2,qMax(qreal(3),end-x),12);
+                painter.setBrush(o.exit?QColor("#B45309"):QColor("#0F766E"));
+                painter.setPen(row==selected?QPen(QColor("#172554"),2):QPen(Qt::NoPen));
+                painter.drawRoundedRect(bar,3,3);
+            }
+            painter.end();
+            timelineGraphic->setPixmap(pix);
+            timelineCaption->setText(QObject::tr("Nhấp %1 · %2 hiệu ứng · %3 giây%4")
+                .arg(click).arg(group.size()).arg(total/1000.0,0,'f',2)
+                .arg(group.size()>shown?QObject::tr(" · đang xem %1–%2").arg(offset+1).arg(offset+shown):QString()));
         };
         auto updateTimeline=[&] {
             QList<ppttransition::AnimationTiming> plan;
@@ -829,6 +930,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
                     .arg(trigger->itemText(int(o.trigger)),time));
             }
             bb->button(QDialogButtonBox::Ok)->setEnabled(result.ok);
+            drawTimeline();
             note->setText(effects.isEmpty()?QObject::tr("Thêm hiệu ứng; dòng đầu phải là khi nhấp chuột."):
                 result.ok?QObject::tr("Timeline dự kiến theo từng lần nhấp. Mỗi đối tượng có tối đa một hiệu ứng vào rồi một hiệu ứng ra, không chồng thời gian. Chưa phát thử trực tiếp; kiểm tra trong PowerPoint sau khi xuất."):result.error);
         };
@@ -838,6 +940,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
               updateTimeline();
             }
             list->setCurrentRow(row);
+            drawTimeline();
             edit->setEnabled(row>=0);remove->setEnabled(row>=0);
             up->setEnabled(row>0);down->setEnabled(row>=0&&row+1<effects.size());
         };
@@ -866,6 +969,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             return false;
         };
         QObject::connect(list,&QListWidget::currentRowChanged,&dialog,[&](int row) {
+            drawTimeline();
             edit->setEnabled(row>=0); remove->setEnabled(row>=0); up->setEnabled(row>0); down->setEnabled(row>=0 && row+1<effects.size());
             if (row<0 || row>=effects.size()) return;
             const auto& o=effects[row]; shape->setCurrentIndex(shape->findData(o.shapeId)); effect->setCurrentIndex(effectIndex(o)); direction->setCurrentIndex(o.exit?1:0);
@@ -882,8 +986,11 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             effects[row]=o; refresh(row);
         });
         QObject::connect(quick,&QPushButton::clicked,&dialog,[&] {
+            QList<ppttransition::Shape> chosen;
+            const auto selection=ppttransition::selectPresetShapes(shapes,selectedIds,&chosen);
+            if(!selection.ok){QMessageBox::warning(&dialog,QObject::tr("Hoạt ảnh nhanh"),selection.error);return;}
             QList<ppttransition::AnimationOptions> candidate;
-            const auto valid=ppttransition::makeAnimationPreset(shapes,ppttransition::AnimationPreset(preset->currentIndex()),&candidate);
+            const auto valid=ppttransition::makeAnimationPreset(chosen,ppttransition::AnimationPreset(preset->currentIndex()),&candidate);
             if(!valid.ok){QMessageBox::warning(&dialog,QObject::tr("Hoạt ảnh nhanh"),valid.error);return;}
             if(!effects.isEmpty() && QMessageBox::question(&dialog,QObject::tr("Hoạt ảnh nhanh"),
                 QObject::tr("Thay danh sách đang soạn bằng mẫu %1?").arg(preset->currentText()),
@@ -933,7 +1040,9 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             page->setEnabled(!enabled);rangeEnd->setEnabled(!enabled);
         });
         auto* effect = new QComboBox;
-        effect->addItems({QObject::tr("Không hiệu ứng"), QObject::tr("Mờ dần"), QObject::tr("Đẩy sang trái"), QObject::tr("Quét sang trái"), QObject::tr("Hòa tan")});
+        effect->addItems({QObject::tr("Không hiệu ứng"), QObject::tr("Mờ dần"), QObject::tr("Đẩy sang trái"), QObject::tr("Quét sang trái"), QObject::tr("Hòa tan"),
+            QObject::tr("Đẩy sang phải"),QObject::tr("Đẩy lên trên"),QObject::tr("Đẩy xuống dưới"),
+            QObject::tr("Quét sang phải"),QObject::tr("Quét lên trên"),QObject::tr("Quét xuống dưới")});
         effect->setCurrentIndex(1);
         auto* speed = new QComboBox; speed->addItems({QObject::tr("Chậm"), QObject::tr("Vừa"), QObject::tr("Nhanh")}); speed->setCurrentIndex(1);
         auto* click = new QCheckBox(QObject::tr("Chuyển khi bấm chuột")); click->setChecked(true);
@@ -942,7 +1051,53 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         rangeEnd->setMinimum(page->value());
         form->addRow(QObject::tr("Hiệu ứng"), effect);
         form->addRow(QObject::tr("Tốc độ"), speed); form->addRow(click); form->addRow(QObject::tr("Tự chuyển sau (giây)"), seconds); root->addLayout(form);
-        auto* note = new QLabel(QObject::tr("Chuyển cảnh cơ bản được ghi vào PPTX; mở bản xuất bằng PowerPoint để kiểm tra. Tối đa 100 slide mỗi lần; chuyển cảnh phức tạp chưa hỗ trợ sẽ bị từ chối trước khi xuất bản sao.")); note->setWordWrap(true); root->addWidget(note);
+        auto* sample=new QLabel(&dialog);sample->setFixedSize(320,180);sample->setAlignment(Qt::AlignCenter);
+        sample->setAccessibleName(QObject::tr("Xem trước chuyển cảnh trên hai slide minh họa"));
+        auto* previewRow=new QHBoxLayout;previewRow->addWidget(sample);
+        auto* previewTools=new QVBoxLayout;
+        auto* replay=new QPushButton(QObject::tr("Xem lại"),&dialog);previewTools->addWidget(replay);
+        auto* description=new QLabel(QObject::tr("Hai slide minh họa. Chọn hiệu ứng hoặc tốc độ để xem thử."),&dialog);
+        description->setWordWrap(true);previewTools->addWidget(description);previewTools->addStretch();
+        previewRow->addLayout(previewTools,1);root->addLayout(previewRow);
+        auto makeFrame=[](bool second){
+            QImage img(320,180,QImage::Format_ARGB32_Premultiplied);
+            img.fill(second?QColor("#134E4A"):QColor("#172554"));
+            QPainter painter(&img);painter.setRenderHint(QPainter::Antialiasing);
+            painter.setPen(Qt::NoPen);painter.setBrush(second?QColor("#5EEAD4"):QColor("#A5B4FC"));
+            painter.drawRoundedRect(QRectF(208,29,83,122),12,12);
+            painter.setPen(Qt::white);auto font=painter.font();font.setPixelSize(25);font.setBold(true);painter.setFont(font);
+            painter.drawText(QRectF(22,40,175,65),Qt::AlignLeft|Qt::AlignVCenter,second?QObject::tr("Kết quả"):QObject::tr("Ý tưởng"));
+            font.setPixelSize(13);font.setBold(false);painter.setFont(font);
+            painter.drawText(QRectF(24,110,160,26),Qt::AlignLeft|Qt::AlignVCenter,second?QObject::tr("Slide 2"):QObject::tr("Slide 1"));
+            return img;
+        };
+        const auto before=makeFrame(false),after=makeFrame(true);
+        QTimer timer;timer.setInterval(16);QElapsedTimer clock;slideshow::TransitionPlan plan;
+        auto draw=[&](qreal f){
+            QImage frame(320,180,QImage::Format_ARGB32_Premultiplied);frame.fill(Qt::black);
+            QPainter painter(&frame);slideshow::paintTransition(painter,QRectF(0,0,320,180),before,after,plan,f);
+            painter.end();sample->setPixmap(QPixmap::fromImage(frame));
+        };
+        auto play=[&]{
+            using K=slideshow::TransitionKind;
+            const int ms[]={1100,700,350};
+            const int duration=ms[qBound(0,speed->currentIndex(),2)];
+            const slideshow::TransitionPlan choices[]{
+                {},{K::Fade,duration,0,0},{K::Push,duration,1,0},{K::Wipe,duration,1,0},{K::Dissolve,duration,0,0},
+                {K::Push,duration,-1,0},{K::Push,duration,0,1},{K::Push,duration,0,-1},
+                {K::Wipe,duration,-1,0},{K::Wipe,duration,0,1},{K::Wipe,duration,0,-1}};
+            plan=choices[qBound(0,effect->currentIndex(),10)];timer.stop();
+            if(plan.kind==K::Cut){draw(1);return;}
+            clock.start();draw(0);timer.start();
+        };
+        QObject::connect(&timer,&QTimer::timeout,&dialog,[&]{
+            const auto f=qMin(qreal(1),qreal(clock.elapsed())/qMax(1,plan.durationMs));draw(f);if(f>=1)timer.stop();
+        });
+        QObject::connect(replay,&QPushButton::clicked,&dialog,play);
+        QObject::connect(effect,&QComboBox::currentIndexChanged,&dialog,[&](int){play();});
+        QObject::connect(speed,&QComboBox::currentIndexChanged,&dialog,[&](int){play();});
+        sample->setPixmap(QPixmap::fromImage(before));
+        auto* note = new QLabel(QObject::tr("Xuất chuyển cảnh vào bản PPTX mới, tối đa 100 slide mỗi lần. Xem thử trên hình minh họa; tốc độ thực tế phụ thuộc ứng dụng trình chiếu. Tệp nguồn giữ nguyên.")); note->setWordWrap(true); root->addWidget(note);
         auto* bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel); root->addWidget(bb);
         QObject::connect(bb, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
         QObject::connect(bb, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);

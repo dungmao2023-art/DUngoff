@@ -7,10 +7,14 @@
 #include <QSet>
 #include <iostream>
 #include <QToolTip>
+#include <QInputDialog>
+#include <QStringList>
+#include <QPointer>
 #include <QCursor>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QLineF>
 #include <QScreen>
 #include <QWindow>
 #include <QRegularExpression>
@@ -25,8 +29,7 @@ SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool f
     m_advance.setSingleShot(true);
     m_advance.setTimerType(Qt::PreciseTimer);
     connect(&m_advance,&QTimer::timeout,this,[this]{
-        if (slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
-                                        !m_digits.isEmpty(),!m_img.isNull())>0) go(+1);
+        if(advanceDelay()>0)go(+1);
     });
     m_transitionTimer.setTimerType(Qt::PreciseTimer);
     m_transitionTimer.setInterval(16);
@@ -39,6 +42,8 @@ SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool f
     setWindowModality(Qt::WindowModal);
     setWindowTitle(tr("Trình chiếu"));
     setFocusPolicy(Qt::StrongFocus);
+    setAccessibleName(tr("Trình chiếu PowerPoint"));
+    setAccessibleDescription(tr("F1: trợ giúp; G: chọn slide; L: laser; phím mũi tên: chuyển; Escape: thoát."));
     if (fullscreen) setCursor(Qt::BlankCursor);
     m_doc->documentSize(m_w, m_h);
     for(int i=0;i<m_count;++i) m_visible.append(!hidden(i));
@@ -53,7 +58,7 @@ SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool f
         }
         showFullScreen();
     }
-    else { setWindowTitle(tr("Xem trước slide — mũi tên chuyển trang · số + Enter đến slide · L laser · B/W màn trống · Esc đóng")); resize(960, 600); show(); }
+    else { setWindowTitle(tr("Xem trước slide — F1 trợ giúp · G chọn slide · L laser · Esc đóng")); resize(960, 600); show(); }
     render();
     restartAdvance();
     setFocus(Qt::OtherFocusReason);
@@ -64,12 +69,19 @@ bool SlideShow::hidden(int part) {
     return QString::fromStdString(m_doc->partInfo(part)).contains(re);
 }
 
+bool SlideShow::hasPendingEffects() const {
+    return m_entrancePart==m_part&&!m_entranceFrames.isEmpty()&&
+           m_entranceStep+1<m_entranceFrames.size();
+}
+int SlideShow::advanceDelay() const {
+    if(m_transitionTimer.isActive()||m_help||m_inkMode)return 0;
+    return slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
+                                       !m_digits.isEmpty(),!m_img.isNull(),hasPendingEffects());
+}
 void SlideShow::restartAdvance() {
     m_advance.stop();
-    if(m_transitionTimer.isActive())return;
-    const int delay=slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
-                                                !m_digits.isEmpty(),!m_img.isNull());
-    if(delay>0) m_advance.start(delay);
+    const int delay=advanceDelay();
+    if(delay>0)m_advance.start(delay);
 }
 
 void SlideShow::go(int delta) {
@@ -111,6 +123,13 @@ void SlideShow::go(int delta) {
     m_part = p;
     render();
     if(delta>0)startTransition(previous);
+    else if(m_entrancePart==m_part&&!m_entranceFrames.isEmpty()){
+        // Returning from the next slide should show all content that has
+        // already been presented, not hide it again. Back then steps through
+        // the effects in reverse. A direct slide jump still starts fresh.
+        m_entranceStep=int(m_entranceFrames.size())-1;
+        m_img=m_entranceFrames[m_entranceStep];
+    }
     update();
     restartAdvance();
 }
@@ -136,6 +155,8 @@ void SlideShow::startTransition(const QImage& previous){
 
 void SlideShow::render() {
     stopTransition();
+    m_inking=false;
+    if(m_inkPart!=m_part){m_ink.clear();m_inkPart=m_part;}
     const int previousStep=m_entrancePart==m_part?m_entranceStep:0;
     resetEntrance();
     m_img = QImage();
@@ -307,9 +328,115 @@ void SlideShow::paintObjectMotion(QPainter& painter,const QRectF& slide,qreal pr
     }
     painter.restore();
 }
+void SlideShow::toggleHelp(){
+    m_help=!m_help;m_digits.clear();
+    if(m_help){stopTransition();m_advance.stop();m_inking=false;m_laserPoint=QPointF(-1,-1);unsetCursor();}
+    else {if(m_inkMode)setCursor(Qt::CrossCursor);else if(m_laserMode||isFullScreen())setCursor(Qt::BlankCursor);restartAdvance();}
+    update();
+}
+void SlideShow::chooseSlide(){
+    const auto indices=slideshow::visibleSlideIndices(m_visible);
+    if(indices.isEmpty())return;
+    QStringList choices;
+    for(int i:indices)choices<<tr("Slide %1").arg(i+1);
+    m_advance.stop();stopTransition();m_digits.clear();m_inking=false;
+    QPointer<SlideShow> safe(this);bool ok=false;
+    const auto chosen=QInputDialog::getItem(this,tr("Đi đến slide"),tr("Chọn trang chiếu (không hiển thị slide đã ẩn):"),
+        choices,qMax(0,int(indices.indexOf(m_part))),false,&ok);
+    if(!safe)return;
+    const int row=choices.indexOf(chosen);
+    if(ok&&row>=0&&row<indices.size()){
+        m_blank=0;
+        if(m_part!=indices[row]){m_part=indices[row];render();}
+    }
+    update();restartAdvance();setFocus(Qt::OtherFocusReason);
+}
+void SlideShow::paintHelp(QPainter& p){
+    p.save();
+    p.fillRect(rect(),QColor(15,23,42,225));
+    p.setRenderHint(QPainter::Antialiasing);
+    const qreal w=qMin(qreal(width()-16),qreal(620)),h=qMin(qreal(height()-16),qreal(428));
+    if(w<=0||h<=0){p.restore();return;}
+    const QRectF area((width()-w)/2,(height()-h)/2,w,h);
+    p.setPen(Qt::NoPen);p.setBrush(QColor("#FFFFFF"));p.drawRoundedRect(area,12,12);
+    const qreal scale=qMin(w/620.0,h/428.0);
+    p.translate(area.center());p.scale(scale,scale);p.translate(-310,-214);
+    QFont font=p.font();font.setPixelSize(24);font.setBold(true);p.setFont(font);
+    p.setPen(QColor("#172554"));p.drawText(QRectF(24,12,572,38),Qt::AlignLeft|Qt::AlignVCenter,tr("Điều khiển trình chiếu"));
+    font.setPixelSize(15);font.setBold(false);p.setFont(font);
+    const QList<QPair<QString,QString>> controls{
+        {tr("→ / Space"),tr("Hiệu ứng hoặc slide tiếp theo")},
+        {tr("←"),tr("Quay lại")},
+        {tr("G"),tr("Chọn slide trong danh sách")},
+        {tr("Số + Enter"),tr("Đi nhanh đến slide theo số")},
+        {tr("L"),tr("Bật / tắt bút laser")},
+        {tr("I"),tr("Bút vẽ · U: hoàn tác · E: xóa nét")},
+        {tr("B / W"),tr("Màn hình đen / trắng")},
+        {tr("T"),tr("Tạm dừng / tiếp tục tự chuyển")},
+        {tr("Home / End"),tr("Slide đầu / cuối")},
+        {tr("Esc"),tr("Thoát trình chiếu")}
+    };
+    for(int k=0;k<controls.size();++k){
+        const int y=56+k*29;
+        if(k%2==0)p.fillRect(QRectF(20,y,580,30),QColor("#F1F5F9"));
+        p.setPen(QColor("#0F766E"));p.drawText(QRectF(31,y,160,30),Qt::AlignVCenter|Qt::AlignLeft,controls[k].first);
+        p.setPen(QColor("#334155"));p.drawText(QRectF(200,y,390,30),Qt::AlignVCenter|Qt::AlignLeft,controls[k].second);
+    }
+    p.setPen(QColor("#475569"));p.drawText(QRectF(24,365,572,43),Qt::AlignCenter,tr("F1, Esc hoặc nhấp chuột để quay lại trình chiếu"));
+    p.restore();
+}
+QRectF SlideShow::slideBounds() const {
+    if(m_img.isNull())return {};
+    const QSizeF sz=QSizeF(m_img.size()).scaled(QSizeF(size()),Qt::KeepAspectRatio);
+    return QRectF(QPointF((width()-sz.width())/2,(height()-sz.height())/2),sz);
+}
+void SlideShow::toggleInk(){
+    m_inkMode=!m_inkMode;m_inking=false;m_digits.clear();
+    if(m_inkMode){
+        m_laserMode=false;m_laserPoint=QPointF(-1,-1);
+        setMouseTracking(false);stopTransition();setCursor(Qt::CrossCursor);
+    }else if(isFullScreen())setCursor(Qt::BlankCursor);
+    else unsetCursor();
+    restartAdvance();update();
+}
+void SlideShow::appendInk(const QPointF& position,bool start){
+    const QRectF slide=slideBounds();
+    if(m_blank||slide.isEmpty()||!slide.contains(position)){m_inking=false;return;}
+    const QPointF point((position.x()-slide.left())/slide.width(),(position.y()-slide.top())/slide.height());
+    // Keep memory and event cost bounded; ink is local to this slide and session.
+    if(start){
+        m_inking=m_ink.size()<128;
+        if(m_inking){QPolygonF stroke;stroke.append(point);m_ink.append(std::move(stroke));}
+    }else if(m_inking&&!m_ink.isEmpty()){
+        auto& stroke=m_ink.last();
+        if(stroke.size()<2048 && QLineF(stroke.last(),point).length()>=.001)stroke.append(point);
+    }
+    update();
+}
+void SlideShow::paintInk(QPainter& painter,const QRectF& slide){
+    if(m_inkPart!=m_part||m_ink.isEmpty())return;
+    painter.save();painter.setClipRect(slide,Qt::IntersectClip);
+    painter.setRenderHint(QPainter::Antialiasing);
+    const qreal thickness=qMax(qreal(2),slide.width()*.004);
+    auto screenPoint=[&](const QPointF& point){return slide.topLeft()+QPointF(point.x()*slide.width(),point.y()*slide.height());};
+    for(const auto& stroke:m_ink){
+        if(stroke.isEmpty())continue;
+        QPolygonF pixels;pixels.reserve(stroke.size());
+        for(const auto& point:stroke)pixels.append(screenPoint(point));
+        // Contrast outline keeps red ink visible on both dark and light slides.
+        for(int pass=0;pass<2;++pass){
+            const QColor color=pass==0?Qt::white:QColor("#DC2626");
+            const qreal width=thickness+(pass==0?2:0);
+            painter.setPen(QPen(color,width,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));
+            if(pixels.size()==1)painter.drawPoint(pixels.first());else painter.drawPolyline(pixels);
+        }
+    }
+    painter.restore();
+}
 void SlideShow::paintEvent(QPaintEvent*) {
     QPainter p(this);
     p.fillRect(rect(), m_blank == 2 ? Qt::white : Qt::black);
+    if(m_help){paintHelp(p);return;}
     if (m_blank) return;
     if (m_part < 0) {
         p.setPen(Qt::white);
@@ -321,9 +448,8 @@ void SlideShow::paintEvent(QPaintEvent*) {
         p.drawText(rect(), Qt::AlignCenter, tr("Không hiển thị được slide này. Dùng phím mũi tên hoặc Esc."));
         return;
     }
-    const QSizeF sz = QSizeF(m_img.size()).scaled(QSizeF(size()), Qt::KeepAspectRatio);
     p.setRenderHint(QPainter::SmoothPixmapTransform);
-    const QRectF slideRect(QPointF((width() - sz.width()) / 2, (height() - sz.height()) / 2), sz);
+    const QRectF slideRect=slideBounds();
     if(m_transitionTimer.isActive()){
         const qreal progress=qreal(m_transitionClock.elapsed())/m_transitionPlan.durationMs;
         if(slideshow::isObjectMotion(m_transitionPlan)&&!m_motionLayers.isEmpty()){
@@ -337,6 +463,7 @@ void SlideShow::paintEvent(QPaintEvent*) {
             slideshow::paintTransition(p,region,m_entranceTransitionOld,m_entranceTransitionNew,m_transitionPlan,progress);
         }else slideshow::paintTransition(p,slideRect,m_transitionFrom,m_img,m_transitionPlan,progress);
     }else p.drawImage(slideRect, m_img);
+    paintInk(p,slideRect);
     // Screen-only pointer: no engine calls, no document edits, no mark on letterbox.
     if(m_laserMode && slideRect.contains(m_laserPoint)){
         p.save();
@@ -352,6 +479,23 @@ void SlideShow::paintEvent(QPaintEvent*) {
 void SlideShow::resizeEvent(QResizeEvent*) { render(); restartAdvance(); }
 
 void SlideShow::keyPressEvent(QKeyEvent* e) {
+    if(m_help){
+        if(!e->isAutoRepeat()&&(e->key()==Qt::Key_F1||e->key()==Qt::Key_Escape))toggleHelp();
+        e->accept();return;
+    }
+    if(!(e->modifiers()&(Qt::ControlModifier|Qt::AltModifier|Qt::MetaModifier))){
+        if(e->key()==Qt::Key_F1){if(!e->isAutoRepeat())toggleHelp();e->accept();return;}
+        if(e->key()==Qt::Key_G){if(!e->isAutoRepeat())chooseSlide();e->accept();return;}
+        if(e->key()==Qt::Key_I){if(!e->isAutoRepeat())toggleInk();e->accept();return;}
+        if(e->key()==Qt::Key_U||e->key()==Qt::Key_E){
+            m_inking=false;
+            if(!m_ink.isEmpty()){
+                if(e->key()==Qt::Key_E)m_ink.clear();else m_ink.removeLast();
+                update();
+            }
+            e->accept();return;
+        }
+    }
     if (e->key()>=Qt::Key_0 && e->key()<=Qt::Key_9 &&
         !(e->modifiers() & (Qt::ControlModifier|Qt::AltModifier|Qt::MetaModifier))) {
         if (m_digits.size()<9) m_digits+=QChar(ushort('0'+e->key()-Qt::Key_0));
@@ -383,6 +527,7 @@ void SlideShow::keyPressEvent(QKeyEvent* e) {
     if (!(e->modifiers() & (Qt::ControlModifier|Qt::AltModifier|Qt::MetaModifier))) {
         if(e->key()==Qt::Key_L){
             if(!e->isAutoRepeat()){
+                if(m_inkMode)toggleInk();
                 m_laserMode=!m_laserMode;
                 m_laserPoint=QPointF(-1,-1);
                 setMouseTracking(m_laserMode);
@@ -417,7 +562,13 @@ void SlideShow::keyPressEvent(QKeyEvent* e) {
 }
 
 void SlideShow::mousePressEvent(QMouseEvent* e) {
+    if(m_help){toggleHelp();e->accept();return;}
     m_digits.clear();
+    if(m_inkMode&&!m_blank){
+        if(e->button()==Qt::LeftButton)appendInk(e->position(),true);
+        else if(e->button()==Qt::RightButton){m_inking=false;if(!m_ink.isEmpty())m_ink.removeLast();update();}
+        e->accept();return;
+    }
     if (e->button() == Qt::RightButton) go(-1);
     else if (e->button() == Qt::LeftButton && m_laserMode && !m_blank) {
         m_laserPoint=e->position();update();restartAdvance();e->accept();
@@ -427,11 +578,17 @@ void SlideShow::mousePressEvent(QMouseEvent* e) {
 }
 
 void SlideShow::mouseMoveEvent(QMouseEvent* e) {
+    if(m_inkMode){if(m_inking&&(e->buttons()&Qt::LeftButton))appendInk(e->position(),false);e->accept();return;}
     if(m_laserMode){m_laserPoint=e->position();update();e->accept();return;}
     QWidget::mouseMoveEvent(e);
 }
 
+void SlideShow::mouseReleaseEvent(QMouseEvent* e){
+    if(m_inkMode){if(m_inking&&e->button()==Qt::LeftButton)appendInk(e->position(),false);m_inking=false;e->accept();return;}
+    QWidget::mouseReleaseEvent(e);
+}
 void SlideShow::leaveEvent(QEvent* e) {
+    m_inking=false;
     if(m_laserMode){m_laserPoint=QPointF(-1,-1);update();}
     QWidget::leaveEvent(e);
 }

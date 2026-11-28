@@ -14,7 +14,16 @@ int main(int argc, char** argv) {
     QCoreApplication app(argc, argv);
     int errors = 0;
     auto check = [&](bool ok, const char* msg) { std::cout << (ok ? "PASS " : "FAIL ") << msg << '\n'; if (!ok) ++errors; };
+    check(slideshow::visibleSlideIndices({true,false,true,false,true})==QVector<int>({0,2,4})&&
+          slideshow::visibleSlideIndices({false,false}).isEmpty(),"slide chooser excludes hidden slides");
     const QList<Shape> presetShapes{{1,"Title"},{2,"Text"},{3,"Picture"}};
+    QList<Shape> selectedPreset;
+    check(selectPresetShapes(presetShapes,{3,1},&selectedPreset).ok&&selectedPreset.size()==2&&
+          selectedPreset[0].id==1&&selectedPreset[1].id==3,"preset subset follows slide order");
+    check(!selectPresetShapes(presetShapes,{1,1},&selectedPreset).ok&&
+          !selectPresetShapes(presetShapes,{99},&selectedPreset).ok&&
+          !selectPresetShapes(presetShapes,{},&selectedPreset).ok&&selectedPreset.size()==2,
+          "invalid preset selection leaves existing list intact");
     QList<AnimationOptions> presetEffects;
     QList<AnimationTiming> presetTiming;
     check(makeAnimationPreset(presetShapes,AnimationPreset::AppearClickEach,&presetEffects).ok &&
@@ -65,6 +74,12 @@ int main(int argc, char** argv) {
           "numeric jump rejects hidden or invalid slides");
     check(slideshow::autoAdvanceDelay(visible,1,5000,false,false,false,true)==5000,"autoplay advances to next visible slide");
     check(slideshow::autoAdvanceDelay(visible,3,5000,false,false,false,true)==0,"autoplay stops at last visible slide");
+    check(slideshow::autoAdvanceDelay(visible,3,1000,false,false,false,true,true)==1000,
+          "autoplay finishes pending entrance on last slide");
+    check(slideshow::autoAdvanceDelay(visible,3,1000,true,false,false,true,true)==0&&
+          slideshow::autoAdvanceDelay(visible,3,1000,false,true,false,true,true)==0&&
+          slideshow::autoAdvanceDelay(visible,-1,1000,false,false,false,true,true)==0,
+          "pending effects never bypass pause, blank or invalid slide");
     check(slideshow::autoAdvanceDelay(visible,1,5000,true,false,false,true)==0 &&
           slideshow::autoAdvanceDelay(visible,1,5000,false,true,false,true)==0 &&
           slideshow::autoAdvanceDelay(visible,1,5000,false,false,true,true)==0 &&
@@ -78,6 +93,15 @@ int main(int argc, char** argv) {
     check(result.ok && out.contains("advTm=\"3000\"") && out.contains("<p:fade/>") && out.indexOf("<p:transition") < out.indexOf("<p:timing"), "insert transition before timing");
     QByteArray replaced; o.effect = Effect::PushLeft;
     check(patchXml(out, o, &replaced).ok && replaced.count("<p:transition") == 1 && replaced.contains("<p:push dir=\"l\"/>") && !replaced.contains("<p:fade/>"), "replace simple transition");
+    for(const auto& item:QList<QPair<Effect,QByteArray>>{
+            {Effect::PushRight,"<p:push dir=\"r\"/>"},{Effect::PushUp,"<p:push dir=\"u\"/>"},
+            {Effect::PushDown,"<p:push dir=\"d\"/>"},{Effect::WipeRight,"<p:wipe dir=\"r\"/>"},
+            {Effect::WipeUp,"<p:wipe dir=\"u\"/>"},{Effect::WipeDown,"<p:wipe dir=\"d\"/>"}}){
+        Options direction;direction.effect=item.first;QByteArray patched,clean;
+        check(patchXml(xml,direction,&patched).ok&&patched.contains(item.second),"directional slide transition");
+        direction.effect=Effect::None;
+        check(patchXml(patched,direction,&clean).ok&&clean==xml,"directional transition removable without other changes");
+    }
     o.effect = Effect::None; o.autoAdvanceMs = 0;
     QByteArray removed;
     check(patchXml(replaced, o, &removed).ok && removed == xml, "remove transition preserves original XML");
