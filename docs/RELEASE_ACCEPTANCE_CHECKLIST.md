@@ -12,6 +12,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] A04.2 Tắt bất thường khi đang chỉnh; khôi phục bản tự lưu; chọn giữ/bỏ; không ghi đè nguồn.
 - [ ] A04.3 File khóa/read-only/đầy đĩa/đích đã tồn tại: báo lỗi rõ, giữ bản gốc và nội dung chưa lưu; không báo thành công giả.
 - [ ] A02.1 Windows thật: Telex/VNI/IME, dấu tiếng Việt, caret nhấp nháy, click đúng vị trí, kéo chọn, Backspace/Delete, Ctrl+A/C/X/V/Z/Y, Enter, Tab.
+  - 28/11: mã/test 9898697506262a2a123726d2d17de4164d3f4f8f từ chối toàn bộ yêu cầu thay IME ngoài vùng hỗ trợ thay vì chèn sai vị trí; reset preedit có guard chống reentrancy và thông báo. Kiểm tra unit đã thêm; CI và thử Windows thật còn thiếu. Không tăng stage.
 - [ ] A02.2 DPI 100/125/150/200%; zoom, cuộn, chuột và bàn phím không lệch vị trí.
 - [ ] A03.1 Mở đồng thời 2 file mỗi loại; tab phân loại; đổi tab/sheet; lưu/đóng đúng file, hủy đóng khi chưa lưu.
 - [ ] A05.1 In/xem trước từ Word/Excel/PPT/PDF; chọn phạm vi, A4, hướng giấy, lề, chữ Việt; kiểm PDF xuất và máy in thật.
@@ -30,6 +31,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] W03.2 Heading 1–3, tạo TOC thật, sửa heading và cập nhật mục lục; mở lại DOCX.
 - [ ] W03.3 Footnote/endnote, số trang và section; không mất nội dung.
 - [ ] W04.1 Tìm/thay một và tất cả, phân biệt hoa thường, đếm từ; test dấu Việt, hủy thao tác.
+  - 28/11: nút thay vùng tìm thấy, xác minh lại đúng vùng chọn/tài liệu và chữ khớp chính xác, hỗ trợ thay rỗng, giữ đường Undo native. Test Unicode và Undo 4cc5ab5c66ab615ba1a0d5db4223b7c14cec209f; chờ CI/GUI. Chưa có tùy chọn phân biệt hoa thường cho toàn bộ tìm kiếm.
 - [ ] W04.2 Kiểm chính tả tiếng Việt bằng từ điển có license xác minh; phân biệt kiểm âm tiết.
 - [ ] W05.1 Mẫu công văn, đơn, hợp đồng; số tiền thành chữ, ngày, chuyển mã; mail merge từ Excel/CSV có Unicode.
 - [ ] W06.1 Comment thêm/sửa/xóa; Track Changes bật/tắt, chấp nhận/từ chối; giữ review cũ và mở lại MS Word.
@@ -56,6 +58,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] P03.1 F5/Shift+F5, chuyển slide/phím ESC, quay đúng slide; toàn màn hình/cửa sổ, màn hình ngoài.
 - [ ] P04.1 Transition cơ bản, thời gian và advance; áp dụng cho một/nhiều slide; theme/master/layout cơ bản.
 - [ ] P05.1 Appear/Fade, nhiều đối tượng, click, duration/delay/order; phát thật PowerPoint/Impress, không ghi đè timing cũ.
+  - 28/11: hỗ trợ chọn nhóm đối tượng cấp ngoài làm một mục animation, dùng ID nhóm thay vì ID con; không cho chọn nhóm lồng hoặc đối tượng con, vẫn chặn ID trùng và timing cũ. Test XML và hoàn nguyên byte gốc f9daccf502d5a193030d7ed5275fbf1d2ebc4d4a; CI và playback thật chưa xác nhận.
 
 ### B1 — PDF: ca xử lý tài liệu
 - [ ] D01.1 Đọc PDF văn bản/scan/mật khẩu, trang/zoom, tìm tiếng Việt, chọn/copy chữ, hiển thị kết quả; lỗi mật khẩu rõ.
@@ -63,6 +66,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] D03.1 Chỉnh bản sao ODG chữ/ảnh/hình, Undo, xuất PDF, đối chiếu layout; thông báo giới hạn, không gọi là sửa stream gốc.
 - [ ] D05.1 Watermark, số trang, chữ Unicode và ảnh; xem trước, font nhúng, đúng vị trí/trang.
 - [ ] D06.1 OCR vie/eng trên Windows thật: đa trang, hủy, TXT/searchable PDF; kiểm chất lượng chữ và lớp text; cảnh báo raster, không trộn nguồn đổi.
+  - 28/11: giới hạn ảnh OCR trước gọi Tesseract (36 triệu pixel, mỗi chiều tối đa 12000), kiểm hủy sau tiến trình và trước ghi PDF; OCR TXT không cần qpdf. Test ảnh rộng quá giới hạn, ảnh lỗi và không tạo PDF khi từ chối; mã/test 5e1ca6d5a7089cd77d1b60f6e2f6ac8f263d47ef. CI và runtime Windows thật chưa xác minh; không nâng stage.
 - [ ] D07.1 Chú thích/điền form cơ bản nếu khả thi; lưu bản sao và xác minh, không coi overlay là redaction.
 
 ### B1 — Tiện ích cần cho công sở

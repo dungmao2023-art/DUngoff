@@ -34,3 +34,8 @@ Không cắt module trong lượt này (chưa kiểm chứng cờ an toàn). M�
 2. Điền bảng trên; chỉ các mục "Chỉ build lại nếu" đã thành sự thật mới đưa vào patch/cấu hình.
 3. Chuẩn bị patch trong `engine-build/overrides/`, kiểm tra cú pháp ở CI nhẹ trước khi bấm build.
 4. Build tối đa 3 lượt, mỗi lượt có log; kiểm lại bằng bộ kiểm thử engine hiện có (word/excel/ppt/pdf, fidelity 158 mẫu, input).
+
+
+## V2 — bảo vệ ABI khi đọc thông tin slide (28/11/2026)
+- Nhánh kế nhiệm cho phần ABI độc lập của #160, trên main b73a9c67f1f9087bf59aedc19a8ea844d44f0a47. Preflight 46090130724 head e4b6077feae0fdeefac6ea82fa45db929a4c0202: log xác nhận Writer split/TOC, Calc validation/protection/Pivot, Impress group và standalone DUNG_API PASS. Chưa chứng minh live LOK bridge; không chuyển pin ngược về v1.
+- Mã/test 23703d14f7dfb61ad65656061e476ef5f8116d04: kiểm kích thước ABI bảng hàm bằng LIBREOFFICEKIT_DOCUMENT_HAS, con trỏ hàm và chỉ số part trước khi đọc hash/info; không xóa slide nếu thiếu bằng chứng nhận diện. Bỏ ca kiểm luôn true, thêm kiểm chỉ số ngoài miền và không đổi trang. Windows/Linux CI và GUI chưa xác minh. Đây không phải native UNO bridge hay animation playback; không build v3, không tăng điểm.

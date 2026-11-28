@@ -76,7 +76,7 @@ QString human(qint64 b) {
 }  // namespace
 
 void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
-    if (tab != Search && findQpdf().isEmpty()) {
+    if (tab != Search && tab != Ocr && findQpdf().isEmpty()) {
         QMessageBox::warning(parent, tr("Công cụ PDF"),
                              tr("Không tìm thấy thành phần qpdf đi kèm (thư mục \"qpdf\" cạnh chương trình). "
                                 "Hãy cài đặt lại Dũng Office."));
@@ -885,8 +885,11 @@ QWidget* PdfToolsDialog::buildOcr() {
     const bool ready = !exe.isEmpty() && printrender::available();
     status->setText(ready ? tr("Tesseract: %1").arg(exe) : tr("Thiếu Tesseract trong PATH hoặc bộ vẽ QtPdf. Cài rồi mở lại công cụ."));
     go->setEnabled(ready);
-    pdf->setEnabled(ready);
-    pdf->setToolTip(tr("Tạo bản sao ảnh trang với lớp chữ OCR ẩn; không giữ cấu trúc vector hoặc liên kết."));
+    const bool pdfReady = ready && !findQpdf().isEmpty();
+    pdf->setEnabled(pdfReady);
+    pdf->setToolTip(pdfReady
+        ? tr("Tạo bản sao ảnh trang với lớp chữ OCR ẩn; không giữ cấu trúc vector hoặc liên kết.")
+        : tr("Tạo PDF cần QtPdf, Tesseract và qpdf. Nhận dạng TXT không cần qpdf."));
     connect(m_ocrFile, &QLineEdit::textChanged, w, [=] {
         output->clear();
         const auto inf = printrender::pdfInfo(m_ocrFile->text());
@@ -898,6 +901,10 @@ QWidget* PdfToolsDialog::buildOcr() {
     connect(lang, &QComboBox::currentIndexChanged, w, [=] { output->clear(); });
     connect(layout, &QComboBox::currentIndexChanged, w, [=] { output->clear(); });
     auto runOcr = [=](bool pdfMode) {
+        if (pdfMode && findQpdf().isEmpty()) {
+            status->setText(tr("Thiếu qpdf để tạo PDF. Bạn vẫn có thể nhận dạng và lưu TXT."));
+            return;
+        }
         if (!pdfMode) output->clear();
         if (m_ocrFile->text().isEmpty()) { status->setText(tr("Hãy chọn tệp PDF.")); return; }
         const auto source = m_ocrFile->text();
@@ -962,7 +969,7 @@ QWidget* PdfToolsDialog::buildOcr() {
                 if (!pdfMode) result = dungpdf::recognizeImage(image, language, segmentation);
                 else {
                     result = dungpdf::searchableImagePdf(image, language, dpi, pagePdf, segmentation);
-                    if (result.ok) {
+                    if (result.ok && !QThread::currentThread()->isInterruptionRequested()) {
                         const auto verified = dungpdf::info(pagePdf);
                         if (!verified.ok || verified.pages != 1) result = {false,{},tr("PDF OCR một trang không qua kiểm tra.")};
                     }

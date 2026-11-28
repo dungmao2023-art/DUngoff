@@ -80,6 +80,23 @@ int main(int argc, char** argv) {
     QByteArray groupFrame=animXml;
     groupFrame.replace("</p:spTree>","<p:grpSp><p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"45\" name=\"Nested\"/></p:nvGraphicFramePr></p:graphicFrame></p:grpSp></p:spTree>");
     check(!patchAnimationXml(groupFrame,frame,&out).ok,"reject nested graphic frame until grouped targets are supported");
+    QByteArray groupXml=animXml;
+    groupXml.replace("</p:spTree>","<p:grpSp><p:nvGrpSpPr><p:cNvPr id=\"46\" name=\"Group\"/></p:nvGrpSpPr><p:grpSpPr/><p:sp><p:nvSpPr><p:cNvPr id=\"47\" name=\"Child\"/></p:nvSpPr></p:sp><p:grpSp><p:nvGrpSpPr><p:cNvPr id=\"48\" name=\"Nested\"/></p:nvGrpSpPr><p:grpSpPr/></p:grpSp></p:grpSp></p:spTree>");
+    AnimationOptions group; group.shapeId=46; group.fade=true;
+    QByteArray groupAnimated;
+    check(patchAnimationXml(groupXml,group,&groupAnimated).ok &&
+          groupAnimated.contains("spid=\"46\"") && !groupAnimated.contains("spid=\"47\"") &&
+          !groupAnimated.contains("spid=\"48\""),"animate entire top-level group without targeting descendants");
+    QByteArray groupCleared;
+    check(clearAnimationXml(groupAnimated,&groupCleared).ok && groupCleared==groupXml,
+          "clear group animation preserves original group and children");
+    group.shapeId=47;
+    check(!patchAnimationXml(groupXml,group,&out).ok,"reject individual grouped child");
+    group.shapeId=48;
+    check(!patchAnimationXml(groupXml,group,&out).ok,"reject nested group");
+    QByteArray duplicateGroup=groupXml; duplicateGroup.replace("id=\"47\"","id=\"46\"");
+    group.shapeId=46;
+    check(!patchAnimationXml(duplicateGroup,group,&out).ok,"reject duplicate ID between group and child");
     QByteArray duplicateFrame=frameXml;
     duplicateFrame.replace("id=\"45\"","id=\"42\"");
     check(!patchAnimationXml(duplicateFrame,frame,&out).ok,"reject duplicate frame identifier");
