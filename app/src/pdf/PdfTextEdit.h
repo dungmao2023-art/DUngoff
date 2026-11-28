@@ -2,6 +2,7 @@
 #pragma once
 #include "PdfOps.h"
 #include <QPointF>
+#include <optional>
 namespace pdfedit {
 bool available();
 // Native image object on the current page. Center is normalized from top-left;
@@ -17,5 +18,5 @@ dungpdf::Result moveImage(const QString& source,int page,QPointF selected,QPoint
 dungpdf::Result replaceImage(const QString& source,int page,QPointF selected,const QString& imagePath,
                              const QByteArray& expectedSource,const QString& dest);
 dungpdf::Result replaceObject(const QString& source,int page,const QString& oldText,const QString& newText,const QString& dest,
-                             const QByteArray& expectedSource = {});
+                             const QByteArray& expectedSource = {}, std::optional<QPointF> selected = std::nullopt);
 }
