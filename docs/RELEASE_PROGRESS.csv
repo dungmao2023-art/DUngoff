@@ -12,7 +12,7 @@ id,priority,group,weight,stage,remaining_low_hours,remaining_high_hours,evidence
 "W01","P0","Word","5","integrated","3","8","#27 DOCX CI; test GUI"
 "W02","P0","Word","5","partial","5","15","#147/#150 merged; CI 46049318168/46059678726 Windows/Linux PASS; native SplitCell Linux XML PASS; standalone resize/Undo PASS; resize no-op confirmed CI 46105069579; signed long argument fix + isolated Undo pending CI; image/GUI pending"
 "W03","P0","Word","8","partial","8","24","#16/#51 merged; TOC refresh native; #57 dialog probe FAIL; GUI"
-"W04","P0","Word","5","partial","6","16","Single literal selection replacement and Undo tests 4cc5ab5 pending CI; case-sensitive search and Hunspell/Vietnamese dictionary verification pending"
+"W04","P0","Word","5","partial","6","16","Native literal find/replace with explicit match-case mode and Vietnamese/Undo regression pending CI; Hunspell/Vietnamese dictionary and GUI pending"
 "W05","P0","Word","5","integrated","4","12","#30; mẫu hành chính và mail merge"
 "W06","P0","Word","5","integrated","8","24","#46/#56/#79 merged; review/Unicode comment roundtrip; GUI selection verification remaining"
 "X01","P0","Excel","8","partial","8","24","#18; thao tác trực tiếp Windows"
