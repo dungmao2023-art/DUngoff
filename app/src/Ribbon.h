@@ -42,6 +42,7 @@ private:
     QPointer<QComboBox> m_fontBox,m_sizeBox;
     QStringList m_documentFonts;
     bool m_fontInventoryVerified=false;
+    QString m_lastReportedFont;
     int m_lastKind = -1;
     bool m_lastReadOnly = false;
 };
