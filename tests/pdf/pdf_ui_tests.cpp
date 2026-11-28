@@ -15,6 +15,8 @@
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QMouseEvent>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QFileInfo>
 #include <QDir>
 #include <iostream>
@@ -85,6 +87,16 @@ int main(int argc,char** argv){
         if(!canvas||!note||!undo||!redo||!save||!note->isEnabled()){
             check(false,"direct editing controls available");dlg->reject();return;
         }
+        auto pressShortcut=[&](QKeySequence::StandardKey key){
+            const auto bindings=QKeySequence::keyBindings(key);
+            if(bindings.isEmpty()||bindings.first().isEmpty()){check(false,"standard key binding available");return;}
+            const auto combo=bindings.first()[0];
+            QKeyEvent event(QEvent::KeyPress,int(combo.key()),combo.keyboardModifiers());
+            QApplication::sendEvent(canvas,&event);
+        };
+        pressShortcut(QKeySequence::Find);
+        check(!search->isHidden()&&query->hasFocus(),"find shortcut opens and focuses search");
+        searchToggle->click();
         start->click();
         const auto base=file->text();
         const auto final=temp.filePath(QStringLiteral("reader-final.pdf"));
@@ -136,14 +148,14 @@ int main(int argc,char** argv){
         const auto revisedHash=dungpdf::fingerprint(revised);
         check(expected==Expected::None&&revised!=base&&revisedHash.size()==32&&revisedHash!=hash&&undo->isEnabled()&&save->isEnabled(),
               "place real note and stage modified PDF");
-        undo->click();
+        pressShortcut(QKeySequence::Undo);
         check(file->text()==base&&dungpdf::fingerprint(base)==hash&&redo->isEnabled()&&!save->isEnabled(),"undo real note");
-        redo->click();
+        pressShortcut(QKeySequence::Redo);
         check(file->text()==revised&&dungpdf::fingerprint(revised)==revisedHash&&save->isEnabled(),"redo real note");
         expected=Expected::CloseCancel;
         dlg->reject();
         check(expected==Expected::None&&dlg->isVisible()&&file->text()==revised,"cancel close preserves unsaved changes");
-        expected=Expected::Save;save->click();
+        expected=Expected::Save;pressShortcut(QKeySequence::Save);
         check(expected==Expected::None,"save dialog completed");
         check(QFileInfo::exists(final),"final PDF exists at chosen path");
         check(dungpdf::fingerprint(final)==revisedHash,"final PDF bytes match edited revision");
