@@ -11,6 +11,38 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <iostream>
+#ifdef DUNG_HAVE_PDFIUM_EDIT
+#include <fpdfview.h>
+#include <fpdf_text.h>
+#include <QVector>
+#endif
+
+// Read the real OCR text layer using the same pinned PDFium SDK on both
+// platforms, not a second external Windows utility.
+#ifdef DUNG_HAVE_PDFIUM_EDIT
+static QString readLayer(const QString& path){
+    QFile file(path);
+    if(!file.open(QIODevice::ReadOnly)||file.size()>150LL*1024*1024)return {};
+    const QByteArray bytes=file.readAll();
+    FPDF_InitLibrary();
+    auto doc=FPDF_LoadMemDocument64(bytes.constData(),size_t(bytes.size()),nullptr);
+    auto page=doc&&FPDF_GetPageCount(doc)==1?FPDF_LoadPage(doc,0):nullptr;
+    auto text=page?FPDFText_LoadPage(page):nullptr;
+    QString result;
+    const int n=text?FPDFText_CountChars(text):0;
+    if(n>0&&n<100000){
+        QVector<unsigned short> data(n+1);
+        const int got=FPDFText_GetText(text,0,n,data.data());
+        if(got>0&&got<=n+1&&data[got-1]==0)
+            result=QString::fromUtf16(reinterpret_cast<const char16_t*>(data.constData()),got-1);
+    }
+    if(text)FPDFText_ClosePage(text);
+    if(page)FPDF_ClosePage(page);
+    if(doc)FPDF_CloseDocument(doc);
+    FPDF_DestroyLibrary();
+    return result;
+}
+#endif
 
 static bool sample(const QString& dest, const QStringList& lines) {
     QImage img(1600, 1000, QImage::Format_RGB32);
@@ -45,7 +77,10 @@ int main(int argc, char** argv) {
 #endif
     if(dungpdf::bundledTesseract(package)!=QFileInfo(dummy).absoluteFilePath())return 1;
     if(!probe.remove()||!dungpdf::bundledTesseract(package).isEmpty())return 1;
-    const QString en = temp.filePath(QStringLiteral("english.png")), vi = temp.filePath(QStringLiteral("vietnamese.png"));
+    // Also exercise paths with Vietnamese characters and spaces on Windows.
+    const QString samples=temp.filePath(QStringLiteral("Ảnh kiểm thử"));
+    if(!QDir().mkpath(samples))return 1;
+    const QString en=QDir(samples).filePath(QStringLiteral("english.png")), vi=QDir(samples).filePath(QStringLiteral("vietnamese.png"));
     if (!sample(en, {QStringLiteral("DUNG OFFICE 12345"), QStringLiteral("DOCUMENT TEST 67890"), QStringLiteral("HELLO WORLD")}) ||
         !sample(vi, {QStringLiteral("CỘNG HÒA XÃ HỘI"), QStringLiteral("ĐỘC LẬP TỰ DO"), QStringLiteral("VIỆT NAM 12345")})) return 1;
     for (const int mode : {3, 6, 7, 11}) if (!dungpdf::validOcrLayout(mode)) return 1;
@@ -86,6 +121,13 @@ int main(int argc, char** argv) {
     const bool refusesOverwrite = !dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,pdf).ok;
     const bool refusesBadDpi = !dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),0,temp.filePath(QStringLiteral("invalid.pdf"))).ok;
     bool searchable = false;
+#ifdef DUNG_HAVE_PDFIUM_EDIT
+    if(generated.ok){
+        const auto text=readLayer(pdf).normalized(QString::NormalizationForm_C);
+        searchable=text.contains(QStringLiteral("VIỆT NAM"),Qt::CaseInsensitive)&&text.contains(QStringLiteral("12345"));
+        std::cout<<"PDFium OCR text: "<<text.toStdString()<<std::endl;
+    }
+#else
     const QString extractor = QStandardPaths::findExecutable(QStringLiteral("pdftotext"));
     if (!extractor.isEmpty() && generated.ok) {
         QProcess proc; proc.start(extractor,{pdf,QStringLiteral("-")});
@@ -95,6 +137,7 @@ int main(int argc, char** argv) {
             std::cout << text.toStdString() << '\n';
         }
     }
+#endif
     std::cout << "Searchable PDF: " << generated.error.toStdString() << " text layer=" << searchable << '\n';
     const QString invalidPath = temp.filePath(QStringLiteral("invalid-layout.pdf"));
     const bool refusesLayout = !dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,invalidPath,99).ok

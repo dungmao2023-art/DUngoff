@@ -436,6 +436,29 @@ jobs:
           if (-not $exe) { Write-Host "::error::Không thấy dung-pdftest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-pdftest.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: Cài Tesseract và mô hình OCR Windows (chỉ kiểm thử)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-tesseract-ocr
+            mingw-w64-ucrt-x86_64-tesseract-data-eng
+            mingw-w64-ucrt-x86_64-tesseract-data-vie
+            mingw-w64-ucrt-x86_64-tesseract-data-osd
+      - name: OCR thật Windows — tiếng Việt, tiếng Anh và lớp chữ PDF
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export QT_QPA_PLATFORM=offscreen
+          export TESSDATA_PREFIX="$(cygpath -w /ucrt64/share/tessdata)"
+          tesseract --version | tee report/windows-ocr-version.log
+          tesseract --list-langs | tee report/windows-ocr-langs.log
+          grep -qx vie report/windows-ocr-langs.log
+          grep -qx eng report/windows-ocr-langs.log
+          exe="$(find build/out -name dung-ocrtest.exe -print -quit)"
+          test -n "$exe"
+          "$exe" 2>&1 | tee report/windows-ocrtest.log
       - name: Kiểm thử tiện ích bảng tính trên Windows
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-tabletest.exe | Select-Object -First 1
