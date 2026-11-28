@@ -13,6 +13,7 @@
 #include <iostream>
 #ifdef DUNG_OCR_TEST_QTPDF
 #include <QPdfDocument>
+#include <QPdfSelection>
 #endif
 
 static bool sample(const QString& dest, const QStringList& lines) {

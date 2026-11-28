@@ -1724,7 +1724,7 @@ QWidget* PdfToolsDialog::buildNoteForm(){
     auto* fields=new QComboBox(w);auto* value=new QLineEdit(w);value->setMaxLength(500);
     auto* scan=new QPushButton(tr("Đọc trường form"),w);f->addRow(scan);f->addRow(tr("Trường"),fields);f->addRow(tr("Giá trị mới"),value);
     auto* fill=new QPushButton(tr("Lưu form PDF"),w);fill->setEnabled(false);f->addRow(fill);
-    auto* status=new QLabel(tr("Chú thích thật; form chữ ASCII một dòng. Chưa hỗ trợ XFA, chữ ký, PDF mã hóa. Xuất bản sao mới."),w);status->setWordWrap(true);f->addRow(status);
+    auto* status=new QLabel(tr("Chú thích thật; điền form chữ một dòng có dấu tiếng Việt. Chưa hỗ trợ XFA, chữ ký, PDF mã hóa. Xuất bản sao mới."),w);status->setWordWrap(true);f->addRow(status);
     connect(m_noteFormFile,&QLineEdit::textChanged,w,[=]{fields->clear();value->clear();fill->setEnabled(false);});
     connect(fields,&QComboBox::currentIndexChanged,w,[=](int i){value->setText(i>=0?fields->itemData(i).toString():QString());});
     connect(scan,&QPushButton::clicked,this,[=]{

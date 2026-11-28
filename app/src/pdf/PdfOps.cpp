@@ -13,6 +13,8 @@
 #include <QFontMetricsF>
 #include <QGuiApplication>
 #include <QPainter>
+#include <QPainterPath>
+#include <QTransform>
 #include <QPageLayout>
 #include <QPageSize>
 #include <QPdfWriter>
@@ -1617,6 +1619,94 @@ Result updatePdf(const Input& in,const EditablePdf& e,const QJsonObject& updates
     },e.sha);
 }
 QString pdfString(const QJsonValue& v){const auto s=v.toString();return s.startsWith(QLatin1String("u:"))?s.mid(2):QString();}
+bool formText(const QString& value){
+    if(value.size()>500)return false;
+    for(const QChar ch:value)if(ch!=QLatin1Char(' ')&&
+        (!ch.isPrint()||ch.isSpace()||ch.isSurrogate()||ch.category()==QChar::Other_PrivateUse||
+         ch.category()==QChar::Other_NotAssigned))return false;
+    return true;
+}
+// Build an explicit normal appearance using font outlines. /V remains
+// Unicode and editable; the appearance itself contains vector glyph paths.
+bool formAppearance(const EditablePdf& e,const QJsonObject& field,const QString& value,
+                    QJsonObject* appearance,QString* error){
+    const auto rect=resolveRef(e.objects,field.value(QStringLiteral("/Rect"))).toArray();
+    if(rect.size()!=4){*error=tr("Khung trường form không hợp lệ.");return false;}
+    double b[4];
+    for(int i=0;i<4;++i){
+        if(!rect.at(i).isDouble()||!std::isfinite(rect.at(i).toDouble())){
+            *error=tr("Tọa độ trường form không hợp lệ.");return false;
+        }
+        b[i]=rect.at(i).toDouble();
+    }
+    const double w=b[2]-b[0],h=b[3]-b[1];
+    const auto mk=resolveRef(e.objects,field.value(QStringLiteral("/MK"))).toObject();
+    if(w<6||h<6||w>14400||h>14400||mk.value(QStringLiteral("/R")).toInt()!=0){
+        *error=tr("Chưa hỗ trợ khung form xoay hoặc kích thước không hợp lệ.");return false;
+    }
+    auto num=[](double n){return QByteArray::number(n,'f',4);};
+    auto xy=[&](double x,double y){return num(x)+" "+num(y)+" ";};
+    QByteArray stream="q\n0 0 "+xy(w,h)+"re W n\n";
+    auto rgb=[&](const QJsonValue& v,QByteArray* out){
+        const auto a=v.toArray();
+        if(a.size()!=1&&a.size()!=3)return false;
+        for(const auto& n:a)if(!n.isDouble()||n.toDouble()<0||n.toDouble()>1)return false;
+        if(a.size()==1)*out=num(a[0].toDouble())+" g\n";
+        else *out=xy(a[0].toDouble(),a[1].toDouble())+num(a[2].toDouble())+" rg\n";
+        return true;
+    };
+    QByteArray color;
+    if(rgb(mk.value(QStringLiteral("/BG")),&color))stream+=color+"0 0 "+xy(w,h)+"re f\n";
+    if(rgb(mk.value(QStringLiteral("/BC")),&color)){
+        // Use an inset one-point vector border, without changing widget geometry.
+        stream+=color+"0.5 0.5 "+xy(w-1,h-1)+"re 1 1 "+xy(w-2,h-2)+"re f*\n";
+    }
+    if(!value.trimmed().isEmpty()){
+        QStringList families{QStringLiteral("Arial"),QStringLiteral("Segoe UI"),QStringLiteral("DejaVu Sans"),QStringLiteral("Noto Sans")};
+        families.append(QFontDatabase::families());families.removeDuplicates();
+        QFont font;bool found=false;
+        const auto available=QFontDatabase::families();
+        for(const auto& family:families){
+            if(!available.contains(family,Qt::CaseInsensitive))continue;
+            QFont candidate(family);candidate.setPixelSize(100);
+            QFontMetricsF fm(candidate);bool covers=true;
+            for(const auto cp:value.toUcs4())if(!fm.inFontUcs4(cp)){covers=false;break;}
+            if(covers){font=candidate;found=true;break;}
+        }
+        if(!found){*error=tr("Không có phông hỗ trợ toàn bộ chữ đã nhập.");return false;}
+        QPainterPath glyphs;glyphs.addText(QPointF(0,0),font,value);
+        const QRectF bounds=glyphs.boundingRect();
+        if(bounds.isEmpty()||glyphs.elementCount()>100000){
+            *error=tr("Không tạo được hình hiển thị chữ.");return false;
+        }
+        const double scale=qMin((w-4)/bounds.width(),qMin((h-4)/bounds.height(),.14));
+        if(!std::isfinite(scale)||scale<=0){*error=tr("Chữ không vừa khung form.");return false;}
+        const int align=field.value(QStringLiteral("/Q")).toInt();
+        const double inkWidth=bounds.width()*scale;
+        const double left=align==1?(w-inkWidth)/2:align==2?w-2-inkWidth:2;
+        QTransform transform(scale,0,0,-scale,left-bounds.left()*scale,
+                             (h+bounds.height()*scale)/2+bounds.top()*scale);
+        const auto path=transform.map(glyphs);
+        stream+="0 g\n";
+        for(int i=0;i<path.elementCount();++i){
+            const auto p=path.elementAt(i);
+            if(p.isMoveTo())stream+=xy(p.x,p.y)+"m\n";
+            else if(p.isLineTo())stream+=xy(p.x,p.y)+"l\n";
+            else if(p.type==QPainterPath::CurveToElement&&i+2<path.elementCount()){
+                const auto a=path.elementAt(++i),b=path.elementAt(++i);
+                stream+=xy(p.x,p.y)+xy(a.x,a.y)+xy(b.x,b.y)+"c\n";
+            }else{*error=tr("Không tạo được đường nét chữ.");return false;}
+        }
+        stream+=path.fillRule()==Qt::OddEvenFill?"f*\n":"f\n";
+    }
+    stream+="Q\n";
+    const QJsonObject dict{{QStringLiteral("/Type"),QStringLiteral("/XObject")},
+        {QStringLiteral("/Subtype"),QStringLiteral("/Form")},{QStringLiteral("/FormType"),1},
+        {QStringLiteral("/BBox"),QJsonArray{0,0,w,h}},{QStringLiteral("/Resources"),QJsonObject{}}};
+    *appearance=QJsonObject{{QStringLiteral("stream"),QJsonObject{
+        {QStringLiteral("dict"),dict},{QStringLiteral("data"),QString::fromLatin1(stream.toBase64())}}}};
+    return true;
+}
 bool simpleFields(const EditablePdf& e,TextForm* out,QHash<QString,QString>* refs){
     if(e.form.isEmpty()||e.form.contains(QStringLiteral("/XFA"))){out->error=tr("Không có AcroForm đơn giản hoặc form XFA chưa hỗ trợ.");return false;}
     const auto list=resolveRef(e.objects,e.form.value(QStringLiteral("/Fields"))).toArray();
@@ -1627,8 +1717,8 @@ bool simpleFields(const EditablePdf& e,TextForm* out,QHash<QString,QString>* ref
         if(d.value(QStringLiteral("/FT")).toString()!=QLatin1String("/Tx")||d.contains(QStringLiteral("/Kids"))||
            d.value(QStringLiteral("/Subtype")).toString()!=QLatin1String("/Widget")||(flags&~6)!=0||
            d.contains(QStringLiteral("/AA"))||d.contains(QStringLiteral("/RV"))||name.isEmpty()||refs->contains(name)||
-           !isAsciiText(value)||(d.contains(QStringLiteral("/V"))&&!d.value(QStringLiteral("/V")).toString().startsWith(QLatin1String("u:")))){
-            out->error=tr("Chỉ hỗ trợ form phẳng gồm trường chữ ASCII một dòng, không có trường phức tạp.");return false;
+           !formText(value)||(d.contains(QStringLiteral("/V"))&&!d.value(QStringLiteral("/V")).toString().startsWith(QLatin1String("u:")))){
+            out->error=tr("Chỉ hỗ trợ form phẳng gồm trường chữ một dòng, không có trường phức tạp.");return false;
         }
         refs->insert(name,ref);out->names<<name;out->values<<value;
     }
@@ -1741,20 +1831,40 @@ TextForm textFormFields(const Input& in){
 }
 Result fillTextField(const Input& in,const QString& name,const QString& value,const QString& dest){
     Result r;
-    if(!isAsciiText(value)||value.size()>500){r.error=tr("Chỉ hỗ trợ chữ ASCII một dòng.");return r;}
+    if(!formText(value)){r.error=tr("Nhập chữ một dòng, tối đa 500 ký tự.");return r;}
     EditablePdf e;if(!loadEditable(in,&e,&r))return r;
     TextForm fields;QHash<QString,QString> refs;
     if(!simpleFields(e,&fields,&refs)){r.error=fields.error;return r;}
     if(!refs.contains(name)){r.error=tr("Không tìm thấy trường.");return r;}
     const auto ref=refs.value(name);auto d=dictOf(e.objects,ref);
     if(value.size()>d.value(QStringLiteral("/MaxLen")).toInt(500)){r.error=tr("Giá trị quá dài.");return r;}
+    // Read-only fields are not editable. Do not alter other widget appearances.
+    if(d.value(QStringLiteral("/Ff")).toInt()&1){r.error=tr("Trường chỉ đọc.");return r;}
+    QJsonObject appearance;
+    if(!formAppearance(e,d,value,&appearance,&r.error))return r;
+    const int max=e.meta.value(QStringLiteral("maxobjectid")).toInt(-1);
+    if(max<1||max>=2000000000){r.error=tr("Không xác minh được số đối tượng.");return r;}
+    const auto apRef=QString::number(max+1)+QStringLiteral(" 0 R");
     d.insert(QStringLiteral("/V"),QStringLiteral("u:")+value);
-    e.form.insert(QStringLiteral("/NeedAppearances"),true);
-    QJsonObject updates{{QStringLiteral("obj:")+ref,wrapped(d)}};
+    d.insert(QStringLiteral("/AP"),QJsonObject{{QStringLiteral("/N"),apRef}});
+    // A reader must use the explicit Unicode appearance rather than regenerate
+    // it with the old, potentially Latin-only default font.
+    if(e.form.value(QStringLiteral("/NeedAppearances")).toBool()){
+        for(const auto& other:refs){
+            if(other==ref)continue;
+            const auto widget=dictOf(e.objects,other);
+            if(!pdfString(widget.value(QStringLiteral("/V"))).isEmpty()&&
+               !resolveRef(e.objects,widget.value(QStringLiteral("/AP"))).toObject().contains(QStringLiteral("/N"))){
+                r.error=tr("Trường khác cần tạo hình hiển thị; chưa hỗ trợ form này.");return r;
+            }
+        }
+    }
+    e.form.insert(QStringLiteral("/NeedAppearances"),false);
+    QJsonObject updates{{QStringLiteral("obj:")+ref,wrapped(d)},{QStringLiteral("obj:")+apRef,appearance}};
     if(e.formRef.isEmpty()){e.catalog.insert(QStringLiteral("/AcroForm"),e.form);updates.insert(QStringLiteral("obj:")+e.catalogRef,wrapped(e.catalog));}
     else updates.insert(QStringLiteral("obj:")+e.formRef,wrapped(e.form));
-    r=updatePdf(in,e,updates,dest,true);
-    if(r.ok)r.warnings<<tr("Kiểm tra hình thức hiển thị trong trình đọc PDF. Chưa hỗ trợ điền chữ Việt có dấu.");
+    r=updatePdf(in,e,updates,dest,false);
+    if(r.ok)r.warnings<<tr("Giá trị trường lưu Unicode; hình hiển thị chữ dạng vector. Kiểm tra bố cục trước khi gửi hoặc in.");
     return r;
 }
 

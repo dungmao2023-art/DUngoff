@@ -856,6 +856,22 @@ int main(int argc, char** argv) {
         const auto result=fillTextField({source,{}},"Name","New value",filled);
         CHECK(result.ok&&readFile(source)==bytes,"fill form without changing original");
         if(result.ok){const auto re=textFormFields({filled,{}});CHECK(re.ok&&re.values==QStringList{"New value"},"read filled value after reopening");CHECK(qdfOf(filled).contains("/AP"),"filled form has widget appearance");}
+        const auto vn=P("filled-form-vietnamese.pdf");
+        const auto vnValue=QStringLiteral("Nguyễn Thị Hồng");
+        const auto vnResult=fillTextField({source,{}},"Name",vnValue,vn);
+        if(!vnResult.ok)std::cerr<<vnResult.error.toStdString()<<'\n';
+        CHECK(vnResult.ok&&readFile(source)==bytes,"fill Vietnamese value in real form");
+        if(vnResult.ok){
+            const auto reopened=textFormFields({vn,{}});
+            const auto qdf=qdfOf(vn);
+            CHECK(reopened.ok&&reopened.values==QStringList{vnValue}&&qdf.contains("/AP")&&qdf.contains("/Subtype /Form")&&
+                  qdf.contains(" c\n"),"Unicode value and vector glyph appearance persist");
+            const auto vnNext=P("filled-form-vietnamese-next.pdf");
+            CHECK(fillTextField({vn,{}},"Name",QStringLiteral("Trần Văn An"),vnNext).ok&&
+                  textFormFields({vnNext,{}}).values==QStringList{QStringLiteral("Trần Văn An")},
+                  "re-edit a saved Unicode form");
+        }
+        CHECK(!fillTextField({source,{}},"Name",QStringLiteral("Dòng\nkhác"),P("form-multiline.pdf")).ok,"reject multiline value");
     }
     if(pdfedit::available()){
         const auto source=P("native-edit-source.pdf"),dest=P("native-edited.pdf");
