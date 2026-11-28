@@ -41,6 +41,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QTabWidget>
+#include <QTabBar>
 #include <QThread>
 #include <QVBoxLayout>
 #include <QTemporaryDir>
@@ -52,6 +53,9 @@
 #include <QKeySequence>
 #include <QSplitter>
 #include <QScrollArea>
+#include <QScrollBar>
+#include <QResizeEvent>
+#include <QWheelEvent>
 #include "../print/PrintRender.h"
 
 using namespace dungpdf;
@@ -77,6 +81,26 @@ struct PdfSourceSnapshot {
             f.size() == size && f.lastModified() == modified && f.birthTime() == birth;
     }
 };
+// Keep wheel scrolling native; Ctrl+wheel changes magnification instead.
+class PdfPageScroll final : public QScrollArea {
+public:
+    explicit PdfPageScroll(QWidget* parent=nullptr):QScrollArea(parent){}
+    std::function<void()> resized;
+    std::function<void(int)> zoomStep;
+protected:
+    void resizeEvent(QResizeEvent* event) override{
+        QScrollArea::resizeEvent(event);
+        if(resized)resized();
+    }
+    void wheelEvent(QWheelEvent* event) override{
+        if((event->modifiers()&Qt::ControlModifier)&&zoomStep){
+            const int delta=event->angleDelta().y();
+            if(delta)zoomStep(delta>0?1:-1);
+            event->accept();return;
+        }
+        QScrollArea::wheelEvent(event);
+    }
+};
 // A single rendered page with true PDF text geometry. No document edits.
 class PdfTextCanvas final : public QWidget {
 public:
@@ -85,6 +109,25 @@ public:
     }
     std::function<void(QPointF,QPointF)> select;
     std::function<void()> copySelection;
+    std::function<void(QPointF)> placeNote;
+    void setNoteMode(bool on){noteMode=on;drag=false;setCursor(on?Qt::CrossCursor:Qt::IBeamCursor);update();}
+    bool hasPage() const{return !page.image.isNull();}
+    QSize naturalSize() const{return page.image.size();}
+    QList<QRectF> markupBounds() const{
+        QList<QRectF> result;
+        if(selection.size()>256)return result;
+        for(const auto& poly:selection){
+            const auto rect=poly.boundingRect();
+            if(poly.size()<4||poly.size()>5||rect.isEmpty()||rect.left()<0||rect.top()<0||rect.right()>1||rect.bottom()>1)return {};
+            // Do not replace a slanted or arbitrary polygon by an inaccurate box.
+            for(const auto& p:poly){
+                if((qAbs(p.x()-rect.left())>1e-6&&qAbs(p.x()-rect.right())>1e-6)||
+                   (qAbs(p.y()-rect.top())>1e-6&&qAbs(p.y()-rect.bottom())>1e-6))return {};
+            }
+            result.append(rect);
+        }
+        return result;
+    }
     QString selectedText;
     void setPage(printrender::PagePreview p){page=std::move(p);selectedText.clear();selection.clear();drag=false;update();}
     void setSelection(const printrender::PageSelection& s){selection=s.bounds;selectedText=s.text;update();}
@@ -110,7 +153,9 @@ protected:
     }
     void mousePressEvent(QMouseEvent* e)override{
         if(e->button()!=Qt::LeftButton||!imageRect().contains(e->position()))return;
-        setFocus();start=current=e->position();drag=true;selectedText.clear();selection.clear();update();
+        setFocus();
+        if(noteMode){if(placeNote)placeNote(point(e->position()));return;}
+        start=current=e->position();drag=true;selectedText.clear();selection.clear();update();
     }
     void mouseMoveEvent(QMouseEvent* e)override{if(drag){current=e->position();update();}}
     void mouseReleaseEvent(QMouseEvent* e)override{
@@ -124,7 +169,7 @@ protected:
 private:
     printrender::PagePreview page;
     QList<QPolygonF> selection;
-    QPointF start,current;bool drag=false;
+    QPointF start,current;bool drag=false,noteMode=false;
 };
 QString human(qint64 b) {
     if (b < 1024) return QStringLiteral("%1 B").arg(b);
@@ -141,18 +186,14 @@ void PdfToolsDialog::run(QWidget* parent, Tab tab, const QString& initialPath) {
         return;
     }
     PdfToolsDialog dlg(parent);
-    dlg.m_tabs->setCurrentIndex(tab);
     if (!initialPath.isEmpty()) {
         for (QLineEdit* e : {dlg.m_splitFile, dlg.m_rotFile, dlg.m_cmpFile, dlg.m_infoFile, dlg.m_numFile, dlg.m_stampFile, dlg.m_blankFile, dlg.m_orderFile, dlg.m_ocrFile, dlg.m_searchFile, dlg.m_noteFormFile})
             if (e) e->setText(initialPath);
-        dlg.refreshPageCount(initialPath, dlg.m_splitInfo);
-        dlg.refreshPageCount(initialPath, dlg.m_rotInfo);
-        dlg.refreshPageCount(initialPath, dlg.m_numInfo);
-        dlg.refreshPageCount(initialPath, dlg.m_stampInfo);
-        dlg.refreshPageCount(initialPath, dlg.m_blankInfo);
-        dlg.refreshPageCount(initialPath, dlg.m_orderInfo);
         dlg.m_mergeList->addItem(initialPath);
     }
+    // Only the active tool inspects the source. In particular, opening the
+    // reader must not launch six qpdf page-count subprocesses or password prompts.
+    dlg.m_tabs->setCurrentIndex(tab);
     dlg.exec();
 }
 
@@ -174,7 +215,68 @@ PdfToolsDialog::PdfToolsDialog(QWidget* parent) : QDialog(parent) {
     m_tabs->addTab(buildOcr(), tr("OCR · TXT / PDF"));
     m_tabs->addTab(buildSearch(),tr("Tìm chữ PDF"));
     m_tabs->addTab(buildNoteForm(),tr("Chú thích / Form"));
-    lay->addWidget(m_tabs);
+    m_tabs->tabBar()->hide();
+    auto* heading=new QHBoxLayout;
+    auto* activeTitle=new QLabel(this);
+    auto titleFont=activeTitle->font();titleFont.setBold(true);titleFont.setPointSizeF(qMax(12.0,titleFont.pointSizeF()+2));activeTitle->setFont(titleFont);
+    auto* toggleTools=new QPushButton(tr("Ẩn công cụ"),this);toggleTools->setCheckable(true);
+    heading->addWidget(activeTitle);heading->addStretch();heading->addWidget(toggleTools);lay->addLayout(heading);
+    auto* work=new QHBoxLayout;lay->addLayout(work,1);
+    auto* tools=new QListWidget(this);tools->setFixedWidth(180);tools->setAccessibleName(tr("Danh mục công cụ PDF"));
+    auto group=[&](const QString& label){
+        auto* item=new QListWidgetItem(label,tools);
+        auto font=item->font();font.setBold(true);item->setFont(font);
+        item->setFlags(Qt::NoItemFlags);
+    };
+    auto item=[&](Tab tab,const QString& label){
+        auto* entry=new QListWidgetItem(label,tools);entry->setData(Qt::UserRole,int(tab));entry->setSizeHint(QSize(160,28));
+    };
+    group(tr("Đọc và chỉnh sửa"));
+    item(Search,tr("Đọc / sửa chữ"));item(NoteForm,tr("Chú thích / Form"));item(Ocr,tr("OCR · Nhận dạng chữ"));
+    group(tr("Quản lý trang"));
+    item(Reorder,tr("Sắp xếp / xóa"));item(Merge,tr("Gộp PDF"));item(Split,tr("Tách PDF"));
+    item(Rotate,tr("Xoay trang"));item(Blank,tr("Trang trắng"));
+    group(tr("Tạo và xuất PDF"));
+    item(Number,tr("Đánh số trang"));item(Stamp,tr("Đóng dấu"));item(Images,tr("Ảnh → PDF"));
+    item(Compress,tr("Nén PDF"));item(Info,tr("Thông tin PDF"));
+    work->addWidget(tools);work->addWidget(m_tabs,1);
+    connect(tools,&QListWidget::currentItemChanged,this,[=](QListWidgetItem* selected,QListWidgetItem*){
+        if(selected&&selected->data(Qt::UserRole).isValid())m_tabs->setCurrentIndex(selected->data(Qt::UserRole).toInt());
+    });
+    auto syncTool=[=](int index){
+        QSignalBlocker blocker(tools);
+        for(int row=0;row<tools->count();++row){
+            const auto* entry=tools->item(row);
+            if(entry->data(Qt::UserRole).isValid()&&entry->data(Qt::UserRole).toInt()==index){
+                tools->setCurrentRow(row);activeTitle->setText(entry->text());break;
+            }
+        }
+    };
+    connect(m_tabs,&QTabWidget::currentChanged,this,syncTool);
+    connect(toggleTools,&QPushButton::toggled,this,[=](bool hidden){
+        tools->setVisible(!hidden);toggleTools->setText(hidden?tr("Hiện công cụ"):tr("Ẩn công cụ"));
+    });
+    syncTool(m_tabs->currentIndex());
+    connect(m_tabs,&QTabWidget::currentChanged,this,[this](int index){
+        QLineEdit* file=nullptr;QLabel* label=nullptr;
+        switch(index){
+        case Split:file=m_splitFile;label=m_splitInfo;break;
+        case Rotate:file=m_rotFile;label=m_rotInfo;break;
+        case Number:file=m_numFile;label=m_numInfo;break;
+        case Stamp:file=m_stampFile;label=m_stampInfo;break;
+        case Blank:file=m_blankFile;label=m_blankInfo;break;
+        case Reorder:file=m_orderFile;label=m_orderInfo;break;
+        case Info:
+            if(m_infoText->text().isEmpty()&&!m_infoFile->text().isEmpty()){
+                auto i=info(m_infoFile->text(),m_passwords.value(m_infoFile->text()));
+                if(i.needPassword&&askPassword(m_infoFile->text()))i=info(m_infoFile->text(),m_passwords.value(m_infoFile->text()));
+                m_infoText->setText(i.ok?tr("Số trang: %1\nDung lượng: %2\nĐặt mật khẩu: %3").arg(i.pages).arg(human(i.bytes)).arg(i.encrypted?tr("có"):tr("không")):i.error);
+            }
+            break;
+        default:break;
+        }
+        if(file&&label&&label->text().isEmpty()&&!file->text().isEmpty())refreshPageCount(file->text(),label);
+    });
     auto* note = new QLabel(tr("Tệp gốc không bao giờ bị sửa: kết quả luôn lưu thành tệp mới."), this);
     note->setStyleSheet("color:#555");
     lay->addWidget(note);
@@ -1239,22 +1341,115 @@ QWidget* PdfToolsDialog::buildSearch() {
     form->addRow(tr("Từ khóa:"),query);
     form->addRow(tr("Từ trang:"),first);form->addRow(tr("Đến trang:"),last);
     form->addRow(match);root->addLayout(form);
-    auto* note=new QLabel(tr("Tìm trong lớp chữ thực tế của PDF (tối đa 200 trang/lượt). PDF chỉ có ảnh cần OCR trước. Không sửa tệp nguồn."),w);
+    auto* note=new QLabel(tr("Đọc và kéo chọn chữ trực tiếp trên trang, không cần tìm từ khóa. Tìm kiếm trong lớp chữ (tối đa 200 trang/lượt). PDF chỉ có ảnh cần OCR."),w);
     note->setWordWrap(true);root->addWidget(note);
-    auto* go=new QPushButton(tr("Tìm trong PDF"),w);root->addWidget(go);
-    go->setEnabled(printrender::available());
+    auto* actions=new QHBoxLayout;
+    auto* browse=new QPushButton(tr("Đọc / sửa trực tiếp"),w);
+    auto* go=new QPushButton(tr("Tìm trong PDF"),w);
+    actions->addWidget(browse);actions->addWidget(go);actions->addStretch();
+    root->addLayout(actions);
+    browse->setEnabled(printrender::available());go->setEnabled(printrender::available());
     auto* status=new QLabel(w);status->setWordWrap(true);status->setTextFormat(Qt::PlainText);root->addWidget(status);
-    auto* list=new QListWidget(w);root->addWidget(list,1);
+    auto* list=new QListWidget(w);list->setAccessibleName(tr("Trang PDF hoặc kết quả tìm"));
+    list->setMaximumHeight(116);root->addWidget(list);
+    auto* nav=new QHBoxLayout;
+    auto* previous=new QPushButton(tr("← Trước"),w);auto* next=new QPushButton(tr("Sau →"),w);
+    auto* jump=new QSpinBox(w);jump->setRange(1,1);jump->setPrefix(tr("Trang "));
+    jump->setAccessibleName(tr("Số trang cần mở"));
+    auto* openPage=new QPushButton(tr("Đến trang"),w);
+    previous->setEnabled(false);next->setEnabled(false);jump->setEnabled(false);openPage->setEnabled(false);
+    nav->addWidget(previous);nav->addWidget(next);nav->addStretch();nav->addWidget(jump);nav->addWidget(openPage);root->addLayout(nav);
     auto* text=new QPlainTextEdit(w);text->setReadOnly(true);
-    text->setPlaceholderText(tr("Chọn kết quả để đọc và sao chép chữ trên trang."));
+    text->setPlaceholderText(tr("Chọn trang để đọc, kéo chọn chữ trên ảnh PDF hoặc sao chép chữ trích xuất."));
     text->setToolTip(tr("Chữ trích xuất được chuẩn hóa Unicode NFC; tô sáng tối đa 1.000 vị trí trên trang, không sửa PDF."));
     auto* canvas=new PdfTextCanvas(w);
-    auto* split=new QSplitter(Qt::Horizontal,w);split->addWidget(canvas);split->addWidget(text);split->setStretchFactor(0,2);split->setStretchFactor(1,1);root->addWidget(split,3);
-    auto* copy=new QPushButton(tr("Sao chép chữ đã chọn trên trang"),w);copy->setEnabled(false);root->addWidget(copy);
+    auto* scroll=new PdfPageScroll(w);
+    scroll->setWidgetResizable(false);scroll->setAlignment(Qt::AlignCenter);
+    scroll->setMinimumSize(240,220);scroll->setWidget(canvas);
+    auto* zoom=new QComboBox(w);zoom->setAccessibleName(tr("Mức thu phóng trang PDF"));
+    zoom->addItem(tr("Vừa trang"),0);
+    zoom->addItem(tr("Vừa chiều rộng"),-1);
+    for(int percent:{100,125,150,200,250,300})zoom->addItem(QString::number(percent)+QStringLiteral("%"),percent);
+    auto* zoomOut=new QPushButton(QStringLiteral("−"),w);zoomOut->setAccessibleName(tr("Thu nhỏ PDF"));
+    auto* zoomIn=new QPushButton(QStringLiteral("+"),w);zoomIn->setAccessibleName(tr("Phóng to PDF"));
+    nav->insertWidget(2,zoomOut);nav->insertWidget(3,zoom);nav->insertWidget(4,zoomIn);
+    auto fitPage=[=]{
+        const QSize view=scroll->viewport()->size();
+        const QSize natural=canvas->naturalSize();
+        if(natural.isEmpty()||view.width()<10||view.height()<10){
+            canvas->setFixedSize(qMax(1,view.width()),qMax(1,view.height()));return;
+        }
+        // Reserve scrollbar space when fitting width to avoid oscillation.
+        const int availableW=qMax(1,view.width()-20),availableH=qMax(1,view.height()-4);
+        const int mode=zoom->currentData().toInt();
+        QSize target=natural;
+        if(mode==0)target.scale(QSize(availableW,availableH),Qt::KeepAspectRatio);
+        else {
+            const int width=mode==-1?availableW:qBound(1,availableW*mode/100,4096);
+            target.scale(QSize(width,4096),Qt::KeepAspectRatio);
+        }
+        canvas->setFixedSize(target.expandedTo(QSize(1,1)));
+    };
+    scroll->resized=fitPage;
+    auto refreshZoom=[=]{zoomOut->setEnabled(zoom->currentIndex()>0);zoomIn->setEnabled(zoom->currentIndex()+1<zoom->count());};
+    auto stepZoom=[=](int delta){zoom->setCurrentIndex(qBound(0,zoom->currentIndex()+delta,zoom->count()-1));};
+    scroll->zoomStep=stepZoom;
+    connect(zoom,QOverload<int>::of(&QComboBox::currentIndexChanged),w,[=]{fitPage();refreshZoom();});
+    connect(zoomOut,&QPushButton::clicked,w,[=]{stepZoom(-1);});
+    connect(zoomIn,&QPushButton::clicked,w,[=]{stepZoom(1);});
+    refreshZoom();
+    auto* split=new QSplitter(Qt::Horizontal,w);split->addWidget(scroll);split->addWidget(text);split->setStretchFactor(0,2);split->setStretchFactor(1,1);root->addWidget(split,3);
+    auto* bottom=new QHBoxLayout;root->addLayout(bottom);
+    auto* copy=new QPushButton(tr("Sao chép chữ đã chọn"),w);copy->setEnabled(false);bottom->addWidget(copy);
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
-    auto* edit=new QPushButton(tr("Sửa chữ gốc đã chọn"),w);root->addWidget(edit);edit->setEnabled(false);
+    auto* edit=new QPushButton(tr("Sửa chữ gốc đã chọn"),w);bottom->addWidget(edit);edit->setEnabled(false);
+    auto* annotate=new QPushButton(tr("Thêm ghi chú"),w);annotate->setCheckable(true);annotate->setEnabled(false);bottom->addWidget(annotate);
+    auto* highlight=new QPushButton(tr("Tô sáng"),w);auto* underline=new QPushButton(tr("Gạch chân"),w);
+    highlight->setEnabled(false);underline->setEnabled(false);bottom->addWidget(highlight);bottom->addWidget(underline);bottom->addStretch();
+    auto selectionIdentity=std::make_shared<QByteArray>();
+    connect(annotate,&QPushButton::toggled,w,[=](bool active){
+        canvas->setNoteMode(active);
+        if(active)status->setText(tr("Nhấp vào vị trí muốn đặt ghi chú trên trang. Bấm lại nút để hủy."));
+    });
     if(!pdfedit::available())edit->setToolTip(tr("Bản cài chưa có PDFium Editing SDK."));
-    auto clear=[=]{snapshot->reset();list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);status->clear();};
+    auto browsing=std::make_shared<bool>(false);
+    auto initializedPath=std::make_shared<QString>();
+    auto refreshNav=[=]{
+        const int row=list->currentRow();
+        const int current=row>=0?list->item(row)->data(Qt::UserRole).toInt():0;
+        previous->setEnabled(row>0||(*browsing&&current>1));
+        next->setEnabled(row>=0&&(row+1<list->count()||(*browsing&&current<jump->maximum())));
+        if(row>=0){QSignalBlocker guard(jump);jump->setValue(list->item(row)->data(Qt::UserRole).toInt());}
+    };
+    auto clear=[=]{selectionIdentity->clear();highlight->setEnabled(false);underline->setEnabled(false);snapshot->reset();*browsing=false;list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);status->clear();refreshNav();};
+    auto openRange=[=](int page){
+        clear();
+        const QString path=m_searchFile->text();
+        const PdfSourceSnapshot source(path);
+        const auto info=printrender::pdfInfo(path);
+        if(!info.ok||!source.unchanged()){status->setText(info.error.isEmpty()?tr("PDF nguồn đã thay đổi."):info.error);return;}
+        if(page<1||page>info.pages)return;
+        // Populate a bounded page window. Jump can reach any page of the
+        // document, including pages beyond the first 200.
+        const int a=((page-1)/200)*200+1,b=qMin(a+199,info.pages);
+        *snapshot=source;*browsing=true;
+        {QSignalBlocker guard(list);
+            for(int p=a;p<=b;++p){auto* item=new QListWidgetItem(tr("Trang %1").arg(p),list);item->setData(Qt::UserRole,p);}
+        }
+        status->setText(tr("Đọc trực tiếp · trang %1–%2 / %3. Kéo chọn chữ trên trang để sao chép hoặc sửa.").arg(a).arg(b).arg(info.pages));
+        jump->setMaximum(info.pages);jump->setEnabled(true);openPage->setEnabled(true);
+        list->setCurrentRow(page-a);refreshNav();
+    };
+    connect(browse,&QPushButton::clicked,w,[=]{openRange(qMax(1,jump->value()));});
+    connect(openPage,&QPushButton::clicked,w,[=]{openRange(jump->value());});
+    connect(previous,&QPushButton::clicked,w,[=]{
+        const int row=list->currentRow();if(row>0)list->setCurrentRow(row-1);
+        else if(*browsing&&row==0&&jump->value()>1)openRange(jump->value()-1);
+    });
+    connect(next,&QPushButton::clicked,w,[=]{
+        const int row=list->currentRow();if(row>=0&&row+1<list->count())list->setCurrentRow(row+1);
+        else if(*browsing&&row>=0&&jump->value()<jump->maximum())openRange(jump->value()+1);
+    });
     auto rejectStale=[=]{clear();status->setText(tr("PDF nguồn đã thay đổi. Hãy tìm lại."));};
     auto copyCurrent=[=]{
         if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
@@ -1262,6 +1457,57 @@ QWidget* PdfToolsDialog::buildSearch() {
     };
     connect(copy,&QPushButton::clicked,w,copyCurrent);
     canvas->copySelection=copyCurrent;
+    auto continueEditing=[=](const Result& result,const QString& title,int page){
+        if(!result.ok||result.files.size()!=1){showResult(result,title);return;}
+        const auto path=result.files.first();
+        const auto info=printrender::pdfInfo(path);
+        if(!info.ok){showResult(result,title);return;}
+        QMessageBox box(this);box.setWindowTitle(title);
+        box.setText(tr("Đã lưu bản PDF mới. Tệp gốc vẫn giữ nguyên.\n%1").arg(path));
+        if(!result.warnings.isEmpty())box.setInformativeText(result.warnings.join(QLatin1Char('\n')));
+        auto* resume=box.addButton(tr("Tiếp tục chỉnh sửa bản mới"),QMessageBox::AcceptRole);
+        auto* stay=box.addButton(tr("Ở lại bản hiện tại"),QMessageBox::RejectRole);
+        box.setDefaultButton(resume);box.setEscapeButton(stay);box.exec();
+        if(box.clickedButton()!=resume)return;
+        // Reset the source, search and range without opening page 1 first.
+        // The next action always operates on the newly saved copy.
+        {QSignalBlocker fileGuard(m_searchFile),firstGuard(first),lastGuard(last),queryGuard(query);
+            m_searchFile->setText(path);*initializedPath=path;query->clear();
+            first->setMaximum(qMax(1,info.pages));last->setMaximum(qMax(1,info.pages));
+            first->setValue(1);last->setValue(qBound(1,info.pages,200));
+        }
+        openRange(qBound(1,page,info.pages));
+        if(snapshot->has_value())status->setText(tr("Đang chỉnh sửa bản mới · Trang %1/%2. Tệp trước vẫn được giữ.").arg(qBound(1,page,info.pages)).arg(info.pages));
+    };
+    auto saveMarkup=[=](dungpdf::MarkupKind kind){
+        if(!list->currentItem()||!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
+        const auto source=snapshot->value();
+        const auto bounds=canvas->markupBounds();const auto identity=*selectionIdentity;
+        if(bounds.isEmpty()||identity.size()!=32||canvas->selectedText.isEmpty())return;
+        if(dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
+        const int page=list->currentItem()->data(Qt::UserRole).toInt();
+        const auto label=kind==dungpdf::MarkupKind::Highlight?tr("Tô sáng"):tr("Gạch chân");
+        const auto dest=pickDest(this,source.path,label);if(dest.isEmpty())return;
+        continueEditing(runWithPasswords({source.path},[=]{return addTextMarkup(inputFor(source.path),page,bounds,kind,identity,dest);}),label,page);
+    };
+    connect(highlight,&QPushButton::clicked,w,[=]{saveMarkup(dungpdf::MarkupKind::Highlight);});
+    connect(underline,&QPushButton::clicked,w,[=]{saveMarkup(dungpdf::MarkupKind::Underline);});
+    canvas->placeNote=[=](QPointF point){
+        annotate->setChecked(false);
+        if(!list->currentItem()||!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
+        const auto source=snapshot->value();
+        const auto identity=dungpdf::fingerprint(source.path);
+        const int page=list->currentItem()->data(Qt::UserRole).toInt();
+        if(identity.size()!=32||!source.unchanged()){rejectStale();return;}
+        bool ok=false;
+        const auto content=QInputDialog::getMultiLineText(this,tr("Ghi chú PDF"),
+            tr("Nhập ghi chú tiếng Việt cho trang %1 (tối đa 2.000 ký tự).").arg(page),QString(),&ok);
+        if(!ok)return;
+        if(content.trimmed().isEmpty()||content.size()>2000){status->setText(tr("Ghi chú phải có từ 1 đến 2.000 ký tự."));return;}
+        if(!source.unchanged()||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
+        const auto dest=pickDest(this,source.path,tr("Ghi chú"));if(dest.isEmpty())return;
+        continueEditing(runWithPasswords({source.path},[=]{return addTextNote(inputFor(source.path),page,point.x()*100,point.y()*100,content,dest,identity,true);}),tr("Ghi chú PDF"),page);
+    };
     // Invalidate the preview as soon as a normal external file update becomes
     // observable. Recheck at point of use even if the timer has not run.
     auto* freshness=new QTimer(w);
@@ -1274,29 +1520,50 @@ QWidget* PdfToolsDialog::buildSearch() {
         if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
         if(!list->currentItem()||canvas->selectedText.isEmpty())return;
         const auto source=snapshot->value();const int page=list->currentItem()->data(Qt::UserRole).toInt();const QString old=canvas->selectedText;
+        const auto identity=*selectionIdentity;
+        if(identity.size()!=32||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
         bool ok=false;const auto replacement=QInputDialog::getText(this,tr("Sửa chữ PDF"),tr("Thay nguyên đối tượng chữ đã chọn. Hỗ trợ tiếng Việt nếu font gốc có ký tự tương ứng. Lưu bản sao PDF mới."),QLineEdit::Normal,old,&ok);
         if(!ok)return;
         if(!source.unchanged()){rejectStale();return;}
         const auto dest=pickDest(this,source.path,tr("Sửa chữ"));if(dest.isEmpty())return;
         if(!source.unchanged()){rejectStale();return;}
-        showResult(runWithPasswords({source.path},[=]{return pdfedit::replaceObject(source.path,page,old,replacement,dest);}),tr("Sửa chữ PDF"));
+        continueEditing(runWithPasswords({source.path},[=]{return pdfedit::replaceObject(source.path,page,old,replacement,dest,identity);}),tr("Sửa chữ PDF"),page);
     });
 
     canvas->select=[=](QPointF from,QPointF to){
+        selectionIdentity->clear();highlight->setEnabled(false);underline->setEnabled(false);
         const auto* item=list->currentItem();
         if(!item){canvas->setSelection({});copy->setEnabled(false);edit->setEnabled(false);return;}
         if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
+        const auto identity=dungpdf::fingerprint(snapshot->value().path);
         const auto selected=printrender::selectText(snapshot->value().path,item->data(Qt::UserRole).toInt(),from,to);
         if(!snapshot->value().unchanged()){rejectStale();return;}
-        canvas->setSelection(selected);copy->setEnabled(!selected.text.isEmpty());edit->setEnabled(pdfedit::available()&&!selected.text.isEmpty());
+        canvas->setSelection(selected);copy->setEnabled(!selected.text.isEmpty());
+        const bool verified=identity.size()==32&&!selected.text.isEmpty()&&dungpdf::fingerprint(snapshot->value().path)==identity;
+        edit->setEnabled(verified&&pdfedit::available());
+        if(verified){
+            *selectionIdentity=identity;
+            const bool markable=!canvas->markupBounds().isEmpty()&&!findQpdf().isEmpty();
+            highlight->setEnabled(markable);underline->setEnabled(markable);
+        }
         if(!selected.error.isEmpty())status->setText(selected.error);
     };
-    connect(m_searchFile,&QLineEdit::textChanged,w,[=]{
+    auto loadReader=[=]{
         clear();
+        *initializedPath=m_searchFile->text();
         const auto info=printrender::pdfInfo(m_searchFile->text());
         first->setMaximum(qMax(1,info.pages));last->setMaximum(qMax(1,info.pages));
         first->setValue(1);last->setValue(qBound(1,info.pages,200));
+        jump->setMaximum(qMax(1,info.pages));jump->setValue(1);
+        jump->setEnabled(info.ok);openPage->setEnabled(info.ok);
         status->setText(info.ok?tr("%1 trang.").arg(info.pages):info.error);
+        if(info.ok)openRange(1);
+    };
+    connect(m_searchFile,&QLineEdit::textChanged,w,[=]{
+        if(m_tabs->currentIndex()==Search)loadReader();
+    });
+    connect(m_tabs,&QTabWidget::currentChanged,w,[=](int index){
+        if(index==Search&&*initializedPath!=m_searchFile->text())loadReader();
     });
     connect(query,&QLineEdit::textChanged,w,clear);
     connect(first,&QSpinBox::valueChanged,w,clear);
@@ -1331,7 +1598,8 @@ QWidget* PdfToolsDialog::buildSearch() {
     });
     connect(query,&QLineEdit::returnPressed,go,&QPushButton::click);
     connect(list,&QListWidget::currentItemChanged,w,[=](QListWidgetItem* item,QListWidgetItem*){
-        text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);if(!item)return;
+        selectionIdentity->clear();highlight->setEnabled(false);underline->setEnabled(false);
+        text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);refreshNav();if(!item)return;
         if(!snapshot->has_value()||!snapshot->value().unchanged()){
             rejectStale();return;
         }
@@ -1341,12 +1609,15 @@ QWidget* PdfToolsDialog::buildSearch() {
             rejectStale();return;
         }
         if(!error.isEmpty()){status->setText(error);return;}
-        auto preview=printrender::previewText(snapshot->value().path,item->data(Qt::UserRole).toInt(),QSize(1000,1400),query->text(),match->isChecked());
+        const QString needleForPage=*browsing?QString():query->text();
+        auto preview=printrender::previewText(snapshot->value().path,item->data(Qt::UserRole).toInt(),QSize(1800,2520),needleForPage,match->isChecked());
         if(!snapshot->value().unchanged()){rejectStale();return;}
         if(!preview.error.isEmpty())status->setText(preview.error);
-        else canvas->setPage(std::move(preview));
+        else {canvas->setPage(std::move(preview));fitPage();
+            scroll->verticalScrollBar()->setValue(0);scroll->horizontalScrollBar()->setValue(0);
+            annotate->setEnabled(canvas->hasPage()&&!findQpdf().isEmpty());}
         text->setPlainText(extracted.normalized(QString::NormalizationForm_C));
-        const auto needle=query->text().trimmed().normalized(QString::NormalizationForm_C);
+        const auto needle=needleForPage.trimmed().normalized(QString::NormalizationForm_C);
         const auto offsets=printrender::highlightOffsets(text->toPlainText(),needle,match->isChecked());
         QList<QTextEdit::ExtraSelection> highlights;
         for(auto pos:offsets){

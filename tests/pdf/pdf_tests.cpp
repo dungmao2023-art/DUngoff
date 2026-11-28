@@ -819,6 +819,25 @@ int main(int argc, char** argv) {
             CHECK(p.exitCode()==0&&json.contains("/Text")&&json.contains(text.toUtf8()),"annotation contains real Unicode /Text contents");
         }
         CHECK(!addTextNote({a,{}},99,50,50,text,P("bad-note.pdf")).ok&&!QFileInfo::exists(P("bad-note.pdf")),"invalid note page rejected");
+        const auto clicked=P("clicked-note.pdf");
+        CHECK(addTextNote({a,{}},1,50,50,text,clicked,fingerprint(a),true).ok&&
+              info(clicked).pages==3&&readFile(a)==aBytes,"direct click creates real annotation and preserves source");
+        const auto stale=P("stale-note.pdf");
+        CHECK(!addTextNote({a,{}},1,50,50,text,stale,QByteArray(32,'x'),true).ok&&
+              !addTextNote({a,{}},1,50,50,text,stale,{},true).ok&&!QFileInfo::exists(stale),
+              "direct annotation rejects missing or stale source fingerprint");
+        const QList<QRectF> marks{QRectF(.1,.1,.2,.03),QRectF(.1,.16,.25,.03)};
+        const auto marked=P("highlight.pdf"),underlined=P("underline.pdf");
+        CHECK(addTextMarkup({a,{}},1,marks,MarkupKind::Highlight,fingerprint(a),marked).ok&&
+              info(marked).pages==3&&qdfOf(marked).contains("/Highlight")&&qdfOf(marked).contains("/QuadPoints"),
+              "real multi-line highlight annotation");
+        CHECK(addTextMarkup({marked,{}},1,marks,MarkupKind::Underline,fingerprint(marked),underlined).ok&&
+              qdfOf(underlined).contains("/Underline")&&qdfOf(underlined).contains("/Highlight")&&readFile(a)==aBytes,
+              "underline preserves existing annotation and original");
+        const auto badMark=P("bad-mark.pdf");
+        CHECK(!addTextMarkup({a,{}},1,{QRectF(.9,.9,.2,.2)},MarkupKind::Highlight,fingerprint(a),badMark).ok&&
+              !addTextMarkup({a,{}},1,marks,MarkupKind::Underline,QByteArray(32,'x'),badMark).ok&&
+              !QFileInfo::exists(badMark),"reject out-of-page and stale markup");
         CHECK(!fillTextField({a,{}},"Name","Test",P("no-form.pdf")).ok&&!QFileInfo::exists(P("no-form.pdf")),"no form does not publish result");
         // Real single-widget text form with standard Helvetica resources.
         QByteArray bytes="%PDF-1.4\n";QList<int> offsets;
@@ -842,8 +861,19 @@ int main(int argc, char** argv) {
         const auto source=P("native-edit-source.pdf"),dest=P("native-edited.pdf");
         const QByteArray original=makePdf(2,QStringLiteral("ORIGINAL"));
         writeFile(source,original);
-        const auto edited=pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",dest);
+        const auto staleEdit=P("native-stale.pdf");
+        CHECK(!pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",staleEdit,QByteArray(32,'x')).ok&&
+              !QFile::exists(staleEdit),"stale text selection never publishes a changed PDF");
+        const auto edited=pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",dest,fingerprint(source));
         CHECK(edited.ok&&readFile(source)==original&&info(dest).pages==2,"PDFium edits original text object");
+        if(edited.ok){
+            const auto chained=P("native-edited-note.pdf");
+            const auto editedBytes=readFile(dest);
+            CHECK(addTextNote({dest,{}},1,50,50,QStringLiteral("Ghi chú tiếp"),chained,fingerprint(dest),true).ok&&
+                  qdfOf(chained).contains("/Text")&&info(chained).pages==2&&
+                  readFile(dest)==editedBytes&&readFile(source)==original,
+                  "continue editing the latest PDF copy without altering either earlier version");
+        }
         CHECK(!pdfedit::replaceObject(source,1,"ORIGINAL","REPLACED",P("native-partial.pdf")).ok,"reject partial object");
 #ifdef DUNG_HAVE_PDFIUM_EDIT
         const auto vnSource=P("native-vietnamese.pdf"),vnDest=P("native-vietnamese-edited.pdf");

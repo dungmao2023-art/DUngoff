@@ -11,6 +11,7 @@
 //  - Lỗi trả về bằng tiếng Việt; tệp có mật khẩu được báo bằng needPassword.
 #pragma once
 #include <QList>
+#include <QRectF>
 #include <QByteArray>
 #include <QString>
 #include <QStringList>
@@ -123,7 +124,13 @@ Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace 
                         const BlankReport* confirmed = nullptr);
 
 // Interactive PDF note and basic AcroForm text field (new copy only).
-Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest);
+Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest,
+                   const QByteArray& expectedSource = {},bool centerAtPoint = false);
+enum class MarkupKind { Highlight, Underline };
+// Rectangles in normalized top-left page coordinates; only horizontal,
+// unrotated page geometry is supported. Preserve the source.
+Result addTextMarkup(const Input& in,int page,const QList<QRectF>& bounds,MarkupKind kind,
+                     const QByteArray& expectedSource,const QString& dest);
 struct TextForm { bool ok=false; QString error; QStringList names; QStringList values; };
 TextForm textFormFields(const Input& in);
 Result fillTextField(const Input& in,const QString& name,const QString& value,const QString& dest);

@@ -1636,11 +1636,15 @@ bool simpleFields(const EditablePdf& e,TextForm* out,QHash<QString,QString>* ref
     return true;
 }
 }
-Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest){
+Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest,
+                   const QByteArray& expectedSource,bool centerAtPoint){
     Result r;
     if(text.trimmed().isEmpty()||text.size()>2000||!std::isfinite(xPercent)||!std::isfinite(yPercent)||xPercent<0||xPercent>100||yPercent<0||yPercent>100){
         r.error=tr("Nội dung hoặc vị trí chú thích không hợp lệ.");return r;}
     EditablePdf e;if(!loadEditable(in,&e,&r))return r;
+    if((centerAtPoint&&expectedSource.size()!=32)||(!expectedSource.isEmpty()&&e.sha!=expectedSource)){
+        r.error=tr("PDF nguồn đã thay đổi. Hãy chọn lại vị trí chú thích.");return r;
+    }
     if(page<1||page>e.pages.size()){r.error=tr("Trang không hợp lệ.");return r;}
     const QString ref=e.pages.at(page-1).toObject().value(QStringLiteral("object")).toString();
     auto d=dictOf(e.objects,ref);double b[4];
@@ -1657,13 +1661,78 @@ Result addTextNote(const Input& in,int page,double xPercent,double yPercent,cons
     const int max=e.meta.value(QStringLiteral("maxobjectid")).toInt(-1);
     if(max<1||max>=2000000000){r.error=tr("Không xác minh được số đối tượng PDF.");return r;}
     const QString noteRef=QString::number(max+1)+QStringLiteral(" 0 R");
-    const double x=b[0]+(b[2]-b[0]-24)*xPercent/100,y=b[3]-24-(b[3]-b[1]-24)*yPercent/100;
+    const double x=centerAtPoint?qBound(b[0],b[0]+(b[2]-b[0])*xPercent/100-12,b[2]-24):
+        b[0]+(b[2]-b[0]-24)*xPercent/100;
+    const double y=centerAtPoint?qBound(b[1],b[3]-(b[3]-b[1])*yPercent/100-12,b[3]-24):
+        b[3]-24-(b[3]-b[1]-24)*yPercent/100;
     const QJsonObject note{{QStringLiteral("/Type"),QStringLiteral("/Annot")},{QStringLiteral("/Subtype"),QStringLiteral("/Text")},
         {QStringLiteral("/Rect"),QJsonArray{x,y,x+24,y+24}},{QStringLiteral("/Contents"),QStringLiteral("u:")+text},
         {QStringLiteral("/Name"),QStringLiteral("/Note")},{QStringLiteral("/C"),QJsonArray{1.0,0.8,0.0}},
         {QStringLiteral("/Open"),false},{QStringLiteral("/P"),ref}};
     annots.append(noteRef);d.insert(QStringLiteral("/Annots"),annots);
     return updatePdf(in,e,QJsonObject{{QStringLiteral("obj:")+ref,wrapped(d)},{QStringLiteral("obj:")+noteRef,wrapped(note)}},dest);
+}
+Result addTextMarkup(const Input& in,int page,const QList<QRectF>& bounds,MarkupKind kind,
+                     const QByteArray& expectedSource,const QString& dest){
+    Result r;
+    if(expectedSource.size()!=32||bounds.isEmpty()||bounds.size()>256||
+       (kind!=MarkupKind::Highlight&&kind!=MarkupKind::Underline)){
+        r.error=tr("Vùng đánh dấu hoặc nguồn không hợp lệ.");return r;
+    }
+    for(const auto& rect:bounds){
+        if(!std::isfinite(rect.x())||!std::isfinite(rect.y())||
+           !std::isfinite(rect.width())||!std::isfinite(rect.height())||
+           rect.left()<0||rect.top()<0||rect.right()>1||rect.bottom()>1||rect.isEmpty()){
+            r.error=tr("Vùng chữ không nằm trong trang.");return r;
+        }
+    }
+    EditablePdf e;if(!loadEditable(in,&e,&r))return r;
+    if(e.sha!=expectedSource||page<1||page>e.pages.size()){
+        r.error=tr("PDF nguồn hoặc trang đã thay đổi.");return r;
+    }
+    const auto ref=e.pages.at(page-1).toObject().value(QStringLiteral("object")).toString();
+    auto d=dictOf(e.objects,ref);double b[4],media[4];
+    const auto rotation=resolveRef(e.objects,inheritedKey(e.objects,d,QStringLiteral("/Rotate")));
+    if((!rotation.isUndefined()&&!rotation.isNull()&&(!rotation.isDouble()||rotation.toDouble()!=0))||
+       !boxOf(e.objects,d,QStringLiteral("/MediaBox"),media)){
+        r.error=tr("Chưa hỗ trợ đánh dấu trang xoay hoặc thiếu MediaBox.");return r;
+    }
+    if(!boxOf(e.objects,d,QStringLiteral("/CropBox"),b))
+        for(int i=0;i<4;++i)b[i]=media[i];
+    for(int i=0;i<4;++i)if(!std::isfinite(b[i])||b[i]!=media[i]){
+        r.error=tr("Chưa hỗ trợ trang có CropBox khác MediaBox.");return r;
+    }
+    if(b[2]<=b[0]||b[3]<=b[1]){r.error=tr("Kích thước trang không hợp lệ.");return r;}
+    QJsonArray quads;QRectF unionRect;
+    for(const auto& rect:bounds){
+        const double left=b[0]+rect.left()*(b[2]-b[0]),right=b[0]+rect.right()*(b[2]-b[0]);
+        const double top=b[3]-rect.top()*(b[3]-b[1]),bottom=b[3]-rect.bottom()*(b[3]-b[1]);
+        // Acrobat-compatible quad order: upper-left, upper-right,
+        // lower-left, lower-right. PDF origin is bottom-left.
+        for(double value:{left,top,right,top,left,bottom,right,bottom})quads.append(value);
+        const QRectF area(left,bottom,right-left,top-bottom);
+        unionRect=unionRect.isNull()?area:unionRect.united(area);
+    }
+    QJsonArray annots;
+    if(d.contains(QStringLiteral("/Annots"))){
+        const auto value=resolveRef(e.objects,d.value(QStringLiteral("/Annots")));
+        if(!value.isArray()){r.error=tr("Danh sách chú thích không hợp lệ.");return r;}
+        annots=value.toArray();
+    }
+    const int max=e.meta.value(QStringLiteral("maxobjectid")).toInt(-1);
+    if(max<1||max>=2000000000){r.error=tr("Không xác minh được số đối tượng PDF.");return r;}
+    const QString markRef=QString::number(max+1)+QStringLiteral(" 0 R");
+    const bool highlight=kind==MarkupKind::Highlight;
+    const QJsonObject mark{{QStringLiteral("/Type"),QStringLiteral("/Annot")},
+        {QStringLiteral("/Subtype"),highlight?QStringLiteral("/Highlight"):QStringLiteral("/Underline")},
+        {QStringLiteral("/Rect"),QJsonArray{unionRect.left(),unionRect.top(),unionRect.right(),unionRect.bottom()}},
+        {QStringLiteral("/QuadPoints"),quads},
+        {QStringLiteral("/C"),highlight?QJsonArray{1.0,0.85,0.0}:QJsonArray{0.05,0.40,0.80}},
+        {QStringLiteral("/CA"),highlight?0.5:1.0},{QStringLiteral("/F"),4},{QStringLiteral("/P"),ref}};
+    annots.append(markRef);d.insert(QStringLiteral("/Annots"),annots);
+    r=updatePdf(in,e,QJsonObject{{QStringLiteral("obj:")+ref,wrapped(d)},{QStringLiteral("obj:")+markRef,wrapped(mark)}},dest);
+    if(r.ok)r.warnings<<tr("Chú thích đánh dấu thật; kiểm tra hình thức hiển thị trong trình đọc PDF.");
+    return r;
 }
 TextForm textFormFields(const Input& in){
     TextForm out;EditablePdf e;Result r;
