@@ -43,9 +43,12 @@ jobs:
           if sudo apt-get install -y --no-install-recommends qt6-pdf-dev 2>&1 | tee report/linux-qtpdf-install.log | tail -2; then :; fi
           dpkg -s qt6-pdf-dev >/dev/null 2>&1 && echo "QTPDF=có" | tee -a report/linux-qtpdf-install.log || echo "QTPDF=không" | tee -a report/linux-qtpdf-install.log
       - name: Build
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -o pipefail
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release 2>&1 | tee report/linux-configure.log
+          python3 scripts/fetch-pdfium-sdk.py linux build/pdfium | tee report/linux-pdfium-sdk.log
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DDUNG_PDFIUM_ROOT="$PWD/build/pdfium" 2>&1 | tee report/linux-configure.log
           cmake --build build 2>&1 | tee report/linux-build.log
       - name: Kiểm thử chuyển cảnh PPTX thật
         run: |
@@ -406,8 +409,13 @@ jobs:
           Copy-Item (Join-Path $bin.DirectoryName "*") -Destination (New-Item -ItemType Directory -Force build/qpdf) -Recurse
           & build/qpdf/qpdf.exe --version
       - name: Build
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          cmake -S . -B build/out -G Ninja -DCMAKE_BUILD_TYPE=Release *>&1 | Tee-Object report/windows-configure.log
+          python scripts/fetch-pdfium-sdk.py windows build/pdfium *>&1 | Tee-Object report/windows-pdfium-sdk.log
+          if ($LASTEXITCODE) { exit 1 }
+          cmake -S . -B build/out -G Ninja -DCMAKE_BUILD_TYPE=Release "-DDUNG_PDFIUM_ROOT=$PWD/build/pdfium" *>&1 | Tee-Object report/windows-configure.log
+          if ($LASTEXITCODE) { exit 1 }
           cmake --build build/out --parallel *>&1 | Tee-Object report/windows-build.log
           if ($LASTEXITCODE) {
             Select-String -Path report/windows-build.log -Pattern "error" | Select-Object -First 10 | ForEach-Object { Write-Host "::error::$($_.Line)" }
@@ -845,7 +853,7 @@ jobs:
       - name: Đóng gói thư mục chạy được
         run: |
           $dict = if ("${{ steps.dictvi.outcome }}" -eq "success") { "build/dict-vi-src" } else { "" }
-          ./scripts/package-windows.ps1 -BuildDir build/out -EngineDir build/lo/engine -QtDir $env:QT_ROOT_DIR -QpdfDir build/qpdf -OutDir build/dist -DictViDir $dict *>&1 | Tee-Object report/windows-package.log
+          ./scripts/package-windows.ps1 -BuildDir build/out -EngineDir build/lo/engine -QtDir $env:QT_ROOT_DIR -QpdfDir build/qpdf -PdfiumDir build/pdfium -OutDir build/dist -DictViDir $dict *>&1 | Tee-Object report/windows-package.log
       - name: Kiểm tra từ điển tiếng Việt tách riêng khỏi ứng dụng và engine
         run: |
           $app = "build/dist/DungOffice"

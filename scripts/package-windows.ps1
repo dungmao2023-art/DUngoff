@@ -7,6 +7,7 @@ param(
   [Parameter(Mandatory = $true)][string]$QtDir,
   [Parameter(Mandatory = $true)][string]$OutDir,
   [string]$QpdfDir = "",
+  [string]$PdfiumDir = "",
   # Thư mục chứa từ điển tiếng Việt đã tải (scripts\fetch-dict-vi.ps1). Từ điển là thành phần GPL RIÊNG:
   # được dựng ở <OutDir>\dict-vi (ngoài thư mục ứng dụng) để bộ cài đóng thành thành phần tuỳ chọn.
   [string]$DictViDir = ""
@@ -21,6 +22,23 @@ $exe = Join-Path $BuildDir "app\DungOffice.exe"
 if (-not (Test-Path $exe)) { $exe = Join-Path $BuildDir "DungOffice.exe" }
 if (-not (Test-Path $exe)) { throw "Không tìm thấy DungOffice.exe trong $BuildDir" }
 Copy-Item $exe $app
+if ($PdfiumDir) {
+  $sdk = (Resolve-Path $PdfiumDir).Path
+  $verified = Get-Content (Join-Path $sdk "verified-source.json") -Raw | ConvertFrom-Json
+  $dll = Join-Path $sdk "bin\pdfium.dll"
+  if (-not (Test-Path $dll) -or $verified.tag -ne "chromium/8179" -or $verified.digest -notmatch '^sha256:[0-9a-f]{64}$') { throw "Thiếu SDK PDFium đã xác minh" }
+  $built = Join-Path (Split-Path $exe) "pdfium.dll"
+  if (-not (Test-Path $built) -or (Get-FileHash $built).Hash -ne (Get-FileHash $dll).Hash) { throw "DLL PDFium không khớp bản build" }
+  Copy-Item $dll $app
+  $notices = Join-Path $app "pdfium-notices"
+  New-Item -ItemType Directory -Force $notices | Out-Null
+  Copy-Item (Join-Path $sdk "verified-source.json") $notices
+  foreach ($name in $verified.license_files) {
+    $target = Join-Path $notices $name
+    New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+    Copy-Item (Join-Path $sdk $name) $target
+  }
+}
 & (Join-Path $QtDir "bin\windeployqt.exe") --release --no-translations --no-system-d3d-compiler `
    --no-opengl-sw --no-compiler-runtime (Join-Path $app "DungOffice.exe")
 if ($LASTEXITCODE) { throw "windeployqt lỗi" }
