@@ -374,7 +374,14 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             const bool excel=m_lastKind==int(DocKind::Spreadsheet);
             connect(family,qOverload<int>(&QComboBox::activated),this,[this,family,excel](int index){
                 if(index<0||family->itemText(index).isEmpty())return;
-                if(m_fontInventoryVerified&&!m_documentFonts.contains(family->itemText(index)))return;
+                if(m_fontInventoryVerified&&!m_documentFonts.contains(family->itemText(index))){
+                    // Display a missing font from the document, never request it
+                    // as a new choice. Restore the last engine-reported value.
+                    QSignalBlocker block(family);
+                    family->setCurrentIndex(m_lastReportedFont.isEmpty()?-1:
+                        family->findText(m_lastReportedFont,Qt::MatchFixedString|Qt::MatchCaseSensitive));
+                    return;
+                }
                 const auto name=family->itemText(index).toUtf8().toStdString();
                 const auto json=excel?dung::excel::fontName(name):dung::word::fontName(name).second;
                 emit unoCommand(QStringLiteral(".uno:CharFontName#")+QString::fromStdString(json));
@@ -456,6 +463,7 @@ void Ribbon::setKind(DocKind kind, bool readOnly) {
         w->deleteLater();
     }
     m_buttons.clear();m_fontBox=nullptr;m_sizeBox=nullptr;
+    m_documentFonts.clear();m_fontInventoryVerified=false;m_lastReportedFont.clear();
     for (const Tab& t : tabsFor(kind, readOnly)) {
         m_tabs->addTab(t.title);
         m_pages->addWidget(buildPage(t));
@@ -469,7 +477,8 @@ void Ribbon::setDocumentFonts(const QStringList& names) {
     m_documentFonts.removeDuplicates();
     m_fontInventoryVerified=!m_documentFonts.isEmpty();
     if(!m_fontBox)return;
-    QSignalBlocker blocker(m_fontBox);
+    QSignalBlocker blocker(m_fontBox.data());
+    m_lastReportedFont.clear();
     m_fontBox->clear();
     if(m_fontInventoryVerified){
         m_fontBox->addItems(m_documentFonts);
@@ -496,6 +505,7 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
             selector->setEnabled(true);
             if(value!=QLatin1String("enabled")) {
                 QString text=value.trimmed();
+                if(selector==m_fontBox.data())m_lastReportedFont=text;
                 bool addMissing=false;
                 if(selector==m_sizeBox.data()) {
                     bool ok=false;const double pt=text.toDouble(&ok);
@@ -506,7 +516,7 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
                 // Never cache engine acknowledgements instead of widget state.
                 const bool same=selector->currentIndex()>=0&&selector->currentText()==text;
                 if(!same) {
-                    int index=selector->findText(text,Qt::MatchFixedString);
+                    int index=selector->findText(text,Qt::MatchFixedString|Qt::MatchCaseSensitive);
                     if(index<0&&addMissing) {
                         selector->addItem(text);
                         index=selector->count()-1;
@@ -528,6 +538,7 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
 }
 
 void Ribbon::resetStates(const QHash<QString, QString>& states) {
+    m_lastReportedFont.clear();
     for(auto* box:{m_fontBox.data(),m_sizeBox.data()})if(box){QSignalBlocker block(box);box->setCurrentIndex(-1);box->setEnabled(true);}
     for (auto it = m_buttons.begin(); it != m_buttons.end(); ++it)
         if (it.value() && it.value()->isCheckable()) it.value()->setChecked(false);
