@@ -306,8 +306,12 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         auto* hint = new QLabel(tr("Mẫu tham khảo. Tạo tệp mới, không thay tài liệu đang mở."), templates);
         hint->setWordWrap(true);
         hint->setObjectName(QStringLiteral("SectionNote"));
-        auto* sourceNote=new QLabel(tr("Mẫu có thể thay đổi theo thời gian. <a href='https://csdl.dichvucong.gov.vn/'>Tra cứu mẫu hiện hành</a> tại cơ quan nhà nước."),templates);
-        sourceNote->setWordWrap(true);sourceNote->setOpenExternalLinks(true);sourceNote->setTextFormat(Qt::RichText);
+        const bool presentation=ext==QLatin1String("pptx");
+        auto* sourceNote=new QLabel(presentation
+            ?tr("Chọn mẫu rồi tạo bản làm việc riêng. Bạn có thể đổi nội dung, màu và hình ảnh trong slide.")
+            :tr("Mẫu có thể thay đổi theo thời gian. <a href='https://csdl.dichvucong.gov.vn/'>Tra cứu mẫu hiện hành</a> tại cơ quan nhà nước."),templates);
+        sourceNote->setWordWrap(true);sourceNote->setOpenExternalLinks(!presentation);
+        sourceNote->setTextFormat(presentation?Qt::PlainText:Qt::RichText);
         tv->addWidget(hint);tv->addWidget(sourceNote);
         auto* use = new QPushButton(tr("Tạo từ mẫu"), templates);
         use->setEnabled(false);
@@ -400,7 +404,7 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
             connect(m_slideRefresh,&QTimer::timeout,this,[this]{
                 if(m_pptNotes||m_pptMaster||m_pendingThumbnails.isEmpty())return;
                 // Defer thumbnail work while typing or dragging; one slide per tick.
-                if(!isVisible())return; // resumed by showEvent, not periodic polling
+                if(!isVisible()||!m_slides->isVisible())return; // resumed when navigator/tab becomes visible
                 if(!m_doc->inputIdleFor(150)) {
                     m_slideRefresh->start(250);
                     return;
@@ -416,7 +420,68 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         m_slides->setStyleSheet(QStringLiteral("QListWidget{background:#EEF2F7;border:none;border-right:1px solid #D9E1EC;}"
                                                "QListWidget::item{padding:10px;margin:4px;background:white;border-radius:6px;}"
                                                "QListWidget::item:selected{border:2px solid #1F5FBF;color:#1F5FBF;}"));
-        middle->addWidget(m_slides);
+        if(m_doc->kind()==DocKind::Presentation){
+            auto* navigator=new QWidget(this);
+            navigator->setObjectName(QStringLiteral("PptSlideNavigator"));
+            navigator->setFixedWidth(174);
+            auto* navLayout=new QVBoxLayout(navigator);
+            navLayout->setContentsMargins(0,0,0,0);navLayout->setSpacing(4);
+            auto* header=new QWidget(navigator);
+            auto* headerLayout=new QHBoxLayout(header);
+            headerLayout->setContentsMargins(8,5,8,0);
+            m_pptSlideCount=new QLabel(tr("Slide"),header);
+            m_pptSlideCount->setStyleSheet(QStringLiteral("font-weight:600;color:#334155;"));
+            headerLayout->addWidget(m_pptSlideCount,1);
+            navLayout->addWidget(header);
+            if(!m_doc->readOnly()){
+                auto* quick=new QWidget(navigator);
+                auto* quickLayout=new QHBoxLayout(quick);
+                quickLayout->setContentsMargins(6,0,6,0);quickLayout->setSpacing(4);
+                m_pptAddSlide=new QPushButton(tr("+ Slide"),quick);
+                m_pptDuplicateSlide=new QPushButton(tr("Nhân bản"),quick);
+                m_pptAddSlide->setObjectName(QStringLiteral("PptQuickAddSlide"));
+                m_pptDuplicateSlide->setObjectName(QStringLiteral("PptQuickDuplicateSlide"));
+                m_pptAddSlide->setToolTip(tr("Thêm slide sau slide đang chọn"));
+                m_pptDuplicateSlide->setToolTip(tr("Nhân bản slide đang chọn"));
+                for(auto* button:{m_pptAddSlide,m_pptDuplicateSlide}){
+                    button->setFocusPolicy(Qt::NoFocus);
+                    button->setMinimumHeight(28);
+                    button->setStyleSheet(QStringLiteral("QPushButton{background:white;color:#A94728;border:1px solid #E9C7B9;border-radius:5px;padding:3px 4px;} QPushButton:hover{background:#FCEDE6;} QPushButton:disabled{color:#9CA3AF;border-color:#E5E7EB;}"));
+                    quickLayout->addWidget(button,1);
+                }
+                auto command=[this](const QString& uno){
+                    if(!m_doc||m_doc->readOnly()||m_pptNotes||m_pptMaster||m_rebuildingParts)return;
+                    m_doc->waitInputIdle();
+                    if(!m_slides||m_slides->currentRow()<0||m_slides->currentRow()!=m_doc->currentPart())return;
+                    runCommand(uno);
+                };
+                connect(m_pptAddSlide,&QPushButton::clicked,this,[command]{command(QStringLiteral(".uno:InsertPage"));});
+                connect(m_pptDuplicateSlide,&QPushButton::clicked,this,[command]{command(QStringLiteral(".uno:DuplicatePage"));});
+                navLayout->addWidget(quick);
+            }
+            m_slides->setFixedWidth(174);
+            m_slides->setAccessibleName(tr("Danh sách slide"));
+            navLayout->addWidget(m_slides,1);
+            middle->addWidget(navigator);
+            auto* collapse=new QPushButton(QStringLiteral("‹"),this);
+            collapse->setObjectName(QStringLiteral("PptNavigatorToggle"));
+            collapse->setAccessibleName(tr("Thu gọn hoặc mở danh sách slide"));
+            collapse->setToolTip(tr("Thu gọn danh sách slide"));
+            collapse->setFixedSize(22,38);collapse->setCheckable(true);
+            collapse->setFocusPolicy(Qt::NoFocus);
+            middle->addWidget(collapse,0,Qt::AlignVCenter);
+            // A single resize avoids many canvas layouts and tile requests.
+            connect(collapse,&QPushButton::toggled,this,[this,navigator,collapse](bool closed){
+                navigator->setVisible(!closed);
+                collapse->setText(closed?QStringLiteral("›"):QStringLiteral("‹"));
+                collapse->setToolTip(closed?tr("Mở danh sách slide"):tr("Thu gọn danh sách slide"));
+                if(m_slideRefresh){
+                    if(closed)m_slideRefresh->stop();
+                    else if(isVisible()&&!m_pptNotes&&!m_pptMaster&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
+                }
+                if(m_view)m_view->setFocus();
+            });
+        }else middle->addWidget(m_slides);
         connect(m_slides, &QListWidget::currentRowChanged, this, [this](int row) {
             if (m_rebuildingParts || row < 0 || row == m_doc->currentPart()) return;
             // Do not render the old thumbnail synchronously on a slide click.
@@ -824,7 +889,11 @@ void DocumentTab::rebuildParts() {
             if(m_slideRefresh&&!m_pptNotes&&!m_pptMaster)m_pendingThumbnails.insert(i);
         }
         m_slides->setCurrentRow(cur);
-        if(m_slideRefresh&&isVisible()&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
+        if(m_pptSlideCount)m_pptSlideCount->setText((m_pptMaster?tr("Master (%1)"):m_pptNotes?tr("Ghi chú (%1)"):tr("Slide (%1)")).arg(n));
+        const bool normal=!m_pptMaster&&!m_pptNotes&&!m_doc->readOnly()&&cur>=0&&cur<n;
+        if(m_pptAddSlide)m_pptAddSlide->setEnabled(normal);
+        if(m_pptDuplicateSlide)m_pptDuplicateSlide->setEnabled(normal);
+        if(m_slideRefresh&&isVisible()&&m_slides->isVisible()&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
     }
     m_rebuildingParts = false;
 }

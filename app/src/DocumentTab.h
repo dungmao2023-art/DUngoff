@@ -94,6 +94,9 @@ private:
     QWidget* m_formulaAssistant = nullptr;
     unsigned m_pickGeneration = 0;
     QListWidget* m_slides = nullptr;
+    QLabel* m_pptSlideCount = nullptr;
+    QPushButton* m_pptAddSlide = nullptr;
+    QPushButton* m_pptDuplicateSlide = nullptr;
     QTimer* m_slideRefresh = nullptr;
     QSet<int> m_pendingThumbnails;
     QWidget* m_pdfComparison = nullptr;
