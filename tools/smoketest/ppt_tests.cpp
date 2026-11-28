@@ -528,6 +528,33 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         grouped->command(".uno:Undo");grouped->waitInputIdle();
         snap("ppt-objects-group-undone.pptx");
     }
+    grouped.reset();
+    step("PowerPoint — xoay đối tượng native và Undo");
+    auto rotated=engine->open(out/"ppt-layer-input.pptx",&err);
+    check(bool(rotated),"Mở fixture xoay: "+err);
+    if(rotated){
+        rotated->setClientView(512,512,7680,7680,0,0,7680,7680);
+        renderHash(*rotated,0);
+        auto snap=[&](const char* name){
+            const auto dest=out/name;
+            fs::remove(dest,ec);
+            const auto saved=rotated->saveAs(dest);
+            check(saved.ok,std::string("Lưu xoay ")+name+": "+saved.message);
+        };
+        snap("ppt-rotate-baseline.pptx");
+        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,2160,2160,1,1,0);
+        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,2160,2160,1,1,0);
+        rotated->waitInputIdle();
+        rotated->command(".uno:TransformDialog",R"({"TransformRotationDeltaAngle":{"type":"long","value":9000}})");
+        rotated->waitInputIdle();snap("ppt-rotate-positive.pptx");
+        rotated->command(".uno:Undo");rotated->waitInputIdle();snap("ppt-rotate-positive-undone.pptx");
+        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,2160,2160,1,1,0);
+        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,2160,2160,1,1,0);
+        rotated->waitInputIdle();
+        rotated->command(".uno:TransformDialog",R"({"TransformRotationDeltaAngle":{"type":"long","value":-9000}})");
+        rotated->waitInputIdle();snap("ppt-rotate-negative.pptx");
+        rotated->command(".uno:Undo");rotated->waitInputIdle();snap("ppt-rotate-negative-undone.pptx");
+    }
 
     std::cout << (g_fail ? "\nKẾT QUẢ PPT: CÓ LỖI\n" : "\nKẾT QUẢ PPT: TẤT CẢ ĐẠT\n");
     std::cout.flush();

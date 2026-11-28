@@ -57,11 +57,13 @@ struct PptEditTarget {
     QPointer<DocumentTab> tab;
     dung::Document* doc;
     int part, count;
+    bool notes;
     std::string name, graphic, text, cursor, selected;
     explicit PptEditTarget(DocumentTab* t) : tab(t), doc(t->document()) {
         doc->waitInputIdle();
         part = doc->currentPart();
         count = doc->partCount();
+        notes = t->pptNotesMode();
         if (part >= 0 && part < count) name = doc->partName(part);
         graphic = doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
         text = doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION);
@@ -71,7 +73,7 @@ struct PptEditTarget {
     bool verify(bool requireSelection) const {
         if (!tab || tab->document() != doc || tab->readOnly() || !tab->view()) return false;
         doc->waitInputIdle();
-        if (part >= 0 && part < count && doc->partCount() == count &&
+        if (tab->pptNotesMode()==notes && part >= 0 && part < count && doc->partCount() == count &&
             doc->currentPart() == part && doc->partName(part) == name &&
             (!requireSelection || ((!graphic.empty() || !text.empty() || !cursor.empty()) &&
                 doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION) == graphic &&
@@ -199,8 +201,24 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             return true;
         }
         safeTab->stepPart(page - 1 - d->currentPart());
+    } else if (id == QLatin1String("ppt.rotateObject")) {
+        if(d->readOnly()||tab->pptNotesMode())return true;
+        const PptEditTarget target(tab);
+        static const QRegularExpression rect(QStringLiteral("^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*[1-9]\\d*\\s*,\\s*[1-9]\\d*(?:\\s*,|\\s*$)"));
+        if(!rect.match(QString::fromStdString(target.graphic)).hasMatch()||!target.selected.empty()){
+            QMessageBox::information(tab,QObject::tr("Xoay đối tượng"),QObject::tr("Chọn đối tượng trên slide, không ở chế độ sửa chữ."));
+            return true;
+        }
+        bool ok=false;
+        const int degrees=QInputDialog::getInt(tab,QObject::tr("Xoay đối tượng"),
+            QObject::tr("Góc xoay tương đối (độ; dương ngược chiều kim đồng hồ, âm theo chiều kim đồng hồ):"),90,-359,359,1,&ok);
+        if(!ok||degrees==0||!target.verify(true))return true;
+        // SdrAngleItem expects signed hundredths of a degree. Supplying
+        // the delta argument runs the native transform without its dialog.
+        d->command(".uno:TransformDialog",dung::word::argLong("TransformRotationDeltaAngle",degrees*100));
+        d->waitInputIdle();tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.layerUp") || id == QLatin1String("ppt.layerDown") || id == QLatin1String("ppt.group") || id == QLatin1String("ppt.ungroup")) {
-        if(d->readOnly())return true;
+        if(d->readOnly()||tab->pptNotesMode())return true;
         const PptEditTarget target(tab);
         const QString command=id==QLatin1String("ppt.group")?QStringLiteral(".uno:FormatGroup"):
             id==QLatin1String("ppt.ungroup")?QStringLiteral(".uno:FormatUngroup"):

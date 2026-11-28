@@ -61,6 +61,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 
 ### B1 — PowerPoint: ca làm bài thuyết trình
 - [ ] P01.1 Chèn/sửa textbox, ảnh/hình, kéo/resize/rotate; căn chỉnh, thứ tự lớp, nhóm/bỏ nhóm; nhiều đối tượng, Undo/Redo.
+  - 28/11: native TransformDialog/TransformRotationDeltaAngle signed hundredths of degree, guard slide/selection and notes mode; test ±90°, neighboring shape, dimensions, order and Undo. Chờ CI/GUI, không nâng stage.
   - 28/11: #176 layer order Linux CI 46107375044 PASS; đồng bộ main #173/#170; bổ sung .uno:FormatGroup/.uno:FormatUngroup với guard selection/state và fixture độc lập kiểm group topology, hình/chữ/thứ tự, tọa độ tuyệt đối và Undo hai chiều. Chờ CI mới/GUI.
 - [ ] P02.1 Tạo/xóa/nhân đôi/sắp xếp slide, layout, thumbnail, notes; mở lại PPTX.
 - [ ] P03.1 F5/Shift+F5, chuyển slide/phím ESC, quay đúng slide; toàn màn hình/cửa sổ, màn hình ngoài.
