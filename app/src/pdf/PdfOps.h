@@ -102,6 +102,9 @@ struct StampOptions {
     QString pages = QStringLiteral("1-");
 };
 Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool allowReplace = false);
+// Add visible, selectable vector text at a normalized page point (not a redaction).
+Result insertPageText(const Input& in,int page,double x,double y,const QString& text,double fontSize,
+                      const QByteArray& expectedSource,const QString& dest);
 
 struct ImageOptions {
     bool fitA4 = false;  // true: mỗi ảnh vào một trang A4 (giữ tỉ lệ); false: trang đúng cỡ ảnh theo `dpi`

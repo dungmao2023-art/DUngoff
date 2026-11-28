@@ -654,6 +654,14 @@ int main(int argc, char** argv) {
         CHECK(r.ok && info(P(QStringLiteral("dau.pdf"))).pages == 3, "đóng dấu chữ: kết quả 3 trang");
         CHECK(q.contains("(BAN NHAP) Tj") && q.contains("/ca 0.3"), "đóng dấu chữ: có chữ và độ đậm 0.3 trong nội dung");
         CHECK(readFile(a) == aBytes, "đóng dấu: tệp nguồn giữ nguyên từng byte");
+        const auto insertedText=P("inserted-vietnamese-text.pdf"),badInsert=P("bad-inserted-text.pdf");
+        const auto sourceIdentity=fingerprint(a);
+        const auto inserted=dungpdf::insertPageText({a,{}},2,.5,.5,QStringLiteral("Dũng Office"),14,sourceIdentity,insertedText);
+        CHECK(inserted.ok&&info(insertedText).pages==3&&fingerprint(a)==sourceIdentity&&qdfOf(insertedText).contains("/ToUnicode"),
+              "insert Vietnamese vector text while retaining original document");
+        CHECK(!dungpdf::insertPageText({a,{}},2,.5,.5,QStringLiteral("Dũng Office"),14,QByteArray(32,'x'),badInsert).ok&&
+              !dungpdf::insertPageText({a,{}},2,1.5,.5,QStringLiteral("Dũng Office"),14,sourceIdentity,badInsert).ok&&
+              !QFile::exists(badInsert),"reject stale source and invalid text position");
         StampOptions sv;
         sv.text = QString::fromUtf8("BẢN NHÁP");
         sv.pages=QStringLiteral("2");sv.pos=Position::Custom;sv.fontSize=28;sv.opacity=0.7;

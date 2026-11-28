@@ -1021,7 +1021,8 @@ QByteArray buildOverlay(const QList<OverlayPage>& pages, double opacity, const I
 }
 
 // Chạy `qpdf in --overlay ov -- tmp` an toàn.
-Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& dest, bool allowReplace) {
+Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& dest, bool allowReplace,
+                    const QByteArray& expectedSource = {}) {
     Result res;
     QTemporaryDir td;
     if (!td.isValid()) {
@@ -1040,7 +1041,7 @@ Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& d
         QStringList a = pw.args();
         a << in.path << QStringLiteral("--overlay") << ov << QStringLiteral("--") << tmp;
         return a;
-    });
+    },expectedSource);
     if (res.ok && !in.password.isEmpty()) res.warnings << tr("Kết quả không còn mật khẩu.");
     return res;
 }
@@ -1048,7 +1049,7 @@ Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& d
 // Reuse Qt's PDF text and font-subsetting engine; qpdf overlays only the
 // new page content, leaving the original PDF's vector/image content intact.
 bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const StampOptions& opt,
-                    QByteArray* output,QString* error,const QHash<int,QString>& pageText = {}) {
+                    QByteArray* output,QString* error,const QHash<int,QString>& pageText = {},bool atPoint=false) {
     if (!qobject_cast<QGuiApplication*>(QCoreApplication::instance())) {
         *error=tr("Cần môi trường Qt GUI để vẽ chữ Unicode.");return false;
     }
@@ -1126,8 +1127,8 @@ bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const S
                 if(bw>W || bh>H){p.restore();p.end();*error=tr("Chữ không vừa trang.");return false;}
                 double x=0,y=0;
                 if(opt.pos==Position::Custom) {
-                    x=(W-bw)*opt.xPercent/100.0;
-                    y=(H-bh)*opt.yPercent/100.0;
+                    x=atPoint?qBound(0.0,W*opt.xPercent/100.0-bw/2,W-bw):(W-bw)*opt.xPercent/100.0;
+                    y=atPoint?qBound(0.0,H*opt.yPercent/100.0-bh/2,H-bh):(H-bh)*opt.yPercent/100.0;
                 }else{
                     placeBox(opt.pos,W,H,bw,bh,&x,&y);
                     // placeBox has a bottom-left origin; Qt's origin is top-left.
@@ -1337,6 +1338,26 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
     res = applyOverlay(in, buildOverlay(ops, opt.opacity, useImage ? &im : nullptr), dest, allowReplace);
     if (res.ok && useImage && im.orient != 1) res.warnings << tr("Ảnh có hướng xoay EXIF; hướng này không được áp dụng khi đóng dấu.");
     return res;
+}
+
+Result insertPageText(const Input& in,int page,double x,double y,const QString& text,double fontSize,
+                      const QByteArray& expectedSource,const QString& dest){
+    Result r;
+    if(expectedSource.size()!=32||fingerprint(in.path)!=expectedSource){r.error=tr("PDF nguồn đã thay đổi.");return r;}
+    if(text.trimmed().isEmpty()||text.size()>200||!std::isfinite(x)||!std::isfinite(y)||x<0||x>1||y<0||y>1||
+        !std::isfinite(fontSize)||fontSize<6||fontSize>72){r.error=tr("Chữ, cỡ hoặc vị trí không hợp lệ.");return r;}
+    const auto inf=info(in.path,in.password);
+    if(!inf.ok||inf.encrypted){r.error=tr("Chèn chữ chỉ hỗ trợ PDF không mã hóa.");return r;}
+    QList<PageGeom> geo;
+    if(!pageGeometry(in,&geo,&r))return r;
+    if(page<1||page>inf.pages||geo.size()!=inf.pages){r.error=tr("Trang không hợp lệ.");return r;}
+    StampOptions opt;opt.text=text;opt.pos=Position::Custom;opt.fontSize=fontSize;opt.gray=0;opt.opacity=1;
+    opt.xPercent=x*100;opt.yPercent=y*100;
+    QByteArray overlay;
+    if(!unicodeOverlay(geo,QSet<int>{page-1},opt,&overlay,&r.error,{},true))return r;
+    r=applyOverlay(in,overlay,dest,false,expectedSource);
+    if(r.ok)r.warnings<<tr("Chữ mới là lớp vector có thể chọn và sao chép, chưa hỗ trợ sửa lại như đối tượng chữ độc lập.");
+    return r;
 }
 
 Result imagesToPdf(const QStringList& images, const ImageOptions& opt, const QString& dest, bool allowReplace) {
