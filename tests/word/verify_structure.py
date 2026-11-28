@@ -173,3 +173,34 @@ for filename, expected_rows, split_vertical, undone in (
         check("TABLE_BODY_MARKER" in text(root), filename + ": body retained")
         for marker in ("TABLE_CELL_MARKER", "TABLE_SECOND_CELL"):
             check(text(tables[0]).count(marker) == 1, filename + ": original marker retained exactly once")
+
+# Check actual geometry of the marked cell's row and column, not the
+# modified flag or command acknowledgement. The fixture is a plain grid.
+def resize_geometry(filename):
+    with zipfile.ZipFile(Path(sys.argv[1]).parent / filename) as z:
+        root = ET.fromstring(z.read("word/document.xml"))
+        tables = list(root.iter(W+"tbl"))
+        check(len(tables) == 1, filename + ": exactly one table")
+        rows = tables[0].findall(W+"tr")
+        check(len(rows) == 6 and all(len(r.findall(W+"tc")) == 5 for r in rows),
+              filename + ": grid preserved")
+        check("TABLE_BODY_MARKER" in text(root), filename + ": body preserved")
+        for marker in ("TABLE_CELL_MARKER", "TABLE_SECOND_CELL"):
+            check(text(tables[0]).count(marker) == 1, filename + ": original cell marker preserved")
+        row = next(r for r in rows if "TABLE_CELL_MARKER" in text(r))
+        cell = next(c for c in row.findall(W+"tc") if "TABLE_CELL_MARKER" in text(c))
+        height = row.find(W+"trPr/"+W+"trHeight")
+        width = cell.find(W+"tcPr/"+W+"tcW")
+        return (int(height.get(W+"val", "0")) if height is not None else 0,
+                int(width.get(W+"w", "0")) if width is not None else 0)
+original = resize_geometry("word-table-resize-before.docx")
+height = resize_geometry("word-table-resize-height.docx")
+width = resize_geometry("word-table-resize-width.docx")
+check(abs(height[0]-1440) <= 2 and height[0] != original[0],
+      "native row height set to 1440 twips")
+check(abs(width[1]-720) <= 2 and width[1] != original[1],
+      "native column width set to 720 twips")
+check(resize_geometry("word-table-resize-height-undone.docx") == original,
+      "Undo row height restores original geometry")
+check(resize_geometry("word-table-resize-width-undone.docx") == original,
+      "Undo column width restores original geometry")

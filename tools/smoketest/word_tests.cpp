@@ -654,6 +654,20 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                             run(*reopened,".uno:Undo");
                             saveTable("word-table-split-horizontal-undone.docx");
                         }
+                        step("Word — chỉnh chiều cao hàng và chiều rộng cột");
+                        if(selectMarkedCell()){
+                            saveTable("word-table-resize-before.docx");
+                            run(*reopened,w::tableDimension(true,1440));
+                            saveTable("word-table-resize-height.docx");
+                            run(*reopened,".uno:Undo");
+                            saveTable("word-table-resize-height-undone.docx");
+                        }
+                        if(selectMarkedCell()){
+                            run(*reopened,w::tableDimension(false,720));
+                            saveTable("word-table-resize-width.docx");
+                            run(*reopened,".uno:Undo");
+                            saveTable("word-table-resize-width-undone.docx");
+                        }
                     }
                 }
             }

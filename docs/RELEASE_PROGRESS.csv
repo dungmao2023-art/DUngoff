@@ -10,7 +10,7 @@ id,priority,group,weight,stage,remaining_low_hours,remaining_high_hours,evidence
 "A09","P0","Chung","5","partial","6","16","Audit nguồn/license/runtime/SBOM"
 "A10","P0","Chung","5","partial","5","14","#129/#130/#132/#133/#134/#135/#136/#137 merged; Windows/Linux head CI PASS render, drag, cache, ribbon, PDF worker, stacked focus, viewport and live range; #138 pending; actual latency/RAM stress and integrated main acceptance pending"
 "W01","P0","Word","5","integrated","3","8","#27 DOCX CI; test GUI"
-"W02","P0","Word","5","partial","5","15","#147/#150 merged; CI 46049318168/46059678726 Windows/Linux PASS; native SplitCell UI and DOCX Undo tests pending CI; resize/image and physical GUI pending"
+"W02","P0","Word","5","partial","5","15","#147/#150 merged; CI 46049318168/46059678726 Windows/Linux PASS; native SplitCell/row height/column width UI and DOCX Undo tests pending CI; image and physical GUI pending"
 "W03","P0","Word","8","partial","8","24","#16/#51 merged; TOC refresh native; #57 dialog probe FAIL; GUI"
 "W04","P0","Word","5","partial","6","16","Single literal selection replacement and Undo tests 4cc5ab5 pending CI; case-sensitive search and Hunspell/Vietnamese dictionary verification pending"
 "W05","P0","Word","5","integrated","4","12","#30; mẫu hành chính và mail merge"
