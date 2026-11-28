@@ -207,8 +207,15 @@ AnimScan scanAnimation(const QString& text) {
                     path[2] == QLatin1String("spTree") &&
                     ((path[3] == QLatin1String("sp") && path[4] == QLatin1String("nvSpPr")) ||
                      (path[3] == QLatin1String("pic") && path[4] == QLatin1String("nvPicPr")) ||
-                     (path[3] == QLatin1String("graphicFrame") && path[4] == QLatin1String("nvGraphicFramePr"))))
-                    out.shapes.append({id, xr.attributes().value(QStringLiteral("name")).toString()});
+                     (path[3] == QLatin1String("graphicFrame") && path[4] == QLatin1String("nvGraphicFramePr")) ||
+                     (path[3] == QLatin1String("grpSp") && path[4] == QLatin1String("nvGrpSpPr")))) {
+                    // A top-level group is one animation target. Its descendants
+                    // remain excluded to prevent parent/child timing conflicts.
+                    QString label = xr.attributes().value(QStringLiteral("name")).toString();
+                    if (path[3] == QLatin1String("grpSp"))
+                        label = QStringLiteral("[Nhóm] ") + label;
+                    out.shapes.append({id, label});
+                }
             }
         } else if (xr.isEndElement()) {
             if(path.size()==2&&path.last()==QLatin1String("timing")){
@@ -238,7 +245,7 @@ QList<Shape> slideShapes(const QString& source, int slide1, QString* error) {
         if (error) *error = scan.error.isEmpty() ? QStringLiteral("Slide đã có animation/timing; chưa hỗ trợ sửa hoặc ghép hiệu ứng.") : scan.error;
         return {};
     }
-    if (scan.shapes.isEmpty() && error) *error = QStringLiteral("Không có hộp chữ, hình, ảnh, bảng hoặc khung biểu đồ độc lập có thể tạo hiệu ứng.");
+    if (scan.shapes.isEmpty() && error) *error = QStringLiteral("Không có hộp chữ, hình, ảnh, bảng, biểu đồ hoặc nhóm đối tượng cấp ngoài có thể tạo hiệu ứng.");
     return scan.shapes;
 }
 Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTiming>* timing) {
