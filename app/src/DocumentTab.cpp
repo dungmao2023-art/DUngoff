@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 #define LOK_USE_UNSTABLE_API
+#include <algorithm>
 #include "DocumentTab.h"
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -397,7 +398,7 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
             m_slideRefresh->setSingleShot(true);
             m_slideRefresh->setInterval(250);
             connect(m_slideRefresh,&QTimer::timeout,this,[this]{
-                if(m_pptNotes||m_pendingThumbnails.isEmpty())return;
+                if(m_pptNotes||m_pptMaster||m_pendingThumbnails.isEmpty())return;
                 // Defer thumbnail work while typing or dragging; one slide per tick.
                 if(!isVisible())return; // resumed by showEvent, not periodic polling
                 if(!m_doc->inputIdleFor(150)) {
@@ -779,7 +780,7 @@ QString DocumentTab::statusText() const {
     const int cur=m_sheets?m_sheets->currentIndex()+1:m_slides?m_slides->currentRow()+1:0;
     switch (m_doc->kind()) {
     case DocKind::Spreadsheet: s += tr("  •  Sheet %1/%2").arg(cur).arg(n); break;
-    case DocKind::Presentation: s += (m_pptNotes ? tr("  •  Ghi chú %1/%2") : tr("  •  Trang chiếu %1/%2")).arg(cur).arg(n); break;
+    case DocKind::Presentation: s += (m_pptMaster ? tr("  •  Slide Master %1/%2") : m_pptNotes ? tr("  •  Ghi chú %1/%2") : tr("  •  Trang chiếu %1/%2")).arg(cur).arg(n); break;
     case DocKind::Drawing: s += tr("  •  Trang %1/%2").arg(cur).arg(n); break;
     default: break;
     }
@@ -795,7 +796,7 @@ void DocumentTab::hideEvent(QHideEvent* event) {
 
 void DocumentTab::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
-    if(m_slideRefresh&&!m_pptNotes&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
+    if(m_slideRefresh&&!m_pptNotes&&!m_pptMaster&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
     // Re-evaluate the latest page after the stacked document becomes visible.
     if(m_pdfComparison&&!m_pdfComparison->isHidden())
         QTimer::singleShot(0,this,[this]{refreshPdfComparison();});
@@ -818,9 +819,9 @@ void DocumentTab::rebuildParts() {
         m_pendingThumbnails.clear();
         m_slides->clear();
         for (int i = 0; i < n; ++i) {
-            m_slides->addItem(m_doc->kind() == DocKind::Presentation ? tr("Trang chiếu %1").arg(i + 1)
+            m_slides->addItem(m_doc->kind() == DocKind::Presentation ? (m_pptMaster ? tr("Master %1") : tr("Trang chiếu %1")).arg(i + 1)
                                                                     : tr("Trang %1").arg(i + 1));
-            if(m_slideRefresh&&!m_pptNotes)m_pendingThumbnails.insert(i);
+            if(m_slideRefresh&&!m_pptNotes&&!m_pptMaster)m_pendingThumbnails.insert(i);
         }
         m_slides->setCurrentRow(cur);
         if(m_slideRefresh&&isVisible()&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
@@ -853,7 +854,7 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
     if (m_rangeTools && (type == LOK_CALLBACK_CELL_ADDRESS || type == LOK_CALLBACK_CELL_SELECTION_AREA ||
         type == LOK_CALLBACK_CELL_FORMULA || type == LOK_CALLBACK_SET_PART))
         notifyDocumentRangeTools(m_rangeTools);
-    if(type==LOK_CALLBACK_INVALIDATE_TILES && m_slideRefresh && !m_pptNotes) {
+    if(type==LOK_CALLBACK_INVALIDATE_TILES && m_slideRefresh && !m_pptNotes&&!m_pptMaster) {
         m_pendingThumbnails.insert(m_slides->currentRow());
         if(isVisible())m_slideRefresh->start(250);
     }
@@ -915,7 +916,7 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
                 m_rebuildingParts=true;
                 m_slides->setCurrentRow(part);
                 m_rebuildingParts=false;
-                if(m_slideRefresh&&!m_pptNotes) {
+                if(m_slideRefresh&&!m_pptNotes&&!m_pptMaster) {
                     for(int i=0;i<count;++i)m_pendingThumbnails.insert(i);
                     if(isVisible())m_slideRefresh->start(40);
                 }
@@ -932,6 +933,11 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
 }
 
 void DocumentTab::runCommand(const QString& uno) {
+    if(m_pptMaster && (uno.startsWith(QLatin1String(".uno:InsertPage"))||uno.startsWith(QLatin1String(".uno:DuplicatePage"))||
+       uno.startsWith(QLatin1String(".uno:DeletePage"))||uno.startsWith(QLatin1String(".uno:MovePage"))||
+       uno.startsWith(QLatin1String(".uno:HideSlide"))||uno.startsWith(QLatin1String(".uno:ShowSlide")))){
+        QMessageBox::information(this,tr("Slide Master"),tr("Trở về Trang chiếu để thay đổi danh sách slide."));return;
+    }
     // Dạng ".uno:Lệnh#{json}" mang đối số UNO (dùng cho ribbon PowerPoint)
     const int hash = uno.indexOf(QLatin1Char('#'));
     if (hash > 0) m_doc->command(ss(uno.left(hash)), ss(uno.mid(hash + 1)));
@@ -995,6 +1001,7 @@ void DocumentTab::setZoom(int percent) { m_view->setZoom(percent); }
 
 void DocumentTab::setPptNotesMode(bool notes) {
     if (m_doc->kind() != DocKind::Presentation || m_pptNotes == notes) return;
+    if (notes && m_pptMaster && !setPptMasterMode(false)) return;
     m_doc->waitInputIdle();
     m_doc->setPartMode(notes ? 1 : 0); // LOK_PARTMODE_NOTES / SLIDES, verified in ppt_tests.cpp
     m_doc->waitInputIdle();
@@ -1003,6 +1010,48 @@ void DocumentTab::setPptNotesMode(bool notes) {
     rebuildParts();
     m_view->setFocus();
     emit statusChanged();
+}
+bool DocumentTab::setPptMasterMode(bool master) {
+    if(m_doc->kind()!=DocKind::Presentation)return false;
+    if(m_pptMaster==master)return true;
+    if(master&&m_doc->readOnly())return false;
+    if(master&&m_pptNotes)setPptNotesMode(false);
+    m_doc->waitInputIdle();
+    if(master){
+        m_beforeMasterPart=m_doc->currentPart();
+        m_normalPartHashes.clear();
+        const int count=m_doc->partCount();
+        for(int i=0;i<count;++i){
+            const auto hash=m_doc->partHash(i);
+            if(hash.empty()){m_normalPartHashes.clear();return false;}
+            m_normalPartHashes.push_back(hash);
+        }
+        if(m_normalPartHashes.empty())return false;
+        // The desktop SlideMasterPage command routes through the pane framework.
+        // MasterPage enters EditMode::MasterPage directly in DrawViewShell.
+        m_doc->command(".uno:MasterPage",R"({"MasterPage":{"type":"boolean","value":false}})");
+    }else m_doc->command(".uno:CloseMasterView");
+    m_doc->waitInputIdle(350,4000);
+    const int count=m_doc->partCount();
+    bool verified=count>0&&(master||static_cast<size_t>(count)==m_normalPartHashes.size());
+    for(int i=0;i<count&&verified;++i){
+        const auto hash=m_doc->partHash(i);
+        verified=!hash.empty()&&(master?
+            std::find(m_normalPartHashes.begin(),m_normalPartHashes.end(),hash)==m_normalPartHashes.end():
+            hash==m_normalPartHashes[static_cast<size_t>(i)]);
+    }
+    if(!verified){
+        if(master){
+            m_doc->command(".uno:CloseMasterView");
+            m_doc->waitInputIdle(350,4000);
+        }
+        QMessageBox::warning(this,tr("Slide Master"),tr("Engine chưa xác nhận chuyển chế độ. Không tiếp tục chỉnh sửa master."));
+        m_view->resetForPartChange();rebuildParts();return false;
+    }
+    m_pptMaster=master;
+    if(!master){m_doc->setPart(qBound(0,m_beforeMasterPart,m_doc->partCount()-1));m_doc->waitInputIdle();}
+    m_view->resetForPartChange();rebuildParts();m_view->setFocus();emit statusChanged();
+    return true;
 }
 void DocumentTab::stepPart(int delta) {
     if (!m_slides || m_slides->count() == 0) return;

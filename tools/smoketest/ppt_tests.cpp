@@ -616,6 +616,71 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         snap(std::string("ppt-rotate-")+item.name+"-undone.pptx");
     }
 
+    step("PowerPoint — direct Slide Master editing and return to normal");
+    auto master=engine->open(out/"ppt-master-input.pptx",&err);
+    check(bool(master),"Mở fixture master: "+err);
+    if(master){
+        master->setClientView(512,512,7680,7680,0,0,7680,7680);
+        renderHash(*master,0);
+        const auto first=master->partHash(0), second=master->partHash(1);
+        check(master->partCount()==2&&!first.empty()&&!second.empty()&&first!=second,"Two distinct normal slides");
+        master->command(".uno:MasterPage",R"({"MasterPage":{"type":"boolean","value":false}})");master->waitInputIdle(350,4000);
+        const auto hash=master->partHash(0);
+        // PPTX layouts can import as separate native master pages. LOK's
+        // getParts() switches to GetMasterSdPageCount in master mode.
+        // Require all master identities to differ from both ordinary slides;
+        // the independent OOXML verifier still requires the actual master edit.
+        const int count=master->partCount();
+        bool entered=count>0&&!hash.empty();
+        for(int i=0;i<count&&entered;++i){
+            const auto id=master->partHash(i);
+            entered=!id.empty()&&id!=first&&id!=second;
+        }
+        check(entered,"Native master mode with distinct page identities; count="+std::to_string(count)+" first="+first+" master="+hash);
+        if(entered){
+            // Entered master mode from the blank-layout slide. Edit the
+            // native current master/layout instead of guessing master index 0.
+            const int active=master->currentPart();
+            check(active>=0&&active<count,"Current master/layout index: "+std::to_string(active));
+            // paintPartTile is an independent normal-slide renderer and may
+            // switch view mode internally. Exercise the active editor tile
+            // API instead, exactly as the canvas does in master mode.
+            auto activeRender=[&](){
+                long w=0,h=0;master->documentSize(w,h);
+                if(w<=0||h<=0)return 0ULL;
+                std::vector<uint8_t> pixels(640*480*4,0);
+                master->paintTile(pixels.data(),640,480,0,0,int(w),int(h));
+                unsigned long long digest=1469598103934665603ULL;
+                bool nonzero=false;
+                for(auto c:pixels){nonzero|=c!=0;digest^=c;digest*=1099511628211ULL;}
+                return nonzero?digest:0ULL;
+            };
+            const auto before=activeRender();
+            const auto activeId=master->partHash(active);
+            check(before!=0&&master->currentPart()==active&&!activeId.empty(),"Active master editor tile renders without switching page");
+            // Exercise a native object insertion that needs no mouse hit
+            // testing or text-edit focus. It must persist in the inherited
+            // master, not the current normal slide.
+            master->setClientView(512,512,7680,7680,0,0,7680,7680);
+            const auto png=out/"master-native-image.png";
+            writeTestPng(png);
+            std::string uri="file://"+fs::absolute(png).generic_string();
+            if(uri.size()>7&&uri[7]!='/')uri.insert(7,"/");
+            master->command(".uno:InsertGraphic",Document::stringArg("FileName",uri));
+            master->waitInputIdle(350,4000);
+            master->postKey(LOK_KEYEVENT_KEYINPUT,0,1281);
+            master->postKey(LOK_KEYEVENT_KEYUP,0,1281);
+            master->waitInputIdle(350,4000);
+            const auto after=activeRender();
+            check(before!=0&&after!=0&&before!=after&&master->currentPart()==active&&master->partHash(active)==activeId,
+                  "Native master editor tile changed without switching page; before="+std::to_string(before)+" after="+std::to_string(after));
+            master->command(".uno:CloseMasterView");master->waitInputIdle(350,4000);
+            check(master->partCount()==2&&master->partHash(0)==first&&master->partHash(1)==second,"Return to both original normal slides in order");
+            auto dest=out/"ppt-master-edited.pptx";fs::remove(dest,ec);
+            auto saved=master->saveAs(dest);check(saved.ok,"Save master change: "+saved.message);
+        }
+    }
+
     std::cout << (g_fail ? "\nKẾT QUẢ PPT: CÓ LỖI\n" : "\nKẾT QUẢ PPT: TẤT CẢ ĐẠT\n");
     std::cout.flush();
     std::_Exit(g_fail ? 1 : 0);

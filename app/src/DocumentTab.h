@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 #pragma once
+#include <vector>
 #include "dung/Engine.h"
 #include "recovery/RecoveryStore.h"
 
@@ -53,6 +54,8 @@ public:
     void adoptRecovered(const recovery::Entry& e);  // bản mở từ phục hồi: xoá bản cũ sau khi đã có bản tự lưu mới / đã lưu
     void setPptNotesMode(bool notes);
     bool pptNotesMode() const { return m_pptNotes; }
+    bool setPptMasterMode(bool master);
+    bool pptMasterMode() const { return m_pptMaster; }
     void stepPart(int delta);  // chuyển trang/slide trước (-1) hoặc sau (+1)
     // Bản sao có lề mới (mở trong thẻ mới): nhớ tệp gốc thật để tự lưu/phục hồi và "Lưu thành" không đụng tệp gốc.
     void setCopyOrigin(const QString& originalPath);
@@ -109,6 +112,9 @@ private:
     QHash<QString, QString> m_states;
     QStringList m_documentFonts;
     bool m_pptNotes = false;
+    bool m_pptMaster = false;
+    int m_beforeMasterPart = 0;
+    std::vector<std::string> m_normalPartHashes;
     bool m_rebuildingParts = false;
     QTimer* m_autosave = nullptr;
     int m_autosaveDeferrals=0;
