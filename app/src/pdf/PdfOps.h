@@ -110,7 +110,9 @@ struct BlankReport {
 // Trang "trắng" = không có lệnh vẽ nào và không có chú thích. KHÔNG phát hiện trang trắng nhìn bằng mắt nhưng
 // có ảnh quét hoặc ô tô nền trắng.
 BlankReport findBlankPages(const Input& in);
-Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace = false);
+// When a preview was confirmed, refuse a different page count or blank set.
+Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace = false,
+                        const BlankReport* confirmed = nullptr);
 
 // Chuỗi chỉ gồm ký tự ASCII in được (32..126)? Dùng để báo trước cho người dùng khi nhập chữ đánh số/đóng dấu.
 bool isAsciiText(const QString& s);

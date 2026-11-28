@@ -1446,12 +1446,16 @@ BlankReport findBlankPages(const Input& in) {
     return br;
 }
 
-Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace) {
+Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace, const BlankReport* confirmed) {
     Result res;
     const BlankReport br = findBlankPages(in);
     if (!br.ok) {
         res.error = br.error;
         res.needPassword = br.needPassword;
+        return res;
+    }
+    if (confirmed && (!confirmed->ok || br.pages != confirmed->pages || br.blank != confirmed->blank)) {
+        res.error = tr("Danh sách trang trắng đã thay đổi kể từ lúc xác nhận. Hãy kiểm tra lại.");
         return res;
     }
     if (br.blank.isEmpty()) {

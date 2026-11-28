@@ -837,14 +837,36 @@ QWidget* PdfToolsDialog::buildBlank() {
         if (!r.notes.isEmpty()) msg += tr("\n\nLưu ý:\n%1").arg(r.notes.join('\n'));
         QMessageBox::information(this, tr("Trang trắng"), msg);
     });
-    connect(rem, &QPushButton::clicked, this, [this] {
+    connect(rem, &QPushButton::clicked, this, [this, pagesText] {
         const QString src = m_blankFile->text();
         if (src.isEmpty()) { QMessageBox::information(this, tr("Trang trắng"), tr("Hãy chọn tệp PDF.")); return; }
+        const PdfSourceSnapshot snapshot(src);
+        BlankReport confirmed = findBlankPages(inputFor(src));
+        if (confirmed.needPassword && askPassword(src)) confirmed = findBlankPages(inputFor(src));
+        if (!confirmed.ok || !snapshot.unchanged()) {
+            QMessageBox::warning(this,tr("Trang trắng"),confirmed.error.isEmpty()?tr("Tệp nguồn đã thay đổi hoặc không đọc được."):confirmed.error);
+            return;
+        }
+        if (confirmed.blank.isEmpty() || confirmed.blank.size() >= confirmed.pages) {
+            QMessageBox::information(this,tr("Trang trắng"),confirmed.blank.isEmpty()?tr("Không có trang trắng để bỏ."):tr("Không bỏ mọi trang của tài liệu."));
+            return;
+        }
+        const QString prompt=tr("Bỏ %1/%2 trang: %3?\nCòn %4 trang. Bản gốc giữ nguyên.\n\n%5")
+            .arg(confirmed.blank.size()).arg(confirmed.pages).arg(pagesText(confirmed.blank))
+            .arg(confirmed.pages-confirmed.blank.size()).arg(confirmed.notes.join('\n'));
+        if(QMessageBox::question(this,tr("Xác nhận bỏ trang trắng"),prompt,QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
         const QString dest = pickDest(this, src, tr("bỏ trang trắng"));
         if (dest.isEmpty()) return;
-        const bool replace = false;
-        showResult(runWithPasswords({src}, [this, src, dest, replace] { return removeBlankPages(inputFor(src), dest, replace); }),
-                   tr("Đã bỏ trang trắng"));
+        if(!snapshot.unchanged()||m_blankFile->text()!=src){
+            QMessageBox::warning(this,tr("Trang trắng"),tr("Tệp nguồn đã thay đổi. Hãy kiểm tra lại trước khi xuất."));
+            return;
+        }
+        showResult(runWithPasswords({src}, [this, src, dest, snapshot, confirmed] {
+            if(!snapshot.unchanged()){
+                Result r;r.error=tr("Tệp nguồn đã thay đổi; chưa xuất bản sao.");return r;
+            }
+            return removeBlankPages(inputFor(src), dest, false, &confirmed);
+        }),tr("Đã bỏ trang trắng"));
     });
     return w;
 }
