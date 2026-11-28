@@ -316,6 +316,34 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     const std::string afterReplace = selText(d);
     check(has(afterReplace, "baz bar baz") && !has(afterReplace, "foo"), "Thay tất cả 'foo' bằng 'baz'", snippet(afterReplace, 80));
 
+    step("thay một vùng chữ tiếng Việt và hoàn tác");
+    run(d, ".uno:GoToEndOfDoc");
+    check(d.paste("text/plain;charset=utf-8", "\nMẪU_THAY ĐÍCH_GIỮ MẪU_THAY"),"Chèn fixture thay một lần");
+    d.waitInputIdle();
+    selectAll(d);
+    const auto singleBefore=selText(d);
+    run(d,".uno:GoToEndOfDoc");
+    run(d,w::findNext("MẪU_THAY",true));
+    const bool oneSelected=selText(d)=="MẪU_THAY";
+    check(oneSelected,"Tìm một vùng chữ Unicode chính xác");
+    if(oneSelected){
+        check(d.paste("text/plain;charset=utf-8","ĐÃ_THAY"),"Thay đúng vùng chọn bằng paste");
+        d.waitInputIdle();selectAll(d);
+        check(has(selText(d),"MẪU_THAY ĐÍCH_GIỮ ĐÃ_THAY"),"Chỉ một kết quả bị thay, giữ vùng lân cận",snippet(selText(d),140));
+        run(d,".uno:Undo");selectAll(d);
+        check(selText(d)==singleBefore,"Undo thay một lần khôi phục đầy đủ");
+        run(d,".uno:GoToEndOfDoc");
+        run(d,w::findNext("MẪU_THAY",true));
+        if(selText(d)=="MẪU_THAY"){
+            d.postKey(LOK_KEYEVENT_KEYINPUT,0,1286);
+            d.postKey(LOK_KEYEVENT_KEYUP,0,1286);
+            d.waitInputIdle();selectAll(d);
+            check(has(selText(d),"MẪU_THAY ĐÍCH_GIỮ ")&&!has(selText(d),"ĐÍCH_GIỮ MẪU_THAY"),"Thay rỗng chỉ xóa kết quả đang chọn");
+            run(d,".uno:Undo");selectAll(d);
+            check(selText(d)==singleBefore,"Undo xóa vùng chọn khôi phục đầy đủ");
+        }else check(false,"Tìm lại vùng trước khi xóa");
+    }
+
     // ---------------- chèn chữ Việt qua paste (cơ chế dùng cho nhóm "Tiện ích Việt") ----------------
     step("dán chữ Việt");
     selectAll(d);
