@@ -88,6 +88,21 @@ public:
     std::function<void(QPointF)> placeNote;
     void setNoteMode(bool on){noteMode=on;drag=false;setCursor(on?Qt::CrossCursor:Qt::IBeamCursor);update();}
     bool hasPage() const{return !page.image.isNull();}
+    QList<QRectF> markupBounds() const{
+        QList<QRectF> result;
+        if(selection.size()>256)return result;
+        for(const auto& poly:selection){
+            const auto rect=poly.boundingRect();
+            if(poly.size()<4||poly.size()>5||rect.isEmpty()||rect.left()<0||rect.top()<0||rect.right()>1||rect.bottom()>1)return {};
+            // Do not replace a slanted or arbitrary polygon by an inaccurate box.
+            for(const auto& p:poly){
+                if((qAbs(p.x()-rect.left())>1e-6&&qAbs(p.x()-rect.right())>1e-6)||
+                   (qAbs(p.y()-rect.top())>1e-6&&qAbs(p.y()-rect.bottom())>1e-6))return {};
+            }
+            result.append(rect);
+        }
+        return result;
+    }
     QString selectedText;
     void setPage(printrender::PagePreview p){page=std::move(p);selectedText.clear();selection.clear();drag=false;update();}
     void setSelection(const printrender::PageSelection& s){selection=s.bounds;selectedText=s.text;update();}
@@ -1271,7 +1286,10 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* copy=new QPushButton(tr("Sao chép chữ đã chọn"),w);copy->setEnabled(false);bottom->addWidget(copy);
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
     auto* edit=new QPushButton(tr("Sửa chữ gốc đã chọn"),w);bottom->addWidget(edit);edit->setEnabled(false);
-    auto* annotate=new QPushButton(tr("Thêm ghi chú"),w);annotate->setCheckable(true);annotate->setEnabled(false);bottom->addWidget(annotate);bottom->addStretch();
+    auto* annotate=new QPushButton(tr("Thêm ghi chú"),w);annotate->setCheckable(true);annotate->setEnabled(false);bottom->addWidget(annotate);
+    auto* highlight=new QPushButton(tr("Tô sáng"),w);auto* underline=new QPushButton(tr("Gạch chân"),w);
+    highlight->setEnabled(false);underline->setEnabled(false);bottom->addWidget(highlight);bottom->addWidget(underline);bottom->addStretch();
+    auto selectionIdentity=std::make_shared<QByteArray>();
     connect(annotate,&QPushButton::toggled,w,[=](bool active){
         canvas->setNoteMode(active);
         if(active)status->setText(tr("Nhấp vào vị trí muốn đặt ghi chú trên trang. Bấm lại nút để hủy."));
@@ -1285,7 +1303,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         next->setEnabled(row>=0&&(row+1<list->count()||(*browsing&&current<jump->maximum())));
         if(row>=0){QSignalBlocker guard(jump);jump->setValue(list->item(row)->data(Qt::UserRole).toInt());}
     };
-    auto clear=[=]{snapshot->reset();*browsing=false;list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);status->clear();refreshNav();};
+    auto clear=[=]{selectionIdentity->clear();highlight->setEnabled(false);underline->setEnabled(false);snapshot->reset();*browsing=false;list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);status->clear();refreshNav();};
     auto openRange=[=](int page){
         clear();
         const QString path=m_searchFile->text();
@@ -1321,6 +1339,19 @@ QWidget* PdfToolsDialog::buildSearch() {
     };
     connect(copy,&QPushButton::clicked,w,copyCurrent);
     canvas->copySelection=copyCurrent;
+    auto saveMarkup=[=](dungpdf::MarkupKind kind){
+        if(!list->currentItem()||!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
+        const auto source=snapshot->value();
+        const auto bounds=canvas->markupBounds();const auto identity=*selectionIdentity;
+        if(bounds.isEmpty()||identity.size()!=32||canvas->selectedText.isEmpty())return;
+        if(dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
+        const int page=list->currentItem()->data(Qt::UserRole).toInt();
+        const auto label=kind==dungpdf::MarkupKind::Highlight?tr("Tô sáng"):tr("Gạch chân");
+        const auto dest=pickDest(this,source.path,label);if(dest.isEmpty())return;
+        showResult(runWithPasswords({source.path},[=]{return addTextMarkup(inputFor(source.path),page,bounds,kind,identity,dest);}),label);
+    };
+    connect(highlight,&QPushButton::clicked,w,[=]{saveMarkup(dungpdf::MarkupKind::Highlight);});
+    connect(underline,&QPushButton::clicked,w,[=]{saveMarkup(dungpdf::MarkupKind::Underline);});
     canvas->placeNote=[=](QPointF point){
         annotate->setChecked(false);
         if(!list->currentItem()||!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
@@ -1358,12 +1389,18 @@ QWidget* PdfToolsDialog::buildSearch() {
     });
 
     canvas->select=[=](QPointF from,QPointF to){
+        selectionIdentity->clear();highlight->setEnabled(false);underline->setEnabled(false);
         const auto* item=list->currentItem();
         if(!item){canvas->setSelection({});copy->setEnabled(false);edit->setEnabled(false);return;}
         if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
+        const auto identity=dungpdf::fingerprint(snapshot->value().path);
         const auto selected=printrender::selectText(snapshot->value().path,item->data(Qt::UserRole).toInt(),from,to);
         if(!snapshot->value().unchanged()){rejectStale();return;}
         canvas->setSelection(selected);copy->setEnabled(!selected.text.isEmpty());edit->setEnabled(pdfedit::available()&&!selected.text.isEmpty());
+        const bool markable=identity.size()==32&&!selected.text.isEmpty()&&!canvas->markupBounds().isEmpty()&&!findQpdf().isEmpty();
+        if(markable&&dungpdf::fingerprint(snapshot->value().path)==identity){
+            *selectionIdentity=identity;highlight->setEnabled(true);underline->setEnabled(true);
+        }
         if(!selected.error.isEmpty())status->setText(selected.error);
     };
     connect(m_searchFile,&QLineEdit::textChanged,w,[=]{
@@ -1409,6 +1446,7 @@ QWidget* PdfToolsDialog::buildSearch() {
     });
     connect(query,&QLineEdit::returnPressed,go,&QPushButton::click);
     connect(list,&QListWidget::currentItemChanged,w,[=](QListWidgetItem* item,QListWidgetItem*){
+        selectionIdentity->clear();highlight->setEnabled(false);underline->setEnabled(false);
         text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);refreshNav();if(!item)return;
         if(!snapshot->has_value()||!snapshot->value().unchanged()){
             rejectStale();return;

@@ -826,6 +826,18 @@ int main(int argc, char** argv) {
         CHECK(!addTextNote({a,{}},1,50,50,text,stale,QByteArray(32,'x'),true).ok&&
               !addTextNote({a,{}},1,50,50,text,stale,{},true).ok&&!QFileInfo::exists(stale),
               "direct annotation rejects missing or stale source fingerprint");
+        const QList<QRectF> marks{QRectF(.1,.1,.2,.03),QRectF(.1,.16,.25,.03)};
+        const auto marked=P("highlight.pdf"),underlined=P("underline.pdf");
+        CHECK(addTextMarkup({a,{}},1,marks,MarkupKind::Highlight,fingerprint(a),marked).ok&&
+              info(marked).pages==3&&qdfOf(marked).contains("/Highlight")&&qdfOf(marked).contains("/QuadPoints"),
+              "real multi-line highlight annotation");
+        CHECK(addTextMarkup({marked,{}},1,marks,MarkupKind::Underline,fingerprint(marked),underlined).ok&&
+              qdfOf(underlined).contains("/Underline")&&qdfOf(underlined).contains("/Highlight")&&readFile(a)==aBytes,
+              "underline preserves existing annotation and original");
+        const auto badMark=P("bad-mark.pdf");
+        CHECK(!addTextMarkup({a,{}},1,{QRectF(.9,.9,.2,.2)},MarkupKind::Highlight,fingerprint(a),badMark).ok&&
+              !addTextMarkup({a,{}},1,marks,MarkupKind::Underline,QByteArray(32,'x'),badMark).ok&&
+              !QFileInfo::exists(badMark),"reject out-of-page and stale markup");
         CHECK(!fillTextField({a,{}},"Name","Test",P("no-form.pdf")).ok&&!QFileInfo::exists(P("no-form.pdf")),"no form does not publish result");
         // Real single-widget text form with standard Helvetica resources.
         QByteArray bytes="%PDF-1.4\n";QList<int> offsets;
