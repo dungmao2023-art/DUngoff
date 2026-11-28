@@ -12,6 +12,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] A04.2 Tắt bất thường khi đang chỉnh; khôi phục bản tự lưu; chọn giữ/bỏ; không ghi đè nguồn.
 - [ ] A04.3 File khóa/read-only/đầy đĩa/đích đã tồn tại: báo lỗi rõ, giữ bản gốc và nội dung chưa lưu; không báo thành công giả.
 - [ ] A02.1 Windows thật: Telex/VNI/IME, dấu tiếng Việt, caret nhấp nháy, click đúng vị trí, kéo chọn, Backspace/Delete, Ctrl+A/C/X/V/Z/Y, Enter, Tab.
+  - 28/11: mã/test 9898697506262a2a123726d2d17de4164d3f4f8f từ chối toàn bộ yêu cầu thay IME ngoài vùng hỗ trợ thay vì chèn sai vị trí; reset preedit có guard chống reentrancy và thông báo. Kiểm tra unit đã thêm; CI và thử Windows thật còn thiếu. Không tăng stage.
 - [ ] A02.2 DPI 100/125/150/200%; zoom, cuộn, chuột và bàn phím không lệch vị trí.
 - [ ] A03.1 Mở đồng thời 2 file mỗi loại; tab phân loại; đổi tab/sheet; lưu/đóng đúng file, hủy đóng khi chưa lưu.
 - [ ] A05.1 In/xem trước từ Word/Excel/PPT/PDF; chọn phạm vi, A4, hướng giấy, lề, chữ Việt; kiểm PDF xuất và máy in thật.
