@@ -56,3 +56,8 @@
 ## Qt PDF (xem trước in và in)
 - Mô-đun Qt PDF của Qt Project / The Qt Company, giấy phép GNU LGPL phiên bản 3 (hoặc GPL phiên bản 2, hoặc giấy phép thương mại) — theo trang giấy phép chính thức https://doc.qt.io/qt-6/qtpdf-index.html. Dũng Office dùng bản LGPL, liên kết động (DLL kèm theo bộ cài), không sửa mã Qt.
 - Mô-đun này đi kèm bộ vẽ PDF PDFium cùng các thành phần bên thứ ba của nó; văn bản giấy phép của các thành phần đó nằm trong tài liệu giấy phép của Qt (https://doc.qt.io/qt-6/qtpdf-attribution.html). Mình chưa đối chiếu từng thành phần: cần rà lại trước khi phát hành chính thức.
+
+## PDFium Editing SDK (tùy chọn)
+- PDFium upstream: https://pdfium.googlesource.com/pdfium/ (BSD-style và các giấy phép thành phần đi kèm).
+- SDK nhị phân: https://github.com/bblanchon/pdfium-binaries, bản không V8 `chromium/8179`, build bên thứ ba. CI kiểm tra release bất biến, SHA-256 asset từ GitHub trước khi giải nén. DLL liên kết động, không sửa mã thư viện.
+- Gói Windows có SDK phải kèm `pdfium-notices/verified-source.json` và toàn bộ các tệp giấy phép/notice phát hiện trong archive. Cần rà giấy phép thành phần trước phát hành công khai.
