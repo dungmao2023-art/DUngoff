@@ -54,7 +54,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
         {tr("Chèn"), {
             {tr("Phần tử"), {
                 {QStringLiteral("word:table"), tr("Bảng"), 0xE80A, QStringLiteral("▦"), false},
-                {QStringLiteral("word:image"), tr("Ảnh"), 0xEB9F, QStringLiteral("🖼"), false},
+                {QStringLiteral("word:image"), tr("Chèn ảnh…"), 0xEB9F, QStringLiteral("🖼"), false},
                 {QStringLiteral("word:link"), tr("Liên kết"), 0xE71B, QStringLiteral("🔗"), false},
                 {QStringLiteral(".uno:InsertPagebreak"), tr("Ngắt trang"), 0xE7C3, QStringLiteral("⤓"), false},
                 {QStringLiteral(".uno:InsertPageNumberField"), tr("Số trang"), 0xE8A5, QStringLiteral("#"), false},
@@ -62,7 +62,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
             {tr("Bố trí ảnh"), {
                 {QStringLiteral("word:imageResize"), tr("Kích thước ảnh…"), 0xE8A7, QStringLiteral("↔"), false},
                 {QStringLiteral("word:imageAnchorInline"), tr("Cùng dòng chữ"), 0xE8B9, QStringLiteral("▤"), false},
-                {QStringLiteral("word:imageAnchorParagraph"), tr("Neo theo đoạn"), 0xE8B9, QStringLiteral("▣"), false},
+                {QStringLiteral("word:imageAnchorParagraph"), tr("Ảnh nổi theo đoạn"), 0xE8B9, QStringLiteral("▣"), false},
                 {QStringLiteral("word:imageWrapSquare"), tr("Chữ quanh ảnh"), 0xE8B9, QStringLiteral("▣"), false},
                 {QStringLiteral("word:imageWrapTopBottom"), tr("Chữ trên/dưới"), 0xE8B9, QStringLiteral("≡"), false},
             }},

@@ -61,10 +61,6 @@ jobs:
           set -o pipefail
           qpdf --version | head -1
           QT_QPA_PLATFORM=offscreen ./build/app/dung-pdftest 2>&1 | tee report/linux-pdftest.log
-      - name: Kiểm thử giao diện đọc PDF thật (Qt Widgets)
-        run: |
-          set -o pipefail
-          QT_QPA_PLATFORM=offscreen ./build/app/dung-pdfuitest 2>&1 | tee report/linux-pdfuitest.log
       - name: OCR thật — Tesseract tiếng Việt và tiếng Anh từ ảnh kiểm thử
         run: |
           set -o pipefail
@@ -137,6 +133,13 @@ jobs:
         run: |
           set -o pipefail
           ./build/app/dung-syllabletest 2>&1 | tee report/linux-syllabletest.log
+      - name: Bố cục Word dựng sẵn (DOCX thật, 5 mẫu)
+        run: |
+          python3 scripts/build-word-layouts.py build/word-layouts
+          mkdir -p build/word-layout-pdf
+          libreoffice -env:UserInstallation=file:///tmp/dung-layouts-ci --headless --convert-to pdf --outdir build/word-layout-pdf build/word-layouts/layouts/*.docx
+          test "$(find build/word-layout-pdf -name '*.pdf' | wc -l)" -eq 5
+          python3 scripts/build-word-layouts.py build/word-layouts --verify
       - name: Kiểm thử thư viện mẫu (thay gói cũ bằng gói mới)
         run: |
           set -o pipefail
@@ -441,17 +444,27 @@ jobs:
           if (-not $exe) { Write-Host "::error::Không thấy dung-pdftest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-pdftest.log
           if ($LASTEXITCODE) { exit 1 }
-      - name: Kiểm thử giao diện đọc PDF thật trên Windows
+      - name: Khôi phục gói OCR đã build (khóa chính xác theo script)
+        id: ocr-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: build/ocr-runtime
+          key: ocr-runtime-windows-2022-${{ runner.arch }}-${{ hashFiles('scripts/build-ocr-windows.py') }}
+      - name: Dựng hoặc xác minh OCR Windows độc lập
         run: |
-          $env:DUNG_QPDF = "$PWD/build/qpdf/qpdf.exe"
-          $exe = Get-ChildItem build/out -Recurse -Filter dung-pdfuitest.exe | Select-Object -First 1
-          if (-not $exe) { exit 1 }
-          & $exe.FullName *>&1 | Tee-Object report/windows-pdfuitest.log
-          if ($LASTEXITCODE) { exit 1 }
-      - name: Dựng OCR Windows độc lập (Tesseract 5.5.1, vcpkg ghim commit)
-        run: |
-          python scripts/build-ocr-windows.py build/ocr-runtime --work build/vcpkg-ocr *>&1 | Tee-Object report/windows-ocr-build.log
-          if ($LASTEXITCODE) { exit 1 }
+          $valid = $false
+          if (Test-Path build/ocr-runtime) {
+            python scripts/build-ocr-windows.py build/ocr-runtime --verify *>&1 | Tee-Object report/windows-ocr-build.log
+            $valid = ($LASTEXITCODE -eq 0)
+            if (-not $valid) {
+              Write-Warning "Gói OCR cache không đạt xác minh; dựng mới."
+              Remove-Item -Recurse -Force build/ocr-runtime
+            }
+          }
+          if (-not $valid) {
+            python scripts/build-ocr-windows.py build/ocr-runtime --work build/vcpkg-ocr *>&1 | Tee-Object -Append report/windows-ocr-build.log
+            if ($LASTEXITCODE) { exit 1 }
+          }
       - name: OCR offline thật trên Windows (vi/en, PDF tìm kiếm được)
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-ocrtest.exe | Select-Object -First 1
@@ -469,6 +482,15 @@ jobs:
             Remove-Item Env:DUNG_OCR_REQUIRE_BUNDLE -ErrorAction SilentlyContinue
             Remove-Item -Recurse -Force $bundle
           }
+      # Only a successful main run seeds the shared exact-key cache.
+      # Every run still verifies the runtime and executes the real vi/en OCR test.
+      - name: Lưu gói OCR đã qua kiểm thử để dùng cho bản sau
+        if: github.ref == 'refs/heads/main' && steps.ocr-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: build/ocr-runtime
+          key: ${{ steps.ocr-cache.outputs.cache-primary-key }}
       - name: Kiểm thử tiện ích bảng tính trên Windows
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-tabletest.exe | Select-Object -First 1

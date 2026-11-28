@@ -106,6 +106,8 @@ $removed | Set-Content -Encoding UTF8 (Join-Path $OutDir "dict-vi-removed-from-e
 Write-Host ("Từ điển tiếng Việt gỡ khỏi engine: {0} mục" -f $removed.Count)
 # Gói mẫu đi kèm: ứng dụng tự cài vào thư mục dữ liệu người dùng khi chạy lần đầu (hoặc khi gói mới hơn)
 if (Test-Path (Join-Path $root "templates")) { Copy-Item -Recurse (Join-Path $root "templates") (Join-Path $app "templates") }
+python (Join-Path $PSScriptRoot "build-word-layouts.py") (Join-Path $app "templates\WORD_LAYOUTS")
+if ($LASTEXITCODE) { throw "Không tạo được mẫu bố cục Word" }
 Copy-Item (Join-Path $root "LICENSE") $app
 Copy-Item (Join-Path $root "THIRD_PARTY_NOTICES.md") $app
 

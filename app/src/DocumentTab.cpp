@@ -305,7 +305,7 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         search->setPlaceholderText(tr("Tìm mẫu…"));
         tv->addWidget(search);
         auto* list = new QListWidget(templates);
-        list->setWordWrap(true);
+        list->setWordWrap(true);list->setIconSize(QSize(44,62));
         list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         tv->addWidget(list, 1);
         auto* hint = new QLabel(tr("Mẫu tham khảo. Tạo tệp mới, không thay tài liệu đang mở."), templates);
@@ -323,8 +323,10 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         tv->addWidget(use);
         auto reload = [=] {
             list->clear();
-            const auto lib = tpl::installed();
-            if (lib.valid) {
+            QList<tpl::LibInfo> libraries;
+            if(ext==QLatin1String("docx"))libraries<<tpl::installed(QStringLiteral("word-layouts"));
+            libraries<<tpl::installed();
+            for(const auto& lib:libraries)if (lib.valid) {
                 const QString root = QFileInfo(lib.root).canonicalFilePath();
                 if (!root.isEmpty()) for (const auto& e : tpl::entries(lib)) {
                     const QFileInfo fi(QDir(lib.root).filePath(e.relPath));
@@ -338,6 +340,13 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
                         !e.relPath.contains(search->text().trimmed(), Qt::CaseInsensitive)) continue;
                     auto* item = new QListWidgetItem(title, list);
                     item->setData(Qt::UserRole, e.relPath);
+                    item->setData(Qt::UserRole+1,lib.id);
+                    if(lib.id==QLatin1String("word-layouts")){
+                        const auto preview=QFileInfo(path+QStringLiteral(".png"));
+                        if(preview.isFile()&&!preview.isSymLink()&&preview.canonicalFilePath().startsWith(root+QLatin1Char('/')))
+                            item->setIcon(QIcon(preview.absoluteFilePath()));
+                        item->setSizeHint(QSize(0,70));
+                    }
                     item->setToolTip(e.relPath + QStringLiteral(" · ") + e.status);
                 }
             }
@@ -348,7 +357,7 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
             auto* item = list->currentItem();
             if (!item) return;
             // Đọc lại gói đang cài: không sử dụng đường dẫn cũ sau khi cập nhật thư viện.
-            const auto lib = tpl::installed();
+            const auto lib = tpl::installed(item->data(Qt::UserRole+1).toString());
             const QString rel = item->data(Qt::UserRole).toString();
             const QString root = QFileInfo(lib.root).canonicalFilePath();
             const QFileInfo fi(QDir(lib.root).filePath(rel));
