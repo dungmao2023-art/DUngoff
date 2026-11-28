@@ -54,7 +54,7 @@ QString iconNameForCommand(const QString& id) {
         {"xl:deleteRow", "row-delete"}, {"xl:deleteColumn", "col-delete"},
         {".uno:InsertColumnsBefore", "col-insert"}, {".uno:InsertRowsBefore", "row-insert"},
         {".uno:InsertColumnsAfter", "col-insert"}, {".uno:InsertRowsAfter", "row-insert"},
-        {"word:tableDeleteRow", "row-delete"}, {"word:tableDeleteColumn", "col-delete"}, {"word:tableMergeRow", "merge-cells"},
+        {"word:tableDeleteRow", "row-delete"}, {"word:tableDeleteColumn", "col-delete"}, {"word:tableMergeRow", "merge-cells"}, {"word:tableSplitCell", "col-insert"},
         {".uno:FreezePanes", "freeze"}, {".uno:FreezePanesColumn", "freeze"}, {".uno:FreezePanesRow", "freeze"},
         {".uno:NumberFormatDate", "calendar"}, {".uno:NumberFormatDecDecimals", "decimal-dec"}, {".uno:NumberFormatIncDecimals", "decimal-inc"},
         {".uno:NumberFormatPercent", "percent"}, {".uno:NumberFormatStandard", "clear-format"}, {".uno:NumberFormatThousands", "thousands"},
@@ -75,7 +75,7 @@ QString iconNameForCommand(const QString& id) {
         {"ppt.image", "image"}, {"ppt.rect", "shape"}, {"ppt.textbox", "textbox"},
         {"ppt.notes", "text"}, {"ppt.normal", "template"}, {"ppt.goto", "page-number"}, {"ppt.fontSize", "font-size"}, {"ppt.textColor", "font-color"},
         {"ppt.show", "play"}, {"ppt.showHere", "play"}, {"ppt.transitionNote", "transition"},
-        {"ppt.preview", "play"}, {"ppt.animationCopy", "transition"}, {"ppt.clearAnimationCopy", "delete"}, {"ppt.masterBackground", "template"},
+        {"ppt.preview", "play"}, {"ppt.showTimed", "play"}, {"ppt.animationCopy", "transition"}, {"ppt.clearAnimationCopy", "delete"}, {"ppt.masterBackground", "template"},
         // PDF
         {"pdfPrev", "move-up"}, {"pdfNext", "move-down"}, {"pdfEditCopy", "text"},
         {".uno:Text", "textbox"}, {".uno:BasicShapes.rectangle", "shape"},

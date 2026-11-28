@@ -26,8 +26,9 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] W01.1 Soạn văn bản 3 trang tiếng Việt: chọn đoạn, font/cỡ/màu, đậm/nghiêng/gạch chân, căn trái/phải/giữa/đều, spacing, indent; Undo/Redo và roundtrip.
 - [ ] W01.2 Bullet/numbering nhiều cấp, tiếp tục và khởi động lại danh sách.
 - [ ] W02.1 Tạo bảng 4×5; chèn/xóa hàng cột, gộp/tách, chỉnh rộng/cao; giữ nội dung khi lưu.
+  - 28/11: UI tách ô 2–10 theo dọc/ngang bằng .uno:SplitCell (Amount/Horizontal/Proportional theo sw/sdi/swriter.sdi upstream 24.2), guard tài liệu/vùng chọn; test DOCX thay đổi cấu trúc và Undo hai hướng. Chờ CI v2/Linux và GUI; chưa nghiệm thu resize/ảnh.
 - [ ] W02.2 Chèn ảnh, resize giữ tỷ lệ, wrap, kéo vị trí; link, ký hiệu, ngắt trang.
-  - 28/11: ribbon bọc chữ quanh đối tượng nổi hoặc trên/dưới; guard graphic rectangle và trạng thái UNO; kiểm XML wrapSquare/wrapTopAndBottom/Undo, ảnh nhúng và chữ. Chờ CI/GUI; resize/kéo vị trí chưa hoàn tất. Không nâng stage.
+  - 28/11: #174 Linux CI 46105325016 xác nhận wrapSquare/wrapTopAndBottom và Undo, ảnh nhúng; test sai vì marker thuộc tài liệu khác. Thêm snapshot đúng tài liệu ngay trước thao tác, so sánh toàn bộ chữ và ảnh nhúng. Chờ CI mới/GUI; resize/kéo vị trí chưa hoàn tất.
 - [ ] W03.1 A4, lề tùy chỉnh theo nhu cầu hành chính, portrait/landscape, header/footer, số trang; kiểm preview/in.
 - [ ] W03.2 Heading 1–3, tạo TOC thật, sửa heading và cập nhật mục lục; mở lại DOCX.
 - [ ] W03.3 Footnote/endnote, số trang và section; không mất nội dung.
@@ -57,6 +58,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] P01.1 Chèn/sửa textbox, ảnh/hình, kéo/resize/rotate; căn chỉnh, thứ tự lớp, nhóm/bỏ nhóm; nhiều đối tượng, Undo/Redo.
 - [ ] P02.1 Tạo/xóa/nhân đôi/sắp xếp slide, layout, thumbnail, notes; mở lại PPTX.
 - [ ] P03.1 F5/Shift+F5, chuyển slide/phím ESC, quay đúng slide; toàn màn hình/cửa sổ, màn hình ngoài.
+  - 28/11: chế độ tự chuyển slide theo số giây mỗi trang (chỉ phiên trình chiếu); T tạm dừng/tiếp tục, B/W hoặc nhập số tạm dừng timer, bỏ slide ẩn và giữ slide cuối. Test quy tắc timer, CI/GUI còn chờ. Không đọc timing riêng của PPTX hoặc phát animation đối tượng; không nâng stage.
 - [ ] P04.1 Transition cơ bản, thời gian và advance; áp dụng cho một/nhiều slide; theme/master/layout cơ bản.
 - [ ] P05.1 Appear/Fade, nhiều đối tượng, click, duration/delay/order; phát thật PowerPoint/Impress, không ghi đè timing cũ.
   - 28/11: hỗ trợ chọn nhóm đối tượng cấp ngoài làm một mục animation, dùng ID nhóm thay vì ID con; không cho chọn nhóm lồng hoặc đối tượng con, vẫn chặn ID trùng và timing cũ. Test XML và hoàn nguyên byte gốc f9daccf502d5a193030d7ed5275fbf1d2ebc4d4a; CI và playback thật chưa xác nhận.

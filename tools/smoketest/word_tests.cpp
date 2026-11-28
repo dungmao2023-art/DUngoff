@@ -382,8 +382,6 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     { std::ofstream f(png, std::ios::binary); f.write((const char*)kPng, sizeof kPng); }
     run(d, w::insertImage(toFileUrl(png)));
     step("bố trí ảnh Word — native wrap và Undo");
-    run(d,".uno:SetAnchorToPara");
-    run(d,".uno:WrapOn");
     auto saveWrap=[&](const char* filename){
         const fs::path target=out/filename;
         std::error_code wrapEc;
@@ -391,6 +389,9 @@ int runWordTests(const fs::path& program, const fs::path& out) {
         const auto saved=d.saveAs(target);
         check(saved.ok,std::string("Lưu bố trí ảnh ")+filename,saved.message);
     };
+    saveWrap("word-image-wrap-before.docx");
+    run(d,".uno:SetAnchorToPara");
+    run(d,".uno:WrapOn");
     saveWrap("word-image-square.docx");
     run(d,".uno:WrapOff");
     saveWrap("word-image-topbottom.docx");
@@ -656,6 +657,19 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                         saveTable("word-table-merged.docx");
                         run(*reopened,".uno:Undo");
                         saveTable("word-table-merge-restored.docx");
+                        step("Word — tách ô dọc và ngang, hoàn tác");
+                        if(selectMarkedCell()){
+                            run(*reopened,w::splitCell(3,false));
+                            saveTable("word-table-split-vertical.docx");
+                            run(*reopened,".uno:Undo");
+                            saveTable("word-table-split-vertical-undone.docx");
+                        }
+                        if(selectMarkedCell()){
+                            run(*reopened,w::splitCell(2,true));
+                            saveTable("word-table-split-horizontal.docx");
+                            run(*reopened,".uno:Undo");
+                            saveTable("word-table-split-horizontal-undone.docx");
+                        }
                     }
                 }
             }

@@ -45,6 +45,15 @@ from xml.etree import ElementTree as ET
 import hashlib
 WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+def picture_snapshot(filename):
+    with zipfile.ZipFile(Path(path).parent / filename) as package:
+        root = ET.fromstring(package.read("word/document.xml"))
+        media = sorted(hashlib.sha256(package.read(n)).hexdigest()
+                       for n in package.namelist() if n.startswith("word/media/") and not n.endswith("/"))
+        content = "".join(n.text or "" for n in root.iter(W+"t"))
+        return root, media, content
+_, original_media, original_text = picture_snapshot("word-image-wrap-before.docx")
+check(bool(original_text.strip()) and bool(original_media), "wrap baseline contains real text and embedded image")
 images = []
 for filename, wrap in (("word-image-square.docx", "wrapSquare"),
                        ("word-image-topbottom.docx", "wrapTopAndBottom"),
@@ -59,8 +68,8 @@ for filename, wrap in (("word-image-square.docx", "wrapSquare"),
         check(bool(media), filename + ": embedded image retained")
         images.append(media)
         content = "".join(n.text or "" for n in root.iter(W+"t"))
-        check("Tiêu đề thử" in content and "Mục một" in content and "Mục hai" in content,
+        check(content == original_text,
               filename + ": body retained")
-check(images[0] == images[1] == images[2], "wrap and Undo preserve original image bytes")
+check(original_media == images[0] == images[1] == images[2], "wrap and Undo preserve original image bytes")
 print("\nKẾT QUẢ DOCX:", "CÓ LỖI" if fails else "TẤT CẢ ĐẠT")
 sys.exit(1 if fails else 0)

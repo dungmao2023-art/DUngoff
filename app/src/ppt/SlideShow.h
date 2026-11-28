@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QVector>
 #include <QString>
+#include <QTimer>
 
 class QScreen;
 
@@ -12,7 +13,7 @@ class QScreen;
 class SlideShow : public QWidget {
     Q_OBJECT
 public:
-    SlideShow(dung::Document* doc, int startPart, QWidget* parent = nullptr, bool fullscreen = true, QScreen* targetScreen = nullptr);
+    SlideShow(dung::Document* doc, int startPart, QWidget* parent = nullptr, bool fullscreen = true, QScreen* targetScreen = nullptr, int intervalMs = 0);
 
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -24,6 +25,7 @@ private:
     bool hidden(int part);
     void go(int delta);
     void render();
+    void restartAdvance();
 
     dung::Document* m_doc;
     int m_part;
@@ -33,4 +35,7 @@ private:
     int m_blank = 0; // 0: slide, 1: black, 2: white
     long m_w = 0, m_h = 0; // twip
     QImage m_img;
+    QTimer m_advance;
+    int m_intervalMs = 0;
+    bool m_paused = false;
 };
