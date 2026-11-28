@@ -306,7 +306,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     {QStringLiteral("ppt.showHere"), tr("Từ slide này"), 0xE768, QStringLiteral("▷"), false},
                     {QStringLiteral("ppt.preview"), tr("Xem trước slide"), 0xE768, QStringLiteral("▷"), false},
                     {QStringLiteral("ppt.showTimed"), tr("Tự chuyển slide"), 0xE768, QStringLiteral("▶"), false},
-                    {QStringLiteral("ppt.showSignature"), tr("Hiệu ứng Dũng"), 0xE768, QStringLiteral("▶"), false},
+                    {QStringLiteral("ppt.showSignature"), tr("Độc quyền"), 0xE768, QStringLiteral("▶"), false},
 
                 }}}},
             {tr("Hoạt ảnh"), {{tr("Xuất PPTX"), {

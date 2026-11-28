@@ -127,11 +127,11 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         int intervalMs=0;
         auto signature=slideshow::SignatureStyle::Native;
         if(id==QLatin1String("ppt.showSignature")){
-            const QStringList styles{QObject::tr("Dũng Silk · Sóng lụa"),
-                QObject::tr("Dũng Prism · Ô lật ánh sáng"),
-                QObject::tr("Dũng Focus · Ống kính")};
+            const QStringList styles{QObject::tr("Silk · Sóng lụa"),
+                QObject::tr("Prism · Ô lật ánh sáng"),
+                QObject::tr("Focus · Ống kính")};
             bool ok=false;
-            const auto choice=QInputDialog::getItem(tab,QObject::tr("Hiệu ứng Dũng Office"),
+            const auto choice=QInputDialog::getItem(tab,QObject::tr("Hiệu ứng độc quyền"),
                 QObject::tr("Chọn hiệu ứng cho buổi trình chiếu này. Chỉ dùng trong Dũng Office; không sửa tệp PPTX."),
                 styles,0,false,&ok);
             if(!ok||!safeTab||safeTab->document()!=d)return true;
