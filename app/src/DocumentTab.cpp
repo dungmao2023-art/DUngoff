@@ -1020,7 +1020,9 @@ bool DocumentTab::setPptMasterMode(bool master) {
         m_beforeMasterPart=m_doc->currentPart();
         m_normalFirstHash=m_doc->partHash(0);
         if(m_normalFirstHash.empty())return false;
-        m_doc->command(".uno:SlideMasterPage");
+        // The desktop SlideMasterPage command routes through the pane framework.
+        // MasterPage enters EditMode::MasterPage directly in DrawViewShell.
+        m_doc->command(".uno:MasterPage",R"({"MasterPage":{"type":"boolean","value":false}})");
     }else m_doc->command(".uno:CloseMasterView");
     m_doc->waitInputIdle(350,4000);
     const auto first=m_doc->partHash(0);

@@ -624,10 +624,10 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         renderHash(*master,0);
         const auto first=master->partHash(0);
         check(master->partCount()==2&&!first.empty(),"Two normal slides share a master");
-        master->command(".uno:SlideMasterPage");master->waitInputIdle(350,4000);
+        master->command(".uno:MasterPage",R"({"MasterPage":{"type":"boolean","value":false}})");master->waitInputIdle(350,4000);
         const auto hash=master->partHash(0);
         const bool entered=master->partCount()==1&&!hash.empty()&&hash!=first;
-        check(entered,"Native master mode, one master instead of two slides");
+        check(entered,"Native master mode, one master instead of two slides; count="+std::to_string(master->partCount())+" first="+first+" master="+hash);
         if(entered){
             master->setPart(0);renderHash(*master,0);
             master->command(".uno:Text");master->waitInputIdle(350,4000);
