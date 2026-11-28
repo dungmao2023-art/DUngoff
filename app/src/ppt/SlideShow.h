@@ -42,6 +42,9 @@ private:
     QRect m_entranceTransitionBounds;
     QImage m_entranceTransitionOld,m_entranceTransitionNew;
     QVector<slideshow::TransitionPlan> m_entrancePlans;
+    struct MotionLayer {QImage bitmap;int firstStep;QRect bounds;};
+    QVector<MotionLayer> m_motionLayers;
+    void paintObjectMotion(QPainter& painter,const QRectF& slide,qreal progress);
     slideshow::SignatureStyle m_signature=slideshow::SignatureStyle::Native;
 
     dung::Document* m_doc;

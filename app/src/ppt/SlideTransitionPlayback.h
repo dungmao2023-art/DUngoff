@@ -8,7 +8,7 @@
 #include <QtGlobal>
 #include <cmath>
 namespace slideshow {
-enum class TransitionKind { Cut, Fade, Push, Wipe, Dissolve, SilkWave, PrismTiles, FocusLens, InkBloom, HologramScan, Blinds, Circle, Diamond, Wheel, Checkerboard, Split };
+enum class TransitionKind { Cut, Fade, Push, Wipe, Dissolve, SilkWave, PrismTiles, FocusLens, InkBloom, HologramScan, Blinds, Circle, Diamond, Wheel, Checkerboard, Split, Fly, Zoom };
 enum class SignatureStyle { Native, SilkWave, PrismTiles, FocusLens, InkBloom, HologramScan };
 struct TransitionPlan {
     TransitionKind kind=TransitionKind::Cut;
@@ -68,6 +68,26 @@ inline TransitionPlan transitionPlan(const QJsonObject& slide){
     if((p.kind==TransitionKind::Circle||p.kind==TransitionKind::Diamond||p.kind==TransitionKind::Split)&&
        slide.value("transitionDirection").isBool()&&!slide.value("transitionDirection").toBool())return {};
     return p;
+}
+inline bool isObjectMotion(const TransitionPlan& plan){
+    return plan.kind==TransitionKind::Fly||plan.kind==TransitionKind::Zoom;
+}
+// Draw an isolated transparent object bitmap at its native position. The
+// caller composites the remaining layers in their original z-order.
+inline void paintMotionLayer(QPainter& painter,const QRectF& slide,const QImage& layer,
+                             const QRect& bounds,const TransitionPlan& plan,qreal progress){
+    if(layer.isNull()||bounds.isEmpty()||progress<=0)return;
+    const qreal t=qBound(qreal(0),progress,qreal(1));
+    const qreal sx=slide.width()/layer.width(),sy=slide.height()/layer.height();
+    QRectF target(slide.left()+bounds.x()*sx,slide.top()+bounds.y()*sy,bounds.width()*sx,bounds.height()*sy);
+    if(plan.kind==TransitionKind::Fly){
+        const qreal dx=plan.dx<0?slide.left()-target.right():plan.dx>0?slide.right()-target.left():0;
+        const qreal dy=plan.dy<0?slide.top()-target.bottom():plan.dy>0?slide.bottom()-target.top():0;
+        target.translate(dx*(1-t),dy*(1-t));
+    }else if(plan.kind==TransitionKind::Zoom){
+        const auto center=target.center();target.setSize(target.size()*t);target.moveCenter(center);
+    }
+    painter.save();painter.setClipRect(slide,Qt::IntersectClip);painter.drawImage(target,layer,QRectF(bounds));painter.restore();
 }
 // Pure renderer; input images are immutable. Unknown transitions use a cut.
 inline void paintTransition(QPainter& painter,const QRectF& r,const QImage& oldFrame,

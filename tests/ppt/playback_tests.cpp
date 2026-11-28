@@ -133,6 +133,31 @@ int main(int argc,char** argv){
             std::cerr<<"FAIL object animation bounds"<<std::endl;return 1;
         }
     }
+    {
+        using namespace slideshow;
+        const auto fly=QJsonDocument::fromJson(R"({"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape"},{"nodeName":"Animate","attributeName":"X","targetElement":"shape","dur":"0.8s","values":"0-width/2;x","keyTimes":"0;1"}]})").object();
+        const auto zoom=QJsonDocument::fromJson(R"({"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape"},{"nodeName":"Animate","attributeName":"Width","targetElement":"shape","dur":"0.8s","values":"0;width"},{"nodeName":"Animate","attributeName":"Height","targetElement":"shape","dur":"0.8s","values":"0;height"}]})").object();
+        QVector<ClickEntrance> plans;
+        if(!findEntrancePlans(fly,&plans)||plans[0].plan.kind!=TransitionKind::Fly||plans[0].plan.dx!=-1||
+           !findEntrancePlans(zoom,&plans)||plans[0].plan.kind!=TransitionKind::Zoom){
+            std::cerr<<"FAIL motion metadata"<<std::endl;return 1;
+        }
+        QImage layer(100,100,QImage::Format_ARGB32_Premultiplied);layer.fill(Qt::transparent);
+        {QPainter p(&layer);p.fillRect(QRect(60,40,20,20),Qt::blue);}
+        auto frame=[&](TransitionPlan plan,qreal f){
+            QImage result(100,100,QImage::Format_ARGB32_Premultiplied);result.fill(Qt::white);
+            QPainter p(&result);paintMotionLayer(p,QRectF(0,0,100,100),layer,QRect(60,40,20,20),plan,f);
+            p.fillRect(QRect(65,45,4,4),Qt::red);p.end();return result;
+        };
+        const auto f=frame({TransitionKind::Fly,800,-1,0},.5);
+        const auto z=frame({TransitionKind::Zoom,800,0,0},.5);
+        if(f.pixelColor(30,50)!=Qt::blue||f.pixelColor(70,50)!=Qt::white||
+           z.pixelColor(70,50)!=Qt::blue||z.pixelColor(61,41)!=Qt::white||
+           z.pixelColor(66,46)!=Qt::red||frame({TransitionKind::Fly,800,-1,0},1)!=frame({TransitionKind::Zoom,800,0,0},1)){
+            std::cerr<<"FAIL isolated motion layer and overlay order"<<std::endl;return 1;
+        }
+        std::cout<<"PASS isolated Fly/Zoom renderer and metadata"<<std::endl;
+    }
     QTemporaryDir temp;
     if(!temp.isValid())return 2;
     QString error;
