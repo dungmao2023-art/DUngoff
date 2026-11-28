@@ -584,6 +584,33 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         resized->command(".uno:Undo");resized->waitInputIdle();snap("ppt-resize-undone.pptx");
     }
 
+    resized.reset();
+    step("PowerPoint — xoay 90 độ bằng lệnh chuyên dụng, không TransformDialog");
+    struct RotateCase{const char* mode;const char* command;};
+    for(const auto& item: {RotateCase{"positive",".uno:RotateLeft"},RotateCase{"negative",".uno:RotateRight"}}){
+        auto rotated=engine->open(out/"ppt-layer-input.pptx",&err);
+        check(bool(rotated),"Mở fixture xoay 90: "+err);
+        if(!rotated)continue;
+        rotated->setClientView(512,512,7680,7680,0,0,7680,7680);
+        renderHash(*rotated,0);
+        auto snap=[&](const std::string& filename){
+            const auto dest=out/filename;fs::remove(dest,ec);
+            const auto saved=rotated->saveAs(dest);
+            check(saved.ok,"Lưu xoay "+filename+": "+saved.message);
+        };
+        if(std::string(item.mode)=="positive")snap("ppt-rotate-baseline.pptx");
+        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,2160,2160,1,1,0);
+        rotated->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,2160,2160,1,1,0);
+        rotated->waitInputIdle();
+        const auto sel=rotated->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
+        check(!sel.empty()&&sel!="EMPTY","Native graphic selection for 90-degree rotation");
+        step(std::string("Rotate dispatch ")+item.command);
+        rotated->command(item.command);rotated->waitInputIdle();
+        snap(std::string("ppt-rotate-")+item.mode+".pptx");
+        rotated->command(".uno:Undo");rotated->waitInputIdle();
+        snap(std::string("ppt-rotate-")+item.mode+"-undone.pptx");
+    }
+
     std::cout << (g_fail ? "\nKẾT QUẢ PPT: CÓ LỖI\n" : "\nKẾT QUẢ PPT: TẤT CẢ ĐẠT\n");
     std::cout.flush();
     std::_Exit(g_fail ? 1 : 0);

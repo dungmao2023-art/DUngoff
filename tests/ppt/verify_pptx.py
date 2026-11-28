@@ -145,5 +145,22 @@ if resized.keys()==resize_base.keys() and "LAYER_A" in resized and "LAYER_B" in 
           "resize applies requested 3 x 1.5 inch dimensions")
     check(resized["LAYER_B"]==resize_base["LAYER_B"], "resize preserves neighbouring object")
 check(layer_shapes("ppt-resize-undone.pptx")==(resize_order,resize_base), "resize Undo restores exact geometry")
+def rotation_snapshot(filename):
+    order, geom=layer_shapes(filename)
+    slide=Presentation(layer_dir/filename).slides[0]
+    angles={s.text:s.rotation for s in slide.shapes if s.has_text_frame}
+    return order,geom,angles
+rotbase,rotgeom,angles=rotation_snapshot("ppt-rotate-baseline.pptx")
+for mode,expected in (("positive",270),("negative",90)):
+    filename="ppt-rotate-"+mode+".pptx"
+    order,geom,angle=rotation_snapshot(filename)
+    check(order==rotbase and geom.keys()==rotgeom.keys(),filename+": original object identity/order")
+    if geom.keys()==rotgeom.keys() and "LAYER_A" in angle and "LAYER_B" in angle:
+        check(abs((angle["LAYER_A"]-angles["LAYER_A"])%360-expected)<0.1,filename+": native rotation direction and angle")
+        check(angle["LAYER_B"]==angles["LAYER_B"] and geom["LAYER_B"]==rotgeom["LAYER_B"],filename+": neighbour untouched")
+        check(all(abs(a-b)<=720 for a,b in zip(geom["LAYER_A"][2:],rotgeom["LAYER_A"][2:])),filename+": dimensions preserved")
+    else:
+        check(False,filename+": both original shapes must exist")
+    check(rotation_snapshot("ppt-rotate-"+mode+"-undone.pptx")== (rotbase,rotgeom,angles),filename+": exact Undo")
 print("\nKẾT QUẢ XÁC MINH PPTX:", "CÓ LỖI" if fail else "TẤT CẢ ĐẠT")
 sys.exit(1 if fail else 0)

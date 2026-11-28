@@ -199,6 +199,20 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             return true;
         }
         safeTab->stepPart(page - 1 - d->currentPart());
+    } else if (id == QLatin1String("ppt.rotateLeft90") || id == QLatin1String("ppt.rotateRight90")) {
+        if(d->readOnly()||tab->pptNotesMode())return true;
+        const PptEditTarget target(tab);
+        static const QRegularExpression rect(QStringLiteral("^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*[1-9]\\d*\\s*,\\s*[1-9]\\d*(?:\\s*,|\\s*$)"));
+        const QString command=id==QLatin1String("ppt.rotateLeft90")?QStringLiteral(".uno:RotateLeft"):QStringLiteral(".uno:RotateRight");
+        const auto state=tab->states().value(command);
+        if(!rect.match(QString::fromStdString(target.graphic)).hasMatch()||!target.selected.empty()||
+           (state!=QLatin1String("enabled")&&state!=QLatin1String("true")&&state!=QLatin1String("false"))){
+            QMessageBox::information(tab,QObject::tr("Xoay 90°"),QObject::tr("Chọn đối tượng đồ họa hỗ trợ xoay, không chọn văn bản."));
+            return true;
+        }
+        if(!target.verify(true)||tab->pptNotesMode())return true;
+        d->command(command.toStdString());d->waitInputIdle();
+        if(target.tab&&target.tab->document()==d&&target.tab->view())target.tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.resizeObject")) {
         if(d->readOnly()||tab->pptNotesMode())return true;
         // Only the native graphic-selection bounds are used; never infer size
