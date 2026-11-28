@@ -8,7 +8,7 @@
 #include <QtGlobal>
 #include <cmath>
 namespace slideshow {
-enum class TransitionKind { Cut, Fade, Push, Wipe, Dissolve, SilkWave, PrismTiles, FocusLens, InkBloom, HologramScan };
+enum class TransitionKind { Cut, Fade, Push, Wipe, Dissolve, SilkWave, PrismTiles, FocusLens, InkBloom, HologramScan, Blinds, Circle, Diamond, Wheel, Checkerboard, Split, Fly, Zoom };
 enum class SignatureStyle { Native, SilkWave, PrismTiles, FocusLens, InkBloom, HologramScan };
 struct TransitionPlan {
     TransitionKind kind=TransitionKind::Cut;
@@ -52,8 +52,42 @@ inline TransitionPlan transitionPlan(const QJsonObject& slide){
         else if(sub=="TopToBottom")p.dy=sign;
         else return {};
         p.kind=TransitionKind::Wipe;
+    }else if(type=="BlindWipe"&&(sub=="Vertical"||sub=="Horizontal")){
+        p.kind=TransitionKind::Blinds;p.dx=sub=="Vertical"?1:0;
+    }else if(type=="EllipseWipe"&&(sub=="Horizontal"||sub=="Circle")){
+        p.kind=TransitionKind::Circle;
+    }else if(type=="IrisWipe"&&sub=="Diamond"){
+        p.kind=TransitionKind::Diamond;
+    }else if(type=="PineWheelWipe"&&sub=="4Blade"){
+        p.kind=TransitionKind::Wheel;
+    }else if(type=="CheckerBoardWipe"&&(sub=="Across"||sub=="Down")){
+        p.kind=TransitionKind::Checkerboard;p.dx=sub=="Across"?1:0;
+    }else if(type=="BarnDoorWipe"&&(sub=="Vertical"||sub=="Horizontal")){
+        p.kind=TransitionKind::Split;p.dx=sub=="Vertical"?1:0;
     }else return {};
+    if((p.kind==TransitionKind::Circle||p.kind==TransitionKind::Diamond||p.kind==TransitionKind::Split)&&
+       slide.value("transitionDirection").isBool()&&!slide.value("transitionDirection").toBool())return {};
     return p;
+}
+inline bool isObjectMotion(const TransitionPlan& plan){
+    return plan.kind==TransitionKind::Fly||plan.kind==TransitionKind::Zoom;
+}
+// Draw an isolated transparent object bitmap at its native position. The
+// caller composites the remaining layers in their original z-order.
+inline void paintMotionLayer(QPainter& painter,const QRectF& slide,const QImage& layer,
+                             const QRect& bounds,const TransitionPlan& plan,qreal progress){
+    if(layer.isNull()||bounds.isEmpty()||progress<=0)return;
+    const qreal t=qBound(qreal(0),progress,qreal(1));
+    const qreal sx=slide.width()/layer.width(),sy=slide.height()/layer.height();
+    QRectF target(slide.left()+bounds.x()*sx,slide.top()+bounds.y()*sy,bounds.width()*sx,bounds.height()*sy);
+    if(plan.kind==TransitionKind::Fly){
+        const qreal dx=plan.dx<0?slide.left()-target.right():plan.dx>0?slide.right()-target.left():0;
+        const qreal dy=plan.dy<0?slide.top()-target.bottom():plan.dy>0?slide.bottom()-target.top():0;
+        target.translate(dx*(1-t),dy*(1-t));
+    }else if(plan.kind==TransitionKind::Zoom){
+        const auto center=target.center();target.setSize(target.size()*t);target.moveCenter(center);
+    }
+    painter.save();painter.setClipRect(slide,Qt::IntersectClip);painter.drawImage(target,layer,QRectF(bounds));painter.restore();
 }
 // Pure renderer; input images are immutable. Unknown transitions use a cut.
 inline void paintTransition(QPainter& painter,const QRectF& r,const QImage& oldFrame,
@@ -77,6 +111,40 @@ inline void paintTransition(QPainter& painter,const QRectF& r,const QImage& oldF
             if(plan.dx!=0){clip.setWidth(r.width()*t);if(plan.dx>0)clip.moveRight(r.right());}
             else{clip.setHeight(r.height()*t);if(plan.dy>0)clip.moveBottom(r.bottom());}
             painter.setClipRect(clip,Qt::IntersectClip);painter.drawImage(r,newFrame);
+        }else if(plan.kind==TransitionKind::Blinds||plan.kind==TransitionKind::Circle||
+                 plan.kind==TransitionKind::Diamond||plan.kind==TransitionKind::Wheel||
+                 plan.kind==TransitionKind::Checkerboard||plan.kind==TransitionKind::Split){
+            QPainterPath mask;mask.setFillRule(Qt::WindingFill);
+            const auto center=r.center();
+            if(plan.kind==TransitionKind::Blinds){
+                constexpr int count=8;
+                for(int i=0;i<count;++i){
+                    if(plan.dx)mask.addRect(QRectF(r.left()+i*r.width()/count,r.top(),r.width()*t/count,r.height()));
+                    else mask.addRect(QRectF(r.left(),r.top()+i*r.height()/count,r.width(),r.height()*t/count));
+                }
+            }else if(plan.kind==TransitionKind::Circle){
+                const qreal radius=std::hypot(r.width(),r.height())*.5*t;
+                mask.addEllipse(center,radius,radius);
+            }else if(plan.kind==TransitionKind::Diamond){
+                mask.moveTo(center+QPointF(0,-r.height()*t));mask.lineTo(center+QPointF(r.width()*t,0));
+                mask.lineTo(center+QPointF(0,r.height()*t));mask.lineTo(center-QPointF(r.width()*t,0));mask.closeSubpath();
+            }else if(plan.kind==TransitionKind::Wheel){
+                const qreal radius=std::hypot(r.width(),r.height())*.5+1;
+                const QRectF disk(center-QPointF(radius,radius),QSizeF(2*radius,2*radius));
+                for(int i=0;i<4;++i){mask.moveTo(center);mask.arcTo(disk,90*i,90*t);mask.closeSubpath();}
+            }else if(plan.kind==TransitionKind::Checkerboard){
+                constexpr int cols=10,rows=6;
+                for(int y=0;y<rows;++y)for(int x=0;x<cols;++x){
+                    const qreal phase=(x+y)%2?.3:0;
+                    const qreal f=qBound(qreal(0),(t-phase)/(1-phase),qreal(1));
+                    const QRectF cell(r.left()+x*r.width()/cols,r.top()+y*r.height()/rows,r.width()/cols,r.height()/rows);
+                    mask.addRect(QRectF(cell.topLeft(),QSizeF(cell.width()*(plan.dx?f:1),cell.height()*(plan.dx?1:f))));
+                }
+            }else{
+                if(plan.dx)mask.addRect(QRectF(center.x()-r.width()*t/2,r.top(),r.width()*t,r.height()));
+                else mask.addRect(QRectF(r.left(),center.y()-r.height()*t/2,r.width(),r.height()*t));
+            }
+            painter.setClipPath(mask,Qt::IntersectClip);painter.drawImage(r,newFrame);
         }else if(plan.kind==TransitionKind::SilkWave){
             // Alternating silk ribbons reveal the destination with a travelling phase.
             QPainterPath clip;

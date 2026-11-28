@@ -13,6 +13,7 @@
 #include <QCheckBox>
 #include <QLabel>
 #include <QFileInfo>
+#include <QDir>
 #include <QVBoxLayout>
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <QFileDialog>
@@ -46,6 +47,8 @@
 #include <QElapsedTimer>
 #include <QTimer>
 #include <QListWidgetItem>
+#include <QLineEdit>
+#include <QPlainTextEdit>
 
 // QListWidget may implement InternalMove by moving rows or by insert/remove.
 // Synchronize once after the complete drag operation, not from intermediate model signals.
@@ -108,6 +111,49 @@ static void armShape(DocumentTab* tab, const char* uno) {
     QToolTip::showText(QCursor::pos(), hint, tab->view());
 }
 
+// Saved-copy tools start from the current file, not a second file picker.
+static QString choosePptxSource(DocumentTab* tab){
+    QPointer<DocumentTab> safe(tab);
+    auto* doc=tab->document();
+    doc->waitInputIdle();
+    auto validFile=[](const QString& path){
+        const QFileInfo f(path);return f.isFile()&&f.isReadable()&&f.suffix().compare("pptx",Qt::CaseInsensitive)==0;
+    };
+    const auto current=tab->activeFilePath();
+    if(validFile(current)&&!doc->modified())return current;
+    QMessageBox box(QMessageBox::Question,QObject::tr("Chuẩn bị bản trình chiếu"),
+        QObject::tr("Cần bản PPTX đã lưu để tạo bản sao có hiệu ứng hoặc sơ đồ. Lưu nội dung đang soạn trước để không bỏ sót thay đổi."),
+        QMessageBox::Cancel,tab);
+    auto* save=box.addButton(QObject::tr("Lưu PPTX…"),QMessageBox::AcceptRole);
+    auto* other=box.addButton(QObject::tr("Chọn tệp đã lưu…"),QMessageBox::ActionRole);
+    box.setDefaultButton(save);
+    box.exec();
+    if(!safe||safe->document()!=doc)return {};
+    if(box.clickedButton()==save){
+        if(!safe->saveAs()||!safe||safe->document()!=doc)return {};
+        const auto saved=safe->activeFilePath();
+        if(validFile(saved))return saved;
+        QMessageBox::information(safe,QObject::tr("Định dạng PPTX"),QObject::tr("Hãy chọn định dạng PowerPoint (.pptx) khi lưu. Chưa tạo bản sao."));
+        return {};
+    }
+    if(box.clickedButton()==other){
+        const auto chosen=QFileDialog::getOpenFileName(safe,QObject::tr("Chọn PPTX đã lưu"),current,QObject::tr("PowerPoint (*.pptx)"));
+        return safe&&safe->document()==doc&&validFile(chosen)?chosen:QString();
+    }
+    return {};
+}
+// A successful copy is a normal saved file. Reuse MainWindow::openPath
+// (deduplication, recent files and error handling) and leave source untouched.
+static void reportPptxCopy(DocumentTab* tab,const QString& dest,const QString& summary){
+    QPointer<DocumentTab> safe(tab);
+    QMessageBox box(QMessageBox::Information,QObject::tr("Đã tạo bản PPTX"),summary,QMessageBox::NoButton,tab);
+    box.setInformativeText(QDir::toNativeSeparators(dest));
+    auto* open=box.addButton(QObject::tr("Mở và chỉnh sửa"),QMessageBox::AcceptRole);
+    auto* stay=box.addButton(QObject::tr("Ở lại bản hiện tại"),QMessageBox::RejectRole);
+    box.setDefaultButton(open);box.setEscapeButton(stay);
+    box.exec();
+    if(safe&&box.clickedButton()==open)emit safe->openSavedPresentationRequested(dest);
+}
 bool handlePptAction(DocumentTab* tab, const QString& id) {
     if (!id.startsWith(QLatin1String("ppt."))) return false;
     if (!tab || tab->kind() != dung::DocKind::Presentation) return true;
@@ -164,6 +210,7 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             auto* preview=new QLabel(&gallery);preview->setAlignment(Qt::AlignCenter);
             preview->setAccessibleName(QObject::tr("Xem thử hiệu ứng trên slide minh họa"));
             preview->setMinimumSize(320,180);
+            preview->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Ignored);
             previewColumn->addWidget(preview,1);
             auto* description=new QLabel(&gallery);description->setWordWrap(true);
             previewColumn->addWidget(description);
@@ -435,6 +482,70 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.textbox")) {
         armShape(tab, ".uno:Text");
+    } else if (id == QLatin1String("ppt.diagramCopy")) {
+        if(tab->pptMasterMode()||tab->pptNotesMode())return true;
+        QPointer<DocumentTab> safe(tab);
+        const auto source=choosePptxSource(tab);
+        if(source.isEmpty()||!safe||safe->document()!=d)return true;
+        const auto fingerprint=ppttransition::sourceFingerprint(source);
+        QString error;const auto slides=ppttransition::slideEntries(source,&error);
+        if(fingerprint.isEmpty()||slides.isEmpty()){QMessageBox::warning(tab,QObject::tr("Sơ đồ"),error);return true;}
+        QDialog dialog(tab);dialog.setWindowTitle(QObject::tr("Tạo sơ đồ nhanh"));dialog.resize(670,470);
+        auto* root=new QVBoxLayout(&dialog);
+        auto* hint=new QLabel(QObject::tr("Nhập nội dung, chọn bố cục và màu. Xuất vào slide trống của bản PPTX mới; chữ và hình đều chỉnh sửa được."),&dialog);
+        hint->setWordWrap(true);root->addWidget(hint);
+        auto* row=new QHBoxLayout;auto* form=new QFormLayout;
+        auto* page=new QSpinBox(&dialog);page->setRange(1,int(slides.size()));page->setValue(qBound(1,d->currentPart()+1,int(slides.size())));
+        auto* title=new QLineEdit(QObject::tr("Kế hoạch dự án"),&dialog);title->setMaxLength(80);
+        auto* items=new QPlainTextEdit(&dialog);items->setPlainText(QObject::tr("Ý tưởng\nChuẩn bị\nThực hiện\nKết quả"));items->setMaximumHeight(140);
+        auto* layout=new QComboBox(&dialog);layout->addItems({QObject::tr("Quy trình"),QObject::tr("Timeline"),QObject::tr("Sơ đồ tư duy"),QObject::tr("Thẻ nội dung"),QObject::tr("Phân cấp"),QObject::tr("Vòng tuần hoàn")});
+        auto* palette=new QComboBox(&dialog);palette->addItems({QObject::tr("Hiện đại"),QObject::tr("Học thuật"),QObject::tr("Ấm áp")});
+        form->addRow(QObject::tr("Slide trống"),page);form->addRow(QObject::tr("Tiêu đề"),title);
+        form->addRow(QObject::tr("2–6 ý, mỗi dòng một ý"),items);form->addRow(QObject::tr("Bố cục"),layout);form->addRow(QObject::tr("Màu sắc"),palette);
+        row->addLayout(form,2);
+        auto* preview=new QLabel(&dialog);preview->setMinimumSize(280,180);preview->setAlignment(Qt::AlignCenter);row->addWidget(preview,2);root->addLayout(row,1);
+        auto* status=new QLabel(&dialog);status->setWordWrap(true);root->addWidget(status);
+        auto* bb=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);
+        bb->button(QDialogButtonBox::Ok)->setText(QObject::tr("Tạo PPTX mới…"));root->addWidget(bb);
+        auto options=[&]{pptdiagram::Options o;o.title=title->text();o.items=items->toPlainText().split(QLatin1Char('\n'),Qt::SkipEmptyParts);
+            o.layout=static_cast<pptdiagram::Layout>(layout->currentIndex());o.palette=palette->currentIndex();return o;};
+        auto refresh=[&]{
+            QList<pptdiagram::Node> nodes;const bool valid=pptdiagram::plan(options(),&nodes);
+            bb->button(QDialogButtonBox::Ok)->setEnabled(valid);
+            status->setText(valid?QObject::tr("Xem trước minh họa 16:9. Chọn slide trống để xuất."):QObject::tr("Nhập tiêu đề và 2–6 ý, mỗi ý tối đa 64 ký tự."));
+            QPixmap pix(320,180);pix.fill(QColor("#F8FAFC"));QPainter p(&pix);p.setRenderHint(QPainter::Antialiasing);
+            for(const auto& edge:pptdiagram::edges(options(),nodes)){
+                const QPointF start(edge.start.x()*320,edge.start.y()*180),end(edge.end.x()*320,edge.end.y()*180);
+                p.setPen(QPen(QColor("#64748B"),1.4));p.drawLine(start,end);
+                if(edge.arrow){
+                    const auto d=end-start;const qreal len=std::hypot(d.x(),d.y());
+                    if(len>1){const auto u=d/len;const QPointF side(-u.y(),u.x());
+                        p.setPen(Qt::NoPen);p.setBrush(QColor("#64748B"));
+                        QPolygonF arrow;arrow<<end<<end-u*5+side*2.5<<end-u*5-side*2.5;p.drawPolygon(arrow);}
+                }
+            }
+            for(const auto& node:nodes){
+                const QRectF rect(node.rect.x()*320,node.rect.y()*180,node.rect.width()*320,node.rect.height()*180);
+                p.setPen(Qt::NoPen);p.setBrush(QColor("#"+node.fill));p.drawRoundedRect(rect,5,5);
+                p.setPen(QColor("#"+node.ink));auto font=p.font();font.setPixelSize(node.title?12:10);font.setBold(node.title);p.setFont(font);
+                p.drawText(rect.adjusted(3,2,-3,-2),Qt::AlignCenter|Qt::TextWordWrap,node.text);
+            }
+            p.end();preview->setPixmap(pix);
+        };
+        QObject::connect(title,&QLineEdit::textChanged,&dialog,[&]{refresh();});
+        QObject::connect(items,&QPlainTextEdit::textChanged,&dialog,refresh);
+        QObject::connect(layout,&QComboBox::currentIndexChanged,&dialog,[&](int){refresh();});
+        QObject::connect(palette,&QComboBox::currentIndexChanged,&dialog,[&](int){refresh();});
+        QObject::connect(bb,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);
+        QObject::connect(bb,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+        refresh();
+        if(dialog.exec()!=QDialog::Accepted||!safe||safe->document()!=d)return true;
+        const QFileInfo f(source);
+        const auto dest=QFileDialog::getSaveFileName(tab,QObject::tr("Lưu sơ đồ"),f.absolutePath()+"/"+f.completeBaseName()+" - so do.pptx",QObject::tr("PowerPoint (*.pptx)"));
+        if(dest.isEmpty())return true;
+        const auto result=ppttransition::createDiagramCopy(source,dest,page->value(),options(),fingerprint);
+        if(result.ok)reportPptxCopy(tab,dest,QObject::tr("Mở bản mới để chỉnh sửa từng hình. Tệp nguồn giữ nguyên."));
+        else QMessageBox::warning(tab,QObject::tr("Sơ đồ"),result.error);
     } else if (id == QLatin1String("ppt.shapes")) {
         if(d->readOnly()||tab->pptNotesMode())return true;
         const PptEditTarget target(tab);
@@ -507,7 +618,7 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             QObject::tr("Đổi nền của master trong PPTX đã lưu, xuất bản sao mới. Slide/layout có nền riêng sẽ không đổi. "
                         "Nền cũ của master được thay bằng màu đơn sắc trong bản sao; không chỉnh hình hoặc placeholder master. Tiếp tục?"),
             QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return true;
-        const QString source=QFileDialog::getOpenFileName(tab,QObject::tr("Chọn PPTX đã lưu"),d->isNew()?QString():fromPath(d->originalPath()),QObject::tr("PowerPoint (*.pptx)"));
+        const QString source=choosePptxSource(tab);
         if (source.isEmpty()) return true;
         const auto expectedSource=ppttransition::sourceFingerprint(source);
         if(expectedSource.isEmpty()){
@@ -528,9 +639,9 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         if (dest.isEmpty()) return true;
         const auto result=ppttransition::createMasterBackgroundCopy(source,dest,entry,color.name(QColor::HexRgb).mid(1),expectedSource);
         if (!result.ok) QMessageBox::warning(tab,QObject::tr("Slide Master"),result.error);
-        else QMessageBox::information(tab,QObject::tr("Slide Master"),QObject::tr("Đã tạo PPTX mới. Mở lại để kiểm tra các slide kế thừa màu nền; nguồn không bị sửa."));
+        else reportPptxCopy(tab,dest,QObject::tr("Đã đổi nền master trong bản mới. Nguồn giữ nguyên."));
     } else if(id==QLatin1String("ppt.clearAnimationCopy")){
-        const QString source=QFileDialog::getOpenFileName(tab,QObject::tr("Chọn PPTX đã lưu"),d->isNew()?QString():fromPath(d->originalPath()),QObject::tr("PowerPoint (*.pptx)"));
+        const QString source=choosePptxSource(tab);
         if(source.isEmpty())return true;
         const auto expectedSource=ppttransition::sourceFingerprint(source);
         if(expectedSource.isEmpty()){
@@ -553,9 +664,9 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         if(dest.isEmpty())return true;
         const auto result=ppttransition::createClearAnimationRangeCopy(source,dest,page,last,expectedSource);
         if(!result.ok)QMessageBox::warning(tab,QObject::tr("Xóa hoạt ảnh"),result.error);
-        else QMessageBox::information(tab,QObject::tr("Xóa hoạt ảnh"),QObject::tr("Đã tạo bản sao không có timing trên slide %1–%2. Có thể dùng Thêm hoạt ảnh để thiết lập lại.").arg(page).arg(last));
+        else reportPptxCopy(tab,dest,QObject::tr("Đã xóa hoạt ảnh trên slide %1–%2 trong bản mới.").arg(page).arg(last));
     } else if (id == QLatin1String("ppt.animationCopy")) {
-        const QString source = QFileDialog::getOpenFileName(tab, QObject::tr("Chọn PPTX đã lưu (lưu bản nháp trước)"), d->isNew() ? QString() : fromPath(d->originalPath()), QObject::tr("PowerPoint (*.pptx)"));
+        const QString source = choosePptxSource(tab);
         if (source.isEmpty()) return true;
         const auto expectedSource=ppttransition::sourceFingerprint(source);
         if(expectedSource.isEmpty()){
@@ -584,12 +695,19 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         heading->setStyleSheet(QStringLiteral("font-weight:700;font-size:15px;color:#17294D;")); root->addWidget(heading);
         auto* form = new QFormLayout;
         auto* shape = new QComboBox;
-        for (const auto& item : shapes) shape->addItem(QStringLiteral("%1 [ID %2]").arg(item.name).arg(item.id), item.id);
+        QHash<QString,int> names;
+        for(const auto& item:shapes)++names[item.name];
+        for (const auto& item : shapes){
+            const auto label=item.name.trimmed().isEmpty()?QObject::tr("Đối tượng %1").arg(item.id):
+                names.value(item.name)>1?QStringLiteral("%1 (%2)").arg(item.name).arg(item.id):item.name;
+            shape->addItem(label,item.id);
+        }
         auto* effect = new QComboBox;
         const QStringList effectNames{QObject::tr("Xuất hiện / biến mất"),QObject::tr("Mờ dần"),
             QObject::tr("Quét ngang"),QObject::tr("Rèm sọc"),QObject::tr("Vòng tròn"),
             QObject::tr("Hình thoi"),QObject::tr("Tan biến"),QObject::tr("Bánh xe"),
-            QObject::tr("Ô bàn cờ"),QObject::tr("Tách đôi")};
+            QObject::tr("Ô bàn cờ"),QObject::tr("Tách đôi"),QObject::tr("Bay từ trái"),
+            QObject::tr("Bay từ phải"),QObject::tr("Bay từ trên"),QObject::tr("Bay từ dưới"),QObject::tr("Phóng to / thu nhỏ")};
         for(const auto& name:effectNames)effect->addItem(name);
         effect->setCurrentIndex(1);
         auto* direction=new QComboBox;
@@ -605,6 +723,62 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         form->addRow(QObject::tr("Đối tượng"),shape); form->addRow(QObject::tr("Hiệu ứng"),effect);
         form->addRow(QObject::tr("Kiểu"),direction);
         form->addRow(QObject::tr("Bắt đầu"),trigger); form->addRow(QObject::tr("Thời lượng"),duration); form->addRow(QObject::tr("Độ trễ"),delay); root->addLayout(form);
+        auto* previewRow=new QHBoxLayout;
+        auto* preview=new QLabel(&dialog);preview->setFixedSize(200,92);
+        preview->setAccessibleName(QObject::tr("Minh họa hoạt ảnh đối tượng"));
+        previewRow->addWidget(preview);
+        auto* previewText=new QLabel(QObject::tr("Xem thử kiểu hiệu ứng, không thay đổi slide.\nMô phỏng trên hình mẫu; hiệu ứng ra được xem ngược."),&dialog);
+        previewText->setWordWrap(true);previewRow->addWidget(previewText,1);
+        auto* replayEffect=new QPushButton(QObject::tr("Xem thử"),&dialog);
+        previewRow->addWidget(replayEffect);root->addLayout(previewRow);
+        QTimer effectTimer;effectTimer.setInterval(20);QElapsedTimer effectClock;
+        QImage absent(200,92,QImage::Format_ARGB32_Premultiplied);absent.fill(QColor("#F1F5F9"));
+        QImage present=absent.copy();
+        {QPainter painter(&present);painter.setRenderHint(QPainter::Antialiasing);painter.setPen(Qt::NoPen);
+         painter.setBrush(QColor("#4338CA"));painter.drawRoundedRect(QRectF(27,12,146,68),8,8);
+         painter.setPen(Qt::white);painter.drawText(QRectF(27,12,146,68),Qt::AlignCenter,QObject::tr("Ý tưởng"));}
+        slideshow::TransitionPlan samplePlan;
+        bool sampleExit=false;
+        int sampleIndex=1;
+        auto drawSample=[&](qreal f){
+            QImage frame=absent.copy();QPainter painter(&frame);
+            const QRect region(25,10,150,72);
+            const qreal progress=sampleExit?1-f:f;
+            if(sampleIndex>=10){
+                const qreal k=slideshow::smoothStep(progress);
+                const QRectF target(27,12,146,68);
+                QRectF moved=target;
+                if(sampleIndex==10)moved.translate(-173*(1-k),0);
+                else if(sampleIndex==11)moved.translate(173*(1-k),0);
+                else if(sampleIndex==12)moved.translate(0,-80*(1-k));
+                else if(sampleIndex==13)moved.translate(0,80*(1-k));
+                else {
+                    moved.setSize(target.size()*k);moved.moveCenter(target.center());
+                }
+                painter.setRenderHint(QPainter::SmoothPixmapTransform);
+                if(k>0)painter.drawImage(moved,present,QRectF(27,12,146,68));
+            }else slideshow::paintTransition(painter,QRectF(region),absent.copy(region),present.copy(region),
+                samplePlan,progress);
+            painter.end();preview->setPixmap(QPixmap::fromImage(frame));
+        };
+        auto playSample=[&]{
+            using K=slideshow::TransitionKind;
+            const K kinds[]{K::Cut,K::Fade,K::Wipe,K::Blinds,K::Circle,K::Diamond,K::Dissolve,K::Wheel,K::Checkerboard,K::Split};
+            const int ix=effect->currentIndex();if(ix<0||ix>=15)return;
+            sampleIndex=ix;
+            samplePlan={ix<10?kinds[ix]:K::Cut,qRound(duration->value()*1000),-1,0};
+            sampleExit=direction->currentIndex()==1;
+            effectClock.start();drawSample(0);
+            if(ix==0){effectTimer.stop();drawSample(1);}else effectTimer.start();
+        };
+        QObject::connect(&effectTimer,&QTimer::timeout,&dialog,[&]{
+            const qreal f=qMin(qreal(1),qreal(effectClock.elapsed())/qMax(1,samplePlan.durationMs));
+            drawSample(f);if(f>=1)effectTimer.stop();
+        });
+        QObject::connect(replayEffect,&QPushButton::clicked,&dialog,playSample);
+        QObject::connect(effect,&QComboBox::currentIndexChanged,&dialog,[&](int){playSample();});
+        QObject::connect(direction,&QComboBox::currentIndexChanged,&dialog,[&](int){playSample();});
+        preview->setPixmap(QPixmap::fromImage(present));
         auto* buttons = new QHBoxLayout;
         auto* add = new QPushButton(QObject::tr("+ Thêm"), &dialog); add->setObjectName(QStringLiteral("AnimationPrimary"));
         auto* edit = new QPushButton(QObject::tr("Cập nhật dòng"), &dialog);
@@ -616,7 +790,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
                           QObject::tr("Mờ dần · lần lượt tự động"),
                           QObject::tr("Mờ dần · đồng thời")});
         preset->setToolTip(QObject::tr("Xuất hiện tức thì hoặc mờ dần 0,5 giây. Có thể chỉnh riêng từng dòng."));
-        auto* presetHint=new QLabel(QObject::tr("10 kiểu hiệu ứng vào/ra. Hiệu ứng nâng cao được ghi vào bản PPTX; trình chiếu trong ứng dụng chưa hỗ trợ đầy đủ."),&dialog);
+        auto* presetHint=new QLabel(QObject::tr("15 kiểu hiệu ứng vào/ra. Hiệu ứng nâng cao được ghi vào bản PPTX; trình chiếu trong ứng dụng chưa hỗ trợ đầy đủ."),&dialog);
         presetHint->setWordWrap(true);
         auto* quick=new QPushButton(QObject::tr("Áp dụng mẫu"),&dialog);
         quick->setEnabled(shapes.size()<=100);
@@ -734,12 +908,9 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         if (dest.isEmpty()) return true;
         const auto result=ppttransition::createAnimationSequenceCopy(source,dest,page,effects,expectedSource);
         if (!result.ok) QMessageBox::warning(tab,QObject::tr("Hoạt ảnh"),result.error);
-        else QMessageBox::information(tab,QObject::tr("Hoạt ảnh"),QObject::tr("Đã tạo bản PPTX mới với %1 hiệu ứng. Hãy kiểm tra trình chiếu trong PowerPoint. Nguồn không bị sửa.").arg(effects.size()));
+        else reportPptxCopy(tab,dest,QObject::tr("Bản mới có %1 hiệu ứng. Hãy xem thử trình chiếu; các kiểu chưa được hỗ trợ trong ứng dụng cần kiểm tra bằng PowerPoint. Nguồn giữ nguyên.").arg(effects.size()));
     } else if (id == QLatin1String("ppt.transitionNote")) {
-        if (QMessageBox::question(tab, QObject::tr("Chuyển cảnh PPTX"),
-            QObject::tr("Công cụ tạo bản sao PPTX từ tệp đã lưu, giữ nguyên tài liệu đang soạn. Hãy lưu bản nháp trước nếu muốn dùng nội dung mới nhất. Chuyển cảnh được ghi vào bản sao; ứng dụng chỉ phát các kiểu đã hỗ trợ. Tiếp tục?"),
-            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return true;
-        const QString source = QFileDialog::getOpenFileName(tab, QObject::tr("Chọn PPTX đã lưu"), d->isNew() ? QString() : fromPath(d->originalPath()), QObject::tr("PowerPoint (*.pptx)"));
+         const QString source = choosePptxSource(tab);
         if (source.isEmpty()) return true;
         const auto expectedSource=ppttransition::sourceFingerprint(source);
         if(expectedSource.isEmpty()){
@@ -782,7 +953,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         ppttransition::Options o; o.effect = ppttransition::Effect(effect->currentIndex()); o.speed = speed->currentIndex(); o.onClick = click->isChecked(); o.autoAdvanceMs = seconds->value()*1000;
         const auto result = ppttransition::createRangeCopy(source,dest,page->value(),rangeEnd->value(),o,expectedSource);
         if (!result.ok) QMessageBox::warning(tab, QObject::tr("Chuyển cảnh"), result.error);
-        else QMessageBox::information(tab, QObject::tr("Chuyển cảnh"), QObject::tr("Đã lưu PPTX mới và kiểm cấu trúc gói:\n%1\nHãy thử trình chiếu trong PowerPoint; nguồn không bị sửa.").arg(dest));
+        else reportPptxCopy(tab,dest,QObject::tr("Đã lưu và kiểm cấu trúc bản PPTX mới. Hãy xem thử chuyển cảnh; nguồn giữ nguyên."));
     }
     return true;
 }

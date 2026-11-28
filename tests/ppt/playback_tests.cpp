@@ -102,7 +102,18 @@ int main(int argc,char** argv){
            draw(hologram,.4)==draw(silk,.4)){
             std::cerr<<"FAIL distinct ink and hologram effects"<<std::endl;return 1;
         }
-        std::cout<<"PASS transition painter: Fade, Push, Wipe, Dissolve, Silk, Prism, Focus, Ink, Hologram"<<std::endl;
+        const QList<QPair<QString,QString>> extraMasks{
+            {"BlindWipe","Vertical"},{"EllipseWipe","Horizontal"},{"IrisWipe","Diamond"},
+            {"PineWheelWipe","4Blade"},{"CheckerBoardWipe","Across"},{"BarnDoorWipe","Vertical"}};
+        for(const auto& mask:extraMasks){
+            const auto plan=transitionPlan(QJsonObject{{"transitionType",mask.first},{"transitionSubtype",mask.second},
+                {"transitionDirection",true},{"transitionDuration",500}});
+            if(plan.kind==TransitionKind::Cut||draw(plan,0)!=oldFrame||draw(plan,1)!=newFrame||
+               draw(plan,.4)==oldFrame||draw(plan,.4)==newFrame||draw(plan,.3)==draw(plan,.6)){
+                std::cerr<<"FAIL extended transition mask "<<mask.first.toStdString()<<std::endl;return 1;
+            }
+        }
+        std::cout<<"PASS extended masks and existing transition painter"<<std::endl;
     }
     {
         const auto tree=QJsonDocument::fromJson(R"({"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape","begin":"0s"},{"nodeName":"TransitionFilter","targetElement":"shape","transitionType":"Fade","transitionSubType":"CrossFade","dur":"0.75s","begin":"0s"}]})").object();
@@ -121,6 +132,31 @@ int main(int argc,char** argv){
         if(slideshow::changedBounds(first,second)!=QRect(QPoint(3,4),QPoint(18,22))){
             std::cerr<<"FAIL object animation bounds"<<std::endl;return 1;
         }
+    }
+    {
+        using namespace slideshow;
+        const auto fly=QJsonDocument::fromJson(R"({"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape"},{"nodeName":"Animate","attributeName":"X","targetElement":"shape","dur":"0.8s","values":"0-width/2;x","keyTimes":"0;1"}]})").object();
+        const auto zoom=QJsonDocument::fromJson(R"({"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape"},{"nodeName":"Animate","attributeName":"Width","targetElement":"shape","dur":"0.8s","values":"0;width"},{"nodeName":"Animate","attributeName":"Height","targetElement":"shape","dur":"0.8s","values":"0;height"}]})").object();
+        QVector<ClickEntrance> plans;
+        if(!findEntrancePlans(fly,&plans)||plans[0].plan.kind!=TransitionKind::Fly||plans[0].plan.dx!=-1||
+           !findEntrancePlans(zoom,&plans)||plans[0].plan.kind!=TransitionKind::Zoom){
+            std::cerr<<"FAIL motion metadata"<<std::endl;return 1;
+        }
+        QImage layer(100,100,QImage::Format_ARGB32_Premultiplied);layer.fill(Qt::transparent);
+        {QPainter p(&layer);p.fillRect(QRect(60,40,20,20),Qt::blue);}
+        auto frame=[&](TransitionPlan plan,qreal f){
+            QImage result(100,100,QImage::Format_ARGB32_Premultiplied);result.fill(Qt::white);
+            QPainter p(&result);paintMotionLayer(p,QRectF(0,0,100,100),layer,QRect(60,40,20,20),plan,f);
+            p.fillRect(QRect(65,45,4,4),Qt::red);p.end();return result;
+        };
+        const auto f=frame({TransitionKind::Fly,800,-1,0},.5);
+        const auto z=frame({TransitionKind::Zoom,800,0,0},.5);
+        if(f.pixelColor(30,50)!=Qt::blue||f.pixelColor(70,50)!=Qt::white||
+           z.pixelColor(70,50)!=Qt::blue||z.pixelColor(61,41)!=Qt::white||
+           z.pixelColor(66,46)!=Qt::red||frame({TransitionKind::Fly,800,-1,0},1)!=frame({TransitionKind::Zoom,800,0,0},1)){
+            std::cerr<<"FAIL isolated motion layer and overlay order"<<std::endl;return 1;
+        }
+        std::cout<<"PASS isolated Fly/Zoom renderer and metadata"<<std::endl;
     }
     QTemporaryDir temp;
     if(!temp.isValid())return 2;

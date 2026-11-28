@@ -86,7 +86,10 @@ void SlideShow::go(int delta) {
                 const auto plan=m_entrancePlans[next-1];
                 if(plan.kind!=slideshow::TransitionKind::Cut){
                     const QRect bounds=slideshow::changedBounds(previous,m_img);
-                    if(!bounds.isEmpty()){
+                    if(slideshow::isObjectMotion(plan)&&!m_motionLayers.isEmpty()){
+                        m_transitionFrom=previous;m_transitionPlan=plan;
+                        m_transitionClock.start();m_transitionTimer.start();
+                    }else if(!slideshow::isObjectMotion(plan)&&!bounds.isEmpty()){
                         m_entranceTransitionBounds=bounds;
                         m_entranceTransitionOld=previous.copy(bounds);
                         m_entranceTransitionNew=m_img.copy(bounds);
@@ -162,7 +165,7 @@ void SlideShow::render() {
         m_img=QImage(); // Stop autoplay; paintEvent shows a render-unavailable message.
 }
 void SlideShow::resetEntrance(){
-    m_entranceFrames.clear();m_entrancePlans.clear();m_entranceStep=0;m_entrancePart=-1;
+    m_entranceFrames.clear();m_entrancePlans.clear();m_motionLayers.clear();m_entranceStep=0;m_entrancePart=-1;
 }
 bool SlideShow::prepareEntrance(){
     // Avoid native layer API for unsupported animation trees.
@@ -197,7 +200,29 @@ bool SlideShow::prepareEntrance(){
         if(frame.isNull())return false;
         frame.fill(Qt::white);frames.append(std::move(frame));
     }
+    const bool needMotion=std::any_of(entrancePlans.cbegin(),entrancePlans.cend(),[](const auto& e){return slideshow::isObjectMotion(e.plan);});
+    QVector<MotionLayer> retained;
+    qint64 retainedBytes=qint64(layers.width)*layers.height*4*frames.size();
+    bool motionMemoryOk=true;
     auto draw=[&](const QImage& image,int first){
+        if(needMotion&&motionMemoryOk){
+            retainedBytes+=qint64(image.width())*image.height()*4;
+            if(retainedBytes>64LL*1024*1024)motionMemoryOk=false;
+            else {
+                QRect bounds;
+                if(first>0&&slideshow::isObjectMotion(entrancePlans[first-1].plan)){
+                    int l=image.width(),r=-1,t=image.height(),b=-1;
+                    for(int y=0;y<image.height();++y){
+                        const auto* pixels=reinterpret_cast<const QRgb*>(image.constScanLine(y));
+                        for(int x=0;x<image.width();++x)if(pixels[x]&0xff000000u){
+                            l=qMin(l,x);r=qMax(r,x);t=qMin(t,y);b=qMax(b,y);
+                        }
+                    }
+                    if(r<l)motionMemoryOk=false;else bounds=QRect(QPoint(l,t),QPoint(r,b));
+                }
+                if(motionMemoryOk)retained.append(MotionLayer{image.copy(),first,bounds});
+            }
+        }
         for(int step=first;step<frames.size();++step){
             QPainter painter(&frames[step]);painter.drawImage(0,0,image);
         }
@@ -265,11 +290,23 @@ bool SlideShow::prepareEntrance(){
     for(auto it=fields.constBegin();it!=fields.constEnd();++it)if(!usedFields.contains(it.key()))return false;
     if(!background||animatedTargets.size()!=targets.size())return false;
     for(int step=1;step<frames.size();++step)if(frames[step]==frames[step-1])return false;
+    if(needMotion&&!motionMemoryOk)return false;
     for(const auto& entry:entrancePlans)m_entrancePlans.append(entry.plan);
+    m_motionLayers=std::move(retained);
     m_entranceFrames=std::move(frames);m_entranceStep=0;m_entrancePart=m_part;
     return true;
 }
 
+void SlideShow::paintObjectMotion(QPainter& painter,const QRectF& slide,qreal progress){
+    painter.save();painter.setClipRect(slide,Qt::IntersectClip);painter.fillRect(slide,Qt::white);
+    for(const auto& layer:m_motionLayers){
+        if(layer.firstStep>m_entranceStep)continue;
+        if(layer.firstStep==m_entranceStep)
+            slideshow::paintMotionLayer(painter,slide,layer.bitmap,layer.bounds,m_transitionPlan,progress);
+        else painter.drawImage(slide,layer.bitmap);
+    }
+    painter.restore();
+}
 void SlideShow::paintEvent(QPaintEvent*) {
     QPainter p(this);
     p.fillRect(rect(), m_blank == 2 ? Qt::white : Qt::black);
@@ -289,7 +326,9 @@ void SlideShow::paintEvent(QPaintEvent*) {
     const QRectF slideRect(QPointF((width() - sz.width()) / 2, (height() - sz.height()) / 2), sz);
     if(m_transitionTimer.isActive()){
         const qreal progress=qreal(m_transitionClock.elapsed())/m_transitionPlan.durationMs;
-        if(!m_entranceTransitionBounds.isEmpty()){
+        if(slideshow::isObjectMotion(m_transitionPlan)&&!m_motionLayers.isEmpty()){
+            paintObjectMotion(p,slideRect,progress);
+        }else if(!m_entranceTransitionBounds.isEmpty()){
             p.drawImage(slideRect,m_transitionFrom);
             const qreal sx=slideRect.width()/m_img.width(),sy=slideRect.height()/m_img.height();
             const auto bounds=m_entranceTransitionBounds;

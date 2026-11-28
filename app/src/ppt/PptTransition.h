@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 #include <QList>
+#include "QuickDiagram.h"
 namespace ppttransition {
 enum class Effect { None, Fade, PushLeft, WipeLeft, Dissolve };
 struct Options { Effect effect = Effect::Fade; int speed = 1; bool onClick = true; int autoAdvanceMs = 0; };
@@ -19,7 +20,7 @@ Result createRangeCopy(const QString& source,const QString& destination,int firs
 struct Shape { unsigned id = 0; QString name; };
 enum class AnimationTrigger { Click, WithPrevious, AfterPrevious };
 // Extra transition filters use standard PresentationML animEffect values.
-enum class AnimationFilter { None, Wipe, Blinds, Circle, Diamond, Dissolve, Wheel, Checkerboard, Split };
+enum class AnimationFilter { None, Wipe, Blinds, Circle, Diamond, Dissolve, Wheel, Checkerboard, Split, FlyLeft, FlyRight, FlyTop, FlyBottom, Zoom };
 struct AnimationOptions { unsigned shapeId = 0; bool fade = false; int durationMs = 500; int delayMs = 0; AnimationTrigger trigger=AnimationTrigger::Click; bool exit = false; AnimationFilter filter=AnimationFilter::None; };
 inline bool timedEffect(const AnimationOptions& o){return o.fade||o.filter!=AnimationFilter::None;}
 struct AnimationTiming { int click=0, startMs=0, endMs=0; };
@@ -62,6 +63,9 @@ Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& options,
 Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options, const QByteArray& expectedSource = {});
 Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOptions>& effects, QByteArray* output);
 Result createAnimationSequenceCopy(const QString& source, const QString& destination, int slide1, const QList<AnimationOptions>& effects, const QByteArray& expectedSource = {});
+// Generate editable shapes only in a verified blank slide of a saved copy.
+Result patchDiagramXml(const QByteArray& xml,qint64 width,qint64 height,const pptdiagram::Options& options,QByteArray* output);
+Result createDiagramCopy(const QString& source,const QString& destination,int slide1,const pptdiagram::Options& options,const QByteArray& expectedSource={});
 // Modify the actual referenced master part, not individual slides.
 QStringList masterEntries(const QString& source, QString* error);
 Result patchMasterBackground(const QByteArray& xml, const QString& rgb, QByteArray* output);
