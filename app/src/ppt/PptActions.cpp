@@ -57,11 +57,13 @@ struct PptEditTarget {
     QPointer<DocumentTab> tab;
     dung::Document* doc;
     int part, count;
+    bool notes;
     std::string name, graphic, text, cursor, selected;
     explicit PptEditTarget(DocumentTab* t) : tab(t), doc(t->document()) {
         doc->waitInputIdle();
         part = doc->currentPart();
         count = doc->partCount();
+        notes = t->pptNotesMode();
         if (part >= 0 && part < count) name = doc->partName(part);
         graphic = doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
         text = doc->lastPayload(LOK_CALLBACK_TEXT_SELECTION);
@@ -71,7 +73,7 @@ struct PptEditTarget {
     bool verify(bool requireSelection) const {
         if (!tab || tab->document() != doc || tab->readOnly() || !tab->view()) return false;
         doc->waitInputIdle();
-        if (part >= 0 && part < count && doc->partCount() == count &&
+        if (tab->pptNotesMode() == notes && part >= 0 && part < count && doc->partCount() == count &&
             doc->currentPart() == part && doc->partName(part) == name &&
             (!requireSelection || ((!graphic.empty() || !text.empty() || !cursor.empty()) &&
                 doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION) == graphic &&
@@ -248,7 +250,7 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             dung::word::argLong("TransformWidth",newW),dung::word::argLong("TransformHeight",newH)}));
         d->waitInputIdle();tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.alignObjects")) {
-        if(d->readOnly())return true;
+        if(d->readOnly()||tab->pptNotesMode())return true;
         const PptEditTarget target(tab);
         static const QRegularExpression rect(QStringLiteral("^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*[1-9]\\d*\\s*,\\s*[1-9]\\d*(?:\\s*,|\\s*$)"));
         if(!rect.match(QString::fromStdString(target.graphic)).hasMatch()||!target.selected.empty()){
@@ -275,7 +277,7 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         }
         d->command(command.toStdString());d->waitInputIdle();tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.layerUp") || id == QLatin1String("ppt.layerDown") || id == QLatin1String("ppt.group") || id == QLatin1String("ppt.ungroup")) {
-        if(d->readOnly())return true;
+        if(d->readOnly()||tab->pptNotesMode())return true;
         const PptEditTarget target(tab);
         const QString command=id==QLatin1String("ppt.group")?QStringLiteral(".uno:FormatGroup"):
             id==QLatin1String("ppt.ungroup")?QStringLiteral(".uno:FormatUngroup"):
