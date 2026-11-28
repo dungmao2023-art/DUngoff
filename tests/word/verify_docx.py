@@ -71,5 +71,17 @@ for filename, wrap in (("word-image-square.docx", "wrapSquare"),
         check(content == original_text,
               filename + ": body retained")
 check(original_media == images[0] == images[1] == images[2], "wrap and Undo preserve original image bytes")
+# Anchor modes must change the actual drawing representation, not its pixels.
+for filename, mode in (
+    ("word-image-anchor-inline.docx","inline"),
+    ("word-image-anchor-inline-undone.docx","anchor"),
+    ("word-image-anchor-paragraph.docx","anchor"),
+    ("word-image-anchor-paragraph-undone.docx","inline"),
+):
+    root, media, content=picture_snapshot(filename)
+    check(len(list(root.iter(WP+mode)))==1 and not list(root.iter(WP+("anchor" if mode=="inline" else "inline"))),
+          filename+": native "+mode+" topology")
+    check(media==original_media,filename+": original embedded image bytes")
+    check(content==original_text,filename+": full body preserved")
 print("\nKẾT QUẢ DOCX:", "CÓ LỖI" if fails else "TẤT CẢ ĐẠT")
 sys.exit(1 if fails else 0)

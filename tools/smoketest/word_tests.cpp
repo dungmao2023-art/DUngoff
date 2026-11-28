@@ -397,6 +397,18 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     saveWrap("word-image-topbottom.docx");
     run(d,".uno:Undo");
     saveWrap("word-image-wrap-undone.docx");
+    step("đổi neo ảnh theo dòng chữ và Undo");
+    run(d,".uno:SetAnchorToChar");
+    saveWrap("word-image-anchor-inline.docx");
+    run(d,".uno:Undo");
+    saveWrap("word-image-anchor-inline-undone.docx");
+    // Reapply inline then convert to floating paragraph anchor explicitly.
+    run(d,".uno:SetAnchorToChar");
+    run(d,".uno:SetAnchorToPara");
+    saveWrap("word-image-anchor-paragraph.docx");
+    run(d,".uno:Undo");
+    saveWrap("word-image-anchor-paragraph-undone.docx");
+    run(d,".uno:Undo");
     selectAll(d);
     html = selHtml(d);
     check(has(html, "<img"), "Chèn ảnh từ tệp (.uno:InsertGraphic)", snippet(html, 120));

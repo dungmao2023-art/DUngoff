@@ -492,10 +492,13 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             send(target.tab.data(),insertTable(cols->value(),rows->value()));
             target.tab->view()->setFocus();
         }
-    } else if (name == QLatin1String("imageWrapSquare") || name == QLatin1String("imageWrapTopBottom")) {
+    } else if (name == QLatin1String("imageWrapSquare") || name == QLatin1String("imageWrapTopBottom") ||
+               name == QLatin1String("imageAnchorInline") || name == QLatin1String("imageAnchorParagraph")) {
         doc->waitInputIdle();
-        const QString cmd=name==QLatin1String("imageWrapSquare")?
-            QStringLiteral(".uno:WrapOn"):QStringLiteral(".uno:WrapOff");
+        const bool anchor=name==QLatin1String("imageAnchorInline")||name==QLatin1String("imageAnchorParagraph");
+        const QString cmd=name==QLatin1String("imageAnchorInline")?QStringLiteral(".uno:SetAnchorToChar"):
+            name==QLatin1String("imageAnchorParagraph")?QStringLiteral(".uno:SetAnchorToPara"):
+            name==QLatin1String("imageWrapSquare")?QStringLiteral(".uno:WrapOn"):QStringLiteral(".uno:WrapOff");
         const auto graphic=doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
         // A graphic selection starts with its bounding rectangle in twips.
         // An EMPTY/invalid rectangle or an unreported command state is not evidence.
@@ -504,9 +507,11 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         if(!rect.match(QString::fromStdString(graphic)).hasMatch()||
            (state!=QLatin1String("true")&&state!=QLatin1String("false")&&state!=QLatin1String("enabled"))){
             QMessageBox::information(parent,QObject::tr("Bố trí ảnh"),
-                QObject::tr("Hãy chọn một ảnh hoặc đối tượng nổi hỗ trợ bọc chữ. Ảnh nằm cùng dòng cần đổi neo trước."));
+                anchor?QObject::tr("Hãy chọn ảnh hoặc đối tượng có chế độ neo khả dụng."):
+                       QObject::tr("Hãy chọn một ảnh hoặc đối tượng nổi hỗ trợ bọc chữ. Chọn Neo theo đoạn để đổi ảnh nằm cùng dòng."));
             return true;
         }
+        if(anchor&&state==QLatin1String("true"))return true;
         doc->command(ss(cmd));
         doc->waitInputIdle();
         tab->view()->setFocus();
