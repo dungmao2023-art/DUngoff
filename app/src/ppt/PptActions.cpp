@@ -851,6 +851,16 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         list->setDropIndicatorShown(true);
         list->setToolTip(QObject::tr("Kéo thả dòng để đổi thứ tự phát"));
         root->addWidget(list,1);
+        // Read-only visual timing for the selected click group. The list stays
+        // the source of truth for reordering and editing, even on small screens.
+        auto* timelineCaption=new QLabel(&dialog);
+        timelineCaption->setWordWrap(true);
+        auto* timelineGraphic=new QLabel(&dialog);
+        timelineGraphic->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Fixed);
+        timelineGraphic->setFixedHeight(104);
+        timelineGraphic->setAlignment(Qt::AlignCenter);
+        timelineGraphic->setAccessibleName(QObject::tr("Biểu đồ thời gian hoạt ảnh của nhóm nhấp đang chọn"));
+        root->addWidget(timelineCaption);root->addWidget(timelineGraphic);
         auto* order = new QHBoxLayout;
         auto* up = new QPushButton(QObject::tr("↑ Lên"), &dialog); auto* down = new QPushButton(QObject::tr("↓ Xuống"), &dialog);
         auto* remove = new QPushButton(QObject::tr("Xóa dòng"), &dialog);
@@ -862,6 +872,51 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             ppttransition::AnimationOptions o; o.shapeId=shape->currentData().toUInt(); o.fade=effect->currentIndex()==1; o.exit=direction->currentIndex()==1;
             if(effect->currentIndex()>1)o.filter=static_cast<ppttransition::AnimationFilter>(effect->currentIndex()-1);
             o.durationMs=qRound(duration->value()*1000); o.delayMs=qRound(delay->value()*1000); o.trigger=ppttransition::AnimationTrigger(trigger->currentIndex()); return o;
+        };
+        auto drawTimeline=[&]{
+            QList<ppttransition::AnimationTiming> plan;
+            const auto valid=ppttransition::planAnimation(effects,&plan);
+            timelineGraphic->setVisible(valid.ok&&!plan.isEmpty());
+            timelineCaption->setVisible(valid.ok&&!plan.isEmpty());
+            if(!valid.ok||plan.isEmpty())return;
+            const int selected=qBound(0,list->currentRow(),int(plan.size())-1);
+            const int click=plan[selected].click;
+            QList<int> group;int total=0;
+            for(int k=0;k<plan.size();++k)if(plan[k].click==click){
+                group.append(k);total=qMax(total,plan[k].endMs);
+            }
+            const int shown=qMin(4,int(group.size()));
+            const int offset=qBound(0,int(group.indexOf(selected))-shown/2,qMax(0,int(group.size())-shown));
+            const int w=560,h=104,axisLeft=76,axisRight=w-16,axisWidth=axisRight-axisLeft;
+            QPixmap pix(w,h);pix.fill(QColor("#FFFFFF"));
+            QPainter painter(&pix);painter.setRenderHint(QPainter::Antialiasing);
+            const int span=qMax(1,total);
+            painter.setPen(QColor("#64748B"));auto font=painter.font();font.setPixelSize(10);painter.setFont(font);
+            for(int tick=0;tick<=4;++tick){
+                const int x=axisLeft+axisWidth*tick/4;
+                painter.setPen(QColor("#E2E8F0"));painter.drawLine(x,18,x,h-5);
+                painter.setPen(QColor("#64748B"));
+                const QString label=QString::number(span*tick/4000.0,'f',span<1000?2:1)+QStringLiteral("s");
+                painter.drawText(QRectF(x-25,0,50,17),Qt::AlignCenter,label);
+            }
+            for(int k=0;k<shown;++k){
+                const int row=group[offset+k];const int y=22+k*19;
+                const auto& p=plan[row];const auto& o=effects[row];
+                painter.setPen(QColor("#334155"));
+                painter.drawText(QRectF(3,y,70,16),Qt::AlignLeft|Qt::AlignVCenter,
+                    QObject::tr("Dòng %1").arg(row+1));
+                const qreal x=axisLeft+qreal(axisWidth)*p.startMs/span;
+                const qreal end=axisLeft+qreal(axisWidth)*p.endMs/span;
+                const QRectF bar(qMin(x,qreal(axisRight-3)),y+2,qMax(qreal(3),end-x),12);
+                painter.setBrush(o.exit?QColor("#B45309"):QColor("#0F766E"));
+                painter.setPen(row==selected?QPen(QColor("#172554"),2):QPen(Qt::NoPen));
+                painter.drawRoundedRect(bar,3,3);
+            }
+            painter.end();
+            timelineGraphic->setPixmap(pix);
+            timelineCaption->setText(QObject::tr("Nhấp %1 · %2 hiệu ứng · %3 giây%4")
+                .arg(click).arg(group.size()).arg(total/1000.0,0,'f',2)
+                .arg(group.size()>shown?QObject::tr(" · đang xem %1–%2").arg(offset+1).arg(offset+shown):QString()));
         };
         auto updateTimeline=[&] {
             QList<ppttransition::AnimationTiming> plan;
@@ -875,6 +930,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
                     .arg(trigger->itemText(int(o.trigger)),time));
             }
             bb->button(QDialogButtonBox::Ok)->setEnabled(result.ok);
+            drawTimeline();
             note->setText(effects.isEmpty()?QObject::tr("Thêm hiệu ứng; dòng đầu phải là khi nhấp chuột."):
                 result.ok?QObject::tr("Timeline dự kiến theo từng lần nhấp. Mỗi đối tượng có tối đa một hiệu ứng vào rồi một hiệu ứng ra, không chồng thời gian. Chưa phát thử trực tiếp; kiểm tra trong PowerPoint sau khi xuất."):result.error);
         };
@@ -884,6 +940,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
               updateTimeline();
             }
             list->setCurrentRow(row);
+            drawTimeline();
             edit->setEnabled(row>=0);remove->setEnabled(row>=0);
             up->setEnabled(row>0);down->setEnabled(row>=0&&row+1<effects.size());
         };
@@ -912,6 +969,7 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             return false;
         };
         QObject::connect(list,&QListWidget::currentRowChanged,&dialog,[&](int row) {
+            drawTimeline();
             edit->setEnabled(row>=0); remove->setEnabled(row>=0); up->setEnabled(row>0); down->setEnabled(row>=0 && row+1<effects.size());
             if (row<0 || row>=effects.size()) return;
             const auto& o=effects[row]; shape->setCurrentIndex(shape->findData(o.shapeId)); effect->setCurrentIndex(effectIndex(o)); direction->setCurrentIndex(o.exit?1:0);
