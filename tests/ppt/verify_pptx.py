@@ -220,5 +220,17 @@ if master_file.exists():
         check(any(b"MASTER_SLIDE_A" in z.read(n) for n in slides_xml) and any(b"MASTER_SLIDE_B" in z.read(n) for n in slides_xml),"Both original slides preserved")
 else:
     check(False,"Native master edited PPTX missing")
+gallery_file=layer_dir/"ppt-shape-gallery.pptx"
+if gallery_file.exists():
+    with zipfile.ZipFile(gallery_file) as z:
+        a_ns="{http://schemas.openxmlformats.org/drawingml/2006/main}"
+        p_ns="{http://schemas.openxmlformats.org/presentationml/2006/main}"
+        tree=ET.fromstring(z.read("ppt/slides/slide1.xml"))
+        # Native editable p:sp objects, not flattened raster images.
+        presets={geom.get("prst") for shape in tree.iter(p_ns+"sp") for geom in shape.iter(a_ns+"prstGeom")}
+        required={"roundRect","ellipse","triangle","diamond","rightArrow","star5"}
+        check(required.issubset(presets),"Shape gallery native editable presets; missing "+str(required-presets))
+else:
+    check(False,"Shape gallery output missing")
 print("\nKẾT QUẢ XÁC MINH PPTX:", "CÓ LỖI" if fail else "TẤT CẢ ĐẠT")
 sys.exit(1 if fail else 0)

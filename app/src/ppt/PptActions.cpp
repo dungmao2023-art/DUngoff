@@ -36,6 +36,12 @@
 #include <QRegularExpression>
 #include <QGuiApplication>
 #include <QScreen>
+#include <QGridLayout>
+#include <QToolButton>
+#include <QPainter>
+#include <QPainterPath>
+#include <QPixmap>
+#include <QIcon>
 #include <functional>
 
 // QListWidget may implement InternalMove by moving rows or by insert/remove.
@@ -332,6 +338,57 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.textbox")) {
         armShape(tab, ".uno:Text");
+    } else if (id == QLatin1String("ppt.shapes")) {
+        if(d->readOnly()||tab->pptNotesMode())return true;
+        const PptEditTarget target(tab);
+        const bool master=tab->pptMasterMode();
+        QDialog gallery(tab);
+        gallery.setWindowTitle(QObject::tr("Chèn hình khối"));
+        auto* root=new QVBoxLayout(&gallery);
+        auto* hint=new QLabel(QObject::tr("Chọn hình, sau đó kéo chuột trên slide để đặt kích thước."),&gallery);
+        hint->setWordWrap(true);root->addWidget(hint);
+        auto* grid=new QGridLayout;root->addLayout(grid);
+        struct ShapeChoice {const char* command;QString label;};
+        const ShapeChoice choices[]{
+            {".uno:BasicShapes.rectangle",QObject::tr("Chữ nhật")},
+            {".uno:BasicShapes.round-rectangle",QObject::tr("Bo góc")},
+            {".uno:BasicShapes.ellipse",QObject::tr("Elip")},
+            {".uno:BasicShapes.isosceles-triangle",QObject::tr("Tam giác")},
+            {".uno:BasicShapes.diamond",QObject::tr("Hình thoi")},
+            {".uno:ArrowShapes.right-arrow",QObject::tr("Mũi tên")},
+            {".uno:StarShapes.star5",QObject::tr("Ngôi sao")}
+        };
+        const char* chosen=nullptr;
+        for(int k=0;k<7;++k){
+            QPixmap preview(64,44);preview.fill(Qt::transparent);
+            QPainter painter(&preview);painter.setRenderHint(QPainter::Antialiasing);
+            painter.setPen(QPen(QColor("#A94728"),1.5));painter.setBrush(QColor("#F3C5B3"));
+            const QRectF bounds(9,7,46,30);
+            if(k==0)painter.drawRect(bounds);
+            else if(k==1)painter.drawRoundedRect(bounds,7,7);
+            else if(k==2)painter.drawEllipse(bounds);
+            else {
+                QPolygonF poly;
+                if(k==3)poly<<QPointF(32,5)<<QPointF(55,37)<<QPointF(9,37);
+                else if(k==4)poly<<QPointF(32,4)<<QPointF(58,22)<<QPointF(32,40)<<QPointF(6,22);
+                else if(k==5)poly<<QPointF(7,14)<<QPointF(36,14)<<QPointF(36,5)<<QPointF(59,22)<<QPointF(36,39)<<QPointF(36,30)<<QPointF(7,30);
+                else poly<<QPointF(32,3)<<QPointF(39,15)<<QPointF(54,16)<<QPointF(43,26)<<QPointF(46,40)<<QPointF(32,33)<<QPointF(18,40)<<QPointF(21,26)<<QPointF(10,16)<<QPointF(25,15);
+                painter.drawPolygon(poly);
+            }
+            painter.end();
+            auto* button=new QToolButton(&gallery);button->setText(choices[k].label);
+            button->setIcon(QIcon(preview));button->setIconSize(QSize(64,44));
+            button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+            button->setMinimumSize(94,78);button->setAccessibleName(choices[k].label);
+            button->setStyleSheet(QStringLiteral("QToolButton{background:white;border:1px solid #E3D9D4;border-radius:8px;padding:6px;} QToolButton:hover,QToolButton:focus{background:#FCEDE6;border-color:#C45530;}"));
+            grid->addWidget(button,k/4,k%4);
+            const char* command=choices[k].command;
+            QObject::connect(button,&QToolButton::clicked,&gallery,[&gallery,&chosen,command]{chosen=command;gallery.accept();});
+        }
+        auto* cancel=new QDialogButtonBox(QDialogButtonBox::Cancel,&gallery);root->addWidget(cancel);
+        QObject::connect(cancel,&QDialogButtonBox::rejected,&gallery,&QDialog::reject);
+        if(gallery.exec()==QDialog::Accepted&&chosen&&target.verify(false)&&target.tab->pptMasterMode()==master)
+            armShape(target.tab.data(),chosen);
     } else if (id == QLatin1String("ppt.rect")) {
         armShape(tab, ".uno:BasicShapes.rectangle");
     } else if (id == QLatin1String("ppt.image")) {

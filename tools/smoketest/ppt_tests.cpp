@@ -616,6 +616,34 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         snap(std::string("ppt-rotate-")+item.name+"-undone.pptx");
     }
 
+    step("PowerPoint — insert editable shapes from gallery");
+    auto gallery=engine->open(pptx,&err);
+    check(bool(gallery),"Open source for shape gallery: "+err);
+    if(gallery){
+        gallery->setPart(0);
+        gallery->setClientView(512,512,7680,7680,0,0,7680,7680);
+        const char* commands[]{".uno:BasicShapes.round-rectangle",".uno:BasicShapes.ellipse",
+            ".uno:BasicShapes.isosceles-triangle",".uno:BasicShapes.diamond",
+            ".uno:ArrowShapes.right-arrow",".uno:StarShapes.star5"};
+        int index=0;
+        for(const auto* command:commands){
+            step(std::string("Gallery: ")+command);
+            gallery->postKey(LOK_KEYEVENT_KEYINPUT,0,1281);
+            gallery->postKey(LOK_KEYEVENT_KEYUP,0,1281);
+            gallery->waitInputIdle(350,4000);
+            const auto before=renderHash(*gallery,0);
+            gallery->command(command);gallery->waitInputIdle(350,4000);
+            const int x=900+(index%3)*2200,y=900+(index/3)*1900;
+            gallery->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,x,y,1,1,0);
+            gallery->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,x+1500,y+1100,1,1,0);
+            gallery->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,x+1500,y+1100,1,1,0);
+            gallery->waitInputIdle(350,4000);
+            check(renderHash(*gallery,0)!=before,std::string("Native shape changes slide: ")+command);
+            ++index;
+        }
+        auto dest=out/"ppt-shape-gallery.pptx";fs::remove(dest,ec);
+        auto saved=gallery->saveAs(dest);check(saved.ok,"Save editable gallery shapes: "+saved.message);
+    }
     step("PowerPoint — direct Slide Master editing and return to normal");
     auto master=engine->open(out/"ppt-master-input.pptx",&err);
     check(bool(master),"Mở fixture master: "+err);
