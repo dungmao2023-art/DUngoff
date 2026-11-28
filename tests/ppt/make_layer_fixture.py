@@ -63,3 +63,11 @@ slide.shapes.add_textbox(Inches(1), Inches(2), Inches(4), Inches(1)).text = "LAY
 other = deck.slides.add_slide(deck.slide_layouts[6])
 other.shapes.add_textbox(Inches(1), Inches(2), Inches(4), Inches(1)).text = "LAYOUT_OTHER_SLIDE"
 deck.save(path.with_name("ppt-layout-input.pptx"))
+
+# Real blank-slide diagram fixture, with a separate slide to guard against
+# accidental changes outside the chosen slide.
+deck = Presentation()
+deck.slides.add_slide(deck.slide_layouts[6])
+other = deck.slides.add_slide(deck.slide_layouts[6])
+other.shapes.add_textbox(Inches(1), Inches(1), Inches(5), Inches(1)).text = "DIAGRAM_NEIGHBOUR"
+deck.save(path.with_name("ppt-diagram-input.pptx"))

@@ -580,7 +580,7 @@ Result patchDiagramXml(const QByteArray& xml,qint64 width,qint64 height,const pp
                 maxId=qMax(maxId,id);
             }
         }else if(xr.isEndElement()){
-            if(common&&depth==3&&xr.namespaceUri()==P&&xr.name()=="spTree"){
+            if(common&&depth==3&&xr.namespaceUri()==P&&xr.name()==QLatin1String("spTree")){
                 const auto off=xr.characterOffset();
                 if(off>0&&off<=text.size())insertion=text.lastIndexOf(QLatin1Char('<'),off-1);
                 if(insertion<0||!text.mid(insertion,2).startsWith("</"))return fail(QStringLiteral("Không xác minh vị trí sơ đồ."));
@@ -637,7 +637,7 @@ Result patchDiagramXml(const QByteArray& xml,qint64 width,qint64 height,const pp
     text.insert(insertion,fragment);
     QXmlStreamReader verify(text);int shapes=0,connectors=0;
     while(!verify.atEnd()){verify.readNext();if(verify.isStartElement()&&verify.namespaceUri()==P){
-        if(verify.name()=="sp")++shapes;else if(verify.name()=="cxnSp")++connectors;
+        if(verify.name()==QLatin1String("sp"))++shapes;else if(verify.name()==QLatin1String("cxnSp"))++connectors;
     }}
     if(verify.hasError()||shapes!=nodes.size()||connectors!=links.size())return fail(QStringLiteral("Không xác minh được sơ đồ đầu ra."));
     *output=text.toUtf8();return {true,{}};
@@ -650,7 +650,7 @@ Result createDiagramCopy(const QString& source,const QString& destination,int sl
     QXmlStreamReader xr(xml);qint64 width=0,height=0;int count=0;
     while(!xr.atEnd()){
         xr.readNext();if(xr.isDTD())return fail(QStringLiteral("XML có DTD."));
-        if(xr.isStartElement()&&xr.namespaceUri()==P&&xr.name()=="sldSz"){
+        if(xr.isStartElement()&&xr.namespaceUri()==P&&xr.name()==QLatin1String("sldSz")){
             ++count;width=xr.attributes().value("cx").toLongLong();height=xr.attributes().value("cy").toLongLong();
         }
     }

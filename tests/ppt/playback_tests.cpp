@@ -8,6 +8,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QPixmap>
 #include <QPointer>
@@ -171,6 +172,45 @@ int main(int argc,char** argv){
     std::string err;
     auto engine=dung::Engine::create(pathOf(args[1]),pathOf(temp.filePath("profile")),pathOf(temp.filePath("work")),&err);
     if(!engine){std::cerr<<err<<std::endl;return 1;}
+    // The diagram must be a real editable PPTX rendered by the engine,
+    // not just well-formed XML or an image preview.
+    {
+        const auto source=QFileInfo(args[2]).absolutePath()+"/ppt-diagram-input.pptx";
+        const auto fingerprint=ppttransition::sourceFingerprint(source);
+        if(fingerprint.isEmpty()){std::cerr<<"FAIL diagram fixture missing"<<std::endl;return 1;}
+        auto original=engine->open(pathOf(source),&err);
+        if(!original||original->partCount()!=2){std::cerr<<"FAIL open diagram fixture"<<std::endl;return 1;}
+        auto render=[](dung::Document* doc,int part){
+            long w=0,h=0;doc->documentSize(w,h);
+            if(w<=0||h<=0)return QImage{};
+            QImage frame(640,480,QImage::Format_ARGB32_Premultiplied);frame.fill(Qt::white);
+            if(!doc->paintPartTile(frame.bits(),part,640,480,0,0,int(w),int(h)))return QImage{};
+            return frame;
+        };
+        const auto blank=render(original.get(),0),neighbour=render(original.get(),1);
+        if(blank.isNull()||neighbour.isNull()||blank==neighbour){std::cerr<<"FAIL diagram baseline"<<std::endl;return 1;}
+        for(const auto layout:{pptdiagram::Layout::Process,pptdiagram::Layout::MindMap}){
+            pptdiagram::Options o;o.title=QStringLiteral("Sơ đồ thử nghiệm");
+            o.items={QStringLiteral("Ý tưởng"),QStringLiteral("Chuẩn bị"),QStringLiteral("Thực hiện"),QStringLiteral("Kết quả")};o.layout=layout;
+            const auto path=temp.filePath(QStringLiteral("diagram-%1.pptx").arg(int(layout)));
+            const auto made=ppttransition::createDiagramCopy(source,path,1,o,fingerprint);
+            if(!made.ok){std::cerr<<"FAIL diagram export "<<made.error.toStdString()<<std::endl;return 1;}
+            QString error;QList<pptdiagram::Node> planned;pptdiagram::plan(o,&planned);
+            const auto shapes=ppttransition::slideShapes(path,1,&error);
+            // Native shape inventory includes the attached connectors where supported.
+            if(shapes.size()<planned.size()){
+                std::cerr<<"FAIL diagram editable shape inventory "<<error.toStdString()<<std::endl;return 1;
+            }
+            auto generated=engine->open(pathOf(path),&err);
+            if(!generated||generated->partCount()!=2){std::cerr<<"FAIL open exported diagram "<<err<<std::endl;return 1;}
+            const auto changed=render(generated.get(),0),other=render(generated.get(),1);
+            if(changed.isNull()||changed==blank||bluePixels(changed)<500||other!=neighbour||
+               ppttransition::sourceFingerprint(source)!=fingerprint){
+                std::cerr<<"FAIL diagram rendered pixels or unchanged neighbour"<<std::endl;return 1;
+            }
+            std::cout<<"PASS native diagram render and editable shapes "<<int(layout)<<std::endl;
+        }
+    }
     auto doc=engine->open(pathOf(animated),&err);
     if(!doc){std::cerr<<err<<std::endl;return 1;}
     doc->setClientView(512,512,7680,7680,0,0,7680,7680);
