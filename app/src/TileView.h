@@ -100,6 +100,9 @@ private:
     QTimer m_tilePaintTimer;
     int m_peakTilesPerPaint=0;
     QRect m_cellCursor, m_caret;   // twip; m_caret có thể rộng 0 nên dùng cờ m_hasCaret/m_hasCell, KHÔNG dùng isEmpty()
+    QRect m_autoFillArea; // authoritative LOK callback rectangle in twips
+    bool m_nativeFillDrag = false;
+    QPoint m_nativeFillLastTwips; // last dispatched native fill position
     QRect m_cellArea;              // vùng nhiều ô (CELL_SELECTION_AREA)
     bool m_hasCaret = false, m_hasCell = false;
     bool m_blinkFrozen = false;

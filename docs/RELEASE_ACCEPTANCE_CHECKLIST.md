@@ -47,6 +47,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] X03.1 SUM/AVERAGE/COUNT/IF/SUMIF(S)/COUNTIF(S), VLOOKUP/XLOOKUP/INDEX/MATCH, tham chiếu tương đối/tuyệt đối/liên sheet; lỗi công thức đúng.
 - [ ] X03.2 Tôi muốn tự nhận ô/vùng đang chọn, đủ đối số từng hàm, chọn ô kết quả, đổi sheet không ghi nhầm.
 - [ ] X04.1 FillDown/Right, chuỗi ngày/số, kéo fill handle; công thức và tham chiếu cập nhật đúng.
+  - 28/11: native LOK auto-fill rectangle; CI 46106879141 Windows/Linux đều bảo toàn nguồn/ô lân cận, điền đúng B2/B3 và Undo, B4 thiếu khi thả giữa ô. Test tới 80% chiều cao B4, chờ move cuối; app gửi move cuối nếu vị trí release khác move trước, không bắt gesture ở handle ẩn khi sửa chữ. Đồng bộ #170, giữ gate B1:B4, CI/GUI còn chờ.
 - [ ] X05.1 Filter, sort một/nhiều khóa, freeze; dữ liệu nguyên hàng, header và công thức không lệch.
 - [ ] X05.2 Conditional formatting, data validation/dropdown, bảo vệ sheet; kiểm XLSX thật.
   - 28/11: #170 CI 46104703528 Windows v2/Linux PASS trên 86f6117: kiểm input/pristine/edited XML allowBlank, showErrorMessage, errorStyle; bảo toàn ô khóa/mở, dữ liệu, công thức, vùng dropdown tiếng Việt. Đồng bộ main sau #171/#172; chờ CI tích hợp và GUI tạo/sửa rule, không nâng stage.
