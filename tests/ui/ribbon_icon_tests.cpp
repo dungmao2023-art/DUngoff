@@ -70,6 +70,28 @@ int main(int argc, char** argv) {
                 emitted.clear();
                 QMetaObject::invokeMethod(size,"activated",Qt::DirectConnection,Q_ARG(int,size->currentIndex()));
                 if(!emitted.startsWith(QLatin1String(".uno:FontHeight#"))){printf("[LỖI] chọn cỡ không phát lệnh\n");++fail;}
+                // Simulate a verified engine inventory replacing the platform list.
+                emitted.clear();
+                r.setDocumentFonts({QStringLiteral("Engine Font A"),QStringLiteral("Engine Font B")});
+                if(family->count()!=2||family->currentIndex()!=-1||!emitted.isEmpty()){
+                    printf("[LỖI] inventory engine không thay thế danh sách Qt\n");++fail;
+                }
+                r.setCommandState(QStringLiteral(".uno:CharFontName"),QStringLiteral("Original Missing Font"));
+                const int missing=family->currentIndex();
+                if(missing<0||family->currentText()!=QLatin1String("Original Missing Font")){
+                    printf("[LỖI] mất tên phông gốc\n");++fail;
+                }
+                QMetaObject::invokeMethod(family,"activated",Qt::DirectConnection,Q_ARG(int,missing));
+                if(!emitted.isEmpty()){printf("[LỖI] gửi lệnh font chưa được engine xác minh\n");++fail;}
+                QMetaObject::invokeMethod(family,"activated",Qt::DirectConnection,Q_ARG(int,0));
+                if(!emitted.startsWith(QLatin1String(".uno:CharFontName#"))){printf("[LỖI] font engine không phát lệnh\n");++fail;}
+                emitted.clear();
+                r.setDocumentFonts({QStringLiteral("Other Document Font")});
+                if(family->count()!=1||family->itemText(0)!=QLatin1String("Other Document Font")||!emitted.isEmpty()){
+                    printf("[LỖI] font của tab cũ còn sót\n");++fail;
+                }
+                r.setDocumentFonts({});
+                if(family->count()==0){printf("[LỖI] thiếu fallback khi engine không trả danh sách\n");++fail;}
                 QObject::disconnect(connection);
             }
         }
