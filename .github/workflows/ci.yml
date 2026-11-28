@@ -18,8 +18,8 @@ concurrency:
 
 env:
   LO_VERSION: "26.8.3"
-  ENGINE_TAG: "engine-26.8.3.1-headless"
-  ENGINE_SHA256: "03261237878855c27013ff81ba03d766fd794ff49f88d711a013747f7325cac1"
+  ENGINE_TAG: "engine-26.8.3.2-headless"
+  ENGINE_SHA256: "cb7664001dfb51a31467f2b1849e294e6564d607a91baea5c4efa215010ad492"
   QT_VERSION: "6.8.3"
 
 jobs:
