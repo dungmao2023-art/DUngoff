@@ -2,6 +2,8 @@
 """Synthetic XLSX: protected cells, editable dropdown and rule preservation."""
 import sys
 from pathlib import Path
+from zipfile import ZipFile
+from xml.etree import ElementTree as ET
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Protection
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -34,6 +36,10 @@ def verify(root):
         print(("PASS " if ok else "FAIL ") + name)
         if not ok:
             failures.append(name)
+    baseline_path = root / "validation-protection-baseline.xlsx"
+    baseline = load_workbook(baseline_path)
+    check(baseline.sheetnames == before.sheetnames, "pristine sheet identity")
+    check(baseline["Trang"]["B2"].value == "Đạt", "pristine cell unchanged")
     check(after.sheetnames == before.sheetnames, "sheet identity")
     ws = after["Trang"]
     check(ws.protection.sheet is True, "sheet stays protected")
@@ -42,14 +48,28 @@ def verify(root):
     check(ws["B2"].value == "Chờ" and ws["B3"].value == "Chờ", "allowed edit saved")
     check(ws["A2"].value == "001" and ws["A3"].value == "002" and ws["C2"].value == 12 and ws["C3"].value == "=C2*2", "locked values, text codes and formula preserved")
     check(after["Khác"]["A1"].value == "unchanged", "other sheet preserved")
-    rules = list(ws.data_validations.dataValidation)
-    matching = [r for r in rules if r.type == "list" and "B2" in r and "B3" in r]
-    check(len(rules) == 1 and len(matching) == 1, "single list rule retained across range")
-    if matching:
+    def verify_rule(book, path, label):
+        sheet = book["Trang"]
+        rules = list(sheet.data_validations.dataValidation)
+        matching = [r for r in rules if r.type == "list" and "B2" in r and "B3" in r]
+        check(len(rules) == 1 and len(matching) == 1, label + ": single list rule retained")
+        # The synthetic fixture always uses sheet1; report only policy attributes.
+        with ZipFile(path) as package:
+            root_xml = ET.fromstring(package.read("xl/worksheets/sheet1.xml"))
+            for node in root_xml.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}dataValidation"):
+                print(label, "XML policy", {k: node.get(k, "<absent>") for k in
+                    ("allowBlank", "showErrorMessage", "errorStyle", "showDropDown")})
+        if len(matching) != 1:
+            return
         r = matching[0]
-        check(str(r.sqref) == "B2:B3", "validation range unchanged")
-        check(r.formula1 == '"Đạt,Chờ"', "exact Vietnamese list retained")
-        check(r.allowBlank and r.showErrorMessage and r.errorStyle in (None, "stop"), "blank and stop error policy preserved")
+        check(str(r.sqref) == "B2:B3", label + ": validation range unchanged")
+        check(r.formula1 == '"Đạt,Chờ"', label + ": exact Vietnamese list retained")
+        check(r.allowBlank is True, label + ": allow blank preserved")
+        check(r.showErrorMessage is True, label + ": error message enabled")
+        check(r.errorStyle in (None, "stop"), label + ": stop error style preserved")
+    verify_rule(before, root / "validation-protection-input.xlsx", "input")
+    verify_rule(baseline, baseline_path, "pristine")
+    verify_rule(after, root / "validation-protection-output.xlsx", "edited")
     if failures:
         raise SystemExit(1)
 
