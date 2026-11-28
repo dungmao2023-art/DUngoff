@@ -7,6 +7,7 @@
 #ifdef DUNG_HAVE_PDFIUM_EDIT
 #include <fpdfview.h>
 #include <fpdf_edit.h>
+#include <fpdf_text.h>
 #include <fpdf_save.h>
 #endif
 
@@ -17,6 +18,9 @@
 #include <QColor>
 #include <QFileInfo>
 #include <QImage>
+#include <QRawFont>
+#include <QMap>
+#include <QVector>
 #include <QStandardPaths>
 #include <QProcess>
 #include <QTemporaryDir>
@@ -54,19 +58,47 @@ static QByteArray unicodePdfFixture(){
 #endif
     if(!font.open(QIODevice::ReadOnly))return {};
     const QByteArray data=font.readAll();
+    // Explicit Unicode-to-CID-to-glyph map: the fixture must not depend on
+    // platform-specific aliases in PDFium's automatic TrueType cmap inversion.
+    const QRawFont raw(data,24.0,QFont::PreferNoHinting);
+    if(!raw.isValid())return {};
+    const QStringList labels{QStringLiteral("Tiếng Việt"),QStringLiteral("Dũng Office")};
+    const QString alphabet=labels.join(QString())+QStringLiteral("Việt Nam");
+    QMap<ushort,uint32_t> cids;
+    QByteArray cidMap(2,'\0'), pairs;
+    for(const auto ch:alphabet){
+        const ushort u=ch.unicode();
+        if(cids.contains(u))continue;
+        const auto glyphs=raw.glyphIndexesForString(QString(ch));
+        if(glyphs.size()!=1||glyphs.first()==0||glyphs.first()>65535)return {};
+        const uint32_t cid=uint32_t(cids.size()+1);
+        cids.insert(u,cid);
+        const auto glyph=glyphs.first();
+        cidMap.append(char((glyph>>8)&255));cidMap.append(char(glyph&255));
+        pairs+="<"+QByteArray::number(cid,16).rightJustified(4,'0')+"> <"+
+            QByteArray::number(u,16).rightJustified(4,'0')+">\n";
+    }
+    const QByteArray cmap="/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n"
+        "/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
+        "/CMapName /DungUnicodeFixture def\n/CMapType 2 def\n"
+        "1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n"+
+        QByteArray::number(cids.size())+" beginbfchar\n"+pairs+
+        "endbfchar\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n";
     FPDF_InitLibrary();
     auto doc=FPDF_CreateNewDocument();
     auto page=doc?FPDFPage_New(doc,0,595,842):nullptr;
-    auto face=doc?FPDFText_LoadFont(doc,reinterpret_cast<const uint8_t*>(data.constData()),
-                    uint32_t(data.size()),FPDF_FONT_TRUETYPE,1):nullptr;
+    auto face=doc?FPDFText_LoadCidType2Font(doc,reinterpret_cast<const uint8_t*>(data.constData()),
+                    uint32_t(data.size()),cmap.constData(),
+                    reinterpret_cast<const uint8_t*>(cidMap.constData()),uint32_t(cidMap.size())):nullptr;
     bool ok=doc&&page&&face;
     if(ok){
-        const QStringList labels{QStringLiteral("Tiếng Việt"),QStringLiteral("Dũng Office")};
         int y=700;
         for(const auto& label:labels){
             auto obj=FPDFPageObj_CreateTextObj(doc,face,24);
             if(!obj){ok=false;break;}
-            if(!FPDFText_SetText(obj,reinterpret_cast<FPDF_WIDESTRING>(label.utf16()))){
+            QVector<uint32_t> codes;
+            for(const auto ch:label)codes.append(cids.value(ch.unicode()));
+            if(!FPDFText_SetCharcodes(obj,codes.constData(),size_t(codes.size()))){
                 FPDFPageObj_Destroy(obj);ok=false;break;
             }
             FPDFPageObj_Transform(obj,1,0,0,1,72,y);y-=50;
@@ -84,6 +116,28 @@ static QByteArray unicodePdfFixture(){
     if(page)FPDF_ClosePage(page);
     if(face)FPDFFont_Close(face);
     if(doc)FPDF_CloseDocument(doc);
+    // Independently reopen the source and require exact Unicode BEFORE the
+    // edit. Log only synthetic fixture data to make failure actionable.
+    if(ok){
+        auto saved=FPDF_LoadMemDocument64(writer.bytes.constData(),size_t(writer.bytes.size()),nullptr);
+        auto pg=saved?FPDF_LoadPage(saved,0):nullptr;
+        auto tp=pg?FPDFText_LoadPage(pg):nullptr;
+        ok=tp&&FPDFPage_CountObjects(pg)==labels.size();
+        for(int i=0;ok&&i<labels.size();++i){
+            auto obj=FPDFPage_GetObject(pg,i);
+            const auto n=FPDFTextObj_GetText(obj,tp,nullptr,0);
+            if(n<2||n>4096||n%2){ok=false;break;}
+            QVector<FPDF_WCHAR> text(int(n/2));
+            const auto got=FPDFTextObj_GetText(obj,tp,text.data(),n);
+            const auto actual=QString::fromUtf16(reinterpret_cast<const char16_t*>(text.constData()),text.size()-1);
+            ok=got==n&&text.last()==0&&actual==labels[i];
+            if(!ok)std::cerr<<"Unicode fixture mismatch: expected "<<labels[i].toUtf8().toHex().constData()
+                <<" got "<<actual.toUtf8().toHex().constData()<<std::endl;
+        }
+        if(tp)FPDFText_ClosePage(tp);
+        if(pg)FPDF_ClosePage(pg);
+        if(saved)FPDF_CloseDocument(saved);
+    }
     FPDF_DestroyLibrary();
     return ok?writer.bytes:QByteArray();
 }
