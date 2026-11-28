@@ -19,6 +19,7 @@ class Ribbon : public QWidget {
 public:
     explicit Ribbon(QWidget* parent = nullptr);
     void setKind(dung::DocKind kind, bool readOnly);
+    void setDocumentFonts(const QStringList& names);
     void setCommandState(const QString& cmd, const QString& value);
     void resetStates(const QHash<QString, QString>& states);
     QStringList commandIds() const;  // mọi id nút trên mọi ribbon (dùng cho kiểm thử icon)
@@ -39,6 +40,9 @@ private:
     QStackedWidget* m_pages;
     QHash<QString, QPointer<QToolButton>> m_buttons;
     QPointer<QComboBox> m_fontBox,m_sizeBox;
+    QStringList m_documentFonts;
+    bool m_fontInventoryVerified=false;
+    QString m_lastReportedFont;
     int m_lastKind = -1;
     bool m_lastReadOnly = false;
 };
