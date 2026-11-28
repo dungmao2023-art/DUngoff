@@ -869,11 +869,18 @@ int main(int argc, char** argv) {
         CHECK(imageResult.ok&&info(withImage).pages==2&&qdfOf(withImage).contains("/Subtype /Image")&&
               readFile(source)==original,"insert real image object without replacing page text or source");
         if(imageResult.ok){
-            const auto moved=P("native-moved.pdf"),beforeMove=readFile(withImage);
+            const auto moved=P("native-moved.pdf");const auto beforeMove=readFile(withImage);
             const auto movedResult=pdfedit::moveImage(withImage,2,QPointF(.5,.5),QPointF(.75,.8),15,fingerprint(withImage),moved);
             if(!movedResult.ok)std::cerr<<movedResult.error.toStdString()<<'\n';
             CHECK(movedResult.ok&&info(moved).pages==2&&readFile(withImage)==beforeMove&&readFile(source)==original,
                 "move and resize a native image while retaining previous versions");
+            const auto replacementPng=P("native-replace.png"),replaced=P("native-replaced-image.pdf");
+            QImage newImage(37,83,QImage::Format_ARGB32);newImage.fill(QColor(20,50,220));
+            CHECK(newImage.save(replacementPng),"create different aspect ratio image fixture");
+            const auto replacedResult=pdfedit::replaceImage(withImage,2,QPointF(.5,.5),replacementPng,fingerprint(withImage),replaced);
+            if(!replacedResult.ok)std::cerr<<replacedResult.error.toStdString()<<'\n';
+            CHECK(replacedResult.ok&&info(replaced).pages==2&&readFile(withImage)==beforeMove&&readFile(source)==original,
+                "replace native image in its original layer with new pixel dimensions");
             const auto missed=P("native-missed.pdf");
             CHECK(!pdfedit::moveImage(withImage,2,QPointF(.01,.01),QPointF(.5,.5),0,fingerprint(withImage),missed).ok&&
                   !QFile::exists(missed),"reject click outside image");
