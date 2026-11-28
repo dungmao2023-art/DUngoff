@@ -434,6 +434,24 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             send(target.tab.data(),insertTable(cols->value(),rows->value()));
             target.tab->view()->setFocus();
         }
+    } else if (name == QLatin1String("imageWrapSquare") || name == QLatin1String("imageWrapTopBottom")) {
+        doc->waitInputIdle();
+        const QString cmd=name==QLatin1String("imageWrapSquare")?
+            QStringLiteral(".uno:WrapOn"):QStringLiteral(".uno:WrapOff");
+        const auto graphic=doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
+        // A graphic selection starts with its bounding rectangle in twips.
+        // An EMPTY/invalid rectangle or an unreported command state is not evidence.
+        static const QRegularExpression rect(QStringLiteral("^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*([1-9]\\d*)\\s*,\\s*([1-9]\\d*)(?:\\s*,|\\s*$)"));
+        const auto state=tab->states().value(cmd);
+        if(!rect.match(QString::fromStdString(graphic)).hasMatch()||
+           (state!=QLatin1String("true")&&state!=QLatin1String("false")&&state!=QLatin1String("enabled"))){
+            QMessageBox::information(parent,QObject::tr("Bố trí ảnh"),
+                QObject::tr("Hãy chọn một ảnh hoặc đối tượng nổi hỗ trợ bọc chữ. Ảnh nằm cùng dòng cần đổi neo trước."));
+            return true;
+        }
+        doc->command(ss(cmd));
+        doc->waitInputIdle();
+        tab->view()->setFocus();
     } else if (name == QLatin1String("image")) {
         const WordInsertTarget target(tab);
         const QString f = QFileDialog::getOpenFileName(parent, QObject::tr("Chèn ảnh"), QString(),

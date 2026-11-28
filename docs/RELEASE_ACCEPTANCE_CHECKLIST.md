@@ -27,6 +27,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] W01.2 Bullet/numbering nhiều cấp, tiếp tục và khởi động lại danh sách.
 - [ ] W02.1 Tạo bảng 4×5; chèn/xóa hàng cột, gộp/tách, chỉnh rộng/cao; giữ nội dung khi lưu.
 - [ ] W02.2 Chèn ảnh, resize giữ tỷ lệ, wrap, kéo vị trí; link, ký hiệu, ngắt trang.
+  - 28/11: ribbon bọc chữ quanh đối tượng nổi hoặc trên/dưới; guard graphic rectangle và trạng thái UNO; kiểm XML wrapSquare/wrapTopAndBottom/Undo, ảnh nhúng và chữ. Chờ CI/GUI; resize/kéo vị trí chưa hoàn tất. Không nâng stage.
 - [ ] W03.1 A4, lề tùy chỉnh theo nhu cầu hành chính, portrait/landscape, header/footer, số trang; kiểm preview/in.
 - [ ] W03.2 Heading 1–3, tạo TOC thật, sửa heading và cập nhật mục lục; mở lại DOCX.
 - [ ] W03.3 Footnote/endnote, số trang và section; không mất nội dung.

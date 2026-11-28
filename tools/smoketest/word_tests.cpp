@@ -381,6 +381,21 @@ int runWordTests(const fs::path& program, const fs::path& out) {
     const fs::path png = fs::absolute(out) / "anh-thu.png";
     { std::ofstream f(png, std::ios::binary); f.write((const char*)kPng, sizeof kPng); }
     run(d, w::insertImage(toFileUrl(png)));
+    step("bố trí ảnh Word — native wrap và Undo");
+    run(d,".uno:SetAnchorToPara");
+    run(d,".uno:WrapOn");
+    auto saveWrap=[&](const char* filename){
+        const fs::path target=out/filename;
+        std::error_code wrapEc;
+        fs::remove(target,wrapEc);
+        const auto saved=d.saveAs(target);
+        check(saved.ok,std::string("Lưu bố trí ảnh ")+filename,saved.message);
+    };
+    saveWrap("word-image-square.docx");
+    run(d,".uno:WrapOff");
+    saveWrap("word-image-topbottom.docx");
+    run(d,".uno:Undo");
+    saveWrap("word-image-wrap-undone.docx");
     selectAll(d);
     html = selHtml(d);
     check(has(html, "<img"), "Chèn ảnh từ tệp (.uno:InsertGraphic)", snippet(html, 120));

@@ -39,5 +39,28 @@ else:
     check(all(v is not None for v in (mm(sec.left_margin), mm(sec.right_margin), mm(sec.top_margin), mm(sec.bottom_margin))) and
           abs(mm(sec.left_margin) - 30) < 1 and abs(mm(sec.right_margin) - 15) < 1 and abs(mm(sec.top_margin) - 20) < 1 and abs(mm(sec.bottom_margin) - 20) < 1,
           "Lề chuẩn VN (trái 30, phải 15, trên 20, dưới 20 mm) được lưu vào DOCX")
+# Independent check of actual anchored picture wrapping and embedded image data.
+from pathlib import Path
+from xml.etree import ElementTree as ET
+import hashlib
+WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
+W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+images = []
+for filename, wrap in (("word-image-square.docx", "wrapSquare"),
+                       ("word-image-topbottom.docx", "wrapTopAndBottom"),
+                       ("word-image-wrap-undone.docx", "wrapSquare")):
+    with zipfile.ZipFile(Path(path).parent / filename) as package:
+        root = ET.fromstring(package.read("word/document.xml"))
+        anchors = list(root.iter(WP+"anchor"))
+        check(len(anchors) == 1 and anchors[0].find(WP+wrap) is not None,
+              filename + ": actual native wrap " + wrap)
+        media = sorted(hashlib.sha256(package.read(n)).hexdigest()
+                       for n in package.namelist() if n.startswith("word/media/") and not n.endswith("/"))
+        check(bool(media), filename + ": embedded image retained")
+        images.append(media)
+        content = "".join(n.text or "" for n in root.iter(W+"t"))
+        check("Tiêu đề thử" in content and "Mục một" in content and "Mục hai" in content,
+              filename + ": body retained")
+check(images[0] == images[1] == images[2], "wrap and Undo preserve original image bytes")
 print("\nKẾT QUẢ DOCX:", "CÓ LỖI" if fails else "TẤT CẢ ĐẠT")
 sys.exit(1 if fails else 0)

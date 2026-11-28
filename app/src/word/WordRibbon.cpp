@@ -57,6 +57,10 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral(".uno:InsertPagebreak"), tr("Ngắt trang"), 0xE7C3, QStringLiteral("⤓"), false},
                 {QStringLiteral(".uno:InsertPageNumberField"), tr("Số trang"), 0xE8A5, QStringLiteral("#"), false},
             }},
+            {tr("Bố trí ảnh"), {
+                {QStringLiteral("word:imageWrapSquare"), tr("Chữ quanh ảnh"), 0xE8B9, QStringLiteral("▣"), false},
+                {QStringLiteral("word:imageWrapTopBottom"), tr("Chữ trên/dưới"), 0xE8B9, QStringLiteral("≡"), false},
+            }},
             {tr("Chỉnh sửa bảng"), {
                 {QStringLiteral(".uno:InsertRowsAfter"), tr("Thêm hàng bên dưới"), 0xE710, QStringLiteral("+≡"), false},
                 {QStringLiteral(".uno:InsertColumnsAfter"), tr("Thêm cột bên phải"), 0xE710, QStringLiteral("+‖"), false},
