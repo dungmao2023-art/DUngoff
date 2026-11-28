@@ -406,7 +406,7 @@ void SlideShow::appendInk(const QPointF& position,bool start){
     // Keep memory and event cost bounded; ink is local to this slide and session.
     if(start){
         m_inking=m_ink.size()<128;
-        if(m_inking)m_ink.append(QPolygonF{point});
+        if(m_inking){QPolygonF stroke;stroke.append(point);m_ink.append(std::move(stroke));}
     }else if(m_inking&&!m_ink.isEmpty()){
         auto& stroke=m_ink.last();
         if(stroke.size()<2048 && QLineF(stroke.last(),point).length()>=.001)stroke.append(point);
