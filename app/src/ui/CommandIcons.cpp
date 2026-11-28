@@ -26,7 +26,7 @@ QString iconNameForCommand(const QString& id) {
         // Word
         {"word:style0", "text"}, {"word:style1", "heading"}, {"word:style2", "heading"}, {"word:style3", "heading"},
         {"word:font", "font-name"}, {"word:size", "font-size"}, {"word:color", "font-color"},
-        {"word:find", "search"}, {"word:replace", "replace"}, {"word:table", "table"}, {"word:image", "image"}, {"word:imageAnchorInline", "align-left"}, {"word:imageAnchorParagraph", "wrap-text"}, {"word:imageWrapSquare", "wrap-text"}, {"word:imageWrapTopBottom", "wrap-text"}, {"word:link", "link"},
+        {"word:find", "search"}, {"word:replace", "replace"}, {"word:table", "table"}, {"word:image", "image"}, {"word:imageResize", "shape"}, {"word:imageAnchorInline", "align-left"}, {"word:imageAnchorParagraph", "wrap-text"}, {"word:imageWrapSquare", "wrap-text"}, {"word:imageWrapTopBottom", "wrap-text"}, {"word:link", "link"},
         {"word:a4", "paper-size"}, {"word:landscape", "orientation"},
         {"word:marginNarrow", "margins"}, {"word:marginCustom", "margins"}, {"word:marginNormal", "margins"}, {"word:marginVN", "margins"},
         {"word:adminHead", "heading"}, {"word:adminTail", "text"}, {"word:adminFull", "template"}, {"word:adminMargin", "margins"},

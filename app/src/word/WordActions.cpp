@@ -22,6 +22,7 @@
 #include <QSettings>
 #include "../TileView.h"
 #include <QRegularExpression>
+#include <QSignalBlocker>
 #include <QTextDocumentFragment>
 
 #include <QCheckBox>
@@ -492,6 +493,61 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
             send(target.tab.data(),insertTable(cols->value(),rows->value()));
             target.tab->view()->setFocus();
         }
+    } else if (name == QLatin1String("imageResize")) {
+        doc->waitInputIdle();
+        QPointer<DocumentTab> live(tab);
+        const int part=doc->currentPart();
+        const auto graphic=doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION);
+        const auto selected=doc->selectionAs("text/plain;charset=utf-8");
+        static const QRegularExpression rect(QStringLiteral("^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*([1-9]\\d*)\\s*,\\s*([1-9]\\d*)(?:\\s*,|\\s*$)"));
+        const auto bounds=rect.match(QString::fromStdString(graphic));
+        bool wOk=false,hOk=false;
+        const int w=bounds.captured(1).toInt(&wOk),h=bounds.captured(2).toInt(&hOk);
+        const double oldW=w*2.54/1440.0,oldH=h*2.54/1440.0;
+        if(!bounds.hasMatch()||!wOk||!hOk||oldW<0.01||oldH<0.01||oldW>100||oldH>100||!selected.empty()){
+            QMessageBox::information(parent,QObject::tr("Kích thước ảnh"),QObject::tr("Chọn ảnh hoặc đối tượng đồ họa, không chọn văn bản."));
+            return true;
+        }
+        QDialog dlg(parent);
+        dlg.setWindowTitle(QObject::tr("Kích thước ảnh"));
+        auto* root=new QVBoxLayout(&dlg);
+        auto* form=new QFormLayout;
+        auto* width=new QDoubleSpinBox(&dlg);
+        auto* height=new QDoubleSpinBox(&dlg);
+        for(auto* field:{width,height}){
+            field->setRange(0.01,100.0);field->setDecimals(2);field->setSuffix(QObject::tr(" cm"));
+        }
+        width->setValue(oldW);height->setValue(oldH);
+        auto* lock=new QCheckBox(QObject::tr("Giữ tỷ lệ"),&dlg);lock->setChecked(true);
+        form->addRow(QObject::tr("Rộng:"),width);form->addRow(QObject::tr("Cao:"),height);
+        root->addLayout(form);root->addWidget(lock);
+        QObject::connect(width,&QDoubleSpinBox::valueChanged,&dlg,[&](double v){
+            if(lock->isChecked()){QSignalBlocker blocker(height);height->setValue(v*oldH/oldW);}
+        });
+        QObject::connect(height,&QDoubleSpinBox::valueChanged,&dlg,[&](double v){
+            if(lock->isChecked()){QSignalBlocker blocker(width);width->setValue(v*oldW/oldH);}
+        });
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dlg);
+        root->addWidget(buttons);
+        QObject::connect(buttons,&QDialogButtonBox::accepted,&dlg,&QDialog::accept);
+        QObject::connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
+        if(dlg.exec()!=QDialog::Accepted||!live||live->document()!=doc||live->readOnly()||!live->view())return true;
+        doc->waitInputIdle();
+        if(doc->currentPart()!=part||doc->lastPayload(LOK_CALLBACK_GRAPHIC_SELECTION)!=graphic||
+           doc->selectionAs("text/plain;charset=utf-8")!=selected){
+            QMessageBox::warning(live.data(),QObject::tr("Kích thước ảnh"),QObject::tr("Vùng chọn đã thay đổi. Chưa chỉnh sửa."));
+            return true;
+        }
+        const int newW=qRound(width->value()*1440/2.54),newH=qRound(height->value()*1440/2.54);
+        if(lock->isChecked()&&qAbs(double(newW)/w-double(newH)/h)>0.02){
+            QMessageBox::warning(live.data(),QObject::tr("Kích thước ảnh"),QObject::tr("Kích thước vượt giới hạn giữ tỷ lệ."));
+            return true;
+        }
+        if(qAbs(newW-w)<=3&&qAbs(newH-h)<=3)return true;
+        if(live->states().value(QStringLiteral(".uno:TransformDialog"))==QLatin1String("disabled"))return true;
+        doc->command(".uno:TransformDialog",join({argLong("TransformWidth",newW),argLong("TransformHeight",newH)}));
+        doc->waitInputIdle();
+        if(live&&live->document()==doc&&live->view())live->view()->setFocus();
     } else if (name == QLatin1String("imageWrapSquare") || name == QLatin1String("imageWrapTopBottom") ||
                name == QLatin1String("imageAnchorInline") || name == QLatin1String("imageAnchorParagraph")) {
         doc->waitInputIdle();
