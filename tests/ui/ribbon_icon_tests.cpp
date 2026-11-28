@@ -64,6 +64,17 @@ int main(int argc, char** argv) {
                 if(family->currentText()!=QLatin1String("DungOfficeTestMissingFont")||family->count()!=familyCount+1){
                     printf("[LỖI] missing font is not preserved exactly once\n");++fail;
                 }
+                // With only the platform inventory, an engine-reported
+                // missing name is still display-only.
+                QMetaObject::invokeMethod(family,"activated",Qt::DirectConnection,Q_ARG(int,family->currentIndex()));
+                if(!emitted.isEmpty()){printf("[LỖI] fallback sent display-only missing font\n");++fail;}
+                for(int i=0;i<30;++i)
+                    r.setCommandState(QStringLiteral(".uno:CharFontName"),QStringLiteral("DungMissing%1").arg(i));
+                if(family->count()!=familyCount+1){printf("[LỖI] missing font history accumulated\n");++fail;}
+                r.setCommandState(QStringLiteral(".uno:CharFontName"),QString());
+                if(family->count()!=familyCount||family->currentIndex()!=-1||!emitted.isEmpty()){
+                    printf("[LỖI] empty font state retained missing font or emitted command\n");++fail;
+                }
                 r.setCommandState(QStringLiteral(".uno:CharFontName"),reportedFont);
                 QMetaObject::invokeMethod(family,"activated",Qt::DirectConnection,Q_ARG(int,0));
                 if(!emitted.startsWith(QLatin1String(".uno:CharFontName#"))){printf("[LỖI] chọn font không phát lệnh\n");++fail;}
@@ -86,6 +97,10 @@ int main(int argc, char** argv) {
                 QMetaObject::invokeMethod(family,"activated",Qt::DirectConnection,Q_ARG(int,0));
                 if(!emitted.startsWith(QLatin1String(".uno:CharFontName#"))){printf("[LỖI] font engine không phát lệnh\n");++fail;}
                 emitted.clear();
+                r.setCommandState(QStringLiteral(".uno:CharFontName"),QStringLiteral("disabled"));
+                QMetaObject::invokeMethod(family,"activated",Qt::DirectConnection,Q_ARG(int,0));
+                if(!emitted.isEmpty()){printf("[LỖI] disabled font selector sent command\n");++fail;}
+                r.setCommandState(QStringLiteral(".uno:CharFontName"),QStringLiteral("enabled"));
                 r.setDocumentFonts({QStringLiteral("Other Document Font")});
                 if(family->count()!=1||family->itemText(0)!=QLatin1String("Other Document Font")||!emitted.isEmpty()){
                     printf("[LỖI] font của tab cũ còn sót\n");++fail;
