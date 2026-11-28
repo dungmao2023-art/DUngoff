@@ -446,9 +446,30 @@ int main(int argc, char** argv) {
         const QByteArray q2 = r.ok ? qdfOf(P(QStringLiteral("so2.pdf"))) : QByteArray();
         CHECK(r.ok && q2.contains("(1) Tj") && q2.contains("(2) Tj") && !q2.contains("(3) Tj"), "đánh số trang '2-': trang 2 là số 1, trang 3 là số 2, không có số 3");
         NumberOptions vn;
-        vn.format = QString::fromUtf8("Trang số {n}");
-        r = addPageNumbers({a, {}}, vn, P(QStringLiteral("so-vn.pdf")));
-        CHECK(!r.ok && !QFileInfo::exists(P(QStringLiteral("so-vn.pdf"))), "đánh số trang: chữ có dấu bị từ chối, không tạo tệp");
+        vn.format = QString::fromUtf8("Trang số {n}/{total}");
+        vn.pages=QStringLiteral("2-3");vn.start=7;
+        const auto vnPath=P(QStringLiteral("so-vn.pdf"));
+        r=addPageNumbers({a,{}},vn,vnPath);
+        const auto vnQ=r.ok?qdfOf(vnPath):QByteArray();
+        CHECK(r.ok&&info(vnPath).pages==3,QStringLiteral("đánh số tiếng Việt: đủ trang — ")+r.error);
+        CHECK(vnQ.contains("/ToUnicode")&&(vnQ.contains("/FontFile2")||vnQ.contains("/FontFile3")),"số trang Unicode có font nhúng");
+        CHECK(vnQ.contains("(A 1) Tj")&&vnQ.contains("(A 2) Tj")&&vnQ.contains("(A 3) Tj"),"số trang Unicode giữ chữ vector gốc");
+        const auto reader=QStandardPaths::findExecutable(QStringLiteral("pdftotext"));
+        if(!reader.isEmpty()&&r.ok){
+            for(int page=1;page<=3;++page){
+                QProcess proc;
+                proc.start(reader,{QStringLiteral("-enc"),QStringLiteral("UTF-8"),QStringLiteral("-f"),QString::number(page),
+                    QStringLiteral("-l"),QString::number(page),vnPath,QStringLiteral("-")});
+                const bool ok=proc.waitForStarted(3000)&&proc.waitForFinished(15000)&&proc.exitStatus()==QProcess::NormalExit&&proc.exitCode()==0;
+                const auto txt=QString::fromUtf8(proc.readAllStandardOutput()).normalized(QString::NormalizationForm_C).simplified();
+                const bool correct=page==1?!txt.contains(QStringLiteral("Trang số")):txt.count(QStringLiteral("Trang số %1/8").arg(page+5))==1;
+                CHECK(ok&&correct,QStringLiteral("đọc số trang Unicode %1: %2").arg(page).arg(txt));
+            }
+        }
+        CHECK(readFile(a)==aBytes,"đánh số Unicode giữ nguyên nguồn");
+        vn.format=QStringLiteral("Trang\n{n}");
+        const auto badVN=P(QStringLiteral("so-vn-loi.pdf"));
+        CHECK(!addPageNumbers({a,{}},vn,badVN).ok&&!QFileInfo::exists(badVN),"từ chối số trang nhiều dòng");
         NumberOptions diag;
         diag.pos = Position::Diagonal;
         CHECK(!addPageNumbers({a, {}}, diag, P(QStringLiteral("so-cheo.pdf"))).ok, "đánh số trang: vị trí đường chéo bị từ chối");

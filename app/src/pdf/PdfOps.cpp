@@ -978,24 +978,32 @@ Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& d
 // Reuse Qt's PDF text and font-subsetting engine; qpdf overlays only the
 // new page content, leaving the original PDF's vector/image content intact.
 bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const StampOptions& opt,
-                    QByteArray* output,QString* error) {
+                    QByteArray* output,QString* error,const QHash<int,QString>& pageText = {}) {
     if (!qobject_cast<QGuiApplication*>(QCoreApplication::instance())) {
         *error=tr("Cần môi trường Qt GUI để vẽ chữ Unicode.");return false;
     }
-    const QString text=opt.text.normalized(QString::NormalizationForm_C);
-    for(const auto cp:text.toUcs4()) {
-        if(cp<32 || (cp>=127 && cp<=159) || cp==0x2028 || cp==0x2029) {
-            *error=tr("Chỉ hỗ trợ chữ trên một dòng.");return false;
+    if(geo.isEmpty() || geo.size()>2000){*error=tr("Lớp chữ Unicode hỗ trợ tối đa 2.000 trang mỗi tệp.");return false;}
+    QHash<int,QString> texts;
+    QSet<uint> chars;
+    for(int i:selected){
+        const QString text=(pageText.isEmpty()?opt.text:pageText.value(i)).normalized(QString::NormalizationForm_C);
+        if(i<0||i>=geo.size()||text.trimmed().isEmpty()||text.size()>1000){
+            *error=tr("Nội dung chữ trên trang không hợp lệ.");return false;
         }
+        for(const auto cp:text.toUcs4()){
+            if(cp<32 || (cp>=127 && cp<=159) || cp==0x2028 || cp==0x2029){
+                *error=tr("Chỉ hỗ trợ chữ trên một dòng.");return false;
+            }
+            chars.insert(cp);
+        }
+        texts.insert(i,text);
     }
     for(const auto& g:geo) if(g.defaulted || !std::isfinite(g.w) || !std::isfinite(g.h) ||
         g.w<1 || g.h<1 || g.w>14400 || g.h>14400) {
         *error=tr("Không xác minh được kích thước trang cho lớp chữ Unicode.");return false;
     }
-    if(geo.isEmpty() || geo.size()>2000){*error=tr("Lớp chữ Unicode hỗ trợ tối đa 2.000 trang mỗi tệp.");return false;}
     // Offscreen and native Qt platform plugins can expose different font inventories.
     // Choose a real installed family with coverage for the whole string.
-    const auto chars=text.toUcs4();
     QStringList families{QStringLiteral("Arial"),QStringLiteral("Segoe UI"),QStringLiteral("DejaVu Sans"),
                          QStringLiteral("Noto Sans"),QFontDatabase::systemFont(QFontDatabase::GeneralFont).family()};
     families.append(QFontDatabase::families());families.removeDuplicates();
@@ -1014,8 +1022,6 @@ bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const S
         return false;
     }
     const QFontMetricsF metrics(font);
-    QRectF bounds=metrics.boundingRect(text);
-    if(bounds.isEmpty()) {*error=tr("Chữ đóng dấu rỗng.");return false;}
     QByteArray bytes;
     QBuffer buffer(&bytes);
     if(!buffer.open(QIODevice::WriteOnly)){*error=tr("Không mở được bộ đệm PDF.");return false;}
@@ -1034,6 +1040,9 @@ bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const S
                 p.end();*error=tr("Không tạo được trang phủ tiếp theo.");return false;
             }
             if(!selected.contains(i))continue;
+            const QString text=texts.value(i);
+            const QRectF bounds=metrics.boundingRect(text);
+            if(bounds.isEmpty()){p.end();*error=tr("Chữ trên trang rỗng.");return false;}
             const double W=g.w*2,H=g.h*2;
             const double bw=bounds.width(),bh=bounds.height();
             p.save();p.setFont(font);p.setPen(QColor::fromRgbF(opt.gray,opt.gray,opt.gray));p.setOpacity(opt.opacity);
@@ -1071,17 +1080,17 @@ bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const S
 
 Result addPageNumbers(const Input& in, const NumberOptions& opt, const QString& dest, bool allowReplace) {
     Result res;
-    if (opt.format.isEmpty() || opt.format.size() > 200 || !isPrintableAscii(opt.format)) {
-        res.error = tr("Mẫu số trang chỉ nhận chữ không dấu (ASCII), tối đa 200 ký tự. "
-                       "Chữ có dấu tiếng Việt chưa hỗ trợ khi đánh số trang.");
+    if (opt.format.trimmed().isEmpty() || opt.format.size() > 200) {
+        res.error = tr("Mẫu số trang phải có nội dung, tối đa 200 ký tự.");
         return res;
     }
-    if (opt.fontSize < 4 || opt.fontSize > 72 || opt.gray < 0 || opt.gray > 1) {
+    if (!std::isfinite(opt.fontSize)||!std::isfinite(opt.gray)||opt.start<0||opt.start>100000||
+        opt.fontSize < 4 || opt.fontSize > 72 || opt.gray < 0 || opt.gray > 1) {
         res.error = tr("Cỡ chữ phải từ 4 đến 72 và độ xám từ 0 đến 1.");
         return res;
     }
-    if (opt.pos == Position::Diagonal) {
-        res.error = tr("Số trang không đặt theo đường chéo; hãy chọn một trong sáu vị trí góc/giữa.");
+    if (opt.pos < Position::TopLeft || opt.pos > Position::BottomRight) {
+        res.error = tr("Hãy chọn một trong sáu vị trí đánh số trang.");
         return res;
     }
     const Info inf = info(in.path, in.password);
@@ -1104,17 +1113,29 @@ Result addPageNumbers(const Input& in, const NumberOptions& opt, const QString& 
     }
     QHash<int, int> order;  // chỉ số trang -> thứ tự trong phần được chọn
     for (int i = 0; i < idx.size(); ++i) order.insert(idx[i], i);
-    const int lastNumber = opt.start + idx.size() - 1;
+    const qint64 lastNumber = qint64(opt.start) + idx.size() - 1;
+    auto numberText=[&](int i){
+        QString t=opt.format;
+        t.replace(QLatin1String("{n}"),QString::number(qint64(opt.start)+order.value(i)));
+        t.replace(QLatin1String("{total}"),QString::number(lastNumber));
+        return t;
+    };
+    if(!isPrintableAscii(opt.format)){
+        if(geo.size()>2000){res.error=tr("Đánh số Unicode hỗ trợ tối đa 2.000 trang.");return res;}
+        StampOptions style;style.pos=opt.pos;style.fontSize=opt.fontSize;style.gray=opt.gray;style.opacity=1;
+        QHash<int,QString> texts;QSet<int> selected;
+        for(int i:idx){selected.insert(i);texts.insert(i,numberText(i));}
+        QByteArray overlay;
+        if(!unicodeOverlay(geo,selected,style,&overlay,&res.error,texts))return res;
+        return applyOverlay(in,overlay,dest,allowReplace);
+    }
     QList<OverlayPage> ops;
     QStringList defaulted;
     for (int i = 0; i < geo.size(); ++i) {
         OverlayPage op{geo[i].w, geo[i].h, QByteArray()};
         if (geo[i].defaulted) defaulted << QString::number(i + 1);
         if (order.contains(i)) {
-            QString t = opt.format;
-            t.replace(QLatin1String("{n}"), QString::number(opt.start + order.value(i)));
-            t.replace(QLatin1String("{total}"), QString::number(lastNumber));
-            const QByteArray text = t.toLatin1();
+            const QByteArray text = numberText(i).toLatin1();
             const double tw = textWidth(text, opt.fontSize);
             double x, y;
             placeBox(opt.pos, op.w, op.h, tw, opt.fontSize, &x, &y);
