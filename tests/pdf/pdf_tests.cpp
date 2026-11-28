@@ -4,6 +4,11 @@
 #include "pdf/PdfOps.h"
 #include "pdf/PdfOcr.h"
 #include "pdf/PdfTextEdit.h"
+#ifdef DUNG_HAVE_PDFIUM_EDIT
+#include <fpdfview.h>
+#include <fpdf_edit.h>
+#include <fpdf_save.h>
+#endif
 
 #include <QGuiApplication>
 #include <QCoreApplication>
@@ -38,6 +43,51 @@ static int g_pass = 0;
         if (cond) { ++g_pass; std::cout << "[ĐẠT]  " << QString(msg).toStdString() << "\n"; } \
         else { ++g_fail; std::cout << "[LỖI]  " << QString(msg).toStdString() << "  (" #cond ")\n"; } \
     } while (0)
+
+#ifdef DUNG_HAVE_PDFIUM_EDIT
+// Full embedded TrueType CID font, no Python PDF dependency and no font bundled.
+static QByteArray unicodePdfFixture(){
+#ifdef Q_OS_WIN
+    QFile font(QDir(qEnvironmentVariable("WINDIR","C:/Windows")).filePath("Fonts/arial.ttf"));
+#else
+    QFile font("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+#endif
+    if(!font.open(QIODevice::ReadOnly))return {};
+    const QByteArray data=font.readAll();
+    FPDF_InitLibrary();
+    auto doc=FPDF_CreateNewDocument();
+    auto page=doc?FPDFPage_New(doc,0,595,842):nullptr;
+    auto face=doc?FPDFText_LoadFont(doc,reinterpret_cast<const uint8_t*>(data.constData()),
+                    uint32_t(data.size()),FPDF_FONT_TRUETYPE,1):nullptr;
+    bool ok=doc&&page&&face;
+    if(ok){
+        const QStringList labels{QStringLiteral("Tiếng Việt"),QStringLiteral("Dũng Office")};
+        int y=700;
+        for(const auto& label:labels){
+            auto obj=FPDFPageObj_CreateTextObj(doc,face,24);
+            if(!obj){ok=false;break;}
+            if(!FPDFText_SetText(obj,reinterpret_cast<FPDF_WIDESTRING>(label.utf16()))){
+                FPDFPageObj_Destroy(obj);ok=false;break;
+            }
+            FPDFPageObj_Transform(obj,1,0,0,1,72,y);y-=50;
+            FPDFPage_InsertObject(page,obj);
+        }
+        if(ok)ok=FPDFPage_GenerateContent(page);
+    }
+    struct BytesWriter:FPDF_FILEWRITE{
+        QByteArray bytes;
+        BytesWriter(){version=1;WriteBlock=[](FPDF_FILEWRITE* self,const void* data,unsigned long size)->int{
+            static_cast<BytesWriter*>(self)->bytes.append(static_cast<const char*>(data),qsizetype(size));return 1;
+        };}
+    } writer;
+    if(ok)ok=FPDF_SaveAsCopy(doc,&writer,0);
+    if(page)FPDF_ClosePage(page);
+    if(face)FPDFFont_Close(face);
+    if(doc)FPDF_CloseDocument(doc);
+    FPDF_DestroyLibrary();
+    return ok?writer.bytes:QByteArray();
+}
+#endif
 
 // PDF tối thiểu hợp lệ (bảng xref đúng), `pages` trang, chữ có nhãn từng trang.
 static QByteArray makePdf(int pages, const QString& label) {
@@ -727,6 +777,19 @@ int main(int argc, char** argv) {
         const auto edited=pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",dest);
         CHECK(edited.ok&&readFile(source)==original&&info(dest).pages==2,"PDFium edits original text object");
         CHECK(!pdfedit::replaceObject(source,1,"ORIGINAL","REPLACED",P("native-partial.pdf")).ok,"reject partial object");
+#ifdef DUNG_HAVE_PDFIUM_EDIT
+        const auto vnSource=P("native-vietnamese.pdf"),vnDest=P("native-vietnamese-edited.pdf");
+        const auto vn=unicodePdfFixture();
+        CHECK(!vn.isEmpty(),"build Vietnamese CID font fixture");
+        if(!vn.isEmpty()){
+            writeFile(vnSource,vn);
+            const auto changed=pdfedit::replaceObject(vnSource,1,QStringLiteral("Tiếng Việt"),QStringLiteral("Việt Nam"),vnDest);
+            if(!changed.ok)std::cerr<<changed.error.toStdString()<<'\n';
+            CHECK(changed.ok&&readFile(vnSource)==vn&&info(vnDest).pages==1,"PDFium replaces real Vietnamese text with matching embedded font");
+            const auto bad=pdfedit::replaceObject(vnSource,1,QStringLiteral("Tiếng Việt"),QStringLiteral("Việt\nNam"),P("native-vn-linebreak.pdf"));
+            CHECK(!bad.ok&&!QFileInfo::exists(P("native-vn-linebreak.pdf")),"reject multiline PDF edit");
+        }
+#endif
     }else{
         CHECK(!pdfedit::replaceObject(a,1,"A","B",P("no-sdk.pdf")).ok&&!QFileInfo::exists(P("no-sdk.pdf")),"missing optional SDK fails visibly");
     }
