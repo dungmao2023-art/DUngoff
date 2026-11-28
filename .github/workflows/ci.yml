@@ -436,6 +436,47 @@ jobs:
           if (-not $exe) { Write-Host "::error::Không thấy dung-pdftest.exe"; exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-pdftest.log
           if ($LASTEXITCODE) { exit 1 }
+      - name: Cài Tesseract và mô hình OCR Windows (chỉ kiểm thử)
+        id: ocr_msys
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-tesseract-ocr
+            mingw-w64-ucrt-x86_64-tesseract-data-eng
+            mingw-w64-ucrt-x86_64-tesseract-data-vie
+            mingw-w64-ucrt-x86_64-tesseract-data-osd
+      - name: OCR thật Windows — tiếng Việt, tiếng Anh và lớp chữ PDF
+        shell: pwsh
+        env:
+          OCR_MSYS_ROOT: ${{ steps.ocr_msys.outputs.msys2-location }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ocr = Join-Path $env:OCR_MSYS_ROOT "ucrt64"
+          $bin = Join-Path $ocr "bin"
+          $data = Join-Path $ocr "share/tessdata"
+          $tess = Join-Path $bin "tesseract.exe"
+          $qtbin = Join-Path $env:QT_ROOT_DIR "bin"
+          foreach ($file in @($tess, (Join-Path $data "vie.traineddata"), (Join-Path $data "eng.traineddata"), (Join-Path $data "osd.traineddata"), (Join-Path $qtbin "Qt6Core.dll"))) {
+            if (!(Test-Path -LiteralPath $file -PathType Leaf)) { throw "Missing OCR/Qt dependency: $file" }
+          }
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:TESSDATA_PREFIX = $data
+          $env:PATH = "$qtbin;$bin;$env:PATH"
+          & $tess --version 2>&1 | Tee-Object report/windows-ocr-version.log
+          if ($LASTEXITCODE) { exit 1 }
+          $langs = @(& $tess --list-langs 2>&1 | ForEach-Object { $_.ToString().Trim() })
+          $langs | Set-Content report/windows-ocr-langs.log
+          if ($LASTEXITCODE -or "vie" -notin $langs -or "eng" -notin $langs -or "osd" -notin $langs) { exit 1 }
+          $exe = Get-ChildItem build/out -Recurse -Filter dung-ocrtest.exe | Select-Object -First 1
+          if (!$exe) { throw "Missing OCR test executable" }
+          $p = Start-Process $exe.FullName -PassThru -NoNewWindow -RedirectStandardOutput report/windows-ocrtest.log -RedirectStandardError report/windows-ocrtest.err.log
+          if (!$p.WaitForExit(180000)) { Stop-Process $p -Force; throw "OCR test timeout" }
+          $p.Refresh()
+          Get-Content report/windows-ocrtest.log
+          Get-Content report/windows-ocrtest.err.log
+          if ($null -eq $p.ExitCode -or $p.ExitCode -ne 0 -or !(Select-String -Path report/windows-ocrtest.log -Pattern "text layer=1" -Quiet)) { throw "OCR test failed: $($p.ExitCode)" }
       - name: Kiểm thử tiện ích bảng tính trên Windows
         run: |
           $exe = Get-ChildItem build/out -Recurse -Filter dung-tabletest.exe | Select-Object -First 1

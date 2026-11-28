@@ -28,9 +28,24 @@ QString bundledTesseract(const QString& applicationDir) {
     const QFileInfo executable(QDir(applicationDir).filePath(relative));
     return executable.isFile() && executable.isExecutable() ? executable.absoluteFilePath() : QString{};
 }
+QString installedTesseract(const QStringList& programRoots) {
+#ifdef Q_OS_WIN
+    for(const auto& root:programRoots){
+        if(root.isEmpty()||!QDir::isAbsolutePath(root))continue;
+        const QFileInfo exe(QDir(root).filePath(QStringLiteral("Tesseract-OCR/tesseract.exe")));
+        if(exe.isFile()&&exe.isExecutable())return exe.absoluteFilePath();
+    }
+#else
+    Q_UNUSED(programRoots);
+#endif
+    return {};
+}
 QString findTesseract() {
     const auto local=bundledTesseract(QCoreApplication::applicationDirPath());
-    return local.isEmpty()?QStandardPaths::findExecutable(QStringLiteral("tesseract")):local;
+    if(!local.isEmpty())return local;
+    const auto onPath=QStandardPaths::findExecutable(QStringLiteral("tesseract"));
+    if(!onPath.isEmpty())return onPath;
+    return installedTesseract({qEnvironmentVariable("ProgramW6432"),qEnvironmentVariable("ProgramFiles"),qEnvironmentVariable("ProgramFiles(x86)")});
 }
 bool validOcrLayout(int layout) {
     return layout == 3 || layout == 6 || layout == 7 || layout == 11;
@@ -52,10 +67,17 @@ static OcrResult runTesseract(const QString& image, const QString& language, int
         || qint64(dimensions.width()) * dimensions.height() > 36000000)
         return fail(QStringLiteral("Ảnh OCR không đọc được kích thước hoặc vượt giới hạn 36 triệu điểm ảnh."));
     const QString exe = findTesseract();
-    if (exe.isEmpty()) return fail(QStringLiteral("Thiếu Tesseract: đặt gói OCR cạnh Dũng Office hoặc cài Tesseract vào PATH."));
+    if (exe.isEmpty()) return fail(QStringLiteral("Thiếu Tesseract: đặt gói OCR cạnh Dũng Office, cài Tesseract vào thư mục chuẩn của Windows hoặc thêm vào PATH."));
     QProcess proc;
     proc.setProgram(exe);
-    QStringList args{input.absoluteFilePath(), pdfBase.isEmpty() ? QStringLiteral("stdout") : pdfBase,
+    // Some Windows Tesseract builds still interpret argv filenames using
+    // the active ANSI codepage. Let Qt open Unicode paths and transfer the
+    // image/PDF via inherited binary standard handles instead. Never shell
+    // quote, transliterate or rename the user's file.
+    proc.setStandardInputFile(input.absoluteFilePath());
+    if(!pdfBase.isEmpty())
+        proc.setStandardOutputFile(pdfBase+QStringLiteral(".pdf"),QIODevice::Truncate);
+    QStringList args{QStringLiteral("stdin"), QStringLiteral("stdout"),
                      QStringLiteral("-l"), language, QStringLiteral("--psm"), QString::number(layout)};
     const auto bundled=bundledTesseract(QCoreApplication::applicationDirPath());
     if(!bundled.isEmpty() && exe==bundled) {
@@ -65,8 +87,9 @@ static OcrResult runTesseract(const QString& image, const QString& language, int
             if(!model.isFile() || model.size()<=0) return fail(QStringLiteral("Gói OCR offline thiếu dữ liệu ngôn ngữ: ")+lang);
         }
         args << QStringLiteral("--tessdata-dir") << data;
-        if(!pdfBase.isEmpty() && !QFileInfo(QDir(data).filePath(QStringLiteral("pdf.ttf"))).isFile())
-            return fail(QStringLiteral("Gói OCR offline thiếu pdf.ttf để xuất PDF tìm kiếm được."));
+        // Modern Tesseract includes its own glyphless PDF font (pdf_ttf).
+        // Older builds may need pdf.ttf; let the actual PDF export and its
+        // validation determine success instead of rejecting newer packages.
     }
     if (!pdfBase.isEmpty()) args << QStringLiteral("--dpi") << QString::number(dpi) << QStringLiteral("pdf");
     proc.setArguments(args);

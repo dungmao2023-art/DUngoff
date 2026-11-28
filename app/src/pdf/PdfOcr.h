@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 #pragma once
 #include <QString>
+#include <QStringList>
 namespace dungpdf {
 struct OcrResult { bool ok = false; QString text, error; };
 constexpr int kOcrMaxPages = 20;
@@ -8,6 +9,8 @@ QString validateOcrRange(int first, int last, int pageCount);
 // Only this fixed, application-relative directory is used for an optional offline package.
 // An empty result permits fallback to an existing system installation.
 QString bundledTesseract(const QString& applicationDir);
+// Resolve only fixed installation layouts under caller-supplied absolute roots.
+QString installedTesseract(const QStringList& programRoots);
 QString findTesseract();
 // Tesseract page segmentation: 3 automatic, 6 block, 7 line, 11 sparse.
 bool validOcrLayout(int layout);

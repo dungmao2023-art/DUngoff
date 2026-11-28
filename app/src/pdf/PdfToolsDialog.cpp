@@ -958,7 +958,7 @@ QWidget* PdfToolsDialog::buildOcr() {
     auto* output = new QPlainTextEdit(w); output->setPlaceholderText(tr("Văn bản OCR sẽ hiện tại đây và có thể sửa.")); root->addWidget(output, 1);
     const QString exe = dungpdf::findTesseract();
     const bool ready = !exe.isEmpty() && printrender::available();
-    status->setText(ready ? tr("Tesseract: %1").arg(exe) : tr("Thiếu Tesseract trong PATH hoặc bộ vẽ QtPdf. Cài rồi mở lại công cụ."));
+    status->setText(ready ? tr("Tesseract: %1").arg(exe) : tr("Thiếu Tesseract hoặc bộ vẽ QtPdf. Cài Tesseract vào thư mục chuẩn, đặt gói OCR cạnh ứng dụng hoặc thêm vào PATH rồi mở lại công cụ."));
     go->setEnabled(ready);
     const bool pdfReady = ready && !findQpdf().isEmpty();
     pdf->setEnabled(pdfReady);
