@@ -43,3 +43,14 @@ ids = [int(n.get("id")) for n in layout_tree.iter(qn("p:cNvPr"))]
 shape_xml.nvSpPr.cNvPr.set("id", str(max(ids,default=0)+1))
 layout_tree.insert_element_before(shape_xml,"p:extLst")
 deck.save(path.with_name("ppt-master-input.pptx"))
+
+# Playback requires a non-overlapping neighbour so pixel counts isolate
+# animation from correct occlusion changes. Keep z-order fixture unchanged.
+deck = Presentation()
+slide = deck.slides.add_slide(deck.slide_layouts[6])
+for x, marker, rgb in ((1, "LAYER_A", (35, 90, 180)), (5, "LAYER_B", (180, 60, 30))):
+    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(x), Inches(1), Inches(2), Inches(2))
+    shape.text = marker
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = RGBColor(*rgb)
+deck.save(path.with_name("ppt-playback-input.pptx"))
