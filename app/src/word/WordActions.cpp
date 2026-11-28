@@ -237,13 +237,11 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         tab->view()->setFocus();
     } else if (name == QLatin1String("font")) {
         const WordInsertTarget target(tab);
-        const auto fonts = parseFontList(doc->commandValues(".uno:CharFontName"));
-        QStringList items;
-        for (const auto& f : fonts) items << QString::fromUtf8(f.c_str());
+        const QStringList items=tab->documentFontFamilies(true);
         bool ok = false;
         const QString pick = items.isEmpty()
             ? QInputDialog::getText(parent, QObject::tr("Phông chữ"), QObject::tr("Tên phông:"), QLineEdit::Normal, QString(), &ok)
-            : QInputDialog::getItem(parent, QObject::tr("Phông chữ"), QObject::tr("Chọn phông:"), items, 0, true, &ok);
+            : QInputDialog::getItem(parent, QObject::tr("Phông chữ"), QObject::tr("Chọn phông engine nhận diện:"), items, 0, false, &ok);
         if (ok && !pick.trimmed().isEmpty() && target.verify()) {
             send(target.tab.data(),fontName(ss(pick.trimmed())));
             target.tab->view()->setFocus();
