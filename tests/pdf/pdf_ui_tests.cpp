@@ -55,19 +55,34 @@ int main(int argc,char** argv){
         auto* searchToggle=dlg->findChild<QPushButton*>("pdfSearchToggle");
         auto* textToggle=dlg->findChild<QPushButton*>("pdfTextToggle");
         auto* extracted=dlg->findChild<QPlainTextEdit*>("pdfExtractedText");
+        auto* pageList=dlg->findChild<QListWidget*>("pdfReaderPageList");
+        auto* pageListToggle=dlg->findChild<QPushButton*>("pdfPageListToggle");
         auto* next=dlg->findChild<QPushButton*>("pdfNextPage");
         auto* page=dlg->findChild<QSpinBox*>("pdfPageNumber");
         auto* start=dlg->findChild<QPushButton*>("pdfSessionStart");
         auto* cancel=dlg->findChild<QPushButton*>("pdfSessionCancel");
-        if(!tools||!file||!row||!search||!query||!searchToggle||!textToggle||!extracted||!next||!page||!start||!cancel){
+        if(!tools||!file||!row||!search||!query||!searchToggle||!textToggle||!extracted||!next||!page||!start||!cancel||!pageList||!pageListToggle){
             check(false,"reader controls present");dlg->reject();return;
         }
         check(file->text()==source&&page->value()==1&&page->maximum()==2&&next->isEnabled(),"automatically open first page");
-        check(search->isHidden()&&extracted->isHidden(),"compact reading layout by default");
+        check(search->isHidden()&&extracted->isHidden()&&pageList->isHidden(),"compact reading layout by default");
+        pageListToggle->click();
+        check(!pageList->isHidden()&&pageList->count()==2,"show page list on demand");
+        pageListToggle->click();
+        check(pageList->isHidden(),"hide page list without losing document");
         next->click();
         check(page->value()==2&&extracted->toPlainText().contains("PAGE TWO"),"navigate to real second page");
         searchToggle->click();query->setText("PAGE");
         check(!search->isHidden()&&page->value()==2&&extracted->toPlainText().contains("PAGE TWO"),"typing search does not clear reading page");
+        query->setText("NO SUCH TEXT 1937");
+        QMetaObject::invokeMethod(query,"returnPressed",Qt::DirectConnection);
+        check(page->value()==2&&extracted->toPlainText().contains("PAGE TWO"),"search miss keeps reading page");
+        query->setText("PAGE");
+        QMetaObject::invokeMethod(query,"returnPressed",Qt::DirectConnection);
+        check(!pageList->isHidden()&&pageList->count()==2,"search hits reveal results list");
+        query->setText("PAGE TWO");
+        check(extracted->toPlainText().contains("PAGE ONE"),"changing query keeps current reading page");
+        pageListToggle->click();
         searchToggle->click();textToggle->click();
         check(search->isHidden()&&!extracted->isHidden(),"toggle extracted text panel");
         textToggle->click();
