@@ -2,6 +2,7 @@
 #include "PdfOps.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -223,10 +224,25 @@ QString rangeFromIndexes(const QList<int>& idx) {
     return parts.join(QLatin1Char(','));
 }
 
+// Full content fingerprint, not merely timestamp or file size.
+QByteArray sourceSha256(const QString& path) {
+    QFile file(path);
+    if(!file.open(QIODevice::ReadOnly))return {};
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if(!hash.addData(&file))return {};
+    return hash.result();
+}
+
 // Quy trình ghi an toàn dùng chung. `makeArgs(tmp)` dựng đối số qpdf ghi ra `tmp`.
+// Optional confirmed fingerprint applies to the first source only.
 template <class MakeArgs>
-Result writeSafely(const QStringList& sources, const QString& destIn, bool allowReplace, MakeArgs makeArgs) {
+Result writeSafely(const QStringList& sources, const QString& destIn, bool allowReplace, MakeArgs makeArgs,
+                   const QByteArray& expectedSource = {}) {
     Result res;
+    auto sourceUnchanged=[&]{
+        return expectedSource.isEmpty()||(!sources.isEmpty()&&sourceSha256(sources.first())==expectedSource);
+    };
+    if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi. Hãy kiểm tra lại.");return res;}
     const QString dest = QFileInfo(destIn).absoluteFilePath();
     const QFileInfo di(dest);
     if (!QDir(di.absolutePath()).exists()) {
@@ -264,6 +280,7 @@ Result writeSafely(const QStringList& sources, const QString& destIn, bool allow
         res.error = tr("Kết quả không qua bước kiểm tra, đã hủy. Tệp gốc không thay đổi.");
         return res;
     }
+    if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi trong lúc xử lý. Chưa công bố kết quả.");return res;}
     if (exists) {
         auto unchanged=[&] {
             const QFileInfo current(dest);
@@ -281,6 +298,7 @@ Result writeSafely(const QStringList& sources, const QString& destIn, bool allow
         res.backup = backup;
         if(!unchanged()){res.error=tr("Tệp đích thay đổi sau sao lưu; không thay thế.");return res;}
     }
+    if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi trước khi công bố kết quả.");return res;}
     if (!(exists ? replaceFile(tmp, dest) : publishNew(tmp,dest))) {
         res.error = tr("Không ghi được tệp đích (đang mở ở chương trình khác hoặc không đủ quyền).");
         return res;
@@ -1404,6 +1422,8 @@ int objNumber(const QString& ref) { return ref.section(QLatin1Char(' '), 0, 0).t
 
 BlankReport findBlankPages(const Input& in) {
     BlankReport br;
+    br.sourceSha256=sourceSha256(in.path);
+    if(br.sourceSha256.isEmpty()){br.error=tr("Không đọc được tệp nguồn để xác minh nội dung.");return br;}
     br.notes << tr("Chỉ phát hiện trang không có nội dung. Trang trông trắng nhưng có ảnh quét hoặc ô tô nền trắng "
                    "KHÔNG được phát hiện.");
     const Info inf = info(in.path, in.password);
@@ -1481,6 +1501,9 @@ BlankReport findBlankPages(const Input& in) {
         }
         if (!hasPaintingOps(all)) br.blank << i;
     }
+    if(sourceSha256(in.path)!=br.sourceSha256){
+        br.error=tr("Tệp nguồn thay đổi trong lúc phân tích trang trắng.");return br;
+    }
     br.ok = true;
     return br;
 }
@@ -1493,8 +1516,9 @@ Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace,
         res.needPassword = br.needPassword;
         return res;
     }
-    if (confirmed && (!confirmed->ok || br.pages != confirmed->pages || br.blank != confirmed->blank)) {
-        res.error = tr("Danh sách trang trắng đã thay đổi kể từ lúc xác nhận. Hãy kiểm tra lại.");
+    if (confirmed && (!confirmed->ok || confirmed->sourceSha256.size()!=32 ||
+        br.sourceSha256!=confirmed->sourceSha256 || br.pages != confirmed->pages || br.blank != confirmed->blank)) {
+        res.error = tr("Tệp nguồn hoặc danh sách trang trắng đã thay đổi kể từ lúc xác nhận. Hãy kiểm tra lại.");
         return res;
     }
     if (br.blank.isEmpty()) {
@@ -1514,7 +1538,7 @@ Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace,
         QStringList a = pw.args();
         a << in.path << QStringLiteral("--pages") << QStringLiteral(".") << rangeFromIndexes(keep) << QStringLiteral("--") << tmp;
         return a;
-    });
+    },br.sourceSha256);
     if (res.ok) {
         res.warnings << tr("Đã bỏ %1 trang không có nội dung.").arg(br.blank.size());
         res.warnings << br.notes.first();

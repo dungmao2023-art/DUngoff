@@ -648,6 +648,23 @@ int main(int argc, char** argv) {
         const BlankReport br = findBlankPages({bl, {}});
         CHECK(br.ok && br.blank == (QList<int>{1, 2, 5, 6}), "trang trắng: nhận ra trang 2, 3, 6, 7 (không nhận trang có chữ, ô tô nền, chú thích)");
         CHECK(!br.notes.isEmpty(), "trang trắng: báo kèm giới hạn của phép kiểm tra");
+        CHECK(br.sourceSha256.size()==32,"blank preview stores full SHA256");
+        // Same page count, same blank indexes, same byte length, different content.
+        QByteArray changedBytes=blBytes;
+        changedBytes.replace("Co chu","Co so ");
+        const auto changed=P(QStringLiteral("blank-changed-source.pdf"));
+        writeFile(changed,changedBytes);
+        const auto changedReport=findBlankPages({changed,{}});
+        CHECK(changedBytes.size()==blBytes.size()&&changedBytes!=blBytes&&changedReport.ok&&
+              changedReport.pages==br.pages&&changedReport.blank==br.blank&&changedReport.sourceSha256!=br.sourceSha256,
+              "changed source retains same page topology and size");
+        const auto staleContent=P(QStringLiteral("blank-stale-content.pdf"));
+        CHECK(!removeBlankPages({changed,{}},staleContent,false,&br).ok&&!QFileInfo::exists(staleContent),
+              "blank removal rejects changed source even when blank indexes match");
+        CHECK(readFile(changed)==changedBytes&&readFile(bl)==blBytes,"stale preview rejection preserves both sources");
+        BlankReport unverified=br;unverified.sourceSha256.clear();
+        CHECK(!removeBlankPages({bl,{}},staleContent,false,&unverified).ok&&!QFileInfo::exists(staleContent),
+              "blank removal rejects confirmed preview without source identity");
         const BlankReport none = findBlankPages({a, {}});
         CHECK(none.ok && none.blank.isEmpty(), "trang trắng: tệp không có trang trắng cho danh sách rỗng");
         BlankReport wrong=br;wrong.blank.removeLast();
