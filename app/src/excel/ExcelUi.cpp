@@ -391,7 +391,10 @@ void DocumentTab::excelAction(const QString& id) {
     } else if (a == QLatin1String("fontName")) {
         const QString targetRange = m_view->selectedCellRange();
         bool ok = false;
-        const QString f = QInputDialog::getItem(this, tr("Phông chữ"), tr("Chọn phông:"), QFontDatabase::families(), 0, true, &ok);
+        const QStringList fonts=documentFontFamilies(true);
+        const QString f=fonts.isEmpty()
+            ? QInputDialog::getText(this,tr("Phông chữ"),tr("Engine chưa trả danh sách; nhập tên phông:"),QLineEdit::Normal,QString(),&ok)
+            : QInputDialog::getItem(this,tr("Phông chữ"),tr("Chọn phông engine nhận diện:"),fonts,0,false,&ok);
         if (ok && !f.trimmed().isEmpty() && confirmTarget(targetRange, tr("Phông chữ"))) cmd(".uno:CharFontName", ex::fontName(ss(f.trimmed())));
     } else if (a == QLatin1String("fontSize")) {
         const QString targetRange = m_view->selectedCellRange();
