@@ -11,6 +11,7 @@
 //  - Lỗi trả về bằng tiếng Việt; tệp có mật khẩu được báo bằng needPassword.
 #pragma once
 #include <QList>
+#include <QByteArray>
 #include <QString>
 #include <QStringList>
 
@@ -106,11 +107,12 @@ struct BlankReport {
     int pages = 0;
     QList<int> blank;  // chỉ số 0-based của trang không có nội dung
     QStringList notes; // giới hạn của phép kiểm tra
+    QByteArray sourceSha256; // 32 bytes, identity of the analyzed source
 };
 // Trang "trắng" = không có lệnh vẽ nào và không có chú thích. KHÔNG phát hiện trang trắng nhìn bằng mắt nhưng
 // có ảnh quét hoặc ô tô nền trắng.
 BlankReport findBlankPages(const Input& in);
-// When a preview was confirmed, refuse a different page count or blank set.
+// When a preview was confirmed, refuse a different source fingerprint, page count or blank set.
 Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace = false,
                         const BlankReport* confirmed = nullptr);
 
