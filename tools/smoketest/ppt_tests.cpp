@@ -453,7 +453,17 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
     // ---------------- Vẽ một trang bất kỳ không đổi trang hiện tại ----------------
     step("vẽ trang bất kỳ");
     d->setPart(0);
-    renderHash(*d, 1);
+    long renderW=0,renderH=0;
+    d->documentSize(renderW,renderH);
+    std::vector<uint8_t> renderBuffer(160*90*4,0x5A);
+    const auto sentinel=renderBuffer;
+    check(!d->paintPartTile(renderBuffer.data(),-1,160,90,0,0,int(renderW),int(renderH)) &&
+          !d->paintPartTile(renderBuffer.data(),d->partCount(),160,90,0,0,int(renderW),int(renderH)) &&
+          !d->paintPartTile(renderBuffer.data(),0,0,90,0,0,int(renderW),int(renderH)) &&
+          !d->paintPartTile(nullptr,0,160,90,0,0,int(renderW),int(renderH)) &&
+          renderBuffer==sentinel,"Reject invalid slide render requests without touching buffer");
+    check(d->paintPartTile(renderBuffer.data(),1,160,90,0,0,int(renderW),int(renderH)) &&
+          renderBuffer!=sentinel,"Render valid slide through checked LOK ABI");
     check(d->currentPart() == 0, "paintPartTile không làm đổi trang hiện tại");
     const auto hash=d->partHash(0);
     const auto info=d->partInfo(0);
