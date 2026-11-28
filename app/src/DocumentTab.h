@@ -4,6 +4,7 @@
 #include "recovery/RecoveryStore.h"
 
 #include <QHash>
+#include <QStringList>
 #include <QSet>
 #include <QWidget>
 #include <memory>
@@ -31,6 +32,8 @@ public:
     QString activeFilePath() const;
     void setSaveConflictCheck(std::function<bool(const QString&)> check) { m_saveConflictCheck=std::move(check); }
     QString statusText() const;
+    // Cache only a successful engine inventory, per open document.
+    QStringList documentFontFamilies(bool refresh = false);
     const QHash<QString, QString>& states() const { return m_states; }
     TileView* view() const { return m_view; }
 
@@ -103,6 +106,7 @@ private:
     QString m_cellAddress;
     bool m_lastMod = false;
     QHash<QString, QString> m_states;
+    QStringList m_documentFonts;
     bool m_pptNotes = false;
     bool m_rebuildingParts = false;
     QTimer* m_autosave = nullptr;
