@@ -3,12 +3,13 @@
 #include <QJsonObject>
 #include <QPainter>
 #include <QPainterPath>
+#include <QLinearGradient>
 #include <QImage>
 #include <QtGlobal>
 #include <cmath>
 namespace slideshow {
-enum class TransitionKind { Cut, Fade, Push, Wipe, Dissolve, SilkWave, PrismTiles, FocusLens };
-enum class SignatureStyle { Native, SilkWave, PrismTiles, FocusLens };
+enum class TransitionKind { Cut, Fade, Push, Wipe, Dissolve, SilkWave, PrismTiles, FocusLens, InkBloom, HologramScan };
+enum class SignatureStyle { Native, SilkWave, PrismTiles, FocusLens, InkBloom, HologramScan };
 struct TransitionPlan {
     TransitionKind kind=TransitionKind::Cut;
     int durationMs=0;
@@ -20,6 +21,8 @@ inline TransitionPlan signaturePlan(SignatureStyle style){
     case SignatureStyle::SilkWave:return {TransitionKind::SilkWave,850,0,0};
     case SignatureStyle::PrismTiles:return {TransitionKind::PrismTiles,1000,0,0};
     case SignatureStyle::FocusLens:return {TransitionKind::FocusLens,900,0,0};
+    case SignatureStyle::InkBloom:return {TransitionKind::InkBloom,1100,0,0};
+    case SignatureStyle::HologramScan:return {TransitionKind::HologramScan,950,0,0};
     default:return {};
     }
 }
@@ -122,6 +125,45 @@ inline void paintTransition(QPainter& painter,const QRectF& r,const QImage& oldF
             const QSizeF sz=r.size()*scale;
             const QRectF zoomed(r.center()-QPointF(sz.width()/2,sz.height()/2),sz);
             painter.drawImage(zoomed,newFrame);
+        }else if(plan.kind==TransitionKind::InkBloom){
+            // Overlapping irregular ink blooms. Use winding fill to avoid holes
+            // where separate droplets meet, without per-frame randomness.
+            QPainterPath ink;ink.setFillRule(Qt::WindingFill);
+            const qreal extent=std::hypot(r.width(),r.height());
+            for(int drop=0;drop<7;++drop){
+                const qreal phase=drop*.033;
+                const qreal f=smoothStep((t-phase)/(1-phase));
+                if(f<=0)continue;
+                const QPointF centre(r.left()+r.width()*(.12+.76*((drop*37)%7)/6.0),
+                                     r.top()+r.height()*(.18+.64*((drop*13)%7)/6.0));
+                QPainterPath blob;
+                for(int k=0;k<=48;++k){
+                    const qreal angle=k*6.283185307179586/48;
+                    const qreal radius=extent*.72*f*(1+.12*std::sin(angle*5+drop)+.07*std::cos(angle*9-drop));
+                    const QPointF point=centre+QPointF(radius*std::cos(angle),radius*std::sin(angle));
+                    if(k==0)blob.moveTo(point);else blob.lineTo(point);
+                }
+                blob.closeSubpath();ink.addPath(blob);
+            }
+            painter.setClipPath(ink,Qt::IntersectClip);painter.drawImage(r,newFrame);
+        }else if(plan.kind==TransitionKind::HologramScan){
+            // A soft diagonal scanning edge reveals alternating scanline bands.
+            // No flashing or periodic full-screen brightness change.
+            const qreal edge=smoothStep(t)*(r.width()+r.height()*.25);
+            constexpr int bands=32;
+            for(int band=0;band<bands;++band){
+                const qreal y=r.top()+r.height()*band/bands;
+                const qreal width=qBound(qreal(0),edge-r.height()*.25*band/bands,r.width());
+                if(width<=0)continue;
+                const QRectF stripe(r.left(),y,width,r.height()/bands+.01);
+                painter.save();painter.setClipRect(stripe,Qt::IntersectClip);painter.drawImage(r,newFrame);
+                const qreal glowWidth=qMin(width,r.width()*.045);
+                QLinearGradient glow(stripe.right()-glowWidth,y,stripe.right(),y);
+                glow.setColorAt(0,QColor(70,220,255,0));
+                glow.setColorAt(1,QColor(120,230,255,qRound(85*std::sin(t*3.141592653589793))));
+                painter.fillRect(QRectF(stripe.right()-glowWidth,y,glowWidth,stripe.height()),glow);
+                painter.restore();
+            }
         }else if(plan.kind==TransitionKind::Dissolve){
             // Fixed deterministic permutation of 1024 cells. No per-frame random flicker.
             QPainterPath clip;

@@ -81,8 +81,9 @@ int main(int argc,char** argv){
             std::cerr<<"FAIL direction or unsupported fallback"<<std::endl;return 1;
         }
         const auto silk=signaturePlan(SignatureStyle::SilkWave),prism=signaturePlan(SignatureStyle::PrismTiles),
-                   focus=signaturePlan(SignatureStyle::FocusLens);
-        for(const auto& plan:{silk,prism,focus}){
+                   focus=signaturePlan(SignatureStyle::FocusLens),ink=signaturePlan(SignatureStyle::InkBloom),
+                   hologram=signaturePlan(SignatureStyle::HologramScan);
+        for(const auto& plan:{silk,prism,focus,ink,hologram}){
             if(plan.kind==TransitionKind::Cut||plan.durationMs<=0||
                draw(plan,0)!=oldFrame||draw(plan,1)!=newFrame||
                draw(plan,.5)==oldFrame||draw(plan,.5)==newFrame||
@@ -94,7 +95,11 @@ int main(int argc,char** argv){
            draw(prism,.5)==draw(focus,.5)||signaturePlan(SignatureStyle::Native).kind!=TransitionKind::Cut){
             std::cerr<<"FAIL distinct signature effects"<<std::endl;return 1;
         }
-        std::cout<<"PASS transition painter: Fade, Push, Wipe, Dissolve, Silk, Prism, Focus"<<std::endl;
+        if(draw(ink,.4)==draw(hologram,.4)||draw(ink,.4)==draw(focus,.4)||
+           draw(hologram,.4)==draw(silk,.4)){
+            std::cerr<<"FAIL distinct ink and hologram effects"<<std::endl;return 1;
+        }
+        std::cout<<"PASS transition painter: Fade, Push, Wipe, Dissolve, Silk, Prism, Focus, Ink, Hologram"<<std::endl;
     }
     QTemporaryDir temp;
     if(!temp.isValid())return 2;
