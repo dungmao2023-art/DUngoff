@@ -16,6 +16,11 @@
 #include <cstdlib>
 #include <filesystem>
 #include <cmath>
+#include <QThread>
+#include <QElapsedTimer>
+#include "SimpleEntrance.h"
+#include <QPainter>
+#include "SlideTransitionPlayback.h"
 
 namespace {
 std::filesystem::path pathOf(const QString& path){
@@ -51,6 +56,72 @@ int main(int argc,char** argv){
     QApplication app(argc,argv);
     const auto args=app.arguments();
     if(args.size()!=3){std::cerr<<"usage: dung-pptplaybacktest PROGRAM PPTX\n";return 2;}
+    // Exercise the same painter used by the real SlideShow. Endpoints,
+    // intermediate frames and direction must differ from a static cut.
+    {
+        using namespace slideshow;
+        QImage oldFrame(128,128,QImage::Format_ARGB32_Premultiplied),newFrame=oldFrame;
+        oldFrame.fill(Qt::red);newFrame.fill(Qt::blue);
+        auto draw=[&](const TransitionPlan& plan,qreal t){
+            QImage img(128,128,QImage::Format_ARGB32_Premultiplied);img.fill(Qt::black);
+            QPainter p(&img);paintTransition(p,QRectF(0,0,128,128),oldFrame,newFrame,plan,t);p.end();return img;
+        };
+        const auto fade=transitionPlan(QJsonObject{{"transitionType","Fade"},{"transitionSubtype","CrossFade"},{"transitionDuration",500}});
+        const auto push=transitionPlan(QJsonObject{{"transitionType","PushWipe"},{"transitionSubtype","FromRight"},{"transitionDuration",500}});
+        const auto wipe=transitionPlan(QJsonObject{{"transitionType","BarWipe"},{"transitionSubtype","LeftToRight"},{"transitionDirection",true},{"transitionDuration",500}});
+        const auto dissolve=transitionPlan(QJsonObject{{"transitionType","Dissolve"},{"transitionDuration",500}});
+        for(const auto& plan:{fade,push,wipe,dissolve}){
+            if(plan.kind==TransitionKind::Cut||draw(plan,0)!=oldFrame||draw(plan,1)!=newFrame||
+               draw(plan,.5)==oldFrame||draw(plan,.5)==newFrame){
+                std::cerr<<"FAIL transition endpoints/intermediate pixels"<<std::endl;return 1;
+            }
+        }
+        const auto pushMid=draw(push,.5),wipeMid=draw(wipe,.5);
+        if(pushMid.pixelColor(8,64)!=Qt::red||pushMid.pixelColor(120,64)!=Qt::blue||
+           wipeMid.pixelColor(8,64)!=Qt::blue||wipeMid.pixelColor(120,64)!=Qt::red||
+           draw(dissolve,.5)!=draw(dissolve,.5)||
+           transitionPlan(QJsonObject{{"transitionType","Zoom"},{"transitionDuration",500}}).kind!=TransitionKind::Cut){
+            std::cerr<<"FAIL direction or unsupported fallback"<<std::endl;return 1;
+        }
+        const auto silk=signaturePlan(SignatureStyle::SilkWave),prism=signaturePlan(SignatureStyle::PrismTiles),
+                   focus=signaturePlan(SignatureStyle::FocusLens),ink=signaturePlan(SignatureStyle::InkBloom),
+                   hologram=signaturePlan(SignatureStyle::HologramScan);
+        for(const auto& plan:{silk,prism,focus,ink,hologram}){
+            if(plan.kind==TransitionKind::Cut||plan.durationMs<=0||
+               draw(plan,0)!=oldFrame||draw(plan,1)!=newFrame||
+               draw(plan,.5)==oldFrame||draw(plan,.5)==newFrame||
+               draw(plan,.35)==draw(plan,.65)){
+                std::cerr<<"FAIL signature transition endpoints/motion"<<std::endl;return 1;
+            }
+        }
+        if(draw(silk,.5)==draw(prism,.5)||draw(silk,.5)==draw(focus,.5)||
+           draw(prism,.5)==draw(focus,.5)||signaturePlan(SignatureStyle::Native).kind!=TransitionKind::Cut){
+            std::cerr<<"FAIL distinct signature effects"<<std::endl;return 1;
+        }
+        if(draw(ink,.4)==draw(hologram,.4)||draw(ink,.4)==draw(focus,.4)||
+           draw(hologram,.4)==draw(silk,.4)){
+            std::cerr<<"FAIL distinct ink and hologram effects"<<std::endl;return 1;
+        }
+        std::cout<<"PASS transition painter: Fade, Push, Wipe, Dissolve, Silk, Prism, Focus, Ink, Hologram"<<std::endl;
+    }
+    {
+        const auto tree=QJsonDocument::fromJson(R"({"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape","begin":"0s"},{"nodeName":"TransitionFilter","targetElement":"shape","transitionType":"Fade","transitionSubType":"CrossFade","dur":"0.75s","begin":"0s"}]})").object();
+        QVector<slideshow::ClickEntrance> plans;
+        if(!slideshow::findEntrancePlans(tree,&plans)||plans.size()!=1||
+           plans[0].plan.kind!=slideshow::TransitionKind::Fade||plans[0].plan.durationMs!=750){
+            std::cerr<<"FAIL entrance filter metadata"<<std::endl;return 1;
+        }
+        auto invalid=tree;auto children=invalid.value("children").toArray();
+        auto leaf=children[1].toObject();leaf.insert("targetElement","wrong");children[1]=leaf;invalid.insert("children",children);
+        if(slideshow::findEntrancePlans(invalid,&plans)){
+            std::cerr<<"FAIL mismatched animation target accepted"<<std::endl;return 1;
+        }
+        QImage first(64,64,QImage::Format_ARGB32_Premultiplied);first.fill(Qt::white);
+        QImage second=first.copy();second.setPixelColor(3,4,Qt::blue);second.setPixelColor(18,22,Qt::red);
+        if(slideshow::changedBounds(first,second)!=QRect(QPoint(3,4),QPoint(18,22))){
+            std::cerr<<"FAIL object animation bounds"<<std::endl;return 1;
+        }
+    }
     QTemporaryDir temp;
     if(!temp.isValid())return 2;
     QString error;
@@ -148,5 +219,30 @@ int main(int argc,char** argv){
         multi->currentPart()==originalMulti;
     std::cout<<(multiOk?"PASS":"FAIL")<<" two native click entrances and backward steps"<<std::endl;
     delete playback;
-    std::_Exit(multiOk?0:1);
+    if(!multiOk)std::_Exit(1);
+    // Real PPTX with one timed entrance; verify an actual intermediate frame
+    // and return to the hidden state. This is deliberately not a static XML test.
+    auto fadeOptions=options;fadeOptions.fade=true;fadeOptions.durationMs=1000;
+    const auto fadeFile=temp.filePath("fade-entrance.pptx");
+    if(!ppttransition::createAnimationCopy(args[2],fadeFile,1,fadeOptions).ok)std::_Exit(1);
+    auto fadeDoc=engine->open(pathOf(fadeFile),&err);
+    if(!fadeDoc)std::_Exit(1);
+    fadeDoc->setClientView(512,512,7680,7680,0,0,7680,7680);
+    fadeDoc->waitInputIdle(350,4000);
+    std::cout<<"Fade metadata: "<<fadeDoc->presentationInfo()<<std::endl;
+    auto* fadeShow=new SlideShow(fadeDoc.get(),0,nullptr,false);
+    QPointer<SlideShow> liveFade(fadeShow);
+    QApplication::processEvents();
+    const auto hidden=fadeShow->grab().toImage();
+    key(fadeShow,Qt::Key_Right);
+    if(!liveFade||!liveFade->isVisible())std::_Exit(1);
+    auto pump=[](int ms){QElapsedTimer elapsed;elapsed.start();while(elapsed.elapsed()<ms){QApplication::processEvents();QThread::msleep(10);}};
+    pump(300);const auto middle=fadeShow->grab().toImage();
+    pump(900);const auto finished=fadeShow->grab().toImage();
+    key(fadeShow,Qt::Key_Left);
+    const bool fadeOk=hidden!=middle&&middle!=finished&&bluePixels(finished)>bluePixels(hidden)+500&&
+                      fadeShow->grab().toImage()==hidden;
+    std::cout<<(fadeOk?"PASS":"FAIL")<<" native timed fade entrance with intermediate pixels"<<std::endl;
+    delete fadeShow;
+    std::_Exit(fadeOk?0:1);
 }

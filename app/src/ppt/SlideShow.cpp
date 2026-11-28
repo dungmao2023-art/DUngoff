@@ -20,13 +20,19 @@
 #include <limits>
 #include <utility>
 
-SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool fullscreen, QScreen* targetScreen, int intervalMs)
-    : QWidget(parent, Qt::Window), m_doc(doc), m_part(startPart), m_count(doc->partCount()), m_intervalMs(intervalMs) {
+SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool fullscreen, QScreen* targetScreen, int intervalMs, slideshow::SignatureStyle signature)
+    : QWidget(parent, Qt::Window), m_signature(signature), m_doc(doc), m_part(startPart), m_count(doc->partCount()), m_intervalMs(intervalMs) {
     m_advance.setSingleShot(true);
     m_advance.setTimerType(Qt::PreciseTimer);
     connect(&m_advance,&QTimer::timeout,this,[this]{
         if (slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
                                         !m_digits.isEmpty(),!m_img.isNull())>0) go(+1);
+    });
+    m_transitionTimer.setTimerType(Qt::PreciseTimer);
+    m_transitionTimer.setInterval(16);
+    connect(&m_transitionTimer,&QTimer::timeout,this,[this]{
+        if(m_transitionClock.elapsed()>=m_transitionPlan.durationMs){stopTransition();restartAdvance();}
+        update();
     });
     setAttribute(Qt::WA_DeleteOnClose);
     // Freeze editor interactions while the show uses its document and slide count.
@@ -60,18 +66,36 @@ bool SlideShow::hidden(int part) {
 
 void SlideShow::restartAdvance() {
     m_advance.stop();
+    if(m_transitionTimer.isActive())return;
     const int delay=slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
                                                 !m_digits.isEmpty(),!m_img.isNull());
     if(delay>0) m_advance.start(delay);
 }
 
 void SlideShow::go(int delta) {
+    // A click during a transition finishes it, without skipping content.
+    if(m_transitionTimer.isActive()){stopTransition();update();restartAdvance();return;}
     if (m_blank != 0) { m_blank = 0; update(); restartAdvance(); return; }
     if (m_part < 0 || m_count <= 0) return;
     if(m_entrancePart==m_part&&!m_entranceFrames.isEmpty()){
         const int next=m_entranceStep+delta;
         if(next>=0&&next<m_entranceFrames.size()){
-            m_entranceStep=next;m_img=m_entranceFrames[next];update();restartAdvance();return;
+            const QImage previous=m_img;
+            m_entranceStep=next;m_img=m_entranceFrames[next];
+            if(delta>0&&next-1<m_entrancePlans.size()){
+                const auto plan=m_entrancePlans[next-1];
+                if(plan.kind!=slideshow::TransitionKind::Cut){
+                    const QRect bounds=slideshow::changedBounds(previous,m_img);
+                    if(!bounds.isEmpty()){
+                        m_entranceTransitionBounds=bounds;
+                        m_entranceTransitionOld=previous.copy(bounds);
+                        m_entranceTransitionNew=m_img.copy(bounds);
+                        m_transitionFrom=previous;m_transitionPlan=plan;
+                        m_transitionClock.start();m_transitionTimer.start();
+                    }
+                }
+            }
+            update();restartAdvance();return;
         }
     }
     const int p=slideshow::adjacentVisible(m_visible,m_part,delta);
@@ -80,13 +104,35 @@ void SlideShow::go(int delta) {
         else restartAdvance();
         return;
     }
+    const QImage previous=m_img;
     m_part = p;
     render();
+    if(delta>0)startTransition(previous);
     update();
     restartAdvance();
 }
+void SlideShow::stopTransition(){
+    m_transitionTimer.stop();m_transitionFrom={};m_transitionPlan={};
+    m_entranceTransitionBounds={};m_entranceTransitionOld={};m_entranceTransitionNew={};
+}
+void SlideShow::startTransition(const QImage& previous){
+    if(previous.isNull()||m_img.isNull()||previous==m_img)return;
+    if(m_signature!=slideshow::SignatureStyle::Native)m_transitionPlan=slideshow::signaturePlan(m_signature);
+    else{
+        const auto info=QJsonDocument::fromJson(QByteArray::fromStdString(m_doc->presentationInfo())).object();
+        for(const auto& item:info.value("slides").toArray()){
+            const auto slide=item.toObject();
+            if(slide.value("index").toInt(-1)!=m_part)continue;
+            m_transitionPlan=slideshow::transitionPlan(slide);
+            break;
+        }
+    }
+    if(m_transitionPlan.kind==slideshow::TransitionKind::Cut)return;
+    m_transitionFrom=previous;m_transitionClock.start();m_transitionTimer.start();
+}
 
 void SlideShow::render() {
+    stopTransition();
     const int previousStep=m_entrancePart==m_part?m_entranceStep:0;
     resetEntrance();
     m_img = QImage();
@@ -116,7 +162,7 @@ void SlideShow::render() {
         m_img=QImage(); // Stop autoplay; paintEvent shows a render-unavailable message.
 }
 void SlideShow::resetEntrance(){
-    m_entranceFrames.clear();m_entranceStep=0;m_entrancePart=-1;
+    m_entranceFrames.clear();m_entrancePlans.clear();m_entranceStep=0;m_entrancePart=-1;
 }
 bool SlideShow::prepareEntrance(){
     // Avoid native layer API for unsupported animation trees.
@@ -128,11 +174,12 @@ bool SlideShow::prepareEntrance(){
     for(const auto& item:info.value("slides").toArray()){
         const auto candidate=item.toObject();if(candidate.value("index").toInt(-1)==m_part){slide=candidate;break;}
     }
-    QStringList targets;
-    if(!slideshow::findClickEntrances(slide.value("animations").toObject().value("root").toObject(),&targets)){
+    QVector<slideshow::ClickEntrance> entrancePlans;
+    if(!slideshow::findEntrancePlans(slide.value("animations").toObject().value("root").toObject(),&entrancePlans)){
         if(trace)std::cerr<<"Entrance metadata not supported"<<std::endl;
         return false;
     }
+    QStringList targets;for(const auto& entry:entrancePlans)targets.append(entry.target);
     const auto hash=slide.value("hash").toString();
     dung::Document::SlideLayers layers;
     if(!m_doc->renderSlideLayers(m_part,hash.toStdString(),qMin(1280,m_img.width()),qMin(1280,m_img.height()),layers)){
@@ -218,6 +265,7 @@ bool SlideShow::prepareEntrance(){
     for(auto it=fields.constBegin();it!=fields.constEnd();++it)if(!usedFields.contains(it.key()))return false;
     if(!background||animatedTargets.size()!=targets.size())return false;
     for(int step=1;step<frames.size();++step)if(frames[step]==frames[step-1])return false;
+    for(const auto& entry:entrancePlans)m_entrancePlans.append(entry.plan);
     m_entranceFrames=std::move(frames);m_entranceStep=0;m_entrancePart=m_part;
     return true;
 }
@@ -239,7 +287,17 @@ void SlideShow::paintEvent(QPaintEvent*) {
     const QSizeF sz = QSizeF(m_img.size()).scaled(QSizeF(size()), Qt::KeepAspectRatio);
     p.setRenderHint(QPainter::SmoothPixmapTransform);
     const QRectF slideRect(QPointF((width() - sz.width()) / 2, (height() - sz.height()) / 2), sz);
-    p.drawImage(slideRect, m_img);
+    if(m_transitionTimer.isActive()){
+        const qreal progress=qreal(m_transitionClock.elapsed())/m_transitionPlan.durationMs;
+        if(!m_entranceTransitionBounds.isEmpty()){
+            p.drawImage(slideRect,m_transitionFrom);
+            const qreal sx=slideRect.width()/m_img.width(),sy=slideRect.height()/m_img.height();
+            const auto bounds=m_entranceTransitionBounds;
+            const QRectF region(slideRect.left()+bounds.x()*sx,slideRect.top()+bounds.y()*sy,
+                                bounds.width()*sx,bounds.height()*sy);
+            slideshow::paintTransition(p,region,m_entranceTransitionOld,m_entranceTransitionNew,m_transitionPlan,progress);
+        }else slideshow::paintTransition(p,slideRect,m_transitionFrom,m_img,m_transitionPlan,progress);
+    }else p.drawImage(slideRect, m_img);
     // Screen-only pointer: no engine calls, no document edits, no mark on letterbox.
     if(m_laserMode && slideRect.contains(m_laserPoint)){
         p.save();
@@ -304,9 +362,9 @@ void SlideShow::keyPressEvent(QKeyEvent* e) {
     case Qt::Key_Right: case Qt::Key_Down: case Qt::Key_PageDown: case Qt::Key_Space: case Qt::Key_Return: case Qt::Key_Enter: go(+1); break;
     case Qt::Key_Left: case Qt::Key_Up: case Qt::Key_PageUp: case Qt::Key_Backspace: go(-1); break;
     case Qt::Key_B: case Qt::Key_Period:
-        m_blank = m_blank == 1 ? 0 : 1; update(); restartAdvance(); break;
+        stopTransition();m_blank = m_blank == 1 ? 0 : 1; update(); restartAdvance(); break;
     case Qt::Key_W: case Qt::Key_Comma:
-        m_blank = m_blank == 2 ? 0 : 2; update(); restartAdvance(); break;
+        stopTransition();m_blank = m_blank == 2 ? 0 : 2; update(); restartAdvance(); break;
     case Qt::Key_Home: case Qt::Key_End: {
         m_blank = 0;
         const int step = e->key() == Qt::Key_Home ? 1 : -1;

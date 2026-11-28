@@ -6,6 +6,8 @@
 #include <QString>
 #include <QTimer>
 #include <QPointF>
+#include <QElapsedTimer>
+#include "SlideTransitionPlayback.h"
 
 class QScreen;
 
@@ -14,7 +16,7 @@ class QScreen;
 class SlideShow : public QWidget {
     Q_OBJECT
 public:
-    SlideShow(dung::Document* doc, int startPart, QWidget* parent = nullptr, bool fullscreen = true, QScreen* targetScreen = nullptr, int intervalMs = 0);
+    SlideShow(dung::Document* doc, int startPart, QWidget* parent = nullptr, bool fullscreen = true, QScreen* targetScreen = nullptr, int intervalMs = 0, slideshow::SignatureStyle signature = slideshow::SignatureStyle::Native);
 
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -31,6 +33,16 @@ private:
     void restartAdvance();
     bool prepareEntrance();
     void resetEntrance();
+    void stopTransition();
+    void startTransition(const QImage& previous);
+    QImage m_transitionFrom;
+    QTimer m_transitionTimer;
+    QElapsedTimer m_transitionClock;
+    slideshow::TransitionPlan m_transitionPlan;
+    QRect m_entranceTransitionBounds;
+    QImage m_entranceTransitionOld,m_entranceTransitionNew;
+    QVector<slideshow::TransitionPlan> m_entrancePlans;
+    slideshow::SignatureStyle m_signature=slideshow::SignatureStyle::Native;
 
     dung::Document* m_doc;
     int m_part;

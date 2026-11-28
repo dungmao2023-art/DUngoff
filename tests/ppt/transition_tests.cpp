@@ -91,6 +91,26 @@ int main(int argc, char** argv) {
     check(patchAnimationXml(animXml,anim,&animated).ok && animated.contains("spid=\"42\"") && animated.contains("dur=\"750\"") &&
         animated.contains("presetID=\"10\"") && animated.indexOf("<p:timing") > animated.indexOf("<p:transition") &&
         animated.indexOf("<p:timing") < animated.indexOf("<p:extLst"), "animation targets real shape and preserves transition order");
+    // All eight added filter families support both entrance and exit.
+    const QList<QPair<AnimationFilter,QByteArray>> extraFilters{
+        {AnimationFilter::Wipe,"wipe(left)"},{AnimationFilter::Blinds,"blinds(vertical)"},
+        {AnimationFilter::Circle,"circle(out)"},{AnimationFilter::Diamond,"diamond(out)"},
+        {AnimationFilter::Dissolve,"dissolve"},{AnimationFilter::Wheel,"wheel(4)"},
+        {AnimationFilter::Checkerboard,"checkerboard(across)"},{AnimationFilter::Split,"barn(outVertical)"}
+    };
+    for(const auto& pair:extraFilters)for(bool exiting:{false,true}){
+        AnimationOptions extra;extra.shapeId=42;extra.durationMs=650;extra.filter=pair.first;extra.exit=exiting;
+        QByteArray filtered,restored;QList<AnimationTiming> filterTiming;
+        check(planAnimation({extra},&filterTiming).ok&&filterTiming.first().endMs==(exiting?651:650)&&
+              patchAnimationXml(animXml,extra,&filtered).ok&&
+              filtered.contains(QByteArray("filter=\"")+pair.second+"\"")&&
+              filtered.contains(exiting?"transition=\"out\"":"transition=\"in\"")&&
+              filtered.contains(exiting?"val=\"hidden\"":"val=\"visible\"")&&
+              clearAnimationXml(filtered,&restored).ok&&restored==animXml,
+              "extended animation filter roundtrip");
+    }
+    AnimationOptions invalidFilter;invalidFilter.shapeId=42;invalidFilter.filter=static_cast<AnimationFilter>(99);
+    check(!patchAnimationXml(animXml,invalidFilter,&out).ok,"reject unknown animation filter");
     check(!patchAnimationXml(animated,anim,&out).ok,"refuse overwrite existing animation");
     QByteArray cleared;
     check(clearAnimationXml(animated,&cleared).ok&&cleared==animXml,"clear generated animation preserves exact slide bytes");

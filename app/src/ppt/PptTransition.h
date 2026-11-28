@@ -18,7 +18,10 @@ Result createCopy(const QString& source, const QString& destination, int slide1,
 Result createRangeCopy(const QString& source,const QString& destination,int first,int last,const Options& options, const QByteArray& expectedSource = {});
 struct Shape { unsigned id = 0; QString name; };
 enum class AnimationTrigger { Click, WithPrevious, AfterPrevious };
-struct AnimationOptions { unsigned shapeId = 0; bool fade = false; int durationMs = 500; int delayMs = 0; AnimationTrigger trigger=AnimationTrigger::Click; bool exit = false; };
+// Extra transition filters use standard PresentationML animEffect values.
+enum class AnimationFilter { None, Wipe, Blinds, Circle, Diamond, Dissolve, Wheel, Checkerboard, Split };
+struct AnimationOptions { unsigned shapeId = 0; bool fade = false; int durationMs = 500; int delayMs = 0; AnimationTrigger trigger=AnimationTrigger::Click; bool exit = false; AnimationFilter filter=AnimationFilter::None; };
+inline bool timedEffect(const AnimationOptions& o){return o.fade||o.filter!=AnimationFilter::None;}
 struct AnimationTiming { int click=0, startMs=0, endMs=0; };
 // Deterministic per-click timeline. The first row must be click; no auto-start on slide entry yet.
 Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTiming>* timing);

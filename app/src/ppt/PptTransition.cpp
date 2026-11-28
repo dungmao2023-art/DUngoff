@@ -267,7 +267,9 @@ Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTimin
     if(effects.first().trigger!=AnimationTrigger::Click)return fail(QStringLiteral("Dòng đầu phải bắt đầu khi nhấp chuột."));
     QList<AnimationTiming> plan;QHash<unsigned,AnimationTiming> entrances;QSet<unsigned> exits;
     for(const auto& o:effects){
-        if(!o.shapeId || o.durationMs<100 || o.durationMs>10000 || o.delayMs<0 || o.delayMs>30000)
+        if(!o.shapeId || o.durationMs<100 || o.durationMs>10000 || o.delayMs<0 || o.delayMs>30000 ||
+           int(o.filter)<int(AnimationFilter::None)||int(o.filter)>int(AnimationFilter::Split)||
+           (o.fade&&o.filter!=AnimationFilter::None))
             return fail(QStringLiteral("Thông số hoạt ảnh không hợp lệ."));
         if(exits.contains(o.shapeId) || (!o.exit && entrances.contains(o.shapeId)))
             return fail(QStringLiteral("Mỗi đối tượng tối đa một hiệu ứng vào rồi một hiệu ứng ra; không thêm sau hiệu ứng ra."));
@@ -276,7 +278,7 @@ Result planAnimation(const QList<AnimationOptions>& effects,QList<AnimationTimin
         else if(o.trigger==AnimationTrigger::WithPrevious){t.click=plan.last().click;t.startMs=plan.last().startMs+o.delayMs;}
         else if(o.trigger==AnimationTrigger::AfterPrevious){t.click=plan.last().click;t.startMs=plan.last().endMs+o.delayMs;}
         else return fail(QStringLiteral("Chế độ bắt đầu không hợp lệ."));
-        t.endMs=t.startMs+(o.fade?o.durationMs+(o.exit?1:0):1);
+        t.endMs=t.startMs+(timedEffect(o)?o.durationMs+(o.exit?1:0):1);
         if(t.endMs>600000)return fail(QStringLiteral("Mỗi nhóm nhấp chuột tối đa 600 giây."));
         if(o.exit){
             if(entrances.contains(o.shapeId)){
@@ -317,13 +319,29 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
         const int groupId=nextId++,effectId=nextId++,visibilityId=nextId++;
         const QString target = QStringLiteral("<p:tgtEl><p:spTgt spid=\"%1\"/></p:tgtEl>").arg(o.shapeId);
         // Entrance becomes visible at its start; exit becomes hidden at its end.
-        const int visibilityDelay = o.exit && o.fade ? o.durationMs : 0;
+        const int visibilityDelay = o.exit && timedEffect(o) ? o.durationMs : 0;
         const QString visibility = o.exit ? QStringLiteral("hidden") : QStringLiteral("visible");
         QString behavior = QStringLiteral("<p:set><p:cBhvr><p:cTn id=\"%1\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"%2\"/></p:stCondLst></p:cTn>%3<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"%4\"/></p:to></p:set>").arg(visibilityId).arg(visibilityDelay).arg(target,visibility);
-        if (o.fade) {
-            const int fadeId = nextId++;
-            const QString direction = o.exit ? QStringLiteral("out") : QStringLiteral("in");
-            behavior += QStringLiteral("<p:animEffect transition=\"%1\" filter=\"fade\"><p:cBhvr><p:cTn id=\"%2\" dur=\"%3\"/>%4</p:cBhvr></p:animEffect>").arg(direction).arg(fadeId).arg(o.durationMs).arg(target);
+        int presetId=o.fade?10:1;
+        QString filter=o.fade?QStringLiteral("fade"):QString();
+        // IDs and filters correspond to LibreOffice's PresentationML import
+        // tables (commontimenodecontext.cxx and pptfilterhelpers.cxx).
+        switch(o.filter){
+        case AnimationFilter::None:break;
+        case AnimationFilter::Wipe:presetId=22;filter=QStringLiteral("wipe(left)");break;
+        case AnimationFilter::Blinds:presetId=3;filter=QStringLiteral("blinds(vertical)");break;
+        case AnimationFilter::Circle:presetId=6;filter=QStringLiteral("circle(out)");break;
+        case AnimationFilter::Diamond:presetId=8;filter=QStringLiteral("diamond(out)");break;
+        case AnimationFilter::Dissolve:presetId=9;filter=QStringLiteral("dissolve");break;
+        case AnimationFilter::Wheel:presetId=21;filter=QStringLiteral("wheel(4)");break;
+        case AnimationFilter::Checkerboard:presetId=5;filter=QStringLiteral("checkerboard(across)");break;
+        case AnimationFilter::Split:presetId=16;filter=QStringLiteral("barn(outVertical)");break;
+        }
+        if (timedEffect(o)) {
+            const int filterId=nextId++;
+            const QString direction=o.exit?QStringLiteral("out"):QStringLiteral("in");
+            behavior+=QStringLiteral("<p:animEffect transition=\"%1\" filter=\"%2\"><p:cBhvr><p:cTn id=\"%3\" dur=\"%4\"/>%5</p:cBhvr></p:animEffect>")
+                .arg(direction,filter).arg(filterId).arg(o.durationMs).arg(target);
         }
         // Each click anchors a set of parallel time containers. Relative delays
         // are resolved by the plan; effect leaf node types retain editable trigger semantics.
@@ -334,7 +352,7 @@ Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOpt
             "<p:par><p:cTn id=\"%3\" presetID=\"%4\" presetClass=\"%5\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"%6\">"
             "<p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>%7</p:childTnLst></p:cTn></p:par>"
             "</p:childTnLst></p:cTn></p:par>")
-            .arg(groupId).arg(plan[index].startMs).arg(effectId).arg(o.fade?10:1)
+            .arg(groupId).arg(plan[index].startMs).arg(effectId).arg(presetId)
             .arg(o.exit ? QStringLiteral("exit") : QStringLiteral("entr"), trigger, behavior);
     }
     flush();

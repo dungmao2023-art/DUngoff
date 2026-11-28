@@ -75,7 +75,7 @@ QString iconNameForCommand(const QString& id) {
         {"ppt.image", "image"}, {"ppt.layerUp", "move-up"}, {"ppt.layerDown", "move-down"}, {"ppt.group", "merge-cells"}, {"ppt.ungroup", "table"}, {"ppt.alignObjects", "align-left"}, {"ppt.resizeObject", "shape"}, {"ppt.rotateObject", "rotate"}, {"ppt.rect", "shape"}, {"ppt.shapes", "shape"}, {"ppt.textbox", "textbox"},
         {"ppt.notes", "text"}, {"ppt.normal", "template"}, {"ppt.goto", "page-number"}, {"ppt.fontSize", "font-size"}, {"ppt.textColor", "font-color"},
         {"ppt.show", "play"}, {"ppt.showHere", "play"}, {"ppt.transitionNote", "transition"},
-        {"ppt.preview", "play"}, {"ppt.showTimed", "play"}, {"ppt.animationCopy", "transition"}, {"ppt.clearAnimationCopy", "delete"}, {"ppt.masterView", "template"}, {"ppt.masterBackground", "template"},
+        {"ppt.preview", "play"}, {"ppt.showTimed", "play"}, {"ppt.showSignature", "transition"}, {"ppt.animationCopy", "transition"}, {"ppt.clearAnimationCopy", "delete"}, {"ppt.masterView", "template"}, {"ppt.masterBackground", "template"},
         // PDF
         {"pdfPrev", "move-up"}, {"pdfNext", "move-down"}, {"pdfEditCopy", "text"},
         {".uno:Text", "textbox"}, {".uno:BasicShapes.rectangle", "shape"},

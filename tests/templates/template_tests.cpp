@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
         for(const auto& e:tpl::entries(tpl::installed()))if(e.format==QStringLiteral("PPTX")){
             ++pptCount;studentDecks.insert(QFileInfo(e.relPath).fileName());
         }
-        CHECK(pptCount>=4 && studentDecks.contains(QStringLiteral("03_Thuyet_trinh_nhom_sinh_vien.pptx")) &&
+        CHECK(pptCount>=5 && studentDecks.contains(QStringLiteral("05_Infographic_so_do_timeline.pptx")) && studentDecks.contains(QStringLiteral("03_Thuyet_trinh_nhom_sinh_vien.pptx")) &&
               studentDecks.contains(QStringLiteral("04_Bao_ve_do_an_khoa_luan.pptx")), "student presentation templates bundled and listed");
         int excelCount = 0;
         for (const auto& e : tpl::entries(tpl::installed())) if (e.format == QStringLiteral("XLSX")) ++excelCount;
