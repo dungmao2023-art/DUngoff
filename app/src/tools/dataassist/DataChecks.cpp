@@ -67,15 +67,16 @@ NumParse parseNumber(const QString &sIn, bool vi)
     // Preserve identifiers and amounts that would otherwise be silently rounded,
     // including when grouping or currency markers hid a long integer.
     if (intPart.size() > 15 || (intPart.size() > 1 && intPart.startsWith(QLatin1Char('0')))) return r;
-    QString significant = intPart + decPart;
-    while (significant.startsWith(QLatin1Char('0'))) significant.remove(0, 1);
-    while (significant.endsWith(QLatin1Char('0'))) significant.chop(1);
-    if (significant.size() > 15) return r;
+    const QString digits = intPart + decPart;
+    qsizetype first = 0, last = digits.size();
+    while (first < last && digits[first] == QLatin1Char('0')) ++first;
+    while (last > first && digits[last - 1] == QLatin1Char('0')) --last;
+    if (last - first > 15) return r;
     bool ok = false;
     const double v = (intPart + (decPart.isEmpty() ? QString() : QStringLiteral(".") + decPart)).toDouble(&ok);
     if (!ok || !std::isfinite(v)) return r;
     const double result = (neg ? -v : v) / (pct ? 100.0 : 1.0);
-    if (result == 0.0 && !significant.isEmpty()) return r; // underflow, not a true zero
+    if (result == 0.0 && last > first) return r; // underflow, not a true zero
     r.ok = true;
     r.value = result;
     return r;
