@@ -47,6 +47,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] X04.1 FillDown/Right, chuỗi ngày/số, kéo fill handle; công thức và tham chiếu cập nhật đúng.
 - [ ] X05.1 Filter, sort một/nhiều khóa, freeze; dữ liệu nguyên hàng, header và công thức không lệch.
 - [ ] X05.2 Conditional formatting, data validation/dropdown, bảo vệ sheet; kiểm XLSX thật.
+  - 28/11: #170 CI 46104703528 Windows v2/Linux PASS trên 86f6117: kiểm input/pristine/edited XML allowBlank, showErrorMessage, errorStyle; bảo toàn ô khóa/mở, dữ liệu, công thức, vùng dropdown tiếng Việt. Đồng bộ main sau #171/#172; chờ CI tích hợp và GUI tạo/sửa rule, không nâng stage.
 - [ ] X06.1 Tạo biểu đồ cột/đường/tròn từ vùng; sửa tiêu đề, nguồn, loại; thay dữ liệu cập nhật chart; lưu và mở lại Excel.
 - [ ] X07.1 Tạo PivotTable thật từ vùng có tiêu đề, chọn row/column/value, SUM/COUNT; sửa cấu hình, refresh sau đổi số và nhóm; kiểm cache và output XLSX.
 - [ ] X08.1 CSV nhập/xuất Unicode, dấu phân cách/quote/newline, mã dài/0 đầu; dedup/đối soát; số thành chữ không phá định dạng.
