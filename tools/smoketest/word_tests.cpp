@@ -593,6 +593,35 @@ int runWordTests(const fs::path& program, const fs::path& out) {
                 }
             }
         }
+        // Level operations must act on a single caret strictly inside the
+        // second paragraph. Collapsing right at the paragraph boundary
+        // can target the next list item on some LOK builds.
+        for(const bool promote:{false,true}){
+            list.reset();
+            list=engine->open(out/(promote?"word-list-deeper.docx":"word-list-baseline.docx"),&err);
+            check(bool(list),"Open list level fixture: "+err);
+            if(!list)break;
+            list->setClientView(512,512,7680,7680,0,0,7680,7680);
+            run(*list,".uno:GoToStartOfDoc");
+            run(*list,w::findNext("LIST_SECOND",false));
+            const bool found=selText(*list)=="LIST_SECOND";
+            check(found,"Find exact second list item");
+            if(!found)continue;
+            // KEY_LEFT collapses to start; then KEY_RIGHT twice puts the
+            // caret inside LIST_SECOND, not at a paragraph boundary.
+            for(int key:{1026,1027,1027}){
+                list->postKey(LOK_KEYEVENT_KEYINPUT,0,key);
+                list->postKey(LOK_KEYEVENT_KEYUP,0,key);
+                list->waitInputIdle();settle();
+            }
+            const bool caretOnly=selText(*list).empty();
+            check(caretOnly,"Single caret for list level");
+            if(!caretOnly)continue;
+            run(*list,promote?".uno:IncrementLevel":".uno:DecrementLevel");
+            snap(promote?"word-list-promoted.docx":"word-list-deeper.docx");
+            run(*list,".uno:Undo");
+            snap(promote?"word-list-promote-undone.docx":"word-list-level-undone.docx");
+        }
         // Explicitly independent lists, not an engine-dependent restart flag.
         list.reset();
         list=engine->open(out/"word-list-separate-input.docx",&err);

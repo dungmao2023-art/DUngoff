@@ -161,6 +161,23 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         emit live->openCopyRequested(dst,orig,name);
         return true;
     }
+    if(name==QLatin1String("listLevelUp")||name==QLatin1String("listLevelDown")){
+        doc->waitInputIdle();
+        const WordInsertTarget target(tab);
+        const bool up=name==QLatin1String("listLevelUp");
+        const QString command=up?QStringLiteral(".uno:IncrementLevel"):QStringLiteral(".uno:DecrementLevel");
+        const auto state=tab->states().value(command);
+        if(target.caret.empty()||!target.selected.empty()||
+           (state!=QLatin1String("enabled")&&state!=QLatin1String("true")&&state!=QLatin1String("false"))){
+            QMessageBox::information(parent,QObject::tr("Danh sách nhiều cấp"),
+                QObject::tr("Đặt con trỏ bên trong một mục danh sách; không chọn nhiều đoạn. Lệnh phải khả dụng."));
+            return true;
+        }
+        if(!target.verify())return true;
+        doc->command(ss(command));doc->waitInputIdle();
+        if(target.tab&&target.tab->view())target.tab->view()->setFocus();
+        return true;
+    }
     if(name==QLatin1String("listRestart")||name==QLatin1String("listContinue")){
         doc->waitInputIdle();
         const WordInsertTarget target(tab);
