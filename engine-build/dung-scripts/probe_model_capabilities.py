@@ -13,6 +13,7 @@ import uuid
 import zipfile
 import xml.etree.ElementTree as ET
 import sys
+import traceback
 
 prog = pathlib.Path(os.environ["DUNG_PROGRAM_DIR"]).resolve(strict=True)
 sys.path.insert(0, str(prog))
@@ -59,15 +60,21 @@ def split(doc, root):
 def toc(doc, root):
     text = doc.Text
     cursor = text.createTextCursor()
-    cursor.ParaStyleName = "Heading 1"
+    print("TOC: create heading", flush=True)
     text.insertString(cursor, "HEADING_PROBE", False)
+    cursor.gotoStart(False)
+    cursor.ParaStyleName = "Heading 1"
     cursor.gotoEnd(False)
-    text.insertControlCharacter(cursor, 0, False)
+    print("TOC: separate paragraph", flush=True)
+    text.insertControlCharacter(cursor, uno.getConstantByName("com.sun.star.text.ControlCharacter.PARAGRAPH_BREAK"), False)
     cursor.gotoEnd(False)
     cursor.ParaStyleName = "Text Body"
+    print("TOC: create index", flush=True)
     index = doc.createInstance("com.sun.star.text.ContentIndex")
-    index.CreateFromOutline = True
+    print("TOC: attach index", flush=True)
     text.insertTextContent(cursor, index, False)
+    index.CreateFromOutline = True
+    print("TOC: update index", flush=True)
     index.update()
     path = root / "toc.docx"
     save(doc, path, "MS Word 2007 XML")
@@ -180,7 +187,8 @@ def main():
                     print("PASS", name, flush=True)
                 except Exception as exc:
                     failures.append(name)
-                    print("FAIL", name, repr(exc), flush=True)
+                    print("FAIL", name, type(exc).__name__, str(exc), repr(exc), flush=True)
+                    traceback.print_exc(file=sys.stdout)
                 finally:
                     if doc is not None:
                         try:
