@@ -22,6 +22,11 @@ add_executable(dung-ocrtest
 target_include_directories(dung-ocrtest PRIVATE ${DUNG_PDF_DIR})
 target_link_libraries(dung-ocrtest PRIVATE Qt6::Core Qt6::Gui)
 set_target_properties(dung-ocrtest PROPERTIES AUTOMOC OFF)
+find_package(Qt6 6.4 QUIET OPTIONAL_COMPONENTS Pdf)
+if(TARGET Qt6::Pdf)
+  target_link_libraries(dung-ocrtest PRIVATE Qt6::Pdf)
+  target_compile_definitions(dung-ocrtest PRIVATE DUNG_OCR_TEST_QTPDF=1)
+endif()
 
 # Optional standalone PDFium SDK; only use externally verified distributions.
 set(DUNG_PDFIUM_ROOT "" CACHE PATH "Verified PDFium SDK root")

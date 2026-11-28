@@ -11,6 +11,10 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <iostream>
+#ifdef DUNG_OCR_TEST_QTPDF
+#include <QPdfDocument>
+#include <QPdfSelection>
+#endif
 
 static bool sample(const QString& dest, const QStringList& lines) {
     QImage img(1600, 1000, QImage::Format_RGB32);
@@ -18,7 +22,12 @@ static bool sample(const QString& dest, const QStringList& lines) {
     img.setDotsPerMeterX(11811); img.setDotsPerMeterY(11811);
     QPainter p(&img);
     p.setPen(Qt::black);
-    QFont font(QStringLiteral("DejaVu Sans")); font.setPixelSize(52); p.setFont(font);
+#ifdef Q_OS_WIN
+    QFont font(QStringLiteral("Arial"));
+#else
+    QFont font(QStringLiteral("DejaVu Sans"));
+#endif
+    font.setPixelSize(52); p.setFont(font);
     int y = 160;
     for (const auto& line : lines) { p.drawText(100, y, line); y += 105; }
     p.end();
@@ -27,7 +36,15 @@ static bool sample(const QString& dest, const QStringList& lines) {
 int main(int argc, char** argv) {
     QGuiApplication app(argc, argv);
     QTemporaryDir temp;
-    if (!temp.isValid() || dungpdf::findTesseract().isEmpty()) return 1;
+    if (!temp.isValid() || dungpdf::findTesseract().isEmpty()){
+        std::cerr<<"FAIL: missing temporary directory or OCR executable\n";return 1;
+    }
+    if(qEnvironmentVariableIsSet("DUNG_OCR_REQUIRE_BUNDLE") &&
+       (dungpdf::bundledTesseract(QCoreApplication::applicationDirPath()).isEmpty() ||
+        dungpdf::findTesseract()!=dungpdf::bundledTesseract(QCoreApplication::applicationDirPath()))){
+        std::cerr<<"FAIL: bundled Tesseract not found at "<<QCoreApplication::applicationDirPath().toStdString()<<'\n';return 1;
+    }
+    std::cout<<"OCR executable: "<<dungpdf::findTesseract().toStdString()<<std::endl;
     // Probe discovery without executing a dummy binary; actual OCR below still uses the real engine.
     const QString package=temp.filePath(QStringLiteral("offline package"));
     if(!QDir().mkpath(package+QStringLiteral("/tesseract")))return 1;
@@ -95,9 +112,27 @@ int main(int argc, char** argv) {
             std::cout << text.toStdString() << '\n';
         }
     }
+#ifdef DUNG_OCR_TEST_QTPDF
+    if(generated.ok){
+        QPdfDocument document;
+        if(document.load(pdf)==QPdfDocument::Error::None&&document.pageCount()==1){
+            const auto text=document.getAllText(0).text().normalized(QString::NormalizationForm_C);
+            const bool qtSearchable=text.contains(QStringLiteral("VIỆT NAM"),Qt::CaseInsensitive)&&text.contains(QStringLiteral("12345"));
+            // For Windows without pdftotext, verify using the application's own PDF reader.
+            searchable=extractor.isEmpty()?qtSearchable:(searchable&&qtSearchable);
+            std::cout<<"Qt PDF extracted: "<<text.toStdString()<<'\n';
+        }else{
+            searchable=false;
+            std::cerr<<"FAIL: Qt PDF reader cannot reopen OCR output\n";
+        }
+    }
+#endif
     std::cout << "Searchable PDF: " << generated.error.toStdString() << " text layer=" << searchable << '\n';
     const QString invalidPath = temp.filePath(QStringLiteral("invalid-layout.pdf"));
     const bool refusesLayout = !dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,invalidPath,99).ok
         && !QFileInfo::exists(invalidPath);
+    std::cout<<"OCR checks: languages="<<good<<" singleLine="<<lineGood
+             <<" generated="<<generated.ok<<" header="<<header<<" overwriteGuard="<<refusesOverwrite
+             <<" dpiGuard="<<refusesBadDpi<<" layoutGuard="<<refusesLayout<<" searchable="<<searchable<<std::endl;
     return good && lineGood && generated.ok && header && refusesOverwrite && refusesBadDpi && refusesLayout && searchable ? 0 : 1;
 }

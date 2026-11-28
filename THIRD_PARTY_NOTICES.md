@@ -61,3 +61,7 @@
 - PDFium upstream: https://pdfium.googlesource.com/pdfium/ (BSD-style và các giấy phép thành phần đi kèm).
 - SDK nhị phân: https://github.com/bblanchon/pdfium-binaries, bản không V8 `chromium/8179`, build bên thứ ba. CI kiểm tra release bất biến, SHA-256 asset từ GitHub trước khi giải nén. DLL liên kết động, không sửa mã thư viện.
 - Gói Windows có SDK phải kèm `pdfium-notices/verified-source.json` và toàn bộ các tệp giấy phép/notice phát hiện trong archive. Cần rà giấy phép thành phần trước phát hành công khai.
+
+## Tesseract OCR offline (Windows)
+- Tesseract 5.5.1 (Apache-2.0), https://github.com/tesseract-ocr/tesseract; tessdata_fast 4.1.0 (Apache-2.0), https://github.com/tesseract-ocr/tessdata_fast.
+- Built separately with pinned vcpkg; dynamic DLL dependencies and their copyright/license notices in `tesseract/notices/`. See `docs/OCR_OFFLINE_RUNTIME.md` and the bundle manifest. Review all dependency license/source requirements before release.
