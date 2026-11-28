@@ -253,6 +253,22 @@ int main(int argc,char** argv){
         withLaser==afterLaserClick&&show->grab().toImage()==before&&doc->currentPart()==originalPart;
     std::cout<<(laserOk?"PASS":"FAIL")<<" laser overlay visible, click does not advance, toggle restores original pixels"<<std::endl;
     if(!laserOk)std::_Exit(1);
+    key(show,Qt::Key_I);
+    const QPointF end=center+QPointF(45,15);
+    QMouseEvent penPress(QEvent::MouseButtonPress,center,global,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+    QCoreApplication::sendEvent(show,&penPress);
+    QMouseEvent penMove(QEvent::MouseMove,end,show->mapToGlobal(end.toPoint()),Qt::NoButton,Qt::LeftButton,Qt::NoModifier);
+    QCoreApplication::sendEvent(show,&penMove);
+    QMouseEvent penRelease(QEvent::MouseButtonRelease,end,show->mapToGlobal(end.toPoint()),Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+    QCoreApplication::sendEvent(show,&penRelease);
+    const bool drawn=safe&&safe->isVisible()&&show->grab().toImage()!=before;
+    key(show,Qt::Key_U);
+    const bool undoInk=show->grab().toImage()==before;
+    QCoreApplication::sendEvent(show,&penPress);QCoreApplication::sendEvent(show,&penRelease);
+    key(show,Qt::Key_E);key(show,Qt::Key_I);
+    const bool inkOk=drawn&&undoInk&&show->grab().toImage()==before&&doc->currentPart()==originalPart;
+    std::cout<<(inkOk?"PASS":"FAIL")<<" temporary ink drawing, undo, clear and unchanged slide"<<std::endl;
+    if(!inkOk)std::_Exit(1);
     key(show,Qt::Key_Right);
     // Older system engines without the layer ABI must still render an intact
     // static show and navigate normally, never claim animation support.
