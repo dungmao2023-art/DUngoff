@@ -115,6 +115,7 @@ int main(int argc,char** argv) {
             else {
                 const auto a=drivefolder::copyFile(source,folder),b=drivefolder::copyFile(source,folder);
                 if(a.isEmpty()||b.isEmpty()||a==b||readRaw(a)!="doc"||readRaw(b)!="doc"||!drivefolder::inFolder(a,folder)||drivefolder::inFolder(source,folder))result=22;
+                QString error;if(!drivefolder::copyFile(source,QString(),&error).isEmpty()||error.isEmpty()||drivefolder::fileError(QFileDevice::ResourceError,{}).isEmpty())result=32;
             }
         }
         if(!result){
@@ -163,6 +164,7 @@ int main(int argc,char** argv) {
                     auto* status=d->findChild<QComboBox*>(QStringLiteral("WorkTaskStatus"));
                     auto* buttons=d->findChild<QDialogButtonBox*>();
                     if(!title||!who||!due||!status||!buttons||who->count()!=2||who->itemText(1)!=QStringLiteral("Hà")){result=29;d->reject();return;}
+                    auto* group=d->findChild<QComboBox*>(QStringLiteral("WorkTaskGroup"));if(!group){result=33;d->reject();return;}group->setEditText(QStringLiteral("Vận hành nội bộ"));
                     title->setText(QStringLiteral("Kiểm tra Kanban"));who->setCurrentIndex(1);due->setChecked(true);status->setCurrentIndex(2);
                     buttons->button(QDialogButtonBox::Save)->click();
                 });
@@ -170,7 +172,7 @@ int main(int argc,char** argv) {
                 auto* c2=panel.findChild<QListWidget*>(QStringLiteral("WorkColumn2"));
                 if(!result&&(!c2||c2->count()!=1||!calendar->count()||!panel.flush()))result=30;
                 if(!result){const auto snap=panel.exportWorkProject();const auto tasks=snap.value("tasks").toArray();
-                    if(tasks.size()!=1||tasks.at(0).toObject().value("person").toString()!=QStringLiteral("person-test")||tasks.at(0).toObject().value("status").toInt()!=2)result=31;}
+                    if(tasks.size()!=1||tasks.at(0).toObject().value("person").toString()!=QStringLiteral("person-test")||tasks.at(0).toObject().value("status").toInt()!=2||tasks.at(0).toObject().value("group").toString()!=QStringLiteral("Vận hành nội bộ"))result=31;}
             }
         }
     }

@@ -43,6 +43,8 @@ private:
     QJsonArray m_workProjects;
     QJsonArray m_tasks;
     QComboBox* m_projectPicker = nullptr;
+    QLineEdit* m_taskSearch = nullptr;
+    QComboBox* m_taskPersonFilter = nullptr;
     QPushButton* m_editProject = nullptr;
     QTabWidget* m_workViews = nullptr;
     QListWidget* m_board[4]{};
