@@ -280,5 +280,40 @@ int main(int argc,char** argv){
                       fadeShow->grab().toImage()==hidden;
     std::cout<<(fadeOk?"PASS":"FAIL")<<" native timed fade entrance with intermediate pixels"<<std::endl;
     delete fadeShow;
-    std::_Exit(fadeOk?0:1);
+    if(!fadeOk)std::_Exit(1);
+    // Exercise real exported OOXML motion with native layer metadata, not just
+    // the synthetic renderer. A static fallback on a one-slide fixture closes
+    // on next, so it cannot be mistaken for successful animation playback.
+    for(const auto filter:{ppttransition::AnimationFilter::FlyLeft,ppttransition::AnimationFilter::Zoom}){
+        auto motionOptions=options;motionOptions.filter=filter;motionOptions.durationMs=1200;
+        const bool zoom=filter==ppttransition::AnimationFilter::Zoom;
+        const auto file=temp.filePath(zoom?"zoom-entrance.pptx":"fly-entrance.pptx");
+        const auto made=ppttransition::createAnimationCopy(args[2],file,1,motionOptions);
+        if(!made.ok){std::cerr<<"FAIL motion export "<<made.error.toStdString()<<std::endl;std::_Exit(1);}
+        auto motionDoc=engine->open(pathOf(file),&err);
+        if(!motionDoc){std::cerr<<"FAIL motion open "<<err<<std::endl;std::_Exit(1);}
+        motionDoc->setClientView(512,512,7680,7680,0,0,7680,7680);
+        motionDoc->waitInputIdle(350,4000);
+        std::cout<<(zoom?"Zoom":"Fly")<<" metadata: "<<motionDoc->presentationInfo()<<std::endl;
+        const auto originalPart=motionDoc->currentPart();
+        auto* motionShow=new SlideShow(motionDoc.get(),0,nullptr,false);
+        QPointer<SlideShow> liveMotion(motionShow);
+        QApplication::processEvents();
+        const auto initial=motionShow->grab().toImage();
+        key(motionShow,Qt::Key_Right);
+        if(!liveMotion||!liveMotion->isVisible()){
+            std::cerr<<"FAIL native motion treated as static slide"<<std::endl;std::_Exit(1);
+        }
+        pump(350);const auto moving=motionShow->grab().toImage();
+        pump(1000);const auto final=motionShow->grab().toImage();
+        key(motionShow,Qt::Key_Left);
+        const auto reversed=motionShow->grab().toImage();
+        const bool motionOk=initial!=moving&&moving!=final&&bluePixels(final)>bluePixels(initial)+500&&
+            initial==reversed&&redPixels(initial)>500&&
+            std::abs(redPixels(initial)-redPixels(final))<100&&motionDoc->currentPart()==originalPart;
+        std::cout<<(motionOk?"PASS":"FAIL")<<" actual "<<(zoom?"Zoom":"Fly")<<" entrance frames and reverse"<<std::endl;
+        delete motionShow;
+        if(!motionOk)std::_Exit(1);
+    }
+    std::_Exit(0);
 }
