@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MPL-2.0
 """Explicit numbered outline fixture; not a single-level default list."""
 import sys
+import zipfile
 from pathlib import Path
 from docx import Document
 from docx.oxml import OxmlElement
@@ -13,6 +14,12 @@ def elem(tag, **attrs):
     return node
 
 doc = Document()
+# python-docx's default template ships an unrelated bibliography customXml
+# part. Strip that relationship ONLY from this synthetic fixture before save.
+# Never bypass the application's real-document feature-loss guard.
+for rid, rel in list(doc.part.rels.items()):
+    if rel.reltype.endswith("/customXml"):
+        doc.part.drop_rel(rid)
 numbering = doc.part.numbering_part.element
 abstract_ids = [int(n.get(qn("w:abstractNumId"))) for n in numbering.findall(qn("w:abstractNum"))]
 num_ids = [int(n.get(qn("w:numId"))) for n in numbering.findall(qn("w:num"))]
@@ -48,3 +55,6 @@ for marker in ("LIST_FIRST", "LIST_SECOND", "LIST_THIRD"):
 dest = Path(sys.argv[1])
 dest.parent.mkdir(parents=True, exist_ok=True)
 doc.save(dest)
+with zipfile.ZipFile(dest) as package:
+    if any(n.lower().startswith("customxml/") for n in package.namelist()):
+        raise RuntimeError("Unexpected unrelated custom XML in synthetic fixture")
