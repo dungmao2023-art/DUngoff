@@ -1137,8 +1137,16 @@ Result addPageNumbers(const Input& in, const NumberOptions& opt, const QString& 
         if (order.contains(i)) {
             const QByteArray text = numberText(i).toLatin1();
             const double tw = textWidth(text, opt.fontSize);
+            // Reserve descent and ascent around the Helvetica baseline. Reject
+            // oversize content instead of successfully exporting clipped labels.
+            const double bh=opt.fontSize*1.25;
+            if(!std::isfinite(tw)||tw>op.w||bh>op.h){
+                res.error=tr("Số trang không vừa trang %1; hãy giảm cỡ chữ hoặc rút ngắn mẫu.").arg(i+1);return res;
+            }
             double x, y;
-            placeBox(opt.pos, op.w, op.h, tw, opt.fontSize, &x, &y);
+            placeBox(opt.pos, op.w, op.h, tw, bh, &x, &y);
+            x=qBound(0.0,x,op.w-tw);
+            y=qBound(0.0,y,op.h-bh)+opt.fontSize*0.25;
             op.content = num(opt.gray) + " g BT /F1 " + num(opt.fontSize) + " Tf " + num(x) + " " + num(y) + " Td " + pdfString(text) + " Tj ET";
         }
         ops.append(op);
@@ -1212,6 +1220,12 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
             if (!useImage) {
                 const QByteArray text = opt.text.toLatin1();
                 const double tw = textWidth(text, opt.fontSize);
+                const double bh=opt.fontSize*1.25;
+                const double diagonal=(tw+bh)/std::sqrt(2.0);
+                if(!std::isfinite(tw)|| (opt.pos==Position::Diagonal
+                    ? diagonal>qMin(op.w,op.h) : tw>op.w||bh>op.h)){
+                    res.error=tr("Chữ đóng dấu không vừa trang %1; hãy giảm cỡ chữ.").arg(i+1);return res;
+                }
                 const QByteArray color = num(opt.gray) + " g /GS1 gs ";
                 if (opt.pos == Position::Diagonal) {
                     op.content = "q " + color + num(c45) + " " + num(s45) + " " + num(-s45) + " " + num(c45) + " " + num(op.w / 2) + " " + num(op.h / 2) +
@@ -1219,10 +1233,14 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
                 } else {
                     double x, y;
                     if (opt.pos == Position::Custom) {
-                        if (tw > op.w || opt.fontSize > op.h || geo[i].defaulted) { res.error = tr("Chữ không vừa trang hoặc không xác minh được kích thước trang."); return res; }
+                        if (geo[i].defaulted) { res.error = tr("Không xác minh được kích thước trang."); return res; }
                         x = (op.w - tw) * opt.xPercent / 100.0;
-                        y = (op.h - opt.fontSize) * (1.0 - opt.yPercent / 100.0);
-                    } else placeBox(opt.pos, op.w, op.h, tw, opt.fontSize, &x, &y);
+                        y = (op.h - bh) * (1.0 - opt.yPercent / 100.0);
+                    } else {
+                        placeBox(opt.pos, op.w, op.h, tw, bh, &x, &y);
+                        x=qBound(0.0,x,op.w-tw);y=qBound(0.0,y,op.h-bh);
+                    }
+                    y+=opt.fontSize*0.25;
                     op.content = "q " + color + "BT /F1 " + num(opt.fontSize) + " Tf " + num(x) + " " + num(y) + " Td " + pdfString(text) + " Tj ET Q";
                 }
             } else {

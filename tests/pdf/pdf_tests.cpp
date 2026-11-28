@@ -470,6 +470,11 @@ int main(int argc, char** argv) {
         vn.format=QStringLiteral("Trang\n{n}");
         const auto badVN=P(QStringLiteral("so-vn-loi.pdf"));
         CHECK(!addPageNumbers({a,{}},vn,badVN).ok&&!QFileInfo::exists(badVN),"từ chối số trang nhiều dòng");
+        NumberOptions oversized;
+        oversized.format=QString(200,QLatin1Char('W'));oversized.fontSize=72;
+        const auto tooWide=P(QStringLiteral("so-qua-rong.pdf"));
+        CHECK(!addPageNumbers({a,{}},oversized,tooWide).ok&&!QFileInfo::exists(tooWide),"từ chối số trang ASCII quá rộng");
+        CHECK(readFile(a)==aBytes,"từ chối số trang quá rộng giữ nguyên nguồn");
         NumberOptions diag;
         diag.pos = Position::Diagonal;
         CHECK(!addPageNumbers({a, {}}, diag, P(QStringLiteral("so-cheo.pdf"))).ok, "đánh số trang: vị trí đường chéo bị từ chối");
@@ -547,6 +552,14 @@ int main(int argc, char** argv) {
         sv.text=QStringLiteral("Dòng 1\nDòng 2");
         CHECK(!stamp({a,{}},sv,P(QStringLiteral("dau-vn-loi.pdf"))).ok,"từ chối dấu nhiều dòng");
         CHECK(!stamp({a, {}}, StampOptions(), P(QStringLiteral("dau-rong.pdf"))).ok, "đóng dấu: thiếu chữ và ảnh bị từ chối");
+        StampOptions oversized;
+        oversized.text=QString(200,QLatin1Char('W'));oversized.fontSize=400;
+        for(const auto pos:{Position::Diagonal,Position::TopLeft,Position::Custom}){
+            oversized.pos=pos;
+            const auto tooWide=P(QStringLiteral("dau-qua-rong-%1.pdf").arg(int(pos)));
+            CHECK(!stamp({a,{}},oversized,tooWide).ok&&!QFileInfo::exists(tooWide),"từ chối dấu chữ ASCII quá rộng");
+        }
+        CHECK(readFile(a)==aBytes,"từ chối dấu quá rộng giữ nguyên nguồn");
         StampOptions one;
         one.text = QStringLiteral("CHI TRANG 2");
         one.pages = QStringLiteral("2");
