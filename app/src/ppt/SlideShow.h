@@ -6,6 +6,8 @@
 #include <QString>
 #include <QTimer>
 #include <QPointF>
+#include <QElapsedTimer>
+#include "SlideTransitionPlayback.h"
 
 class QScreen;
 
@@ -31,6 +33,12 @@ private:
     void restartAdvance();
     bool prepareEntrance();
     void resetEntrance();
+    void stopTransition();
+    void startTransition(const QImage& previous);
+    QImage m_transitionFrom;
+    QTimer m_transitionTimer;
+    QElapsedTimer m_transitionClock;
+    slideshow::TransitionPlan m_transitionPlan;
 
     dung::Document* m_doc;
     int m_part;

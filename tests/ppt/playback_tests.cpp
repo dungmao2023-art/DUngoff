@@ -16,6 +16,8 @@
 #include <cstdlib>
 #include <filesystem>
 #include <cmath>
+#include <QPainter>
+#include "SlideTransitionPlayback.h"
 
 namespace {
 std::filesystem::path pathOf(const QString& path){
@@ -51,6 +53,35 @@ int main(int argc,char** argv){
     QApplication app(argc,argv);
     const auto args=app.arguments();
     if(args.size()!=3){std::cerr<<"usage: dung-pptplaybacktest PROGRAM PPTX\n";return 2;}
+    // Exercise the same painter used by the real SlideShow. Endpoints,
+    // intermediate frames and direction must differ from a static cut.
+    {
+        using namespace slideshow;
+        QImage oldFrame(128,128,QImage::Format_ARGB32_Premultiplied),newFrame=oldFrame;
+        oldFrame.fill(Qt::red);newFrame.fill(Qt::blue);
+        auto draw=[&](const TransitionPlan& plan,qreal t){
+            QImage img(128,128,QImage::Format_ARGB32_Premultiplied);img.fill(Qt::black);
+            QPainter p(&img);paintTransition(p,QRectF(0,0,128,128),oldFrame,newFrame,plan,t);p.end();return img;
+        };
+        const auto fade=transitionPlan(QJsonObject{{"transitionType","Fade"},{"transitionSubtype","CrossFade"},{"transitionDuration",500}});
+        const auto push=transitionPlan(QJsonObject{{"transitionType","PushWipe"},{"transitionSubtype","FromRight"},{"transitionDuration",500}});
+        const auto wipe=transitionPlan(QJsonObject{{"transitionType","BarWipe"},{"transitionSubtype","LeftToRight"},{"transitionDirection",true},{"transitionDuration",500}});
+        const auto dissolve=transitionPlan(QJsonObject{{"transitionType","Dissolve"},{"transitionDuration",500}});
+        for(const auto& plan:{fade,push,wipe,dissolve}){
+            if(plan.kind==TransitionKind::Cut||draw(plan,0)!=oldFrame||draw(plan,1)!=newFrame||
+               draw(plan,.5)==oldFrame||draw(plan,.5)==newFrame){
+                std::cerr<<"FAIL transition endpoints/intermediate pixels"<<std::endl;return 1;
+            }
+        }
+        const auto pushMid=draw(push,.5),wipeMid=draw(wipe,.5);
+        if(pushMid.pixelColor(8,64)!=Qt::red||pushMid.pixelColor(120,64)!=Qt::blue||
+           wipeMid.pixelColor(8,64)!=Qt::blue||wipeMid.pixelColor(120,64)!=Qt::red||
+           draw(dissolve,.5)!=draw(dissolve,.5)||
+           transitionPlan(QJsonObject{{"transitionType","Zoom"},{"transitionDuration",500}}).kind!=TransitionKind::Cut){
+            std::cerr<<"FAIL direction or unsupported fallback"<<std::endl;return 1;
+        }
+        std::cout<<"PASS transition painter: Fade, Push, Wipe, Dissolve"<<std::endl;
+    }
     QTemporaryDir temp;
     if(!temp.isValid())return 2;
     QString error;

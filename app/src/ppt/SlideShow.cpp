@@ -28,6 +28,12 @@ SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool f
         if (slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
                                         !m_digits.isEmpty(),!m_img.isNull())>0) go(+1);
     });
+    m_transitionTimer.setTimerType(Qt::PreciseTimer);
+    m_transitionTimer.setInterval(16);
+    connect(&m_transitionTimer,&QTimer::timeout,this,[this]{
+        if(m_transitionClock.elapsed()>=m_transitionPlan.durationMs){stopTransition();restartAdvance();}
+        update();
+    });
     setAttribute(Qt::WA_DeleteOnClose);
     // Freeze editor interactions while the show uses its document and slide count.
     setWindowModality(Qt::WindowModal);
@@ -60,12 +66,15 @@ bool SlideShow::hidden(int part) {
 
 void SlideShow::restartAdvance() {
     m_advance.stop();
+    if(m_transitionTimer.isActive())return;
     const int delay=slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
                                                 !m_digits.isEmpty(),!m_img.isNull());
     if(delay>0) m_advance.start(delay);
 }
 
 void SlideShow::go(int delta) {
+    // A click during a transition finishes it, without skipping content.
+    if(m_transitionTimer.isActive()){stopTransition();update();restartAdvance();return;}
     if (m_blank != 0) { m_blank = 0; update(); restartAdvance(); return; }
     if (m_part < 0 || m_count <= 0) return;
     if(m_entrancePart==m_part&&!m_entranceFrames.isEmpty()){
@@ -80,13 +89,31 @@ void SlideShow::go(int delta) {
         else restartAdvance();
         return;
     }
+    const QImage previous=m_img;
     m_part = p;
     render();
+    if(delta>0)startTransition(previous);
     update();
     restartAdvance();
 }
+void SlideShow::stopTransition(){
+    m_transitionTimer.stop();m_transitionFrom={};m_transitionPlan={};
+}
+void SlideShow::startTransition(const QImage& previous){
+    if(previous.isNull()||m_img.isNull()||previous==m_img)return;
+    const auto info=QJsonDocument::fromJson(QByteArray::fromStdString(m_doc->presentationInfo())).object();
+    for(const auto& item:info.value("slides").toArray()){
+        const auto slide=item.toObject();
+        if(slide.value("index").toInt(-1)!=m_part)continue;
+        m_transitionPlan=slideshow::transitionPlan(slide);
+        break;
+    }
+    if(m_transitionPlan.kind==slideshow::TransitionKind::Cut)return;
+    m_transitionFrom=previous;m_transitionClock.start();m_transitionTimer.start();
+}
 
 void SlideShow::render() {
+    stopTransition();
     const int previousStep=m_entrancePart==m_part?m_entranceStep:0;
     resetEntrance();
     m_img = QImage();
@@ -239,7 +266,10 @@ void SlideShow::paintEvent(QPaintEvent*) {
     const QSizeF sz = QSizeF(m_img.size()).scaled(QSizeF(size()), Qt::KeepAspectRatio);
     p.setRenderHint(QPainter::SmoothPixmapTransform);
     const QRectF slideRect(QPointF((width() - sz.width()) / 2, (height() - sz.height()) / 2), sz);
-    p.drawImage(slideRect, m_img);
+    if(m_transitionTimer.isActive())
+        slideshow::paintTransition(p,slideRect,m_transitionFrom,m_img,m_transitionPlan,
+            qreal(m_transitionClock.elapsed())/m_transitionPlan.durationMs);
+    else p.drawImage(slideRect, m_img);
     // Screen-only pointer: no engine calls, no document edits, no mark on letterbox.
     if(m_laserMode && slideRect.contains(m_laserPoint)){
         p.save();
@@ -304,9 +334,9 @@ void SlideShow::keyPressEvent(QKeyEvent* e) {
     case Qt::Key_Right: case Qt::Key_Down: case Qt::Key_PageDown: case Qt::Key_Space: case Qt::Key_Return: case Qt::Key_Enter: go(+1); break;
     case Qt::Key_Left: case Qt::Key_Up: case Qt::Key_PageUp: case Qt::Key_Backspace: go(-1); break;
     case Qt::Key_B: case Qt::Key_Period:
-        m_blank = m_blank == 1 ? 0 : 1; update(); restartAdvance(); break;
+        stopTransition();m_blank = m_blank == 1 ? 0 : 1; update(); restartAdvance(); break;
     case Qt::Key_W: case Qt::Key_Comma:
-        m_blank = m_blank == 2 ? 0 : 2; update(); restartAdvance(); break;
+        stopTransition();m_blank = m_blank == 2 ? 0 : 2; update(); restartAdvance(); break;
     case Qt::Key_Home: case Qt::Key_End: {
         m_blank = 0;
         const int step = e->key() == Qt::Key_Home ? 1 : -1;
