@@ -497,6 +497,50 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
         }
         auto* note=new QLabel(tr("Đổi bố cục có thể sắp xếp lại các khung nội dung. Dùng Ctrl+Z để hoàn tác. Trở về chế độ slide thường nếu đang chỉnh ghi chú hoặc master."),body);
         note->setWordWrap(true);layout->addWidget(note);
+        auto* paletteHeading=new QLabel(tr("Bảng màu chữ"),body);
+        paletteHeading->setStyleSheet(QStringLiteral("font-weight:600;padding-top:5px;"));
+        layout->addWidget(paletteHeading);
+        auto* paletteHint=new QLabel(tr("Bôi đen chữ cần đổi rồi chọn một màu. Mỗi hàng là một bộ màu gợi ý; không tự đổi nền hoặc toàn bộ slide."),body);
+        paletteHint->setWordWrap(true);layout->addWidget(paletteHint);
+        struct Palette {QString label;const char* colors[4];};
+        const Palette palettes[]{
+            {tr("Hiện đại"),{"172554","4F46E5","64748B","FFFFFF"}},
+            {tr("Học thuật"),{"134E4A","0F766E","475569","FFFFFF"}},
+            {tr("Ấm áp"),{"7C2D12","B45309","334155","FFFFFF"}}
+        };
+        for(const auto& palette:palettes){
+            auto* name=new QLabel(palette.label,body);
+            layout->addWidget(name);
+            auto* colors=new QHBoxLayout;colors->setSpacing(5);
+            for(const char* hex:palette.colors){
+                const QColor color(QStringLiteral("#")+QString::fromLatin1(hex));
+                auto* swatch=new QToolButton(body);
+                swatch->setFixedSize(43,30);swatch->setFocusPolicy(Qt::NoFocus);
+                swatch->setCursor(Qt::PointingHandCursor);
+                swatch->setToolTip(tr("Đổi màu chữ đã chọn sang %1").arg(color.name().toUpper()));
+                swatch->setAccessibleName(swatch->toolTip());
+                swatch->setStyleSheet(QStringLiteral(
+                    "QToolButton{background:%1;border:1px solid #B9B9B9;border-radius:5px;} "
+                    "QToolButton:hover{border:2px solid #C45530;}").arg(color.name()));
+                colors->addWidget(swatch);
+                const unsigned rgb=color.rgb()&0x00FFFFFFu;
+                connect(swatch,&QToolButton::clicked,this,[this,rgb]{
+                    if(!m_doc||m_doc->readOnly()||m_pptNotes||m_pptMaster||m_rebuildingParts)return;
+                    m_doc->waitInputIdle();
+                    const int part=m_doc->currentPart();
+                    if(!m_slides||part<0||part>=m_doc->partCount()||m_slides->currentRow()!=part)return;
+                    if(m_doc->selectionAs("text/plain;charset=utf-8").empty()){
+                        QMessageBox::information(this,tr("Bảng màu chữ"),tr("Hãy bôi đen đoạn chữ trên slide trước khi chọn màu."));
+                        if(m_view)m_view->setFocus();
+                        return;
+                    }
+                    const auto command=dung::word::fontColor(rgb);
+                    m_doc->command(command.first,command.second);
+                    if(m_view)m_view->setFocus();
+                });
+            }
+            colors->addStretch(1);layout->addLayout(colors);
+        }
         layout->addStretch(1);
         panel->setWidget(body);
         auto* rail=new QWidget(this);
