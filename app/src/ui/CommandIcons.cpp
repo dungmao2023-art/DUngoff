@@ -72,7 +72,7 @@ QString iconNameForCommand(const QString& id) {
         {".uno:InsertPage", "slide-new"}, {".uno:DuplicatePage", "slide-duplicate"}, {".uno:DeletePage", "delete"}, {"ppt.deleteSlide", "delete"},
         {".uno:MovePageUp", "move-up"}, {".uno:MovePageDown", "move-down"},
         {".uno:HideSlide", "eye-off"}, {".uno:ShowSlide", "eye"},
-        {"ppt.image", "image"}, {"ppt.layerUp", "move-up"}, {"ppt.layerDown", "move-down"}, {"ppt.group", "merge-cells"}, {"ppt.ungroup", "table"}, {"ppt.alignObjects", "align-left"}, {"ppt.rect", "shape"}, {"ppt.textbox", "textbox"},
+        {"ppt.image", "image"}, {"ppt.layerUp", "move-up"}, {"ppt.layerDown", "move-down"}, {"ppt.group", "merge-cells"}, {"ppt.ungroup", "table"}, {"ppt.alignObjects", "align-left"}, {"ppt.resizeObject", "shape"}, {"ppt.rect", "shape"}, {"ppt.textbox", "textbox"},
         {"ppt.notes", "text"}, {"ppt.normal", "template"}, {"ppt.goto", "page-number"}, {"ppt.fontSize", "font-size"}, {"ppt.textColor", "font-color"},
         {"ppt.show", "play"}, {"ppt.showHere", "play"}, {"ppt.transitionNote", "transition"},
         {"ppt.preview", "play"}, {"ppt.showTimed", "play"}, {"ppt.animationCopy", "transition"}, {"ppt.clearAnimationCopy", "delete"}, {"ppt.masterBackground", "template"},

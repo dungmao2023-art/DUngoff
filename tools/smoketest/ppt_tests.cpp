@@ -553,6 +553,27 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         snap(std::string("ppt-align-")+item.name+"-undone.pptx");
     }
 
+    step("PowerPoint — đổi kích thước native và Undo");
+    auto resized=engine->open(out/"ppt-layer-input.pptx",&err);
+    check(bool(resized),"Mở fixture đổi kích thước: "+err);
+    if(resized){
+        resized->setClientView(512,512,7680,7680,0,0,7680,7680);
+        renderHash(*resized,0);
+        auto snap=[&](const char* name){
+            const auto dest=out/name;
+            fs::remove(dest,ec);
+            const auto saved=resized->saveAs(dest);
+            check(saved.ok,std::string("Lưu resize ")+name+": "+saved.message);
+        };
+        snap("ppt-resize-baseline.pptx");
+        resized->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,2160,2160,1,1,0);
+        resized->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,2160,2160,1,1,0);
+        resized->waitInputIdle();
+        resized->command(".uno:TransformDialog",R"({"TransformWidth":{"type":"long","value":4320},"TransformHeight":{"type":"long","value":2160}})");
+        resized->waitInputIdle();snap("ppt-resize-edited.pptx");
+        resized->command(".uno:Undo");resized->waitInputIdle();snap("ppt-resize-undone.pptx");
+    }
+
     std::cout << (g_fail ? "\nKẾT QUẢ PPT: CÓ LỖI\n" : "\nKẾT QUẢ PPT: TẤT CẢ ĐẠT\n");
     std::cout.flush();
     std::_Exit(g_fail ? 1 : 0);

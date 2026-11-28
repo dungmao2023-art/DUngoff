@@ -20,6 +20,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDialog>
+#include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QSpinBox>
@@ -450,7 +451,9 @@ void DocumentTab::excelAction(const QString& id) {
         form->addRow(tr("Tìm:"),needle);
         form->addRow(tr("Thay bằng:"),replacement);
         root->addLayout(form);
-        auto* note=new QLabel(tr("Tìm tiếp trong sheet hiện tại. Thay tất cả chỉ dùng chế độ giá trị/văn bản, không sửa công thức; cần xác nhận trước khi thay."),&dlg);
+        auto* matchCase=new QCheckBox(tr("Phân biệt chữ hoa/thường"),&dlg);
+        matchCase->setChecked(false);root->addWidget(matchCase);
+        auto* note=new QLabel(tr("Tìm chữ thuần trong sheet hiện tại, không dùng biểu thức chính quy. Thay tất cả dùng chế độ giá trị/văn bản; cần xác nhận trước khi thay."),&dlg);
         note->setWordWrap(true);root->addWidget(note);
         auto* buttons=new QDialogButtonBox(QDialogButtonBox::Close,&dlg);
         auto* next=buttons->addButton(tr("Tìm tiếp"),QDialogButtonBox::ActionRole);
@@ -466,7 +469,7 @@ void DocumentTab::excelAction(const QString& id) {
         };
         auto find=[&]{
             if(!validate())return;
-            cmd(".uno:ExecuteSearch",ex::findNext(ss(needle->text())));
+            cmd(".uno:ExecuteSearch",ex::findNext(ss(needle->text()),matchCase->isChecked()));
             m_doc->waitInputIdle();
             note->setText(tr("Đã gửi lệnh tìm. Đóng hộp thoại để xem ô được chọn; engine chưa xác nhận số kết quả."));
         };
@@ -475,11 +478,12 @@ void DocumentTab::excelAction(const QString& id) {
         QObject::connect(replace,&QPushButton::clicked,&dlg,[&]{
             if(!validate())return;
             const QString from=needle->text(),to=replacement->text();
+            const bool exact=matchCase->isChecked();
             if(QMessageBox::question(&dlg,tr("Thay tất cả"),
-                tr("Sheet %1: thay mọi lần xuất hiện của «%2» bằng «%3» trong giá trị/văn bản? Công thức không bị sửa.").arg(qs(originalSheet),from,to),
+                tr("Sheet %1: thay mọi lần xuất hiện của «%2» bằng «%3» trong giá trị/văn bản?\n%4").arg(qs(originalSheet),from,to,exact?tr("Có phân biệt hoa/thường"):tr("Không phân biệt hoa/thường")),
                 QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
-            if(!validate())return;
-            cmd(".uno:ExecuteSearch",ex::replaceAll(ss(from),ss(to)));
+            if(!validate()||needle->text()!=from||replacement->text()!=to||matchCase->isChecked()!=exact)return;
+            cmd(".uno:ExecuteSearch",ex::replaceAll(ss(from),ss(to),exact));
             m_doc->waitInputIdle();dlg.accept();
         });
         QObject::connect(buttons,&QDialogButtonBox::rejected,&dlg,&QDialog::reject);
