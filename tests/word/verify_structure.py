@@ -174,33 +174,53 @@ for filename, expected_rows, split_vertical, undone in (
         for marker in ("TABLE_CELL_MARKER", "TABLE_SECOND_CELL"):
             check(text(tables[0]).count(marker) == 1, filename + ": original marker retained exactly once")
 
-# Check actual geometry of the marked cell's row and column, not the
-# modified flag or command acknowledgement. The fixture is a plain grid.
+# Check actual geometry of the marked cell's row and column, not command
+# acknowledgement. Report every snapshot even when one invariant fails.
+resize_failures = []
+def resize_check(condition, message):
+    print(("PASS " if condition else "FAIL ") + message, flush=True)
+    if not condition:
+        resize_failures.append(message)
 def resize_geometry(filename):
     with zipfile.ZipFile(Path(sys.argv[1]).parent / filename) as z:
         root = ET.fromstring(z.read("word/document.xml"))
         tables = list(root.iter(W+"tbl"))
-        check(len(tables) == 1, filename + ": exactly one table")
+        resize_check(len(tables) == 1, filename + ": exactly one table")
+        if len(tables) != 1:
+            return None
         rows = tables[0].findall(W+"tr")
-        check(len(rows) == 6 and all(len(r.findall(W+"tc")) == 5 for r in rows),
-              filename + ": grid preserved")
-        check("TABLE_BODY_MARKER" in text(root), filename + ": body preserved")
+        resize_check(len(rows) == 6 and all(len(r.findall(W+"tc")) == 5 for r in rows),
+                     filename + ": grid preserved")
+        resize_check("TABLE_BODY_MARKER" in text(root), filename + ": body preserved")
+        # Only synthetic fixture text is printed; never inspect a user document.
+        print(filename, "cell texts", [[text(c) for c in r.findall(W+"tc")] for r in rows], flush=True)
         for marker in ("TABLE_CELL_MARKER", "TABLE_SECOND_CELL"):
-            check(text(tables[0]).count(marker) == 1, filename + ": original cell marker preserved")
-        row = next(r for r in rows if "TABLE_CELL_MARKER" in text(r))
-        cell = next(c for c in row.findall(W+"tc") if "TABLE_CELL_MARKER" in text(c))
+            resize_check(text(tables[0]).count(marker) == 1, filename + ": " + marker + " retained once")
+        marked = [(r,c) for r in rows for c in r.findall(W+"tc") if "TABLE_CELL_MARKER" in text(c)]
+        resize_check(len(marked) == 1, filename + ": unique target cell")
+        if len(marked) != 1:
+            return None
+        row, cell = marked[0]
         height = row.find(W+"trPr/"+W+"trHeight")
         width = cell.find(W+"tcPr/"+W+"tcW")
-        return (int(height.get(W+"val", "0")) if height is not None else 0,
-                int(width.get(W+"w", "0")) if width is not None else 0)
+        geometry = (int(height.get(W+"val", "0")) if height is not None else 0,
+                    int(width.get(W+"w", "0")) if width is not None else 0)
+        print(filename, "height/width twips", geometry, flush=True)
+        return geometry
 original = resize_geometry("word-table-resize-before.docx")
 height = resize_geometry("word-table-resize-height.docx")
+height_undo = resize_geometry("word-table-resize-height-undone.docx")
+width_before = resize_geometry("word-table-resize-width-before.docx")
 width = resize_geometry("word-table-resize-width.docx")
-check(abs(height[0]-1440) <= 2 and height[0] != original[0],
-      "native row height set to 1440 twips")
-check(abs(width[1]-720) <= 2 and width[1] != original[1],
-      "native column width set to 720 twips")
-check(resize_geometry("word-table-resize-height-undone.docx") == original,
-      "Undo row height restores original geometry")
-check(resize_geometry("word-table-resize-width-undone.docx") == original,
-      "Undo column width restores original geometry")
+width_undo = resize_geometry("word-table-resize-width-undone.docx")
+resize_check(original is not None and height is not None and
+             abs(height[0]-1440) <= 2 and height[0] != original[0],
+             "native row height set to 1440 twips")
+resize_check(width_before is not None and width is not None and
+             abs(width[1]-720) <= 2 and width[1] != width_before[1],
+             "native column width set to 720 twips")
+resize_check(original is not None and height_undo == original, "Undo row height restores original geometry")
+resize_check(original is not None and width_before == original, "pre-width geometry unchanged after height Undo")
+resize_check(width_before is not None and width_undo == width_before, "Undo column width restores original geometry")
+if resize_failures:
+    raise AssertionError("; ".join(resize_failures))

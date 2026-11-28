@@ -663,6 +663,8 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                             saveTable("word-table-resize-height-undone.docx");
                         }
                         if(selectMarkedCell()){
+                            // Distinguish a previous Undo/selection issue from width itself.
+                            saveTable("word-table-resize-width-before.docx");
                             run(*reopened,w::tableDimension(false,720));
                             saveTable("word-table-resize-width.docx");
                             run(*reopened,".uno:Undo");
