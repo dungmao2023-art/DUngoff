@@ -3,6 +3,8 @@
 #include "SimpleEntrance.h"
 #include <QJsonDocument>
 #include <QJsonArray>
+#include <QHash>
+#include <QSet>
 #include <iostream>
 #include <QToolTip>
 #include <QCursor>
@@ -143,26 +145,57 @@ bool SlideShow::prepareEntrance(){
     QImage after(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
     if(before.isNull()||after.isNull())return false;
     before.fill(Qt::white);after.fill(Qt::white);
+    // TextFields are rendered separately, before their master placeholders.
+    // A placeholder with no matching field bitmap represents a hidden field.
+    // Resolve visible fields at their original z-order, not as top overlays.
+    QHash<QString,const dung::Document::SlideLayer*> fields;
+    QSet<QString> usedFields;
+    const auto bytes=size_t(layers.width)*layers.height*4;
+    auto parse=[](const dung::Document::SlideLayer& layer){
+        return QJsonDocument::fromJson(QByteArray::fromStdString(layer.json)).object();
+    };
+    auto imageOf=[&](const dung::Document::SlideLayer& layer){
+        return QImage(layer.pixels.data(),layers.width,layers.height,layers.width*4,
+                      layers.rgba?QImage::Format_RGBA8888_Premultiplied:QImage::Format_ARGB32_Premultiplied);
+    };
+    for(const auto& layer:layers.layers){
+        const auto o=parse(layer);
+        if(o.value("slideHash").toString()!=hash)return false;
+        if(o.value("group").toString()!="TextFields")continue;
+        const auto content=o.value("content").toObject();
+        const auto fieldHash=content.value("hash").toString();
+        if(fieldHash.isEmpty()||fields.contains(fieldHash)||layer.pixels.size()!=bytes)return false;
+        fields.insert(fieldHash,&layer);
+    }
     QPainter p(&before),q(&after);int entrance=0;bool background=false;
     for(const auto& layer:layers.layers){
-        const auto o=QJsonDocument::fromJson(QByteArray::fromStdString(layer.json)).object();
+        const auto o=parse(layer);
         const auto type=o.value("type").toString(),group=o.value("group").toString();
         const auto content=o.value("content").toObject();
-        // Master placeholder layers have no pixels. They cannot be silently
-        // omitted: resolving real dynamic fields requires a separate implementation.
-        if(layer.pixels.size()!=size_t(layers.width)*layers.height*4||(type!="bitmap"&&type!="animated")){
+        if(group=="TextFields")continue;
+        if(group=="MasterPage"&&type=="placeholder"){
+            const auto fieldHash=content.value("hash").toString(),fieldType=content.value("type").toString();
+            if(fieldHash.isEmpty()||!layer.pixels.empty()||usedFields.contains(fieldHash))return false;
+            usedFields.insert(fieldHash);
+            const auto* field=fields.value(fieldHash,nullptr);
+            if(field){
+                if(parse(*field).value("content").toObject().value("type").toString()!=fieldType)return false;
+                const auto img=imageOf(*field);p.drawImage(0,0,img);q.drawImage(0,0,img);
+            }else if(fieldType!="DateTime"&&fieldType!="Footer"&&fieldType!="SlideNumber"){
+                // Unknown missing field: refuse rather than silently lose content.
+                return false;
+            }
+            continue;
+        }
+        if(layer.pixels.size()!=bytes||(type!="bitmap"&&type!="animated")){
             if(trace)std::cerr<<"Unsupported native layer type or size "<<type.toStdString()<<" "<<group.toStdString()<<std::endl;
             return false;
         }
         if(group=="Background")background=true;
-        if(group!="Background"&&group!="MasterPage"&&group!="DrawPage"){
-            if(trace)std::cerr<<"Unsupported native layer group "<<group.toStdString()<<std::endl;
-            return false;
-        }
-        const QImage img(layer.pixels.data(),layers.width,layers.height,layers.width*4,
-                         layers.rgba?QImage::Format_RGBA8888_Premultiplied:QImage::Format_ARGB32_Premultiplied);
+        if(group!="Background"&&group!="MasterPage"&&group!="DrawPage")return false;
+        const auto img=imageOf(layer);
         if(type=="animated"){
-            if(content.value("hash").toString()!=target||!content.value("initVisible").isBool()||content.value("initVisible").toBool()){
+            if(group!="DrawPage"||content.value("hash").toString()!=target||!content.value("initVisible").isBool()||content.value("initVisible").toBool()){
                 if(trace)std::cerr<<"Native animation target or visibility mismatch "<<target.toStdString()<<" "<<QJsonDocument(content).toJson(QJsonDocument::Compact).constData()<<std::endl;
                 return false;
             }
@@ -170,6 +203,7 @@ bool SlideShow::prepareEntrance(){
         }else p.drawImage(0,0,img);
         q.drawImage(0,0,img);
     }
+    for(auto it=fields.constBegin();it!=fields.constEnd();++it)if(!usedFields.contains(it.key()))return false;
     p.end();q.end();
     if(!background||entrance!=1||before==after){
         if(trace)std::cerr<<"Invalid entrance composition "<<background<<" "<<entrance<<" "<<(before==after)<<std::endl;
