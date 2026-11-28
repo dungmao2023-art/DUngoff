@@ -1489,6 +1489,7 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
     auto* edit=new QPushButton(tr("Sửa chữ"),w);edit->setToolTip(tr("Thay đối tượng chữ gốc đã chọn"));bottom->addWidget(edit);edit->setEnabled(false);
     auto* annotate=new QPushButton(tr("Thêm ghi chú"),w);annotate->setObjectName("pdfAddNote");annotate->setCheckable(true);annotate->setEnabled(false);bottom->addWidget(annotate);
+    auto* addText=new QPushButton(tr("Chèn chữ"),w);addText->setObjectName("pdfInsertText");addText->setCheckable(true);addText->setEnabled(false);bottom->addWidget(addText);
     auto* imageTools=new QHBoxLayout;root->addLayout(imageTools);
     imageTools->addWidget(new QLabel(tr("Ảnh:"),w));
     auto* insertImage=new QPushButton(tr("Chèn ảnh"),w);insertImage->setCheckable(true);insertImage->setEnabled(false);imageTools->addWidget(insertImage);
@@ -1503,34 +1504,39 @@ QWidget* PdfToolsDialog::buildSearch() {
     canvas->clearSelection=[=]{selectionIdentity->clear();copy->setEnabled(false);edit->setEnabled(false);highlight->setEnabled(false);underline->setEnabled(false);};
     auto enterMode=[=]{canvas->setSelection({});canvas->clearSelection();canvas->setFocus(Qt::OtherFocusReason);};
     canvas->cancelMode=[=]{
-        annotate->setChecked(false);insertImage->setChecked(false);moveImage->setChecked(false);replaceImage->setChecked(false);deleteImage->setChecked(false);
+        annotate->setChecked(false);insertImage->setChecked(false);moveImage->setChecked(false);replaceImage->setChecked(false);deleteImage->setChecked(false);addText->setChecked(false);
         canvas->setNoteMode(false);status->setText(tr("Đã hủy thao tác. Kéo chọn chữ hoặc chọn công cụ khác."));
     };
     connect(annotate,&QPushButton::toggled,w,[=](bool active){
-        if(active){insertImage->setChecked(false);moveImage->setChecked(false);replaceImage->setChecked(false);deleteImage->setChecked(false);enterMode();}
-        canvas->setNoteMode(active||insertImage->isChecked()||moveImage->isChecked()||replaceImage->isChecked()||deleteImage->isChecked());
+        if(active){addText->setChecked(false);insertImage->setChecked(false);moveImage->setChecked(false);replaceImage->setChecked(false);deleteImage->setChecked(false);enterMode();}
+        canvas->setNoteMode(active||insertImage->isChecked()||moveImage->isChecked()||replaceImage->isChecked()||deleteImage->isChecked()||addText->isChecked());
         if(active)status->setText(tr("Nhấp vào vị trí muốn đặt ghi chú trên trang. Nhấn Esc hoặc bấm lại nút để hủy."));
     });
     connect(insertImage,&QPushButton::toggled,w,[=](bool active){
-        if(active){annotate->setChecked(false);moveImage->setChecked(false);replaceImage->setChecked(false);deleteImage->setChecked(false);enterMode();}
-        canvas->setNoteMode(active||annotate->isChecked()||moveImage->isChecked()||replaceImage->isChecked()||deleteImage->isChecked());
+        if(active){addText->setChecked(false);annotate->setChecked(false);moveImage->setChecked(false);replaceImage->setChecked(false);deleteImage->setChecked(false);enterMode();}
+        canvas->setNoteMode(active||annotate->isChecked()||moveImage->isChecked()||replaceImage->isChecked()||deleteImage->isChecked()||addText->isChecked());
         if(active)status->setText(tr("Nhấp vào vị trí muốn đặt tâm ảnh trên trang. Nhấn Esc hoặc bấm lại nút để hủy."));
     });
     connect(moveImage,&QPushButton::toggled,w,[=](bool active){
         imageStart->reset();imageIdentity->clear();
-        if(active){annotate->setChecked(false);insertImage->setChecked(false);replaceImage->setChecked(false);deleteImage->setChecked(false);enterMode();}
-        canvas->setNoteMode(active||annotate->isChecked()||insertImage->isChecked()||replaceImage->isChecked()||deleteImage->isChecked());
+        if(active){addText->setChecked(false);annotate->setChecked(false);insertImage->setChecked(false);replaceImage->setChecked(false);deleteImage->setChecked(false);enterMode();}
+        canvas->setNoteMode(active||annotate->isChecked()||insertImage->isChecked()||replaceImage->isChecked()||deleteImage->isChecked()||addText->isChecked());
         if(active)status->setText(tr("Nhấp vào ảnh cần chỉnh, sau đó nhấp vào tâm vị trí mới. Nhấn Esc hoặc bấm lại nút để hủy."));
     });
     connect(replaceImage,&QPushButton::toggled,w,[=](bool active){
-        if(active){annotate->setChecked(false);insertImage->setChecked(false);moveImage->setChecked(false);deleteImage->setChecked(false);enterMode();}
-        canvas->setNoteMode(active||annotate->isChecked()||insertImage->isChecked()||moveImage->isChecked()||deleteImage->isChecked());
+        if(active){addText->setChecked(false);annotate->setChecked(false);insertImage->setChecked(false);moveImage->setChecked(false);deleteImage->setChecked(false);enterMode();}
+        canvas->setNoteMode(active||annotate->isChecked()||insertImage->isChecked()||moveImage->isChecked()||deleteImage->isChecked()||addText->isChecked());
         if(active)status->setText(tr("Nhấp vào ảnh cần thay. Ảnh mới sẽ vừa khung ảnh cũ, giữ tỷ lệ."));
     });
     connect(deleteImage,&QPushButton::toggled,w,[=](bool active){
-        if(active){annotate->setChecked(false);insertImage->setChecked(false);moveImage->setChecked(false);replaceImage->setChecked(false);enterMode();}
-        canvas->setNoteMode(active||annotate->isChecked()||insertImage->isChecked()||moveImage->isChecked()||replaceImage->isChecked());
+        if(active){addText->setChecked(false);annotate->setChecked(false);insertImage->setChecked(false);moveImage->setChecked(false);replaceImage->setChecked(false);enterMode();}
+        canvas->setNoteMode(active||annotate->isChecked()||insertImage->isChecked()||moveImage->isChecked()||replaceImage->isChecked()||addText->isChecked());
         if(active)status->setText(tr("Nhấp vào ảnh cần xóa trên trang. Nhấn Esc hoặc bấm lại nút để hủy."));
+    });
+    connect(addText,&QPushButton::toggled,w,[=](bool active){
+        if(active){annotate->setChecked(false);insertImage->setChecked(false);moveImage->setChecked(false);replaceImage->setChecked(false);deleteImage->setChecked(false);enterMode();}
+        canvas->setNoteMode(active||annotate->isChecked()||insertImage->isChecked()||moveImage->isChecked()||replaceImage->isChecked()||deleteImage->isChecked());
+        if(active)status->setText(tr("Nhấp vào vị trí chèn chữ mới. Nhấn Esc để hủy."));
     });
     if(!pdfedit::available())edit->setToolTip(tr("Bản cài chưa có PDFium Editing SDK."));
     auto session=std::make_shared<PdfEditSession>();
@@ -1544,7 +1550,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         ocrPage->setEnabled(row>=0&&!session->active());
         if(row>=0){QSignalBlocker guard(jump);jump->setValue(list->item(row)->data(Qt::UserRole).toInt());}
     };
-    auto clear=[=]{selectionIdentity->clear();highlight->setEnabled(false);underline->setEnabled(false);snapshot->reset();*browsing=false;list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);insertImage->setChecked(false);insertImage->setEnabled(false);moveImage->setChecked(false);moveImage->setEnabled(false);replaceImage->setChecked(false);replaceImage->setEnabled(false);deleteImage->setChecked(false);deleteImage->setEnabled(false);status->clear();refreshNav();};
+    auto clear=[=]{selectionIdentity->clear();highlight->setEnabled(false);underline->setEnabled(false);snapshot->reset();*browsing=false;list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);insertImage->setChecked(false);insertImage->setEnabled(false);moveImage->setChecked(false);moveImage->setEnabled(false);replaceImage->setChecked(false);replaceImage->setEnabled(false);deleteImage->setChecked(false);deleteImage->setEnabled(false);addText->setChecked(false);addText->setEnabled(false);status->clear();refreshNav();};
     auto openRange=[=](int page){
         clear();
         const QString path=m_searchFile->text();
@@ -1755,6 +1761,22 @@ QWidget* PdfToolsDialog::buildSearch() {
     connect(highlight,&QPushButton::clicked,w,[=]{saveMarkup(dungpdf::MarkupKind::Highlight);});
     connect(underline,&QPushButton::clicked,w,[=]{saveMarkup(dungpdf::MarkupKind::Underline);});
     canvas->placeNote=[=](QPointF point){
+        if(addText->isChecked()){
+            addText->setChecked(false);
+            if(!list->currentItem()||!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
+            const auto source=snapshot->value();const auto identity=dungpdf::fingerprint(source.path);
+            const int page=list->currentItem()->data(Qt::UserRole).toInt();
+            if(identity.size()!=32||!source.unchanged()){rejectStale();return;}
+            bool ok=false;
+            const auto value=QInputDialog::getText(this,tr("Chèn chữ PDF"),tr("Nội dung một dòng, tối đa 200 ký tự:"),QLineEdit::Normal,QString(),&ok);
+            if(!ok||value.trimmed().isEmpty())return;
+            const int size=QInputDialog::getInt(this,tr("Cỡ chữ"),tr("Cỡ chữ (pt):"),12,6,72,1,&ok);
+            if(!ok)return;
+            if(!source.unchanged()||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
+            const auto dest=editDest(source.path,tr("Chèn chữ"));if(dest.isEmpty())return;
+            continueEditing(runWithPasswords({source.path},[=]{return dungpdf::insertPageText(inputFor(source.path),page,point.x(),point.y(),value,size,identity,dest);}),tr("Chèn chữ PDF"),page);
+            return;
+        }
         if(deleteImage->isChecked()){
             deleteImage->setChecked(false);
             if(!list->currentItem()||!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
@@ -1930,7 +1952,7 @@ QWidget* PdfToolsDialog::buildSearch() {
     connect(query,&QLineEdit::returnPressed,go,&QPushButton::click);
     connect(list,&QListWidget::currentItemChanged,w,[=](QListWidgetItem* item,QListWidgetItem*){
         selectionIdentity->clear();highlight->setEnabled(false);underline->setEnabled(false);
-        text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);insertImage->setChecked(false);insertImage->setEnabled(false);moveImage->setChecked(false);moveImage->setEnabled(false);replaceImage->setChecked(false);replaceImage->setEnabled(false);deleteImage->setChecked(false);deleteImage->setEnabled(false);refreshNav();if(!item)return;
+        text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);insertImage->setChecked(false);insertImage->setEnabled(false);moveImage->setChecked(false);moveImage->setEnabled(false);replaceImage->setChecked(false);replaceImage->setEnabled(false);deleteImage->setChecked(false);deleteImage->setEnabled(false);addText->setChecked(false);addText->setEnabled(false);refreshNav();if(!item)return;
         if(!snapshot->has_value()||!snapshot->value().unchanged()){
             rejectStale();return;
         }
@@ -1948,7 +1970,7 @@ QWidget* PdfToolsDialog::buildSearch() {
             scroll->verticalScrollBar()->setValue(0);scroll->horizontalScrollBar()->setValue(0);
             annotate->setEnabled(canvas->hasPage()&&!findQpdf().isEmpty());
             insertImage->setEnabled(canvas->hasPage()&&pdfedit::available()&&!findQpdf().isEmpty());
-            moveImage->setEnabled(insertImage->isEnabled());replaceImage->setEnabled(insertImage->isEnabled());deleteImage->setEnabled(insertImage->isEnabled());}
+            moveImage->setEnabled(insertImage->isEnabled());replaceImage->setEnabled(insertImage->isEnabled());deleteImage->setEnabled(insertImage->isEnabled());addText->setEnabled(annotate->isEnabled());}
         text->setPlainText(extracted.normalized(QString::NormalizationForm_C));
         const auto needle=needleForPage.trimmed().normalized(QString::NormalizationForm_C);
         const auto offsets=printrender::highlightOffsets(text->toPlainText(),needle,match->isChecked());
