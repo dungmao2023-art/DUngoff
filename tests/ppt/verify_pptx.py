@@ -175,9 +175,25 @@ if master_file.exists():
         masters=[n for n in names if n.startswith("ppt/slideMasters/slideMaster") and n.endswith(".xml")]
         layouts=[n for n in names if n.startswith("ppt/slideLayouts/slideLayout") and n.endswith(".xml")]
         slides_xml=sorted(n for n in names if n.startswith("ppt/slides/slide") and n.endswith(".xml"))
-        marker=b"DUNG_MASTER_MARKER"
-        marked={n for n in masters+layouts if marker in z.read(n)}
-        print("Native master/layout XML containing marker:", sorted(marked))
+        import struct
+        # Resolve actual embedded picture relationships; no screenshot/hash-only pass.
+        image_ns="http://schemas.openxmlformats.org/drawingml/2006/main"
+        rel_ns="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        def has_test_image(part):
+            relfile=posixpath.join(posixpath.dirname(part),"_rels",posixpath.basename(part)+".rels")
+            if relfile not in names:return False
+            root=ET.fromstring(z.read(part))
+            embedded={e.get("{"+rel_ns+"}embed") for e in root.iter("{"+image_ns+"}blip")}
+            for rel in ET.fromstring(z.read(relfile)):
+                if rel.get("Id") not in embedded or not rel.get("Type","").endswith("/image") or rel.get("TargetMode")=="External":continue
+                target=rel.get("Target","")
+                resolved=posixpath.normpath(target.lstrip("/") if target.startswith("/") else posixpath.join(posixpath.dirname(part),target))
+                if resolved not in names:continue
+                data=z.read(resolved)
+                if data.startswith(b"\x89PNG\r\n\x1a\n") and len(data)>=24 and struct.unpack(">II",data[16:24])==(64,48):return True
+            return False
+        marked={n for n in masters+layouts if has_test_image(n)}
+        print("Native master/layout XML containing new picture:", sorted(marked))
         def related(part, kind):
             relfile=posixpath.join(posixpath.dirname(part),"_rels",posixpath.basename(part)+".rels")
             if relfile not in names:
@@ -199,8 +215,8 @@ if master_file.exists():
             print("Native slide inheritance:",slide,sorted(layout_parts),sorted(master_parts))
         shared=set.intersection(*chains) if len(chains)==2 else set()
         check(bool(marked & shared),"Native edit saved in master or layout inherited by both original slides")
-        check(any(b"MASTER_EDIT_ME" in z.read(n) for n in marked & shared),"Original shared master text preserved")
-        check(len(slides_xml)==2 and all(marker not in z.read(n) for n in slides_xml),"No master text copied into ordinary slide XML")
+        check(any(b"MASTER_EDIT_ME" in z.read(n) for n in shared),"Original shared master text preserved")
+        check(len(slides_xml)==2 and all(not has_test_image(n) for n in slides_xml),"No new master picture copied into ordinary slide XML")
         check(any(b"MASTER_SLIDE_A" in z.read(n) for n in slides_xml) and any(b"MASTER_SLIDE_B" in z.read(n) for n in slides_xml),"Both original slides preserved")
 else:
     check(False,"Native master edited PPTX missing")

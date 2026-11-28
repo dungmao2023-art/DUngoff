@@ -81,6 +81,7 @@ public:
         setFocusPolicy(Qt::StrongFocus);setMinimumSize(220,240);setCursor(Qt::IBeamCursor);
     }
     std::function<void(QPointF,QPointF)> select;
+    std::function<void()> copySelection;
     QString selectedText;
     void setPage(printrender::PagePreview p){page=std::move(p);selectedText.clear();selection.clear();drag=false;update();}
     void setSelection(const printrender::PageSelection& s){selection=s.bounds;selectedText=s.text;update();}
@@ -114,7 +115,7 @@ protected:
         drag=false;update();if(select&&!imageRect().isEmpty())select(point(start),point(e->position()));
     }
     void keyPressEvent(QKeyEvent* e)override{
-        if(e->matches(QKeySequence::Copy)&&!selectedText.isEmpty()){QApplication::clipboard()->setText(selectedText);e->accept();return;}
+        if(e->matches(QKeySequence::Copy)){if(copySelection)copySelection();e->accept();return;}
         QWidget::keyPressEvent(e);
     }
 private:
@@ -1137,23 +1138,43 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* canvas=new PdfTextCanvas(w);
     auto* split=new QSplitter(Qt::Horizontal,w);split->addWidget(canvas);split->addWidget(text);split->setStretchFactor(0,2);split->setStretchFactor(1,1);root->addWidget(split,3);
     auto* copy=new QPushButton(tr("Sao chép chữ đã chọn trên trang"),w);copy->setEnabled(false);root->addWidget(copy);
-    connect(copy,&QPushButton::clicked,w,[=]{if(!canvas->selectedText.isEmpty())QApplication::clipboard()->setText(canvas->selectedText);});
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
     auto* edit=new QPushButton(tr("Sửa chữ gốc đã chọn"),w);root->addWidget(edit);edit->setEnabled(false);
     if(!pdfedit::available())edit->setToolTip(tr("Bản cài chưa có PDFium Editing SDK."));
+    auto clear=[=]{snapshot->reset();list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);status->clear();};
+    auto rejectStale=[=]{clear();status->setText(tr("PDF nguồn đã thay đổi. Hãy tìm lại."));};
+    auto copyCurrent=[=]{
+        if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
+        if(!canvas->selectedText.isEmpty())QApplication::clipboard()->setText(canvas->selectedText);
+    };
+    connect(copy,&QPushButton::clicked,w,copyCurrent);
+    canvas->copySelection=copyCurrent;
+    // Invalidate the preview as soon as a normal external file update becomes
+    // observable. Recheck at point of use even if the timer has not run.
+    auto* freshness=new QTimer(w);
+    freshness->setInterval(750);
+    connect(freshness,&QTimer::timeout,w,[=]{
+        if(w->isVisible()&&snapshot->has_value()&&!snapshot->value().unchanged())rejectStale();
+    });
+    freshness->start();
     connect(edit,&QPushButton::clicked,w,[=]{
-        if(!snapshot->has_value()||!snapshot->value().unchanged()||!list->currentItem()||canvas->selectedText.isEmpty())return;
+        if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
+        if(!list->currentItem()||canvas->selectedText.isEmpty())return;
         const auto source=snapshot->value();const int page=list->currentItem()->data(Qt::UserRole).toInt();const QString old=canvas->selectedText;
         bool ok=false;const auto replacement=QInputDialog::getText(this,tr("Sửa chữ PDF"),tr("Thay nguyên đối tượng chữ đã chọn. Hỗ trợ tiếng Việt nếu font gốc có ký tự tương ứng. Lưu bản sao PDF mới."),QLineEdit::Normal,old,&ok);
-        if(!ok||!source.unchanged())return;
-        const auto dest=pickDest(this,source.path,tr("Sửa chữ"));if(dest.isEmpty()||!source.unchanged())return;
+        if(!ok)return;
+        if(!source.unchanged()){rejectStale();return;}
+        const auto dest=pickDest(this,source.path,tr("Sửa chữ"));if(dest.isEmpty())return;
+        if(!source.unchanged()){rejectStale();return;}
         showResult(runWithPasswords({source.path},[=]{return pdfedit::replaceObject(source.path,page,old,replacement,dest);}),tr("Sửa chữ PDF"));
     });
-    auto clear=[=]{snapshot->reset();list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);status->clear();};
+
     canvas->select=[=](QPointF from,QPointF to){
         const auto* item=list->currentItem();
-        if(!item||!snapshot->has_value()||!snapshot->value().unchanged()){canvas->setSelection({});copy->setEnabled(false);edit->setEnabled(false);return;}
+        if(!item){canvas->setSelection({});copy->setEnabled(false);edit->setEnabled(false);return;}
+        if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
         const auto selected=printrender::selectText(snapshot->value().path,item->data(Qt::UserRole).toInt(),from,to);
+        if(!snapshot->value().unchanged()){rejectStale();return;}
         canvas->setSelection(selected);copy->setEnabled(!selected.text.isEmpty());edit->setEnabled(pdfedit::available()&&!selected.text.isEmpty());
         if(!selected.error.isEmpty())status->setText(selected.error);
     };
@@ -1199,15 +1220,16 @@ QWidget* PdfToolsDialog::buildSearch() {
     connect(list,&QListWidget::currentItemChanged,w,[=](QListWidgetItem* item,QListWidgetItem*){
         text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);if(!item)return;
         if(!snapshot->has_value()||!snapshot->value().unchanged()){
-            status->setText(tr("PDF nguồn đã thay đổi. Hãy tìm lại."));return;
+            rejectStale();return;
         }
         QString error;
         const QString extracted=printrender::pageText(snapshot->value().path,item->data(Qt::UserRole).toInt(),&error);
         if(!snapshot->value().unchanged()){
-            status->setText(tr("PDF nguồn đã thay đổi trong lúc đọc. Hãy tìm lại."));return;
+            rejectStale();return;
         }
         if(!error.isEmpty()){status->setText(error);return;}
         auto preview=printrender::previewText(snapshot->value().path,item->data(Qt::UserRole).toInt(),QSize(1000,1400),query->text(),match->isChecked());
+        if(!snapshot->value().unchanged()){rejectStale();return;}
         if(!preview.error.isEmpty())status->setText(preview.error);
         else canvas->setPage(std::move(preview));
         text->setPlainText(extracted.normalized(QString::NormalizationForm_C));
