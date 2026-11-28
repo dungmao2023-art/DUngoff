@@ -1192,6 +1192,7 @@ QWidget* PdfToolsDialog::buildOcr() {
     layout->addItem(tr("Chữ rải rác (biểu mẫu, nhãn)"), 11);
     layout->setToolTip(tr("Chọn theo bố cục ảnh. Không tự động nhận bảng hay khôi phục định dạng."));
     form->addRow(tr("Bố cục nhận dạng:"), layout);
+    auto* keepPages=new QCheckBox(tr("Giữ cả tài liệu, chỉ thay các trang OCR"),w);keepPages->setChecked(true);form->addRow(tr("Khi xuất PDF:"),keepPages);
     root->addLayout(form);
     auto* note = new QLabel(tr("OCR cục bộ theo khoảng trang (tối đa 20 trang mỗi lượt): nhận dạng từ ảnh trang PDF, không gửi ra mạng, không sửa tệp nguồn. Cần cài Tesseract và dữ liệu ngôn ngữ tương ứng. Kết quả có thể sai, hãy đối chiếu bản gốc."), w);
     note->setWordWrap(true); root->addWidget(note);
@@ -1251,11 +1252,13 @@ QWidget* PdfToolsDialog::buildOcr() {
         const int segmentation = layout->currentData().toInt();
         if (!dungpdf::validOcrLayout(segmentation)) { status->setText(tr("Bố cục OCR không hợp lệ.")); return; }
         QString destination;
+        const bool retain=pdfMode&&keepPages->isChecked();
+        const QByteArray identity=retain?dungpdf::fingerprint(source):QByteArray();
+        if(retain&&identity.size()!=32){status->setText(tr("Không xác minh được nguồn."));return;}
         if (pdfMode) {
             if (QMessageBox::question(this,tr("PDF có thể tìm kiếm"),
-                tr("Tạo PDF mới chỉ gồm khoảng trang đã chọn, dưới dạng ảnh kèm lớp chữ OCR ẩn. "
-                   "Chữ có thể nhận sai; kích thước trang gần đúng, mất vector, liên kết, biểu mẫu, chữ ký và nội dung tương tác. "
-                   "Tệp nguồn không đổi. Tiếp tục?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return;
+                (retain?tr("Tạo PDF mới giữ toàn bộ số trang, thay các trang đã chọn bằng ảnh kèm lớp chữ OCR ẩn. "):tr("Tạo PDF mới chỉ gồm khoảng trang đã chọn, dưới dạng ảnh kèm lớp chữ OCR ẩn. "))+
+                   tr("Chữ có thể nhận sai; các trang OCR mất vector. Cấu trúc tài liệu, liên kết, biểu mẫu, chữ ký và nội dung tương tác có thể mất. Tệp nguồn không đổi. Tiếp tục?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return;
             destination = QFileDialog::getSaveFileName(this,tr("Lưu PDF OCR mới"),suggestOutputPath(source,tr("OCR")),tr("PDF (*.pdf)"));
             if (destination.isEmpty()) return;
             if (!destination.endsWith(QLatin1String(".pdf"),Qt::CaseInsensitive)) destination += QStringLiteral(".pdf");
@@ -1335,12 +1338,14 @@ QWidget* PdfToolsDialog::buildOcr() {
             }
             QStringList paths;
             for (const auto& in : pdfPages) paths << in.path;
+            if(retain)paths.prepend(source);
             const auto result = runWithPasswords(paths,[&] {
+                if(retain)return dungpdf::replacePageRange({source,{}},first,pdfPages,identity,destination);
                 if (pdfPages.size()==1) return dungpdf::extract(pdfPages.first(),QStringLiteral("1"),destination,false);
                 return dungpdf::merge(pdfPages,destination,false);
             });
             if(result.ok){*published=destination;openOcr->show();}
-            status->setText(result.ok ? tr("Đã lưu PDF OCR %1 trang: %2. Kiểm tra lại chữ nhận dạng.").arg(count).arg(destination) : result.error);
+            status->setText(result.ok ? tr("Đã lưu PDF OCR %1 trang: %2. Kiểm tra lại chữ nhận dạng.").arg(retain?inf.pages:count).arg(destination) : result.error);
             return;
         }
         output->setPlainText(recognized.join(QStringLiteral("\n\n")));

@@ -239,7 +239,7 @@ QByteArray sourceSha256(const QString& path) {
 // Optional confirmed fingerprint applies to the first source only.
 template <class MakeArgs>
 Result writeSafely(const QStringList& sources, const QString& destIn, bool allowReplace, MakeArgs makeArgs,
-                   const QByteArray& expectedSource = {}) {
+                   const QByteArray& expectedSource = {}, int expectedPages = 0) {
     Result res;
     auto sourceUnchanged=[&]{
         return expectedSource.isEmpty()||(!sources.isEmpty()&&sourceSha256(sources.first())==expectedSource);
@@ -282,6 +282,7 @@ Result writeSafely(const QStringList& sources, const QString& destIn, bool allow
         res.error = tr("Kết quả không qua bước kiểm tra, đã hủy. Tệp gốc không thay đổi.");
         return res;
     }
+    if(expectedPages>0){const auto verified=dungpdf::info(tmp);if(!verified.ok||verified.pages!=expectedPages){res.error=tr("Số trang đầu ra không đúng; chưa công bố kết quả.");return res;}}
     if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi trong lúc xử lý. Chưa công bố kết quả.");return res;}
     if (exists) {
         auto unchanged=[&] {
@@ -428,6 +429,32 @@ Result merge(const QList<Input>& inputs, const QString& dest, bool allowReplace)
 }
 
 QByteArray fingerprint(const QString& path){return sourceSha256(path);}
+Result replacePageRange(const Input& source,int first,const QList<Input>& replacements,
+                        const QByteArray& expectedSource,const QString& dest){
+    Result r;
+    if(expectedSource.size()!=32||fingerprint(source.path)!=expectedSource){r.error=tr("PDF nguồn đã thay đổi.");return r;}
+    const auto original=info(source.path,source.password);
+    if(!original.ok||original.encrypted||!source.password.isEmpty()){r.error=tr("Chỉ hỗ trợ tài liệu không mã hóa.");return r;}
+    if(first<1||first>original.pages||replacements.isEmpty()||replacements.size()>20||
+        replacements.size()>original.pages-first+1){r.error=tr("Khoảng trang thay thế không hợp lệ.");return r;}
+    QStringList sources{source.path};
+    for(const auto& item:replacements){
+        const auto replacement=info(item.path);
+        if(!item.password.isEmpty()||!replacement.ok||replacement.encrypted||replacement.pages!=1){
+            r.error=tr("Mỗi trang OCR phải là một PDF không mã hóa có đúng một trang.");return r;}
+        sources<<item.path;
+    }
+    const int last=first+int(replacements.size())-1;
+    r=writeSafely(sources,dest,false,[&](const QString& tmp){
+        QStringList a{QStringLiteral("--empty"),QStringLiteral("--pages")};
+        if(first>1)a<<source.path<<QStringLiteral("1-%1").arg(first-1);
+        for(const auto& item:replacements)a<<item.path<<QStringLiteral("1");
+        if(last<original.pages)a<<source.path<<QStringLiteral("%1-%2").arg(last+1).arg(original.pages);
+        a<<QStringLiteral("--")<<tmp;return a;
+    },expectedSource,original.pages);
+    if(r.ok)r.warnings<<tr("Giữ thứ tự và nội dung các trang khác; cấu trúc tài liệu, liên kết, biểu mẫu hoặc chữ ký có thể mất.");
+    return r;
+}
 Result extract(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace,const QByteArray& expectedSource) {
     Result res;
     const Info inf = info(in.path, in.password);

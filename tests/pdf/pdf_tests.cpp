@@ -328,6 +328,17 @@ int main(int argc, char** argv) {
     CHECK(!reorder({a, {}}, QStringLiteral("1,3"), P(QStringLiteral("invalid-order.pdf"))).ok, "Từ chối thiếu trang");
     const auto identity=fingerprint(a);
     const auto visualDest=P(QStringLiteral("visual-order.pdf"));
+    {
+        const auto replacement=P("ocr-replacement.pdf"),whole=P("ocr-whole.pdf"),bad=P("ocr-bad-range.pdf");
+        writeFile(replacement,makePdf(1,QStringLiteral("OCR")));
+        const auto original=readFile(a);
+        CHECK(replacePageRange({a,{}},2,{{replacement,{}}},identity,whole).ok&&
+              info(whole).pages==3&&readFile(a)==original,"replace one OCR page and retain full document");
+        CHECK(!replacePageRange({a,{}},4,{{replacement,{}}},identity,bad).ok&&
+              !replacePageRange({a,{}},2,{{a,{}}},identity,bad).ok&&
+              !replacePageRange({a,{}},2,{{replacement,{}}},QByteArray(32,'x'),bad).ok&&
+              !QFile::exists(bad),"reject invalid OCR range, multi-page replacement and stale source");
+    }
     CHECK(identity.size()==32&&organizePages({a,{}},{3,1},3,identity,visualDest).ok&&
           info(visualDest).pages==2,"visual organize combines reorder and removal");
     const auto visualFirst=P(QStringLiteral("visual-first.pdf"));
