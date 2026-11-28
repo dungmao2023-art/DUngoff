@@ -160,6 +160,7 @@ void TileView::resetForPartChange() {
     m_tiles.clear(); m_dirtyTiles.clear(); m_deferredPaint=QRegion(); m_tilePaintTimer.stop();
     m_selection.clear();
     m_cellArea = QRect();
+    m_autoFillArea = QRect(); m_nativeFillDrag = false;
     m_hasCaret = false;
     m_caret = QRect();
     m_caretVisible = false;
@@ -355,9 +356,10 @@ void TileView::paintEvent(QPaintEvent* ev) {
         p.setPen(QPen(theme::kExcel, 2));
         p.setBrush(Qt::NoBrush);
         p.drawRect(outline.adjusted(0, 0, -1, -1));
-        // Preserve the existing handle only for an explicitly identified cell/range.
-        if (!m_cellArea.isEmpty() || area == m_cellCursor)
-            p.fillRect(QRect(outline.right() - 3, outline.bottom() - 3, 6, 6), theme::kExcel);
+        // Render only the native handle; a guessed square can send a click
+        // to the adjacent cell rather than trigger Calc's fill gesture.
+        if (!m_doc->readOnly() && !m_autoFillArea.isEmpty() && !(m_hasCaret && m_caretVisible))
+            p.fillRect(toView(m_autoFillArea), theme::kExcel);
     }
     drawCaret(p);
     p.restore();
@@ -446,6 +448,7 @@ QRegion TileView::selectionPaintRegion() const {
     const QRect clip=viewport()->rect();
     const QRect outline=cellSelectionViewRect();
     if(!outline.isEmpty())region|=outline.adjusted(-5,-5,5,5).intersected(clip);
+    if(m_isCalc&&!m_autoFillArea.isEmpty())region|=toView(m_autoFillArea).adjusted(-2,-2,2,2).intersected(clip);
     for(const auto& rect:m_selection)
         region|=toView(rect).adjusted(-2,-2,2,2).intersected(clip);
     return region;
@@ -606,6 +609,14 @@ void TileView::handleEvent(int type, const QString& payload) {
         m_caretVisible = payload.contains(QLatin1String("true"));
         restartBlink();
         break;
+    case LOK_CALLBACK_CELL_AUTO_FILL_AREA: {
+        if(!m_isCalc)break;
+        const auto old=selectionPaintRegion();
+        const auto parsed=caretgeom::parseCursorPayload(payload);
+        m_autoFillArea=(parsed.valid&&parsed.rect.width()>0&&parsed.rect.height()>0)?parsed.rect:QRect();
+        viewport()->update(old|selectionPaintRegion());
+        break;
+    }
     case LOK_CALLBACK_CELL_SELECTION_AREA: {
         // Vùng nhiều ô của Calc (nếu engine không báo qua TEXT_SELECTION): tô mờ giống vùng chọn chữ.
         const caretgeom::Parsed pa = caretgeom::parseCursorPayload(payload);
@@ -647,9 +658,23 @@ void TileView::sendMouse(int type, QMouseEvent* e, int count) {
 
 void TileView::mousePressEvent(QMouseEvent* e) {
     flushDragMove();
+    m_nativeFillDrag=false;
+    if(m_isCalc&&e->button()==Qt::LeftButton&&!m_autoFillArea.isEmpty()&&
+       m_autoFillArea.contains(toTwips(e->position().toPoint()))&&
+       e->position().x()>=headerSize().x()&&e->position().y()>=headerSize().y()){
+        m_pickValid=false;m_pickComplete=false;
+        if(m_doc->readOnly()){m_pressButtons=0;e->accept();return;}
+        // Do not clear the source selection or coalesce a native fill gesture.
+        m_nativeFillDrag=true;
+        cancelComposition();setFocus();restartBlink();
+        m_clickCount=1;m_pressButtons=toLokButtons(e->buttons());
+        sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,e,1);
+        return;
+    }
     if (m_isCalc) {
         const auto old=selectionPaintRegion();
         m_cellArea = QRect();
+        m_autoFillArea = QRect();
         m_selection.clear(); // do not paint the previous range while a new gesture starts
         viewport()->update(old|selectionPaintRegion());
         const QPoint pos = e->position().toPoint();
@@ -670,6 +695,7 @@ void TileView::mouseReleaseEvent(QMouseEvent* e) {
     sendMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP, e, m_clickCount);
     m_pressButtons=0;
     m_clickCount = 1;
+    if(m_nativeFillDrag){m_nativeFillDrag=false;m_pickValid=false;m_pickComplete=false;return;}
     if (m_isCalc && e->button() == Qt::LeftButton && m_pickValid) {
         QPoint endpoint=e->position().toPoint();
         const QPoint h=headerSize();
@@ -726,7 +752,7 @@ void TileView::mouseMoveEvent(QMouseEvent* e) {
     // Writer can drag selected text or anchored objects. Preserve its
     // complete move path rather than assuming every drag is selection.
     if(m_isCalc&&!m_pressButtons)return;
-    const bool simple=m_isCalc&&m_pickValid&&
+    const bool simple=m_isCalc&&!m_nativeFillDrag&&m_pickValid&&
         e->buttons()==Qt::LeftButton&&e->modifiers()==Qt::NoModifier;
     const QPoint pos=e->position().toPoint(),h=headerSize();
     if(!simple||(m_isCalc&&(pos.x()<h.x()||pos.y()<h.y()))) {
@@ -761,6 +787,9 @@ void TileView::wheelEvent(QWheelEvent* e) {
 
 void TileView::keyPressEvent(QKeyEvent* e) {
     flushDragMove();
+    if(m_isCalc&&!m_autoFillArea.isEmpty()){
+        const auto old=selectionPaintRegion();m_autoFillArea=QRect();viewport()->update(old);
+    }
     const UiTiming timing("key");
     if (m_composing && e->key() == Qt::Key_Escape) { cancelComposition(); e->accept(); return; }
     const LokKey k = toLokKey(e);

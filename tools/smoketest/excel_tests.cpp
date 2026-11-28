@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -313,6 +314,44 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
         snapshot("excel-column-restored.xlsx");
     }
     deletion.reset();
+
+    step("kéo tay nắm điền công thức native Calc");
+    auto fill=engine->createNew(DocKind::Spreadsheet,&err);
+    check(bool(fill),"Tạo bảng thử kéo fill handle");
+    if(fill){
+        fill->setClientView(512,512,7680,7680,0,0,7680,7680);
+        gotoCell(*fill,"A1");
+        check(fill->paste("text/plain;charset=utf-8","10\n20\n30\n40"),"Dán nguồn số");
+        fill->waitInputIdle();
+        gotoCell(*fill,"B1");fill->typeText(u"=A1*2");
+        fill->postKey(LOK_KEYEVENT_KEYINPUT,13,1280);fill->postKey(LOK_KEYEVENT_KEYUP,13,1280);
+        fill->waitInputIdle();
+        auto rect=[](const std::string& s,int& x,int& y,int& w,int& h){
+            return std::sscanf(s.c_str(),"%d , %d , %d , %d",&x,&y,&w,&h)==4&&w>0&&h>0;
+        };
+        gotoCell(*fill,"B4");fill->waitInputIdle();settle();
+        int tx=0,ty=0,tw=0,th=0;
+        const bool target=rect(fill->lastPayload(LOK_CALLBACK_CELL_CURSOR),tx,ty,tw,th);
+        gotoCell(*fill,"B1");fill->waitInputIdle();settle();
+        int x=0,y=0,w=0,h=0,cx=0,cy=0,cw=0,ch=0;
+        const auto payload=fill->lastPayload(LOK_CALLBACK_CELL_AUTO_FILL_AREA);
+        const bool source=rect(fill->lastPayload(LOK_CALLBACK_CELL_CURSOR),cx,cy,cw,ch);
+        const bool handle=rect(payload,x,y,w,h)&&source&&
+            x<=cx+cw+w&&x+w>=cx+cw-w&&y<=cy+ch+h&&y+h>=cy+ch-h;
+        check(target&&handle,"LOK native fill rectangle and destination: "+payload);
+        if(target&&handle){
+            fill->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,x+w/2,y+h/2,1,1,0);
+            fill->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,tx+tw/2,ty+th/2,1,1,0);
+            fill->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,tx+tw/2,ty+th/2,1,1,0);
+            fill->waitInputIdle();settle();
+            const auto saved=fill->saveAs(out/"excel-native-fill-drag.xlsx");
+            check(saved.ok,"Lưu kết quả kéo công thức: "+saved.message);
+            fill->command(".uno:Undo");fill->waitInputIdle();settle();
+            const auto undone=fill->saveAs(out/"excel-native-fill-drag-undone.xlsx");
+            check(undone.ok,"Lưu Undo kéo công thức: "+undone.message);
+        }
+    }
+    fill.reset();
 
     // ======================= Tệp stress 5000 dòng =======================
     if (!stress.empty() && fs::exists(stress)) {
