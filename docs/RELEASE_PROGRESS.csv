@@ -30,7 +30,7 @@ id,priority,group,weight,stage,remaining_low_hours,remaining_high_hours,evidence
 "X13","P1","Excel nâng cao","8","scoped","16","48","Sau X12; record/manage macro giới hạn"
 "P01","P0","PowerPoint","8","partial","8","24","#27; thao tác đối tượng đầy đủ"
 "P02","P0","PowerPoint","5","integrated","4","12","#27 slide/notes; GUI"
-"P03","P0","PowerPoint","5","partial","4","12","Slideshow; #152 N/P and hidden navigation PASS both OS; port fresh CI/external monitor pending"
+"P03","P0","PowerPoint","5","partial","4","12","Slideshow; #152 N/P and hidden navigation PASS both OS; session autoplay pending CI/GUI; external monitor pending"
 "P04","P0","PowerPoint","8","partial","10","30","#12/#17; master/theme/layout"
 "P05","P0","PowerPoint","8","integrated","6","18","#28/#33/#82 merged; PPTX roundtrip and batch transition; actual PowerPoint GUI pending"
 "P06","P0","PowerPoint","13","partial","24","80","#43/#64/#72/#114 merged; graphic frame XML CI 45971609706 both OS; top-level group animation target f9daccf pending CI; actual playback, existing timing edit/emphasis/motion pending"

@@ -25,6 +25,12 @@ inline int adjacentVisible(const QVector<bool>& visible,int current,int directio
         if(visible[i])return i;
     return -1;
 }
+// Session-only autoplay: stop on the final visible slide, never wrap.
+inline int autoAdvanceDelay(const QVector<bool>& visible,int current,int intervalMs,
+                            bool paused,bool blank,bool enteringNumber,bool rendered) {
+    return intervalMs>=1000 && intervalMs<=600000 && !paused && !blank &&
+           !enteringNumber && rendered && adjacentVisible(visible,current,1)>=0 ? intervalMs : 0;
+}
 inline int jumpTo(const QVector<bool>& visible,const QString& digits) {
     bool ok=false;
     const int n=digits.toInt(&ok);
