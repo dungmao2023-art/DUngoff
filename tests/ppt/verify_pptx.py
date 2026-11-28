@@ -165,5 +165,16 @@ for mode,expected in (("positive",270),("negative",45)):
     else:
         check(False,filename+": both objects must exist")
     check(rotation_snapshot("ppt-rotate-"+mode+"-undone.pptx")== (rotbase,rotgeom,angles),filename+": exact Undo")
+import zipfile
+master_file=layer_dir/"ppt-master-edited.pptx"
+if master_file.exists():
+    with zipfile.ZipFile(master_file) as z:
+        masters=[n for n in z.namelist() if n.startswith("ppt/slideMasters/slideMaster") and n.endswith(".xml")]
+        slides_xml=[n for n in z.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml")]
+        check(any(b"DUNG_MASTER_MARKER" in z.read(n) for n in masters),"Native edit saved text in actual slide master XML")
+        check(len(slides_xml)==2 and all(b"DUNG_MASTER_MARKER" not in z.read(n) for n in slides_xml),"No master text copied into ordinary slide XML")
+        check(any(b"MASTER_SLIDE_A" in z.read(n) for n in slides_xml) and any(b"MASTER_SLIDE_B" in z.read(n) for n in slides_xml),"Both original slides preserved")
+else:
+    check(False,"Native master edited PPTX missing")
 print("\nKẾT QUẢ XÁC MINH PPTX:", "CÓ LỖI" if fail else "TẤT CẢ ĐẠT")
 sys.exit(1 if fail else 0)

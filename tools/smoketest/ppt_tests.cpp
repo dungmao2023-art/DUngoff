@@ -616,6 +616,33 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         snap(std::string("ppt-rotate-")+item.name+"-undone.pptx");
     }
 
+    step("PowerPoint — direct Slide Master editing and return to normal");
+    auto master=engine->open(out/"ppt-master-input.pptx",&err);
+    check(bool(master),"Mở fixture master: "+err);
+    if(master){
+        master->setClientView(512,512,7680,7680,0,0,7680,7680);
+        renderHash(*master,0);
+        const auto first=master->partHash(0);
+        check(master->partCount()==2&&!first.empty(),"Two normal slides share a master");
+        master->command(".uno:SlideMasterPage");master->waitInputIdle(350,4000);
+        const auto hash=master->partHash(0);
+        const bool entered=master->partCount()==1&&!hash.empty()&&hash!=first;
+        check(entered,"Native master mode, one master instead of two slides");
+        if(entered){
+            master->setPart(0);renderHash(*master,0);
+            master->command(".uno:Text");master->waitInputIdle(350,4000);
+            master->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,4000,3500,1,1,0);
+            master->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,6500,4300,1,1,0);
+            master->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,6500,4300,1,1,0);
+            master->waitInputIdle(350,4000);master->typeText(u"DUNG_MASTER_MARKER");master->waitInputIdle(350,4000);
+            master->postKey(LOK_KEYEVENT_KEYINPUT,0,1281);master->postKey(LOK_KEYEVENT_KEYUP,0,1281);master->waitInputIdle();
+            master->command(".uno:CloseMasterView");master->waitInputIdle(350,4000);
+            check(master->partCount()==2&&master->partHash(0)==first,"Return to original normal slides");
+            auto dest=out/"ppt-master-edited.pptx";fs::remove(dest,ec);
+            auto saved=master->saveAs(dest);check(saved.ok,"Save master change: "+saved.message);
+        }
+    }
+
     std::cout << (g_fail ? "\nKẾT QUẢ PPT: CÓ LỖI\n" : "\nKẾT QUẢ PPT: TẤT CẢ ĐẠT\n");
     std::cout.flush();
     std::_Exit(g_fail ? 1 : 0);

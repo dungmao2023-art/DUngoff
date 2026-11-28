@@ -779,7 +779,7 @@ QString DocumentTab::statusText() const {
     const int cur=m_sheets?m_sheets->currentIndex()+1:m_slides?m_slides->currentRow()+1:0;
     switch (m_doc->kind()) {
     case DocKind::Spreadsheet: s += tr("  •  Sheet %1/%2").arg(cur).arg(n); break;
-    case DocKind::Presentation: s += (m_pptNotes ? tr("  •  Ghi chú %1/%2") : tr("  •  Trang chiếu %1/%2")).arg(cur).arg(n); break;
+    case DocKind::Presentation: s += (m_pptMaster ? tr("  •  Slide Master %1/%2") : m_pptNotes ? tr("  •  Ghi chú %1/%2") : tr("  •  Trang chiếu %1/%2")).arg(cur).arg(n); break;
     case DocKind::Drawing: s += tr("  •  Trang %1/%2").arg(cur).arg(n); break;
     default: break;
     }
@@ -818,7 +818,7 @@ void DocumentTab::rebuildParts() {
         m_pendingThumbnails.clear();
         m_slides->clear();
         for (int i = 0; i < n; ++i) {
-            m_slides->addItem(m_doc->kind() == DocKind::Presentation ? tr("Trang chiếu %1").arg(i + 1)
+            m_slides->addItem(m_doc->kind() == DocKind::Presentation ? (m_pptMaster ? tr("Master %1") : tr("Trang chiếu %1")).arg(i + 1)
                                                                     : tr("Trang %1").arg(i + 1));
             if(m_slideRefresh&&!m_pptNotes)m_pendingThumbnails.insert(i);
         }
@@ -932,6 +932,11 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
 }
 
 void DocumentTab::runCommand(const QString& uno) {
+    if(m_pptMaster && (uno.startsWith(QLatin1String(".uno:InsertPage"))||uno.startsWith(QLatin1String(".uno:DuplicatePage"))||
+       uno.startsWith(QLatin1String(".uno:DeletePage"))||uno.startsWith(QLatin1String(".uno:MovePage"))||
+       uno.startsWith(QLatin1String(".uno:HideSlide"))||uno.startsWith(QLatin1String(".uno:ShowSlide")))){
+        QMessageBox::information(this,tr("Slide Master"),tr("Trở về Trang chiếu để thay đổi danh sách slide."));return;
+    }
     // Dạng ".uno:Lệnh#{json}" mang đối số UNO (dùng cho ribbon PowerPoint)
     const int hash = uno.indexOf(QLatin1Char('#'));
     if (hash > 0) m_doc->command(ss(uno.left(hash)), ss(uno.mid(hash + 1)));
@@ -995,6 +1000,7 @@ void DocumentTab::setZoom(int percent) { m_view->setZoom(percent); }
 
 void DocumentTab::setPptNotesMode(bool notes) {
     if (m_doc->kind() != DocKind::Presentation || m_pptNotes == notes) return;
+    if (notes && m_pptMaster && !setPptMasterMode(false)) return;
     m_doc->waitInputIdle();
     m_doc->setPartMode(notes ? 1 : 0); // LOK_PARTMODE_NOTES / SLIDES, verified in ppt_tests.cpp
     m_doc->waitInputIdle();
@@ -1003,6 +1009,35 @@ void DocumentTab::setPptNotesMode(bool notes) {
     rebuildParts();
     m_view->setFocus();
     emit statusChanged();
+}
+bool DocumentTab::setPptMasterMode(bool master) {
+    if(m_doc->kind()!=DocKind::Presentation)return false;
+    if(m_pptMaster==master)return true;
+    if(master&&m_doc->readOnly())return false;
+    if(master&&m_pptNotes)setPptNotesMode(false);
+    m_doc->waitInputIdle();
+    if(master){
+        m_beforeMasterPart=m_doc->currentPart();
+        m_normalFirstHash=m_doc->partHash(0);
+        if(m_normalFirstHash.empty())return false;
+        m_doc->command(".uno:SlideMasterPage");
+    }else m_doc->command(".uno:CloseMasterView");
+    m_doc->waitInputIdle(350,4000);
+    const auto first=m_doc->partHash(0);
+    const bool verified=!first.empty()&&m_doc->partCount()>0&&
+        (master?first!=m_normalFirstHash:first==m_normalFirstHash);
+    if(!verified){
+        if(master){
+            m_doc->command(".uno:CloseMasterView");
+            m_doc->waitInputIdle(350,4000);
+        }
+        QMessageBox::warning(this,tr("Slide Master"),tr("Engine chưa xác nhận chuyển chế độ. Không tiếp tục chỉnh sửa master."));
+        m_view->resetForPartChange();rebuildParts();return false;
+    }
+    m_pptMaster=master;
+    if(!master){m_doc->setPart(qBound(0,m_beforeMasterPart,m_doc->partCount()-1));m_doc->waitInputIdle();}
+    m_view->resetForPartChange();rebuildParts();m_view->setFocus();emit statusChanged();
+    return true;
 }
 void DocumentTab::stepPart(int delta) {
     if (!m_slides || m_slides->count() == 0) return;

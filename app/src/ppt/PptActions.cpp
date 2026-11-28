@@ -103,6 +103,18 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
     if (!id.startsWith(QLatin1String("ppt."))) return false;
     if (!tab || tab->kind() != dung::DocKind::Presentation) return true;
     dung::Document* d = tab->document();
+    if(id==QLatin1String("ppt.masterView")){
+        tab->setPptMasterMode(true);return true;
+    }
+    if(id==QLatin1String("ppt.normal")&&tab->pptMasterMode()){
+        tab->setPptMasterMode(false);return true;
+    }
+    if(tab->pptMasterMode()&&(id==QLatin1String("ppt.show")||id==QLatin1String("ppt.showHere")||
+       id==QLatin1String("ppt.preview")||id==QLatin1String("ppt.showTimed")||id==QLatin1String("ppt.deleteSlide")||
+       id==QLatin1String("ppt.notes")||id==QLatin1String("ppt.goto")||id==QLatin1String("ppt.animationCopy")||
+       id==QLatin1String("ppt.clearAnimationCopy")||id==QLatin1String("ppt.transitionNote")||id==QLatin1String("ppt.masterBackground"))){
+        QMessageBox::information(tab,QObject::tr("Slide Master"),QObject::tr("Chọn Trang chiếu để dùng thao tác này."));return true;
+    }
     if (id == QLatin1String("ppt.show") || id == QLatin1String("ppt.showHere") || id == QLatin1String("ppt.preview") || id == QLatin1String("ppt.showTimed")) {
         const bool fullscreen=id!=QLatin1String("ppt.preview");
         QPointer<DocumentTab> safeTab(tab);
