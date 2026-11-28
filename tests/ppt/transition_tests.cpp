@@ -74,6 +74,12 @@ int main(int argc, char** argv) {
           "numeric jump rejects hidden or invalid slides");
     check(slideshow::autoAdvanceDelay(visible,1,5000,false,false,false,true)==5000,"autoplay advances to next visible slide");
     check(slideshow::autoAdvanceDelay(visible,3,5000,false,false,false,true)==0,"autoplay stops at last visible slide");
+    check(slideshow::autoAdvanceDelay(visible,3,1000,false,false,false,true,true)==1000,
+          "autoplay finishes pending entrance on last slide");
+    check(slideshow::autoAdvanceDelay(visible,3,1000,true,false,false,true,true)==0&&
+          slideshow::autoAdvanceDelay(visible,3,1000,false,true,false,true,true)==0&&
+          slideshow::autoAdvanceDelay(visible,-1,1000,false,false,false,true,true)==0,
+          "pending effects never bypass pause, blank or invalid slide");
     check(slideshow::autoAdvanceDelay(visible,1,5000,true,false,false,true)==0 &&
           slideshow::autoAdvanceDelay(visible,1,5000,false,true,false,true)==0 &&
           slideshow::autoAdvanceDelay(visible,1,5000,false,false,true,true)==0 &&

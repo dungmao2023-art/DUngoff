@@ -330,6 +330,22 @@ int main(int argc,char** argv){
     std::cout<<(fadeOk?"PASS":"FAIL")<<" native timed fade entrance with intermediate pixels"<<std::endl;
     delete fadeShow;
     if(!fadeOk)std::_Exit(1);
+    // A one-slide deck with an entrance must autoplay its remaining
+    // animation, stay visible, and stop when every effect is complete.
+    auto* timed=new SlideShow(fadeDoc.get(),0,nullptr,false,nullptr,1000);
+    QPointer<SlideShow> liveTimed(timed);
+    QApplication::processEvents();
+    const auto timedHidden=timed->grab().toImage();
+    pump(2300);
+    if(!liveTimed||!liveTimed->isVisible()){
+        std::cerr<<"FAIL last slide autoplay closed the show"<<std::endl;std::_Exit(1);
+    }
+    const auto timedFinished=timed->grab().toImage();
+    pump(1200);
+    const bool autoOk=liveTimed&&liveTimed->isVisible()&&
+        bluePixels(timedFinished)>bluePixels(timedHidden)+500&&timed->grab().toImage()==timedFinished;
+    std::cout<<(autoOk?"PASS":"FAIL")<<" autoplay completes final slide entrance and stops"<<std::endl;
+    delete timed;if(!autoOk)std::_Exit(1);
     // Exercise real exported OOXML motion with native layer metadata, not just
     // the synthetic renderer. A static fallback on a one-slide fixture closes
     // on next, so it cannot be mistaken for successful animation playback.

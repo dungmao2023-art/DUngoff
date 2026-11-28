@@ -28,8 +28,7 @@ SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool f
     m_advance.setSingleShot(true);
     m_advance.setTimerType(Qt::PreciseTimer);
     connect(&m_advance,&QTimer::timeout,this,[this]{
-        if (slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
-                                        !m_digits.isEmpty(),!m_img.isNull())>0) go(+1);
+        if(advanceDelay()>0)go(+1);
     });
     m_transitionTimer.setTimerType(Qt::PreciseTimer);
     m_transitionTimer.setInterval(16);
@@ -69,12 +68,19 @@ bool SlideShow::hidden(int part) {
     return QString::fromStdString(m_doc->partInfo(part)).contains(re);
 }
 
+bool SlideShow::hasPendingEffects() const {
+    return m_entrancePart==m_part&&!m_entranceFrames.isEmpty()&&
+           m_entranceStep+1<m_entranceFrames.size();
+}
+int SlideShow::advanceDelay() const {
+    if(m_transitionTimer.isActive()||m_help)return 0;
+    return slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
+                                       !m_digits.isEmpty(),!m_img.isNull(),hasPendingEffects());
+}
 void SlideShow::restartAdvance() {
     m_advance.stop();
-    if(m_transitionTimer.isActive()||m_help)return;
-    const int delay=slideshow::autoAdvanceDelay(m_visible,m_part,m_intervalMs,m_paused,m_blank!=0,
-                                                !m_digits.isEmpty(),!m_img.isNull());
-    if(delay>0) m_advance.start(delay);
+    const int delay=advanceDelay();
+    if(delay>0)m_advance.start(delay);
 }
 
 void SlideShow::go(int delta) {
@@ -116,6 +122,13 @@ void SlideShow::go(int delta) {
     m_part = p;
     render();
     if(delta>0)startTransition(previous);
+    else if(m_entrancePart==m_part&&!m_entranceFrames.isEmpty()){
+        // Returning from the next slide should show all content that has
+        // already been presented, not hide it again. Back then steps through
+        // the effects in reverse. A direct slide jump still starts fresh.
+        m_entranceStep=int(m_entranceFrames.size())-1;
+        m_img=m_entranceFrames[m_entranceStep];
+    }
     update();
     restartAdvance();
 }

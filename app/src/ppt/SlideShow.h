@@ -31,6 +31,8 @@ private:
     void go(int delta);
     void render();
     void restartAdvance();
+    bool hasPendingEffects() const;
+    int advanceDelay() const;
     bool prepareEntrance();
     void resetEntrance();
     void stopTransition();
