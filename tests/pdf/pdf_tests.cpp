@@ -920,13 +920,23 @@ int main(int argc, char** argv) {
                   "continue editing the latest PDF copy without altering either earlier version");
         }
         CHECK(!pdfedit::replaceObject(source,1,"ORIGINAL","REPLACED",P("native-partial.pdf")).ok,"reject partial object");
+        const auto duplicate=P("native-duplicate.pdf"),duplicateOut=P("native-duplicate-edited.pdf");
+        const auto duplicateBytes=makeCustomPdf({{"BT /F1 24 Tf 72 720 Td (SAME) Tj ET BT /F1 24 Tf 72 400 Td (SAME) Tj ET",nullptr}});
+        writeFile(duplicate,duplicateBytes);
+        CHECK(!pdfedit::replaceObject(duplicate,1,"SAME","NEW",duplicateOut,fingerprint(duplicate)).ok,
+              "duplicate text without location is ambiguous");
+        CHECK(!pdfedit::replaceObject(duplicate,1,"SAME","NEW",duplicateOut,fingerprint(duplicate),QPointF(.99,.99)).ok,
+              "duplicate text outside selection is rejected");
+        CHECK(pdfedit::replaceObject(duplicate,1,"SAME","NEW",duplicateOut,fingerprint(duplicate),QPointF(90.0/595,1-730.0/842)).ok&&
+              info(duplicateOut).pages==1&&readFile(duplicate)==duplicateBytes,
+              "edit one repeated text object by page location");
 #ifdef DUNG_HAVE_PDFIUM_EDIT
         const auto vnSource=P("native-vietnamese.pdf"),vnDest=P("native-vietnamese-edited.pdf");
         const auto vn=unicodePdfFixture();
         CHECK(!vn.isEmpty(),"build Vietnamese CID font fixture");
         if(!vn.isEmpty()){
             writeFile(vnSource,vn);
-            const auto changed=pdfedit::replaceObject(vnSource,1,QStringLiteral("Tiếng Việt"),QStringLiteral("Việt Nam"),vnDest);
+            const auto changed=pdfedit::replaceObject(vnSource,1,QStringLiteral("Tiếng Việt"),QStringLiteral("Việt Nam").normalized(QString::NormalizationForm_D),vnDest);
             if(!changed.ok)std::cerr<<changed.error.toStdString()<<'\n';
             CHECK(changed.ok&&readFile(vnSource)==vn&&info(vnDest).pages==1,"PDFium replaces real Vietnamese text with matching embedded font");
             const auto bad=pdfedit::replaceObject(vnSource,1,QStringLiteral("Tiếng Việt"),QStringLiteral("Việt\nNam"),P("native-vn-linebreak.pdf"));

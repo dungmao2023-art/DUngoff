@@ -256,10 +256,13 @@ dungpdf::Result replaceImage(const QString& source,int page,QPointF selected,con
     if(imagePath.isEmpty())return fail(QStringLiteral("Hãy chọn ảnh thay thế."));
     return editImage(source,page,imagePath,selected,selected,0,expectedSource,dest);
 }
-dungpdf::Result replaceObject(const QString& source,int page,const QString& oldText,const QString& newText,const QString& dest,const QByteArray& expectedSource){
+dungpdf::Result replaceObject(const QString& source,int page,const QString& oldText,const QString& replacement,const QString& dest,const QByteArray& expectedSource,std::optional<QPointF> selected){
 #ifndef DUNG_HAVE_PDFIUM_EDIT
     return fail(QStringLiteral("Bản cài chưa có PDFium Editing SDK."));
 #else
+    const auto newText=replacement.normalized(QString::NormalizationForm_C);
+    if(selected&&(!std::isfinite(selected->x())||!std::isfinite(selected->y())||selected->x()<0||selected->x()>1||selected->y()<0||selected->y()>1))
+        return fail(QStringLiteral("Vị trí chọn chữ không hợp lệ."));
     if(oldText==newText||!editableText(oldText)||!editableText(newText))
         return fail(QStringLiteral("Chọn một đoạn chữ in được trên một dòng (tối đa 500 ký tự)."));
     const QFileInfo target(dest);
@@ -284,6 +287,12 @@ dungpdf::Result replaceObject(const QString& source,int page,const QString& oldT
         Page pg{FPDF_LoadPage(doc.p,page-1)};
         if(!pg.p)return fail(QStringLiteral("Không đọc được trang."));
         FPDF_PAGEOBJECT found=nullptr;
+        // Only use normalized viewer geometry for ordinary unrotated pages.
+        const double pw=FPDF_GetPageWidthF(pg.p),ph=FPDF_GetPageHeightF(pg.p);
+        FS_RECTF box{};
+        const bool locate=selected&&FPDFPage_GetRotation(pg.p)==0&&FPDF_GetPageBoundingBox(pg.p,&box)&&
+            std::isfinite(pw)&&std::isfinite(ph)&&pw>0&&ph>0&&std::abs(box.left)<.01&&std::abs(box.bottom)<.01&&
+            std::abs(box.right-pw)<.01&&std::abs(box.top-ph)<.01;
         {
             Text tp{FPDFText_LoadPage(pg.p)};
             if(!tp.p)return fail(QStringLiteral("Không đọc được chữ."));
@@ -293,7 +302,13 @@ dungpdf::Result replaceObject(const QString& source,int page,const QString& oldT
                 auto o=FPDFPage_GetObject(pg.p,i);
                 if(!o||FPDFPageObj_GetType(o)!=FPDF_PAGEOBJ_TEXT)continue;
                 const auto s=readText(o,tp.p);
-                if(s==oldText){
+                bool hit=s==oldText;
+                if(hit&&locate){
+                    float l=0,b=0,r=0,t=0;
+                    const double x=selected->x()*pw,y=(1-selected->y())*ph;
+                    hit=FPDFPageObj_GetBounds(o,&l,&b,&r,&t)&&x>=l&&x<=r&&y>=b&&y<=t;
+                }
+                if(hit){
                     if(found||FPDFTextObj_GetTextRenderMode(o)!=FPDF_TEXTRENDERMODE_FILL)
                         return fail(QStringLiteral("Chữ trùng lặp hoặc chế độ vẽ chưa hỗ trợ."));
                     found=o;idx=expected.size();

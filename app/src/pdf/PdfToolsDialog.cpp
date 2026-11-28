@@ -1779,11 +1779,14 @@ QWidget* PdfToolsDialog::buildSearch() {
         const auto identity=*selectionIdentity;
         if(identity.size()!=32||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
         bool ok=false;const auto replacement=QInputDialog::getText(this,tr("Sửa chữ PDF"),tr("Thay nguyên đối tượng chữ đã chọn. Hỗ trợ tiếng Việt nếu font gốc có ký tự tương ứng. Lưu bản sao PDF mới."),QLineEdit::Normal,old,&ok);
-        if(!ok)return;
+        if(!ok||replacement.normalized(QString::NormalizationForm_C)==old.normalized(QString::NormalizationForm_C))return;
+        const auto bounds=canvas->markupBounds();
+        std::optional<QPointF> selected;
+        if(bounds.size()==1)selected=bounds.first().center();
         if(!source.unchanged()){rejectStale();return;}
         const auto dest=editDest(source.path,tr("Sửa chữ"));if(dest.isEmpty())return;
         if(!source.unchanged()){rejectStale();return;}
-        continueEditing(runWithPasswords({source.path},[=]{return pdfedit::replaceObject(source.path,page,old,replacement,dest,identity);}),tr("Sửa chữ PDF"),page);
+        continueEditing(runWithPasswords({source.path},[=]{return pdfedit::replaceObject(source.path,page,old,replacement,dest,identity,selected);}),tr("Sửa chữ PDF"),page);
     });
 
     canvas->select=[=](QPointF from,QPointF to){
