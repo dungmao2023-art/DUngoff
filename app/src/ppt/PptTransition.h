@@ -26,6 +26,8 @@ QList<Shape> slideShapes(const QString& source, int slide1, QString* error);
 // Remove only a verified direct slide timing element, never transition or shape content.
 Result clearAnimationXml(const QByteArray& xml,QByteArray* output);
 Result createClearAnimationCopy(const QString& source,const QString& destination,int slide1, const QByteArray& expectedSource = {});
+// Inclusive range, already static slides left unchanged; malformed XML aborts the entire copy.
+Result createClearAnimationRangeCopy(const QString& source,const QString& destination,int first,int last,const QByteArray& expectedSource = {});
 Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& options, QByteArray* output);
 Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options, const QByteArray& expectedSource = {});
 Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOptions>& effects, QByteArray* output);

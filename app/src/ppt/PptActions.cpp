@@ -349,17 +349,19 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         QString error;const auto slides=ppttransition::slideEntries(source,&error);
         if(slides.isEmpty()){QMessageBox::warning(tab,QObject::tr("Xóa hoạt ảnh"),error);return true;}
         bool ok=false;
-        const int page=QInputDialog::getInt(tab,QObject::tr("Xóa hoạt ảnh"),QObject::tr("Slide cần xóa toàn bộ timing:"),1,1,int(slides.size()),1,&ok);
+        const int page=QInputDialog::getInt(tab,QObject::tr("Xóa hoạt ảnh"),QObject::tr("Từ slide:"),1,1,int(slides.size()),1,&ok);
+        if(!ok)return true;
+        const int last=QInputDialog::getInt(tab,QObject::tr("Xóa hoạt ảnh"),QObject::tr("Đến slide (tối đa 100 slide mỗi lần):"),page,page,qMin(page+99,int(slides.size())),1,&ok);
         if(!ok)return true;
         if(QMessageBox::question(tab,QObject::tr("Xóa toàn bộ hoạt ảnh"),
-            QObject::tr("Slide %1: xóa toàn bộ timing, kể cả hiệu ứng phức tạp và trigger. Nội dung slide và chuyển cảnh được giữ; chỉ tạo bản PPTX mới. Tiếp tục?").arg(page),
+            QObject::tr("Slide %1–%2: xóa toàn bộ timing, kể cả hiệu ứng phức tạp và trigger. Slide không có timing được giữ nguyên. Nội dung slide và chuyển cảnh được giữ; chỉ tạo bản PPTX mới. Tiếp tục?").arg(page).arg(last),
             QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return true;
         const QFileInfo src(source);
         const QString dest=QFileDialog::getSaveFileName(tab,QObject::tr("Lưu PPTX mới"),src.absolutePath()+QLatin1Char('/')+src.completeBaseName()+QStringLiteral(" - xoa hoat anh.pptx"),QObject::tr("PowerPoint (*.pptx)"));
         if(dest.isEmpty())return true;
-        const auto result=ppttransition::createClearAnimationCopy(source,dest,page,expectedSource);
+        const auto result=ppttransition::createClearAnimationRangeCopy(source,dest,page,last,expectedSource);
         if(!result.ok)QMessageBox::warning(tab,QObject::tr("Xóa hoạt ảnh"),result.error);
-        else QMessageBox::information(tab,QObject::tr("Xóa hoạt ảnh"),QObject::tr("Đã tạo bản sao không có timing trên slide %1. Có thể dùng Thêm hoạt ảnh để thiết lập lại.").arg(page));
+        else QMessageBox::information(tab,QObject::tr("Xóa hoạt ảnh"),QObject::tr("Đã tạo bản sao không có timing trên slide %1–%2. Có thể dùng Thêm hoạt ảnh để thiết lập lại.").arg(page).arg(last));
     } else if (id == QLatin1String("ppt.animationCopy")) {
         const QString source = QFileDialog::getOpenFileName(tab, QObject::tr("Chọn PPTX đã lưu (lưu bản nháp trước)"), d->isNew() ? QString() : fromPath(d->originalPath()), QObject::tr("PowerPoint (*.pptx)"));
         if (source.isEmpty()) return true;

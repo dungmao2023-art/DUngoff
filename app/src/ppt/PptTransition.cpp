@@ -517,7 +517,8 @@ Result createMasterBackgroundCopy(const QString& source,const QString& destinati
 Result createCopy(const QString& source, const QString& destination, int slide1, const Options& options,const QByteArray& expectedSource) {
     return createPatchedCopy(source, destination, slide1, [&](const QByteArray& xml, QByteArray* out) { return patchXml(xml, options, out); },expectedSource);
 }
-Result createRangeCopy(const QString& source,const QString& destination,int first,int last,const Options& options,const QByteArray& expectedSource){
+static Result createPatchedRangeCopy(const QString& source,const QString& destination,int first,int last,
+    const std::function<Result(const QByteArray&,QByteArray*)>& patch,const QByteArray& expectedSource){
     const auto expected=expectedSource.isEmpty()?sourceFingerprint(source):expectedSource;
     if(!unchanged(source,expected))return staleSource();
     const QFileInfo dst(destination),src(source);
@@ -527,16 +528,16 @@ Result createRangeCopy(const QString& source,const QString& destination,int firs
     QString error;const auto slides=slideEntries(source,&error);
     if(first<1||last<first||last>slides.size()||last-first+1>100)
         return fail(error.isEmpty()?QStringLiteral("Chọn khoảng slide hợp lệ, tối đa 100 slide mỗi lần."):error);
-    if(first==last)return createCopy(source,destination,first,options,expected);
+    if(first==last)return createPatchedCopy(source,destination,first,patch,expected);
     // Bound repeated package rewrites; a future single-pass ZIP writer can raise this.
     if(src.size()>100LL*1024*1024 || src.size()*(last-first+1)>1024LL*1024*1024)
-        return fail(QStringLiteral("Gói quá lớn cho chuyển cảnh hàng loạt; hãy chọn ít slide hơn."));
+        return fail(QStringLiteral("Gói quá lớn cho chỉnh sửa hàng loạt; hãy chọn ít slide hơn."));
     ft::ZipReader original;if(!original.open(source,&error))return fail(error);
     QHash<QString,QByteArray> patches;qint64 totalXml=0;
     for(int i=first;i<=last;++i){
         QByteArray xml,patched;const auto entry=slides.at(i-1);
         if(!read(original,entry,&xml,&error))return fail(error);
-        const auto result=patchXml(xml,options,&patched);
+        const auto result=patch(xml,&patched);
         if(!result.ok)return fail(QStringLiteral("Slide %1: ").arg(i)+result.error);
         totalXml+=patched.size();
         if(totalXml>64LL*1024*1024)return fail(QStringLiteral("Tổng XML slide quá lớn; hãy chia nhỏ khoảng."));
@@ -570,6 +571,21 @@ Result createRangeCopy(const QString& source,const QString& destination,int firs
     if(!unchanged(source,expected))return staleSource();
     if(!QFile::rename(current,destination))return fail(QStringLiteral("Không đặt được tên đích; không ghi đè."));
     return {true,{}};
+}
+Result createRangeCopy(const QString& source,const QString& destination,int first,int last,const Options& options,const QByteArray& expectedSource){
+    return createPatchedRangeCopy(source,destination,first,last,[&](const QByteArray& xml,QByteArray* out){return patchXml(xml,options,out);},expectedSource);
+}
+Result createClearAnimationRangeCopy(const QString& source,const QString& destination,int first,int last,const QByteArray& expectedSource){
+    // An already static slide in a batch is safe to keep byte-for-byte;
+    // malformed or ambiguous timing still aborts the entire transaction.
+    return createPatchedRangeCopy(source,destination,first,last,[](const QByteArray& xml,QByteArray* out){
+        const QString text=QString::fromUtf8(xml);
+        if(text.toUtf8()!=xml)return fail(QStringLiteral("Chỉ hỗ trợ XML UTF-8."));
+        const auto scan=scanAnimation(text);
+        if(!scan.error.isEmpty())return fail(scan.error);
+        if(!scan.hasTiming){*out=xml;return Result{true,{}};}
+        return clearAnimationXml(xml,out);
+    },expectedSource);
 }
 Result createClearAnimationCopy(const QString& source,const QString& destination,int slide1,const QByteArray& expectedSource){
     return createPatchedCopy(source,destination,slide1,[](const QByteArray& xml,QByteArray* out){return clearAnimationXml(xml,out);},expectedSource);
