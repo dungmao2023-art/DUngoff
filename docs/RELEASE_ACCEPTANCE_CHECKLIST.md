@@ -2,6 +2,18 @@
 
 Mốc rà soát 26/11/2026: main 487a62b31a7cf645dc8bfaa45d2afe2518cae1b3. Đây là backlog sống, không phải tuyên bố hoàn thiện. Đọc file này trước mỗi lượt làm; đối chiếu HEAD, PR và CI mới nhất, không sao chép báo cáo cũ. Mỗi mục chỉ đánh dấu [x] khi đạt tiêu chí nghiệm thu ghi ngay bên cạnh (có link PR, SHA, CI, hoặc bằng chứng test máy thật). "Có mã" / "CI xanh" không đồng nghĩa "GUI đã nghiệm thu". P0 = bắt buộc trước bản beta ổn định, P1 = mở rộng sau P0 hoặc triển khai độc lập; không bắt buộc tương đương 100% MS Office. Không phát hành công khai khi chưa được chủ dự án đồng ý.
 
+## Bằng chứng tích hợp bổ sung — 28/11/2026
+
+Main kiểm tra: `d104a0dca346d0665bf48c5a865ebf37b631e22b`. Không đổi trọng số/stage, chưa đánh dấu nghiệm thu GUI.
+
+- W02.2: #192 merge d104a0d, [CI 46128030000](https://github.com/dungmao2023-art/DUngoff/actions/runs/46128030000) Windows/Linux PASS ảnh native, kích thước DOCX, byte ảnh, text và Undo.
+- A09.1: #189 merge d6f3525, [CI 46126460670](https://github.com/dungmao2023-art/DUngoff/actions/runs/46126460670) Windows/Linux PASS guard font thiếu/giá trị hiển thị; chưa nghiệm thu font nhúng.
+- P01.1: #188 merge 4bfdb90, [CI 46125765752](https://github.com/dungmao2023-art/DUngoff/actions/runs/46125765752) Windows/Linux PASS resize PPT và tìm/thay literal Excel. Xoay tùy ý #183 FAIL Windows.
+- P04.1/P05.1: #190 merge 5491a3e, [CI 46126768194](https://github.com/dungmao2023-art/DUngoff/actions/runs/46126768194) Windows/Linux PASS fingerprint nguồn; thao tác lưu bản sao, không chứng minh playback native.
+- P03.1: #191 merge fbb1449, [CI 46127084913](https://github.com/dungmao2023-art/DUngoff/actions/runs/46127084913) Windows/Linux PASS ABI paintPartTile, giữ slide hiện tại; GUI/màn hình ngoài chưa nghiệm thu.
+- W01.2: #186 CI 46129045339 FAIL cả hai OS do thay đổi cấp sai mục; restart/Undo PASS trong log, #194 tách riêng chờ CI. Không bỏ gate cấp danh sách.
+- D05.1: #193 Linux PASS, Windows pending tại thời điểm rà. #195 quarter-turn pending cả hai OS. Không tuyên bố hoàn thiện.
+
 ## Cổng nghiệm thu công sở — ưu tiên cơ bản (27/11/2026, chủ dự án xác nhận)
 Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải bảng điểm thứ hai. Không đổi trọng số hoặc stage chỉ vì tạo checklist. Cổng B0/B1 là yêu cầu sử dụng hằng ngày; B2 làm sau hoặc khi có blocker độc lập. Không bỏ P0 cũ khỏi phạm vi dự án; chức năng nâng cao chưa đạt phải ghi rõ giới hạn, không quảng cáo. Mốc 50% chỉ là checkpoint, không phải đủ phát hành hoặc lý do dừng nếu cổng cơ bản chưa đạt.
 
