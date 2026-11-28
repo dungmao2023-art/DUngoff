@@ -374,6 +374,7 @@ QWidget* Ribbon::buildPage(const Tab& t) {
             const bool excel=m_lastKind==int(DocKind::Spreadsheet);
             connect(family,qOverload<int>(&QComboBox::activated),this,[this,family,excel](int index){
                 if(index<0||family->itemText(index).isEmpty())return;
+                if(m_fontInventoryVerified&&!m_documentFonts.contains(family->itemText(index)))return;
                 const auto name=family->itemText(index).toUtf8().toStdString();
                 const auto json=excel?dung::excel::fontName(name):dung::word::fontName(name).second;
                 emit unoCommand(QStringLiteral(".uno:CharFontName#")+QString::fromStdString(json));
@@ -463,6 +464,28 @@ void Ribbon::setKind(DocKind kind, bool readOnly) {
     m_tabs->setCurrentIndex(qMin(1, m_tabs->count()-1));
 }
 
+void Ribbon::setDocumentFonts(const QStringList& names) {
+    m_documentFonts=names;
+    m_documentFonts.removeDuplicates();
+    m_fontInventoryVerified=!m_documentFonts.isEmpty();
+    if(!m_fontBox)return;
+    QSignalBlocker blocker(m_fontBox);
+    m_fontBox->clear();
+    if(m_fontInventoryVerified){
+        m_fontBox->addItems(m_documentFonts);
+        m_fontBox->setToolTip(tr("Phông chữ mà engine tài liệu nhận diện"));
+    }else{
+        auto fallback=QFontDatabase::families();
+        if(fallback.isEmpty()){
+            const QString family=QGuiApplication::font().family().trimmed();
+            fallback.append(family.isEmpty()?QStringLiteral("sans-serif"):family);
+        }
+        m_fontBox->addItems(fallback);
+        m_fontBox->setToolTip(tr("Danh sách font hệ thống; engine chưa xác minh danh sách"));
+    }
+    m_fontBox->setCurrentIndex(-1);
+}
+
 void Ribbon::setCommandState(const QString& cmd, const QString& value) {
     QComboBox* selector=cmd==QLatin1String(".uno:CharFontName")?m_fontBox.data():
         cmd==QLatin1String(".uno:FontHeight")?m_sizeBox.data():nullptr;
@@ -487,6 +510,9 @@ void Ribbon::setCommandState(const QString& cmd, const QString& value) {
                     if(index<0&&addMissing) {
                         selector->addItem(text);
                         index=selector->count()-1;
+                        if(selector==m_fontBox.data()&&m_fontInventoryVerified){
+                            selector->setItemData(index,tr("Phông trong tài liệu nhưng không có trong danh sách engine"),Qt::ToolTipRole);
+                        }
                     }
                     if(selector->currentIndex()!=index)selector->setCurrentIndex(index);
                 }
