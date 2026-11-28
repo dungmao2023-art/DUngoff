@@ -51,6 +51,9 @@ QList<int> parsePages(const QString& spec, int total, QString* error = nullptr);
 Info info(const QString& path, const QString& password = QString());
 
 Result merge(const QList<Input>& inputs, const QString& dest, bool allowReplace = false);
+// Replace a contiguous range with verified single-page OCR PDFs; rebuild page sequence.
+Result replacePageRange(const Input& source,int first,const QList<Input>& replacements,
+                        const QByteArray& expectedSource,const QString& dest);
 Result extract(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace = false,
                const QByteArray& expectedSource = {});
 // Visual organizer: keep unique 1-based pages in the exact chosen order.
@@ -99,6 +102,9 @@ struct StampOptions {
     QString pages = QStringLiteral("1-");
 };
 Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool allowReplace = false);
+// Add visible, selectable vector text at a normalized page point (not a redaction).
+Result insertPageText(const Input& in,int page,double x,double y,const QString& text,double fontSize,
+                      const QByteArray& expectedSource,const QString& dest);
 
 struct ImageOptions {
     bool fitA4 = false;  // true: mỗi ảnh vào một trang A4 (giữ tỉ lệ); false: trang đúng cỡ ảnh theo `dpi`

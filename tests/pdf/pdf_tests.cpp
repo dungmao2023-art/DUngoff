@@ -328,6 +328,17 @@ int main(int argc, char** argv) {
     CHECK(!reorder({a, {}}, QStringLiteral("1,3"), P(QStringLiteral("invalid-order.pdf"))).ok, "Từ chối thiếu trang");
     const auto identity=fingerprint(a);
     const auto visualDest=P(QStringLiteral("visual-order.pdf"));
+    {
+        const auto replacement=P("ocr-replacement.pdf"),whole=P("ocr-whole.pdf"),bad=P("ocr-bad-range.pdf");
+        writeFile(replacement,makePdf(1,QStringLiteral("OCR")));
+        const auto original=readFile(a);
+        CHECK(replacePageRange({a,{}},2,{{replacement,{}}},identity,whole).ok&&
+              info(whole).pages==3&&readFile(a)==original,"replace one OCR page and retain full document");
+        CHECK(!replacePageRange({a,{}},4,{{replacement,{}}},identity,bad).ok&&
+              !replacePageRange({a,{}},2,{{a,{}}},identity,bad).ok&&
+              !replacePageRange({a,{}},2,{{replacement,{}}},QByteArray(32,'x'),bad).ok&&
+              !QFile::exists(bad),"reject invalid OCR range, multi-page replacement and stale source");
+    }
     CHECK(identity.size()==32&&organizePages({a,{}},{3,1},3,identity,visualDest).ok&&
           info(visualDest).pages==2,"visual organize combines reorder and removal");
     const auto visualFirst=P(QStringLiteral("visual-first.pdf"));
@@ -643,6 +654,14 @@ int main(int argc, char** argv) {
         CHECK(r.ok && info(P(QStringLiteral("dau.pdf"))).pages == 3, "đóng dấu chữ: kết quả 3 trang");
         CHECK(q.contains("(BAN NHAP) Tj") && q.contains("/ca 0.3"), "đóng dấu chữ: có chữ và độ đậm 0.3 trong nội dung");
         CHECK(readFile(a) == aBytes, "đóng dấu: tệp nguồn giữ nguyên từng byte");
+        const auto insertedText=P("inserted-vietnamese-text.pdf"),badInsert=P("bad-inserted-text.pdf");
+        const auto sourceIdentity=fingerprint(a);
+        const auto inserted=dungpdf::insertPageText({a,{}},2,.5,.5,QStringLiteral("Dũng Office"),14,sourceIdentity,insertedText);
+        CHECK(inserted.ok&&info(insertedText).pages==3&&fingerprint(a)==sourceIdentity&&qdfOf(insertedText).contains("/ToUnicode"),
+              "insert Vietnamese vector text while retaining original document");
+        CHECK(!dungpdf::insertPageText({a,{}},2,.5,.5,QStringLiteral("Dũng Office"),14,QByteArray(32,'x'),badInsert).ok&&
+              !dungpdf::insertPageText({a,{}},2,1.5,.5,QStringLiteral("Dũng Office"),14,sourceIdentity,badInsert).ok&&
+              !QFile::exists(badInsert),"reject stale source and invalid text position");
         StampOptions sv;
         sv.text = QString::fromUtf8("BẢN NHÁP");
         sv.pages=QStringLiteral("2");sv.pos=Position::Custom;sv.fontSize=28;sv.opacity=0.7;
@@ -898,7 +917,17 @@ int main(int argc, char** argv) {
             if(!replacedResult.ok)std::cerr<<replacedResult.error.toStdString()<<'\n';
             CHECK(replacedResult.ok&&info(replaced).pages==2&&readFile(withImage)==beforeMove&&readFile(source)==original,
                 "replace native image in its original layer with new pixel dimensions");
+            const auto removed=P("native-removed.pdf");
+            const auto removedResult=pdfedit::removeImage(withImage,2,QPointF(.5,.5),fingerprint(withImage),removed);
+            if(!removedResult.ok)std::cerr<<removedResult.error.toStdString()<<'\n';
+            CHECK(removedResult.ok&&info(removed).pages==2&&
+                  readFile(withImage)==beforeMove&&readFile(source)==original,
+                  "remove actual image object without altering other versions");
             const auto missed=P("native-missed.pdf");
+            if(removedResult.ok)CHECK(!pdfedit::removeImage(removed,2,QPointF(.5,.5),fingerprint(removed),missed).ok&&
+                  !QFile::exists(missed),"removed page object cannot be selected again");
+            CHECK(!pdfedit::removeImage(withImage,2,QPointF(.01,.01),fingerprint(withImage),missed).ok&&
+                  !QFile::exists(missed),"reject image removal outside an image");
             CHECK(!pdfedit::moveImage(withImage,2,QPointF(.01,.01),QPointF(.5,.5),0,fingerprint(withImage),missed).ok&&
                   !QFile::exists(missed),"reject click outside image");
         }

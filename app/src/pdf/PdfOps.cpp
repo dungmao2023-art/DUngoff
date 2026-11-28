@@ -239,7 +239,7 @@ QByteArray sourceSha256(const QString& path) {
 // Optional confirmed fingerprint applies to the first source only.
 template <class MakeArgs>
 Result writeSafely(const QStringList& sources, const QString& destIn, bool allowReplace, MakeArgs makeArgs,
-                   const QByteArray& expectedSource = {}) {
+                   const QByteArray& expectedSource = {}, int expectedPages = 0) {
     Result res;
     auto sourceUnchanged=[&]{
         return expectedSource.isEmpty()||(!sources.isEmpty()&&sourceSha256(sources.first())==expectedSource);
@@ -282,6 +282,7 @@ Result writeSafely(const QStringList& sources, const QString& destIn, bool allow
         res.error = tr("Kết quả không qua bước kiểm tra, đã hủy. Tệp gốc không thay đổi.");
         return res;
     }
+    if(expectedPages>0){const auto verified=dungpdf::info(tmp);if(!verified.ok||verified.pages!=expectedPages){res.error=tr("Số trang đầu ra không đúng; chưa công bố kết quả.");return res;}}
     if(!sourceUnchanged()){res.error=tr("Tệp nguồn đã thay đổi trong lúc xử lý. Chưa công bố kết quả.");return res;}
     if (exists) {
         auto unchanged=[&] {
@@ -428,6 +429,32 @@ Result merge(const QList<Input>& inputs, const QString& dest, bool allowReplace)
 }
 
 QByteArray fingerprint(const QString& path){return sourceSha256(path);}
+Result replacePageRange(const Input& source,int first,const QList<Input>& replacements,
+                        const QByteArray& expectedSource,const QString& dest){
+    Result r;
+    if(expectedSource.size()!=32||fingerprint(source.path)!=expectedSource){r.error=tr("PDF nguồn đã thay đổi.");return r;}
+    const auto original=info(source.path,source.password);
+    if(!original.ok||original.encrypted||!source.password.isEmpty()){r.error=tr("Chỉ hỗ trợ tài liệu không mã hóa.");return r;}
+    if(first<1||first>original.pages||replacements.isEmpty()||replacements.size()>20||
+        replacements.size()>original.pages-first+1){r.error=tr("Khoảng trang thay thế không hợp lệ.");return r;}
+    QStringList sources{source.path};
+    for(const auto& item:replacements){
+        const auto replacement=info(item.path);
+        if(!item.password.isEmpty()||!replacement.ok||replacement.encrypted||replacement.pages!=1){
+            r.error=tr("Mỗi trang OCR phải là một PDF không mã hóa có đúng một trang.");return r;}
+        sources<<item.path;
+    }
+    const int last=first+int(replacements.size())-1;
+    r=writeSafely(sources,dest,false,[&](const QString& tmp){
+        QStringList a{QStringLiteral("--empty"),QStringLiteral("--pages")};
+        if(first>1)a<<source.path<<QStringLiteral("1-%1").arg(first-1);
+        for(const auto& item:replacements)a<<item.path<<QStringLiteral("1");
+        if(last<original.pages)a<<source.path<<QStringLiteral("%1-%2").arg(last+1).arg(original.pages);
+        a<<QStringLiteral("--")<<tmp;return a;
+    },expectedSource,original.pages);
+    if(r.ok)r.warnings<<tr("Giữ thứ tự và nội dung các trang khác; cấu trúc tài liệu, liên kết, biểu mẫu hoặc chữ ký có thể mất.");
+    return r;
+}
 Result extract(const Input& in, const QString& pagesSpec, const QString& dest, bool allowReplace,const QByteArray& expectedSource) {
     Result res;
     const Info inf = info(in.path, in.password);
@@ -994,7 +1021,8 @@ QByteArray buildOverlay(const QList<OverlayPage>& pages, double opacity, const I
 }
 
 // Chạy `qpdf in --overlay ov -- tmp` an toàn.
-Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& dest, bool allowReplace) {
+Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& dest, bool allowReplace,
+                    const QByteArray& expectedSource = {}) {
     Result res;
     QTemporaryDir td;
     if (!td.isValid()) {
@@ -1013,7 +1041,7 @@ Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& d
         QStringList a = pw.args();
         a << in.path << QStringLiteral("--overlay") << ov << QStringLiteral("--") << tmp;
         return a;
-    });
+    },expectedSource);
     if (res.ok && !in.password.isEmpty()) res.warnings << tr("Kết quả không còn mật khẩu.");
     return res;
 }
@@ -1021,7 +1049,7 @@ Result applyOverlay(const Input& in, const QByteArray& overlay, const QString& d
 // Reuse Qt's PDF text and font-subsetting engine; qpdf overlays only the
 // new page content, leaving the original PDF's vector/image content intact.
 bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const StampOptions& opt,
-                    QByteArray* output,QString* error,const QHash<int,QString>& pageText = {}) {
+                    QByteArray* output,QString* error,const QHash<int,QString>& pageText = {},bool atPoint=false) {
     if (!qobject_cast<QGuiApplication*>(QCoreApplication::instance())) {
         *error=tr("Cần môi trường Qt GUI để vẽ chữ Unicode.");return false;
     }
@@ -1099,8 +1127,8 @@ bool unicodeOverlay(const QList<PageGeom>& geo,const QSet<int>& selected,const S
                 if(bw>W || bh>H){p.restore();p.end();*error=tr("Chữ không vừa trang.");return false;}
                 double x=0,y=0;
                 if(opt.pos==Position::Custom) {
-                    x=(W-bw)*opt.xPercent/100.0;
-                    y=(H-bh)*opt.yPercent/100.0;
+                    x=atPoint?qBound(0.0,W*opt.xPercent/100.0-bw/2,W-bw):(W-bw)*opt.xPercent/100.0;
+                    y=atPoint?qBound(0.0,H*opt.yPercent/100.0-bh/2,H-bh):(H-bh)*opt.yPercent/100.0;
                 }else{
                     placeBox(opt.pos,W,H,bw,bh,&x,&y);
                     // placeBox has a bottom-left origin; Qt's origin is top-left.
@@ -1310,6 +1338,26 @@ Result stamp(const Input& in, const StampOptions& opt, const QString& dest, bool
     res = applyOverlay(in, buildOverlay(ops, opt.opacity, useImage ? &im : nullptr), dest, allowReplace);
     if (res.ok && useImage && im.orient != 1) res.warnings << tr("Ảnh có hướng xoay EXIF; hướng này không được áp dụng khi đóng dấu.");
     return res;
+}
+
+Result insertPageText(const Input& in,int page,double x,double y,const QString& text,double fontSize,
+                      const QByteArray& expectedSource,const QString& dest){
+    Result r;
+    if(expectedSource.size()!=32||fingerprint(in.path)!=expectedSource){r.error=tr("PDF nguồn đã thay đổi.");return r;}
+    if(text.trimmed().isEmpty()||text.size()>200||!std::isfinite(x)||!std::isfinite(y)||x<0||x>1||y<0||y>1||
+        !std::isfinite(fontSize)||fontSize<6||fontSize>72){r.error=tr("Chữ, cỡ hoặc vị trí không hợp lệ.");return r;}
+    const auto inf=info(in.path,in.password);
+    if(!inf.ok||inf.encrypted){r.error=tr("Chèn chữ chỉ hỗ trợ PDF không mã hóa.");return r;}
+    QList<PageGeom> geo;
+    if(!pageGeometry(in,&geo,&r))return r;
+    if(page<1||page>inf.pages||geo.size()!=inf.pages){r.error=tr("Trang không hợp lệ.");return r;}
+    StampOptions opt;opt.text=text;opt.pos=Position::Custom;opt.fontSize=fontSize;opt.gray=0;opt.opacity=1;
+    opt.xPercent=x*100;opt.yPercent=y*100;
+    QByteArray overlay;
+    if(!unicodeOverlay(geo,QSet<int>{page-1},opt,&overlay,&r.error,{},true))return r;
+    r=applyOverlay(in,overlay,dest,false,expectedSource);
+    if(r.ok)r.warnings<<tr("Chữ mới là lớp vector có thể chọn và sao chép, chưa hỗ trợ sửa lại như đối tượng chữ độc lập.");
+    return r;
 }
 
 Result imagesToPdf(const QStringList& images, const ImageOptions& opt, const QString& dest, bool allowReplace) {

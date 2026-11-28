@@ -17,6 +17,9 @@ dungpdf::Result moveImage(const QString& source,int page,QPointF selected,QPoint
 // the old bounding box without distorting aspect ratio.
 dungpdf::Result replaceImage(const QString& source,int page,QPointF selected,const QString& imagePath,
                              const QByteArray& expectedSource,const QString& dest);
+// Remove one unambiguous top-level image, retaining the other page objects.
+dungpdf::Result removeImage(const QString& source,int page,QPointF selected,
+                            const QByteArray& expectedSource,const QString& dest);
 dungpdf::Result replaceObject(const QString& source,int page,const QString& oldText,const QString& newText,const QString& dest,
                              const QByteArray& expectedSource = {}, std::optional<QPointF> selected = std::nullopt);
 }
