@@ -80,7 +80,21 @@ int main(int argc,char** argv){
            transitionPlan(QJsonObject{{"transitionType","Zoom"},{"transitionDuration",500}}).kind!=TransitionKind::Cut){
             std::cerr<<"FAIL direction or unsupported fallback"<<std::endl;return 1;
         }
-        std::cout<<"PASS transition painter: Fade, Push, Wipe, Dissolve"<<std::endl;
+        const auto silk=signaturePlan(SignatureStyle::SilkWave),prism=signaturePlan(SignatureStyle::PrismTiles),
+                   focus=signaturePlan(SignatureStyle::FocusLens);
+        for(const auto& plan:{silk,prism,focus}){
+            if(plan.kind==TransitionKind::Cut||plan.durationMs<=0||
+               draw(plan,0)!=oldFrame||draw(plan,1)!=newFrame||
+               draw(plan,.5)==oldFrame||draw(plan,.5)==newFrame||
+               draw(plan,.35)==draw(plan,.65)){
+                std::cerr<<"FAIL signature transition endpoints/motion"<<std::endl;return 1;
+            }
+        }
+        if(draw(silk,.5)==draw(prism,.5)||draw(silk,.5)==draw(focus,.5)||
+           draw(prism,.5)==draw(focus,.5)||signaturePlan(SignatureStyle::Native).kind!=TransitionKind::Cut){
+            std::cerr<<"FAIL distinct signature effects"<<std::endl;return 1;
+        }
+        std::cout<<"PASS transition painter: Fade, Push, Wipe, Dissolve, Silk, Prism, Focus"<<std::endl;
     }
     QTemporaryDir temp;
     if(!temp.isValid())return 2;

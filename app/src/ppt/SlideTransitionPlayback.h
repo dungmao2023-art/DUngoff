@@ -7,13 +7,26 @@
 #include <QtGlobal>
 #include <cmath>
 namespace slideshow {
-enum class TransitionKind { Cut, Fade, Push, Wipe, Dissolve };
+enum class TransitionKind { Cut, Fade, Push, Wipe, Dissolve, SilkWave, PrismTiles, FocusLens };
+enum class SignatureStyle { Native, SilkWave, PrismTiles, FocusLens };
 struct TransitionPlan {
     TransitionKind kind=TransitionKind::Cut;
     int durationMs=0;
     // Direction in screen coordinates, from the incoming edge.
     int dx=0,dy=0;
 };
+inline TransitionPlan signaturePlan(SignatureStyle style){
+    switch(style){
+    case SignatureStyle::SilkWave:return {TransitionKind::SilkWave,850,0,0};
+    case SignatureStyle::PrismTiles:return {TransitionKind::PrismTiles,1000,0,0};
+    case SignatureStyle::FocusLens:return {TransitionKind::FocusLens,900,0,0};
+    default:return {};
+    }
+}
+inline qreal smoothStep(qreal value){
+    const qreal x=qBound(qreal(0),value,qreal(1));
+    return x*x*(3-2*x);
+}
 inline TransitionPlan transitionPlan(const QJsonObject& slide){
     TransitionPlan p;
     const auto type=slide.value("transitionType").toString();
@@ -61,6 +74,54 @@ inline void paintTransition(QPainter& painter,const QRectF& r,const QImage& oldF
             if(plan.dx!=0){clip.setWidth(r.width()*t);if(plan.dx>0)clip.moveRight(r.right());}
             else{clip.setHeight(r.height()*t);if(plan.dy>0)clip.moveBottom(r.bottom());}
             painter.setClipRect(clip,Qt::IntersectClip);painter.drawImage(r,newFrame);
+        }else if(plan.kind==TransitionKind::SilkWave){
+            // Alternating silk ribbons reveal the destination with a travelling phase.
+            QPainterPath clip;
+            constexpr int bands=18;
+            for(int band=0;band<bands;++band){
+                const qreal phase=.23*band/(bands-1);
+                const qreal reveal=smoothStep((t-phase)/.77);
+                const qreal w=r.width()*reveal;
+                if(w<=0)continue;
+                const qreal y=r.top()+band*r.height()/bands;
+                const qreal x=band%2?r.right()-w:r.left();
+                clip.addRect(QRectF(x,y,w,r.height()/bands+.01));
+            }
+            painter.setClipPath(clip,Qt::IntersectClip);painter.drawImage(r,newFrame);
+        }else if(plan.kind==TransitionKind::PrismTiles){
+            // Each tile flips around its centre in a diagonal wave, with a shaded edge.
+            constexpr int cols=12,rows=7;
+            const QRectF source(0,0,newFrame.width(),newFrame.height());
+            for(int y=0;y<rows;++y)for(int x=0;x<cols;++x){
+                const qreal phase=.36*(x+y)/qreal(cols+rows-2);
+                const qreal f=smoothStep((t-phase)/.64);
+                if(f<=0)continue;
+                const QRectF cell(r.left()+x*r.width()/cols,r.top()+y*r.height()/rows,
+                                  r.width()/cols,r.height()/rows);
+                painter.save();painter.setClipRect(cell,Qt::IntersectClip);
+                if(f<.5){
+                    painter.fillRect(cell,QColor(0,0,0,qRound(65*f*2)));
+                }else{
+                    painter.fillRect(cell,Qt::black);
+                    const qreal scale=(f-.5)*2;
+                    const QRectF target(cell.center().x()-cell.width()*scale/2,cell.top(),
+                                        cell.width()*scale,cell.height());
+                    const QRectF src(x*source.width()/cols,y*source.height()/rows,
+                                     source.width()/cols,source.height()/rows);
+                    if(scale>0)painter.drawImage(target,newFrame,src);
+                }
+                painter.restore();
+            }
+        }else if(plan.kind==TransitionKind::FocusLens){
+            // Gentle optical zoom, revealed by an expanding circular aperture.
+            const qreal eased=smoothStep(t);
+            const qreal radius=std::hypot(r.width(),r.height())*.5*eased;
+            QPainterPath aperture;aperture.addEllipse(r.center(),radius,radius);
+            painter.setClipPath(aperture,Qt::IntersectClip);
+            const qreal scale=1.12-.12*eased;
+            const QSizeF sz=r.size()*scale;
+            const QRectF zoomed(r.center()-QPointF(sz.width()/2,sz.height()/2),sz);
+            painter.drawImage(zoomed,newFrame);
         }else if(plan.kind==TransitionKind::Dissolve){
             // Fixed deterministic permutation of 1024 cells. No per-frame random flicker.
             QPainterPath clip;

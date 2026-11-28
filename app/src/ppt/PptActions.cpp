@@ -116,15 +116,29 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         tab->setPptMasterMode(false);return true;
     }
     if(tab->pptMasterMode()&&(id==QLatin1String("ppt.show")||id==QLatin1String("ppt.showHere")||
-       id==QLatin1String("ppt.preview")||id==QLatin1String("ppt.showTimed")||id==QLatin1String("ppt.deleteSlide")||
+       id==QLatin1String("ppt.preview")||id==QLatin1String("ppt.showTimed")||id==QLatin1String("ppt.showSignature")||id==QLatin1String("ppt.deleteSlide")||
        id==QLatin1String("ppt.notes")||id==QLatin1String("ppt.goto")||id==QLatin1String("ppt.animationCopy")||
        id==QLatin1String("ppt.clearAnimationCopy")||id==QLatin1String("ppt.transitionNote")||id==QLatin1String("ppt.masterBackground"))){
         QMessageBox::information(tab,QObject::tr("Slide Master"),QObject::tr("Chọn Trang chiếu để dùng thao tác này."));return true;
     }
-    if (id == QLatin1String("ppt.show") || id == QLatin1String("ppt.showHere") || id == QLatin1String("ppt.preview") || id == QLatin1String("ppt.showTimed")) {
+    if (id == QLatin1String("ppt.show") || id == QLatin1String("ppt.showHere") || id == QLatin1String("ppt.preview") || id == QLatin1String("ppt.showTimed") || id == QLatin1String("ppt.showSignature")) {
         const bool fullscreen=id!=QLatin1String("ppt.preview");
         QPointer<DocumentTab> safeTab(tab);
         int intervalMs=0;
+        auto signature=slideshow::SignatureStyle::Native;
+        if(id==QLatin1String("ppt.showSignature")){
+            const QStringList styles{QObject::tr("Dũng Silk · Sóng lụa"),
+                QObject::tr("Dũng Prism · Ô lật ánh sáng"),
+                QObject::tr("Dũng Focus · Ống kính")};
+            bool ok=false;
+            const auto choice=QInputDialog::getItem(tab,QObject::tr("Hiệu ứng Dũng Office"),
+                QObject::tr("Chọn hiệu ứng cho buổi trình chiếu này. Chỉ dùng trong Dũng Office; không sửa tệp PPTX."),
+                styles,0,false,&ok);
+            if(!ok||!safeTab||safeTab->document()!=d)return true;
+            const int index=styles.indexOf(choice);
+            if(index<0)return true;
+            signature=static_cast<slideshow::SignatureStyle>(index+1);
+        }
         if(id==QLatin1String("ppt.showTimed")){
             bool ok=false;
             const int seconds=QInputDialog::getInt(tab,QObject::tr("Tự chuyển slide"),
@@ -160,7 +174,7 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         safeTab->setPptNotesMode(false);
         d->waitInputIdle();
         const int start=(id==QLatin1String("ppt.show")||id==QLatin1String("ppt.showTimed"))?0:d->currentPart();
-        new SlideShow(d,start,safeTab.data(),fullscreen,screen.data(),intervalMs);
+        new SlideShow(d,start,safeTab.data(),fullscreen,screen.data(),intervalMs,signature);
     } else if (id == QLatin1String("ppt.notes") || id == QLatin1String("ppt.normal")) {
         tab->setPptNotesMode(id == QLatin1String("ppt.notes"));
     } else if (id == QLatin1String("ppt.deleteSlide")) {

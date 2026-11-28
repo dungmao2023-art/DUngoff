@@ -16,7 +16,7 @@ class QScreen;
 class SlideShow : public QWidget {
     Q_OBJECT
 public:
-    SlideShow(dung::Document* doc, int startPart, QWidget* parent = nullptr, bool fullscreen = true, QScreen* targetScreen = nullptr, int intervalMs = 0);
+    SlideShow(dung::Document* doc, int startPart, QWidget* parent = nullptr, bool fullscreen = true, QScreen* targetScreen = nullptr, int intervalMs = 0, slideshow::SignatureStyle signature = slideshow::SignatureStyle::Native);
 
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -39,6 +39,7 @@ private:
     QTimer m_transitionTimer;
     QElapsedTimer m_transitionClock;
     slideshow::TransitionPlan m_transitionPlan;
+    slideshow::SignatureStyle m_signature=slideshow::SignatureStyle::Native;
 
     dung::Document* m_doc;
     int m_part;

@@ -20,8 +20,8 @@
 #include <limits>
 #include <utility>
 
-SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool fullscreen, QScreen* targetScreen, int intervalMs)
-    : QWidget(parent, Qt::Window), m_doc(doc), m_part(startPart), m_count(doc->partCount()), m_intervalMs(intervalMs) {
+SlideShow::SlideShow(dung::Document* doc, int startPart, QWidget* parent, bool fullscreen, QScreen* targetScreen, int intervalMs, slideshow::SignatureStyle signature)
+    : QWidget(parent, Qt::Window), m_signature(signature), m_doc(doc), m_part(startPart), m_count(doc->partCount()), m_intervalMs(intervalMs) {
     m_advance.setSingleShot(true);
     m_advance.setTimerType(Qt::PreciseTimer);
     connect(&m_advance,&QTimer::timeout,this,[this]{
@@ -101,12 +101,15 @@ void SlideShow::stopTransition(){
 }
 void SlideShow::startTransition(const QImage& previous){
     if(previous.isNull()||m_img.isNull()||previous==m_img)return;
-    const auto info=QJsonDocument::fromJson(QByteArray::fromStdString(m_doc->presentationInfo())).object();
-    for(const auto& item:info.value("slides").toArray()){
-        const auto slide=item.toObject();
-        if(slide.value("index").toInt(-1)!=m_part)continue;
-        m_transitionPlan=slideshow::transitionPlan(slide);
-        break;
+    if(m_signature!=slideshow::SignatureStyle::Native)m_transitionPlan=slideshow::signaturePlan(m_signature);
+    else{
+        const auto info=QJsonDocument::fromJson(QByteArray::fromStdString(m_doc->presentationInfo())).object();
+        for(const auto& item:info.value("slides").toArray()){
+            const auto slide=item.toObject();
+            if(slide.value("index").toInt(-1)!=m_part)continue;
+            m_transitionPlan=slideshow::transitionPlan(slide);
+            break;
+        }
     }
     if(m_transitionPlan.kind==slideshow::TransitionKind::Cut)return;
     m_transitionFrom=previous;m_transitionClock.start();m_transitionTimer.start();
