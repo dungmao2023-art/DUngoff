@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 #include <QList>
+#include "QuickDiagram.h"
 namespace ppttransition {
 enum class Effect { None, Fade, PushLeft, WipeLeft, Dissolve };
 struct Options { Effect effect = Effect::Fade; int speed = 1; bool onClick = true; int autoAdvanceMs = 0; };
@@ -62,6 +63,9 @@ Result patchAnimationXml(const QByteArray& xml, const AnimationOptions& options,
 Result createAnimationCopy(const QString& source, const QString& destination, int slide1, const AnimationOptions& options, const QByteArray& expectedSource = {});
 Result patchAnimationSequenceXml(const QByteArray& xml, const QList<AnimationOptions>& effects, QByteArray* output);
 Result createAnimationSequenceCopy(const QString& source, const QString& destination, int slide1, const QList<AnimationOptions>& effects, const QByteArray& expectedSource = {});
+// Generate editable shapes only in a verified blank slide of a saved copy.
+Result patchDiagramXml(const QByteArray& xml,qint64 width,qint64 height,const pptdiagram::Options& options,QByteArray* output);
+Result createDiagramCopy(const QString& source,const QString& destination,int slide1,const pptdiagram::Options& options,const QByteArray& expectedSource={});
 // Modify the actual referenced master part, not individual slides.
 QStringList masterEntries(const QString& source, QString* error);
 Result patchMasterBackground(const QByteArray& xml, const QString& rgb, QByteArray* output);

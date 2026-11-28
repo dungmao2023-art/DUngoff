@@ -86,6 +86,21 @@ int main(int argc, char** argv) {
     o.onClick = true;
     check(!patchXml("<not-slide/>", o, &out).ok, "reject bad XML");
     const QByteArray animXml = "<p:sld xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id=\"42\" name=\"Box\"/></p:nvSpPr></p:sp></p:spTree></p:cSld><p:transition/><p:extLst/></p:sld>";
+    {
+        const QByteArray blank="<p:sld xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld></p:sld>";
+        pptdiagram::Options diagram;diagram.title="Ý tưởng & <kết quả>";diagram.items={"Một","Hai","Ba","Bốn"};
+        for(int l=0;l<4;++l)for(int palette=0;palette<3;++palette){
+            diagram.layout=static_cast<pptdiagram::Layout>(l);diagram.palette=palette;
+            QList<pptdiagram::Node> nodes;QByteArray output;
+            check(pptdiagram::plan(diagram,&nodes)&&patchDiagramXml(blank,12192000,6858000,diagram,&output).ok&&
+                  output.count("<p:sp ")==nodes.size()&&output.contains("&amp;")&&output.contains("&lt;")&&
+                  !patchDiagramXml(output,12192000,6858000,diagram,&out).ok,
+                  "editable diagram shapes, escaping and refusal to overwrite");
+            for(const auto& node:nodes)check(QRectF(0,0,1,1).contains(node.rect),"diagram bounds");
+        }
+        check(!patchDiagramXml(animXml,12192000,6858000,diagram,&out).ok,"reject occupied slide");
+        diagram.items.clear();check(!patchDiagramXml(blank,12192000,6858000,diagram,&out).ok,"reject empty diagram");
+    }
     AnimationOptions anim; anim.shapeId = 42; anim.fade = true; anim.durationMs = 750; anim.delayMs = 200;
     QByteArray animated;
     check(patchAnimationXml(animXml,anim,&animated).ok && animated.contains("spid=\"42\"") && animated.contains("dur=\"750\"") &&

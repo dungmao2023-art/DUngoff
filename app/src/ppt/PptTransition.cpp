@@ -10,6 +10,7 @@
 #include <QSet>
 #include <QTemporaryDir>
 #include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 #include <functional>
 #include <QRegularExpression>
 
@@ -545,6 +546,86 @@ static Result createPatchedCopy(const QString& source, const QString& destinatio
     const auto slides=slideEntries(source,&error);
     if (slide1<1 || slide1>slides.size()) return fail(error.isEmpty()?QStringLiteral("Slide không tồn tại."):error);
     return createPatchedEntryCopy(source,destination,slides.at(slide1-1),patch,expected);
+}
+Result patchDiagramXml(const QByteArray& xml,qint64 width,qint64 height,const pptdiagram::Options& options,QByteArray* output){
+    QList<pptdiagram::Node> nodes;
+    if(!output||width<914400||height<914400||width>100000000||height>100000000||!pptdiagram::plan(options,&nodes))
+        return fail(QStringLiteral("Nội dung hoặc kích thước sơ đồ không hợp lệ."));
+    QString text=QString::fromUtf8(xml);
+    if(text.toUtf8()!=xml)return fail(QStringLiteral("Chỉ hỗ trợ XML UTF-8."));
+    QXmlStreamReader xr(text);
+    int depth=0,trees=0;qsizetype insertion=-1;unsigned maxId=0;
+    bool validRoot=false,common=false;
+    while(!xr.atEnd()){
+        xr.readNext();
+        if(xr.isDTD())return fail(QStringLiteral("XML có DTD."));
+        if(xr.isStartElement()){
+            ++depth;
+            const auto n=xr.name().toString(),ns=xr.namespaceUri().toString();
+            if(depth==1)validRoot=ns==P&&n=="sld";
+            if(depth==2&&ns==P&&n=="cSld")common=true;
+            if(depth==2&&n=="timing")return fail(QStringLiteral("Slide có hoạt ảnh. Hãy chọn slide trống."));
+            if(common&&depth==3&&ns==P&&n=="spTree")++trees;
+            if(common&&trees==1&&depth==4&&(ns!=P||(n!="nvGrpSpPr"&&n!="grpSpPr")))
+                return fail(QStringLiteral("Slide đã có nội dung. Hãy tạo slide trống trước."));
+            if(ns==P&&n=="cNvPr"){
+                bool ok=false;const auto id=xr.attributes().value("id").toUInt(&ok);
+                if(!ok||id==0)return fail(QStringLiteral("ID hình không hợp lệ."));
+                maxId=qMax(maxId,id);
+            }
+        }else if(xr.isEndElement()){
+            if(common&&depth==3&&xr.namespaceUri()==P&&xr.name()=="spTree"){
+                const auto off=xr.characterOffset();
+                if(off>0&&off<=text.size())insertion=text.lastIndexOf(QLatin1Char('<'),off-1);
+                if(insertion<0||!text.mid(insertion,2).startsWith("</"))return fail(QStringLiteral("Không xác minh vị trí sơ đồ."));
+            }
+            if(depth==2)common=false;
+            --depth;
+        }
+    }
+    if(xr.hasError()||!validRoot||trees!=1||insertion<0||maxId>1000000000u)
+        return fail(QStringLiteral("Không đọc được slide trống."));
+    // Write each shape as standalone XML, escaping all user text. No images.
+    QString fragment;QXmlStreamWriter w(&fragment);
+    const auto start=[&](const char* name){w.writeStartElement(QString::fromLatin1(name));};
+    const auto attr=[&](const char* name,const QString& value){w.writeAttribute(QString::fromLatin1(name),value);};
+    const auto color=[&](const QString& value){start("a:solidFill");start("a:srgbClr");attr("val",value);w.writeEndElement();w.writeEndElement();};
+    for(const auto& node:nodes){
+        start("p:sp");attr("xmlns:p",P);attr("xmlns:a","http://schemas.openxmlformats.org/drawingml/2006/main");
+        start("p:nvSpPr");start("p:cNvPr");attr("id",QString::number(++maxId));attr("name",node.text.left(60));w.writeEndElement();
+        start("p:cNvSpPr");w.writeEndElement();start("p:nvPr");w.writeEndElement();w.writeEndElement();
+        start("p:spPr");start("a:xfrm");start("a:off");attr("x",QString::number(qRound64(node.rect.x()*width)));attr("y",QString::number(qRound64(node.rect.y()*height)));w.writeEndElement();
+        start("a:ext");attr("cx",QString::number(qRound64(node.rect.width()*width)));attr("cy",QString::number(qRound64(node.rect.height()*height)));w.writeEndElement();w.writeEndElement();
+        start("a:prstGeom");attr("prst","roundRect");start("a:avLst");w.writeEndElement();w.writeEndElement();color(node.fill);
+        start("a:ln");start("a:noFill");w.writeEndElement();w.writeEndElement();w.writeEndElement();
+        start("p:txBody");start("a:bodyPr");attr("wrap","square");attr("anchor","ctr");
+        attr("lIns","45720");attr("rIns","45720");attr("tIns","22860");attr("bIns","22860");
+        start("a:normAutofit");w.writeEndElement();w.writeEndElement();start("a:lstStyle");w.writeEndElement();
+        start("a:p");start("a:pPr");attr("algn","ctr");w.writeEndElement();start("a:r");start("a:rPr");attr("lang","vi-VN");
+        attr("sz",QString::number(qBound(1000,qRound((node.title?2400:1800)*height/6858000.0),3000)));
+        attr("b",node.title?"1":"0");color(node.ink);start("a:latin");attr("typeface","Carlito");w.writeEndElement();w.writeEndElement();
+        w.writeTextElement("a:t",node.text);w.writeEndElement();w.writeEndElement();w.writeEndElement();w.writeEndElement();
+    }
+    text.insert(insertion,fragment);
+    QXmlStreamReader verify(text);int shapes=0;
+    while(!verify.atEnd()){verify.readNext();if(verify.isStartElement()&&verify.namespaceUri()==P&&verify.name()=="sp")++shapes;}
+    if(verify.hasError()||shapes!=nodes.size())return fail(QStringLiteral("Không xác minh được sơ đồ đầu ra."));
+    *output=text.toUtf8();return {true,{}};
+}
+Result createDiagramCopy(const QString& source,const QString& destination,int slide1,const pptdiagram::Options& options,const QByteArray& expectedSource){
+    const auto expected=expectedSource.isEmpty()?sourceFingerprint(source):expectedSource;
+    if(!unchanged(source,expected))return staleSource();
+    ft::ZipReader z;QString error;QByteArray xml;
+    if(!z.open(source,&error)||!read(z,"ppt/presentation.xml",&xml,&error))return fail(error);
+    QXmlStreamReader xr(xml);qint64 width=0,height=0;int count=0;
+    while(!xr.atEnd()){
+        xr.readNext();if(xr.isDTD())return fail(QStringLiteral("XML có DTD."));
+        if(xr.isStartElement()&&xr.namespaceUri()==P&&xr.name()=="sldSz"){
+            ++count;width=xr.attributes().value("cx").toLongLong();height=xr.attributes().value("cy").toLongLong();
+        }
+    }
+    if(xr.hasError()||count!=1)return fail(QStringLiteral("Không xác minh được kích thước slide."));
+    return createPatchedCopy(source,destination,slide1,[&](const QByteArray& old,QByteArray* out){return patchDiagramXml(old,width,height,options,out);},expected);
 }
 Result createMasterBackgroundCopy(const QString& source,const QString& destination,const QString& entry,const QString& rgb,const QByteArray& expectedSource) {
     const auto expected=expectedSource.isEmpty()?sourceFingerprint(source):expectedSource;

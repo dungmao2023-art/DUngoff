@@ -46,6 +46,8 @@
 #include <QElapsedTimer>
 #include <QTimer>
 #include <QListWidgetItem>
+#include <QLineEdit>
+#include <QPlainTextEdit>
 
 // QListWidget may implement InternalMove by moving rows or by insert/remove.
 // Synchronize once after the complete drag operation, not from intermediate model signals.
@@ -435,6 +437,61 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.textbox")) {
         armShape(tab, ".uno:Text");
+    } else if (id == QLatin1String("ppt.diagramCopy")) {
+        if(tab->pptMasterMode()||tab->pptNotesMode())return true;
+        QPointer<DocumentTab> safe(tab);
+        const auto source=QFileDialog::getOpenFileName(tab,QObject::tr("Chọn PPTX đã lưu có slide trống"),
+            d->isNew()?QString():fromPath(d->originalPath()),QObject::tr("PowerPoint (*.pptx)"));
+        if(source.isEmpty()||!safe||safe->document()!=d)return true;
+        const auto fingerprint=ppttransition::sourceFingerprint(source);
+        QString error;const auto slides=ppttransition::slideEntries(source,&error);
+        if(fingerprint.isEmpty()||slides.isEmpty()){QMessageBox::warning(tab,QObject::tr("Sơ đồ"),error);return true;}
+        QDialog dialog(tab);dialog.setWindowTitle(QObject::tr("Tạo sơ đồ nhanh"));dialog.resize(670,470);
+        auto* root=new QVBoxLayout(&dialog);
+        auto* hint=new QLabel(QObject::tr("Nhập nội dung, chọn bố cục và màu. Xuất vào slide trống của bản PPTX mới; chữ và hình đều chỉnh sửa được."),&dialog);
+        hint->setWordWrap(true);root->addWidget(hint);
+        auto* row=new QHBoxLayout;auto* form=new QFormLayout;
+        auto* page=new QSpinBox(&dialog);page->setRange(1,int(slides.size()));page->setValue(qBound(1,d->currentPart()+1,int(slides.size())));
+        auto* title=new QLineEdit(QObject::tr("Kế hoạch dự án"),&dialog);title->setMaxLength(80);
+        auto* items=new QPlainTextEdit(&dialog);items->setPlainText(QObject::tr("Ý tưởng\nChuẩn bị\nThực hiện\nKết quả"));items->setMaximumHeight(140);
+        auto* layout=new QComboBox(&dialog);layout->addItems({QObject::tr("Quy trình"),QObject::tr("Timeline"),QObject::tr("Sơ đồ tư duy"),QObject::tr("Thẻ nội dung")});
+        auto* palette=new QComboBox(&dialog);palette->addItems({QObject::tr("Hiện đại"),QObject::tr("Học thuật"),QObject::tr("Ấm áp")});
+        form->addRow(QObject::tr("Slide trống"),page);form->addRow(QObject::tr("Tiêu đề"),title);
+        form->addRow(QObject::tr("2–6 ý, mỗi dòng một ý"),items);form->addRow(QObject::tr("Bố cục"),layout);form->addRow(QObject::tr("Màu sắc"),palette);
+        row->addLayout(form,2);
+        auto* preview=new QLabel(&dialog);preview->setMinimumSize(280,180);preview->setAlignment(Qt::AlignCenter);row->addWidget(preview,2);root->addLayout(row,1);
+        auto* status=new QLabel(&dialog);status->setWordWrap(true);root->addWidget(status);
+        auto* bb=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);
+        bb->button(QDialogButtonBox::Ok)->setText(QObject::tr("Tạo PPTX mới…"));root->addWidget(bb);
+        auto options=[&]{pptdiagram::Options o;o.title=title->text();o.items=items->toPlainText().split(QLatin1Char('\n'),Qt::SkipEmptyParts);
+            o.layout=static_cast<pptdiagram::Layout>(layout->currentIndex());o.palette=palette->currentIndex();return o;};
+        auto refresh=[&]{
+            QList<pptdiagram::Node> nodes;const bool valid=pptdiagram::plan(options(),&nodes);
+            bb->button(QDialogButtonBox::Ok)->setEnabled(valid);
+            status->setText(valid?QObject::tr("Xem trước minh họa 16:9. Chọn slide trống để xuất."):QObject::tr("Nhập tiêu đề và 2–6 ý, mỗi ý tối đa 64 ký tự."));
+            QPixmap pix(320,180);pix.fill(QColor("#F8FAFC"));QPainter p(&pix);p.setRenderHint(QPainter::Antialiasing);
+            for(const auto& node:nodes){
+                const QRectF rect(node.rect.x()*320,node.rect.y()*180,node.rect.width()*320,node.rect.height()*180);
+                p.setPen(Qt::NoPen);p.setBrush(QColor("#"+node.fill));p.drawRoundedRect(rect,5,5);
+                p.setPen(QColor("#"+node.ink));auto font=p.font();font.setPixelSize(node.title?12:10);font.setBold(node.title);p.setFont(font);
+                p.drawText(rect.adjusted(3,2,-3,-2),Qt::AlignCenter|Qt::TextWordWrap,node.text);
+            }
+            p.end();preview->setPixmap(pix);
+        };
+        QObject::connect(title,&QLineEdit::textChanged,&dialog,[&]{refresh();});
+        QObject::connect(items,&QPlainTextEdit::textChanged,&dialog,refresh);
+        QObject::connect(layout,&QComboBox::currentIndexChanged,&dialog,[&](int){refresh();});
+        QObject::connect(palette,&QComboBox::currentIndexChanged,&dialog,[&](int){refresh();});
+        QObject::connect(bb,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);
+        QObject::connect(bb,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+        refresh();
+        if(dialog.exec()!=QDialog::Accepted||!safe||safe->document()!=d)return true;
+        const QFileInfo f(source);
+        const auto dest=QFileDialog::getSaveFileName(tab,QObject::tr("Lưu sơ đồ"),f.absolutePath()+"/"+f.completeBaseName()+" - so do.pptx",QObject::tr("PowerPoint (*.pptx)"));
+        if(dest.isEmpty())return true;
+        const auto result=ppttransition::createDiagramCopy(source,dest,page->value(),options(),fingerprint);
+        if(result.ok)QMessageBox::information(tab,QObject::tr("Sơ đồ"),QObject::tr("Đã tạo bản PPTX mới. Mở bản mới để chỉnh sửa từng hình. Tệp nguồn giữ nguyên."));
+        else QMessageBox::warning(tab,QObject::tr("Sơ đồ"),result.error);
     } else if (id == QLatin1String("ppt.shapes")) {
         if(d->readOnly()||tab->pptNotesMode())return true;
         const PptEditTarget target(tab);
