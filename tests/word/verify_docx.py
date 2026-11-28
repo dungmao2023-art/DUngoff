@@ -87,6 +87,9 @@ for filename, mode in (
 def list_snapshot(filename):
     with zipfile.ZipFile(Path(path).parent / filename) as package:
         root = ET.fromstring(package.read("word/document.xml"))
+        if "word/numbering.xml" not in package.namelist():
+            check(False, filename + ": missing numbering metadata")
+            return {}, None
         numbering = ET.fromstring(package.read("word/numbering.xml"))
         entries = {}
         for para in root.iter(W+"p"):

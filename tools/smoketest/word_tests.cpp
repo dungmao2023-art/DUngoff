@@ -523,16 +523,32 @@ int runWordTests(const fs::path& program, const fs::path& out) {
             run(*list,".uno:GoToStartOfDoc");run(*list,w::findNext(marker,false));
             const bool found=selText(*list)==marker;
             check(found,"Tìm mục "+marker);
-            return found;
+            if(!found)return false;
+            // Match the guarded UI: one caret in a numbered paragraph, not
+            // an active text range from Find. Right collapses at its end.
+            list->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+            list->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+            list->waitInputIdle();settle();
+            const bool caretOnly=selText(*list).empty();
+            check(caretOnly,"Caret without selection in "+marker);
+            return caretOnly;
         };
         snap("word-list-baseline.docx");
-        if(locate("LIST_SECOND")){
-            run(*list,".uno:IncrementLevel");snap("word-list-deeper.docx");
-            run(*list,".uno:Undo");snap("word-list-level-undone.docx");
-        }
-        if(locate("LIST_THIRD")){
-            run(*list,".uno:NumberingStart");snap("word-list-restarted.docx");
-            run(*list,".uno:Undo");snap("word-list-restart-undone.docx");
+        // Never let a no-op undo the fixture's original numbering. Reopen
+        // a clean copy for each independent operation.
+        for(const bool restart:{false,true}){
+            list.reset();
+            list=engine->open(out/"word-list-baseline.docx",&err);
+            check(bool(list),"Mở lại fixture danh sách: "+err);
+            if(!list)break;
+            list->setClientView(512,512,7680,7680,0,0,7680,7680);
+            if(!locate(restart?"LIST_THIRD":"LIST_SECOND"))continue;
+            const std::string command=restart?".uno:NumberingStart":".uno:IncrementLevel";
+            step("Word list: "+command);
+            run(*list,command);
+            snap(restart?"word-list-restarted.docx":"word-list-deeper.docx");
+            run(*list,".uno:Undo");
+            snap(restart?"word-list-restart-undone.docx":"word-list-level-undone.docx");
         }
     }
 
