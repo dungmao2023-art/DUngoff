@@ -11,9 +11,15 @@
 #include <QPlainTextEdit>
 #include <QListWidget>
 #include <QSpinBox>
+#include <QInputDialog>
+#include <QMessageBox>
+#include <QFileDialog>
+#include <QMouseEvent>
+#include <QFileInfo>
 #include <iostream>
 
 int main(int argc,char** argv){
+    QApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
     QApplication app(argc,argv);
     QTemporaryDir temp;
     if(!temp.isValid())return 1;
@@ -69,7 +75,70 @@ int main(int argc,char** argv){
         cancel->click();
         check(file->text()==source&&row->isEnabled()&&tools->isEnabled()&&cancel->isHidden()&&dungpdf::fingerprint(source)==hash,
               "cancel returns to original without changing it");
+        // Drive a real note through the canvas, not a private test-only API.
+        auto* canvas=dlg->findChild<QWidget*>("pdfPageCanvas");
+        auto* note=dlg->findChild<QPushButton*>("pdfAddNote");
+        auto* undo=dlg->findChild<QPushButton*>("pdfSessionUndo");
+        auto* redo=dlg->findChild<QPushButton*>("pdfSessionRedo");
+        auto* save=dlg->findChild<QPushButton*>("pdfSessionSave");
+        if(!canvas||!note||!undo||!redo||!save||!note->isEnabled()){
+            check(false,"direct editing controls available");dlg->reject();return;
+        }
+        start->click();
+        const auto base=file->text();
+        const auto final=temp.filePath(QStringLiteral("reader-final.pdf"));
+        enum class Expected{None,Note,CloseCancel,Save};
+        Expected expected=Expected::None;
+        QTimer modal;
+        modal.setInterval(25);
+        QObject::connect(&modal,&QTimer::timeout,dlg,[&]{
+            auto* active=QApplication::activeModalWidget();
+            if(!active||active==dlg)return;
+            if(auto* input=qobject_cast<QInputDialog*>(active);input&&expected==Expected::Note){
+                expected=Expected::None;input->setTextValue(QStringLiteral("Ghi chú kiểm thử"));input->accept();return;
+            }
+            if(auto* box=qobject_cast<QMessageBox*>(active);box&&expected==Expected::CloseCancel){
+                expected=Expected::None;auto* button=box->button(QMessageBox::Cancel);
+                if(button){button->click();return;}
+            }
+            if(auto* dialog=qobject_cast<QFileDialog*>(active);dialog&&expected==Expected::Save){
+                expected=Expected::None;dialog->selectFile(final);
+                QMetaObject::invokeMethod(dialog,"accept",Qt::DirectConnection);return;
+            }
+            // Fail instead of hanging CI on any unexpected dialog.
+            check(false,"unexpected modal while exercising PDF edit");
+            if(auto* dialog=qobject_cast<QDialog*>(active))dialog->reject();
+        });
+        modal.start();
+        note->click();expected=Expected::Note;
+        const QPointF point=canvas->rect().center();
+        QMouseEvent click(QEvent::MouseButtonPress,point,canvas->mapToGlobal(point.toPoint()),
+                          Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+        QApplication::sendEvent(canvas,&click);
+        const auto revised=file->text();
+        const auto revisedHash=dungpdf::fingerprint(revised);
+        check(expected==Expected::None&&revised!=base&&revisedHash.size()==32&&revisedHash!=hash&&undo->isEnabled()&&save->isEnabled(),
+              "place real note and stage modified PDF");
+        undo->click();
+        check(file->text()==base&&dungpdf::fingerprint(base)==hash&&redo->isEnabled()&&!save->isEnabled(),"undo real note");
+        redo->click();
+        check(file->text()==revised&&dungpdf::fingerprint(revised)==revisedHash&&save->isEnabled(),"redo real note");
+        expected=Expected::CloseCancel;
         dlg->reject();
+        check(expected==Expected::None&&dlg->isVisible()&&file->text()==revised,"cancel close preserves unsaved changes");
+        expected=Expected::Save;save->click();
+        check(expected==Expected::None&&file->text()==final&&dungpdf::fingerprint(final)==revisedHash&&
+              dungpdf::fingerprint(source)==hash&&tools->isEnabled()&&cancel->isHidden(),"save one final PDF and preserve original");
+        modal.stop();
+        // If the last step failed, reject an unsaved-close prompt via Discard
+        // so the test reports failure rather than blocking indefinitely.
+        QTimer closeGuard;
+        QObject::connect(&closeGuard,&QTimer::timeout,dlg,[]{
+            if(auto* box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget())){
+                if(auto* b=box->button(QMessageBox::Discard))b->click();else box->reject();
+            }
+        });
+        closeGuard.start(25);dlg->reject();closeGuard.stop();
     });
     PdfToolsDialog::run(nullptr,PdfToolsDialog::Search,source);
     return ran&&failures==0?0:1;

@@ -1364,10 +1364,10 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* showText=new QPushButton(tr("Xem chữ trích xuất"),w);showText->setObjectName("pdfTextToggle");showText->setCheckable(true);
     actions->addWidget(browse);actions->addWidget(findToggle);actions->addWidget(showText);actions->addStretch();
     auto* startSession=new QPushButton(tr("Sửa nhiều lần"),w);startSession->setObjectName("pdfSessionStart");
-    auto* finishSession=new QPushButton(tr("Lưu bản cuối"),w);finishSession->hide();
+    auto* finishSession=new QPushButton(tr("Lưu bản cuối"),w);finishSession->setObjectName("pdfSessionSave");finishSession->hide();
     auto* cancelSession=new QPushButton(tr("Hủy phiên"),w);cancelSession->setObjectName("pdfSessionCancel");cancelSession->hide();
-    auto* undoSession=new QPushButton(tr("Hoàn tác"),w);undoSession->hide();
-    auto* redoSession=new QPushButton(tr("Làm lại"),w);redoSession->hide();
+    auto* undoSession=new QPushButton(tr("Hoàn tác"),w);undoSession->setObjectName("pdfSessionUndo");undoSession->hide();
+    auto* redoSession=new QPushButton(tr("Làm lại"),w);redoSession->setObjectName("pdfSessionRedo");redoSession->hide();
     actions->addWidget(startSession);actions->addWidget(finishSession);actions->addWidget(cancelSession);
     auto* historyBar=new QHBoxLayout;historyBar->addWidget(undoSession);historyBar->addWidget(redoSession);historyBar->addStretch();
     undoSession->setToolTip(tr("Quay lại bản trước trong phiên (tối đa 5 bước, giới hạn dung lượng)."));
@@ -1393,7 +1393,7 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* text=new QPlainTextEdit(w);text->setObjectName("pdfExtractedText");text->setReadOnly(true);
     text->setPlaceholderText(tr("Chọn trang để đọc, kéo chọn chữ trên ảnh PDF hoặc sao chép chữ trích xuất."));
     text->setToolTip(tr("Chữ trích xuất được chuẩn hóa Unicode NFC; tô sáng tối đa 1.000 vị trí trên trang, không sửa PDF."));
-    auto* canvas=new PdfTextCanvas(w);
+    auto* canvas=new PdfTextCanvas(w);canvas->setObjectName("pdfPageCanvas");
     auto* scroll=new PdfPageScroll(w);
     scroll->setWidgetResizable(false);scroll->setAlignment(Qt::AlignCenter);
     scroll->setMinimumSize(240,220);scroll->setWidget(canvas);
@@ -1436,7 +1436,7 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* copy=new QPushButton(tr("Sao chép"),w);copy->setToolTip(tr("Sao chép chữ đã chọn (Ctrl+C)"));copy->setEnabled(false);bottom->addWidget(copy);
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
     auto* edit=new QPushButton(tr("Sửa chữ"),w);edit->setToolTip(tr("Thay đối tượng chữ gốc đã chọn"));bottom->addWidget(edit);edit->setEnabled(false);
-    auto* annotate=new QPushButton(tr("Thêm ghi chú"),w);annotate->setCheckable(true);annotate->setEnabled(false);bottom->addWidget(annotate);
+    auto* annotate=new QPushButton(tr("Thêm ghi chú"),w);annotate->setObjectName("pdfAddNote");annotate->setCheckable(true);annotate->setEnabled(false);bottom->addWidget(annotate);
     auto* imageTools=new QHBoxLayout;root->addLayout(imageTools);
     imageTools->addWidget(new QLabel(tr("Ảnh:"),w));
     auto* insertImage=new QPushButton(tr("Chèn ảnh"),w);insertImage->setCheckable(true);insertImage->setEnabled(false);imageTools->addWidget(insertImage);
@@ -1585,6 +1585,13 @@ QWidget* PdfToolsDialog::buildSearch() {
         session->directory=std::move(directory);session->original=source;session->current=initial;session->identity=identity;
         session->history.append({initial,identity,0,page});session->cursor=0;
         switchReader(initial,page,pages);
+        if(!snapshot->has_value()||snapshot->value().path!=initial||!snapshot->value().unchanged()||!canvas->hasPage()){
+            // Do not lock the UI into a session whose initial page did not load.
+            session->directory.reset();session->original.clear();session->current.clear();
+            session->identity.clear();session->history.clear();session->cursor=-1;
+            switchReader(source,page,pages);syncSession();
+            status->setText(tr("Không mở được bản làm việc; vẫn giữ PDF ban đầu."));return;
+        }
         syncSession();status->setText(tr("Đang sửa nhiều lần. Bấm Lưu bản cuối khi hoàn tất. Tệp gốc không đổi."));
     });
     auto navigateHistory=[=](int delta){
@@ -1639,7 +1646,9 @@ QWidget* PdfToolsDialog::buildSearch() {
                 QFile::remove(path);status->setText(tr("Không mở được bản sửa mới; giữ bản trước."));return;
             }
             session->appendRevision(path,identity,page);syncSession();
-            status->setText(tr("Đã thực hiện %1 chỉnh sửa. Bấm Lưu bản cuối khi hoàn tất.").arg(session->changes));
+            QString message=tr("Đã thực hiện %1 chỉnh sửa. Bấm Lưu bản cuối khi hoàn tất.").arg(session->changes);
+            if(!result.warnings.isEmpty())message+=QStringLiteral(" · ")+result.warnings.join(QStringLiteral(" · "));
+            status->setText(message);
             return;
         }
         QMessageBox box(this);box.setWindowTitle(title);

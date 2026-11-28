@@ -443,6 +443,7 @@ jobs:
           if ($LASTEXITCODE) { exit 1 }
       - name: Kiểm thử giao diện đọc PDF thật trên Windows
         run: |
+          $env:DUNG_QPDF = "$PWD/build/qpdf/qpdf.exe"
           $exe = Get-ChildItem build/out -Recurse -Filter dung-pdfuitest.exe | Select-Object -First 1
           if (-not $exe) { exit 1 }
           & $exe.FullName *>&1 | Tee-Object report/windows-pdfuitest.log
