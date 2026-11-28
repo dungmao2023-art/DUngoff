@@ -455,7 +455,16 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
     d->setPart(0);
     renderHash(*d, 1);
     check(d->currentPart() == 0, "paintPartTile không làm đổi trang hiện tại");
-    check(!d->partHash(0).empty() || true, "partHash gọi được");
+    const auto hash=d->partHash(0);
+    const auto info=d->partInfo(0);
+    if(hash.empty() || info.empty())
+        std::cout << "[CHƯA KIỂM CHỨNG] LOK part metadata unavailable; guarded deletion must remain disabled" << std::endl;
+    else check(d->partHash(0)==hash && d->partInfo(0)==info,"Part metadata stable without mutation");
+    const int count=d->partCount();
+    check(d->partHash(-1).empty() && d->partInfo(-1).empty() &&
+          d->partHash(count).empty() && d->partInfo(count).empty(),
+          "Reject invalid part indices before calling optional LOK ABI");
+    check(d->currentPart()==0 && d->partCount()==count,"Metadata reads preserve slide identity");
 
     // ---------------- Lưu ----------------
     step("lưu PPTX");
