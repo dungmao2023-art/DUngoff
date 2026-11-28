@@ -144,6 +144,10 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
         if(target.part<0||target.part>=target.count)return true;
         const auto hash=d->partHash(target.part);
         const auto info=d->partInfo(target.part);
+        if(hash.empty() || info.empty()){
+            QMessageBox::warning(tab,QObject::tr("Xóa slide"),QObject::tr("Engine chưa cung cấp đủ thông tin nhận diện slide. Chưa xóa để tránh nhầm dữ liệu."));
+            return true;
+        }
         if(QMessageBox::question(tab,QObject::tr("Xóa slide"),
             QObject::tr("Xóa slide %1/%2 (%3), gồm toàn bộ đối tượng và ghi chú của slide này?").arg(target.part+1).arg(target.count).arg(qs(target.name)),
             QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return true;
