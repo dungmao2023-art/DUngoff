@@ -201,6 +201,33 @@ bool handlePptAction(DocumentTab* tab, const QString& id) {
             return true;
         }
         safeTab->stepPart(page - 1 - d->currentPart());
+    } else if (id == QLatin1String("ppt.alignObjects")) {
+        if(d->readOnly()||tab->pptNotesMode())return true;
+        const PptEditTarget target(tab);
+        static const QRegularExpression rect(QStringLiteral("^\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*[1-9]\\d*\\s*,\\s*[1-9]\\d*(?:\\s*,|\\s*$)"));
+        if(!rect.match(QString::fromStdString(target.graphic)).hasMatch()||!target.selected.empty()){
+            QMessageBox::information(tab,QObject::tr("Căn đối tượng"),QObject::tr("Chọn các đối tượng cần căn trên slide (Shift + click để chọn nhiều hình), không sửa chữ."));
+            return true;
+        }
+        const QStringList labels{QObject::tr("Trái"),QObject::tr("Giữa ngang"),QObject::tr("Phải"),
+            QObject::tr("Trên"),QObject::tr("Giữa dọc"),QObject::tr("Dưới")};
+        const QStringList commands{QStringLiteral(".uno:ObjectAlignLeft"),QStringLiteral(".uno:AlignCenter"),
+            QStringLiteral(".uno:ObjectAlignRight"),QStringLiteral(".uno:AlignUp"),
+            QStringLiteral(".uno:AlignMiddle"),QStringLiteral(".uno:AlignDown")};
+        bool ok=false;
+        const auto label=QInputDialog::getItem(tab,QObject::tr("Căn đối tượng"),
+            QObject::tr("Chọn kiểu căn theo vùng đối tượng đã chọn. Với một đối tượng, engine có thể căn theo slide."),
+            labels,0,false,&ok);
+        if(!ok||!target.verify(true))return true;
+        const int index=labels.indexOf(label);
+        if(index<0)return true;
+        const QString command=commands.at(index);
+        const auto state=tab->states().value(command);
+        if(state!=QLatin1String("enabled")&&state!=QLatin1String("true")&&state!=QLatin1String("false")){
+            QMessageBox::information(tab,QObject::tr("Căn đối tượng"),QObject::tr("Engine chưa xác nhận lệnh khả dụng cho vùng chọn này."));
+            return true;
+        }
+        d->command(command.toStdString());d->waitInputIdle();tab->view()->setFocus();
     } else if (id == QLatin1String("ppt.rotateObject")) {
         if(d->readOnly()||tab->pptNotesMode())return true;
         const PptEditTarget target(tab);

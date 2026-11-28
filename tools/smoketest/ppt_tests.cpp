@@ -529,6 +529,29 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         snap("ppt-objects-group-undone.pptx");
     }
     grouped.reset();
+    step("PowerPoint — căn chỉnh đối tượng native và Undo");
+    struct AlignCase{const char* name;const char* command;};
+    const AlignCase cases[]={{"left",".uno:ObjectAlignLeft"},{"center",".uno:AlignCenter"},
+        {"right",".uno:ObjectAlignRight"},{"top",".uno:AlignUp"},{"middle",".uno:AlignMiddle"},{"bottom",".uno:AlignDown"}};
+    for(const auto& item:cases){
+        auto aligned=engine->open(out/"ppt-align-input.pptx",&err);
+        check(bool(aligned),std::string("Mở fixture căn ")+item.name+": "+err);
+        if(!aligned)continue;
+        aligned->setClientView(512,512,7680,7680,0,0,7680,7680);
+        renderHash(*aligned,0);
+        auto snap=[&](const std::string& name){
+            const auto dest=out/name;
+            fs::remove(dest,ec);
+            const auto saved=aligned->saveAs(dest);
+            check(saved.ok,"Lưu căn "+name+": "+saved.message);
+        };
+        if(std::string(item.name)=="left")snap("ppt-align-baseline.pptx");
+        aligned->command(".uno:SelectAll");aligned->waitInputIdle();
+        aligned->command(item.command);aligned->waitInputIdle();
+        snap(std::string("ppt-align-")+item.name+".pptx");
+        aligned->command(".uno:Undo");aligned->waitInputIdle();
+        snap(std::string("ppt-align-")+item.name+"-undone.pptx");
+    }
     step("PowerPoint — xoay đối tượng native và Undo");
     auto rotated=engine->open(out/"ppt-layer-input.pptx",&err);
     check(bool(rotated),"Mở fixture xoay: "+err);

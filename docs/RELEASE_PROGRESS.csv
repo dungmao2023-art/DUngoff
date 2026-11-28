@@ -28,7 +28,7 @@ id,priority,group,weight,stage,remaining_low_hours,remaining_high_hours,evidence
 "X11","P1","Excel nâng cao","13","partial","24","72","#41 merged PASS; cảnh báo mất query/connection, chưa giữ query hay M"
 "X12","P1","Excel nâng cao","13","scoped","24","80","XLSM read-only hiện tại; thử bảo toàn VBA và macro an toàn"
 "X13","P1","Excel nâng cao","8","scoped","16","48","Sau X12; record/manage macro giới hạn"
-"P01","P0","PowerPoint","8","partial","8","24","#27; native layer reorder Linux PASS CI 46107375044; integrated rerun with group/ungroup and geometry/Undo gate pending; alignment/resize/rotate and GUI pending; #176 merged 1fd9304 dual OS PASS; native rotation ±90 degree and Undo pending CI"
+"P01","P0","PowerPoint","8","partial","8","24","#176 merged 1fd9304 CI 46108619165 both OS PASS layer/group/ungroup/Undo; #180 CI 46110351981 both OS PASS all six alignments and Undo; combined #181 rotation/align rerun, resize and GUI pending"
 "P02","P0","PowerPoint","5","integrated","4","12","#27 slide/notes; GUI"
 "P03","P0","PowerPoint","5","partial","4","12","Slideshow; #152 N/P and hidden navigation PASS both OS; session autoplay pending CI/GUI; external monitor pending"
 "P04","P0","PowerPoint","8","partial","10","30","#12/#17; master/theme/layout"
