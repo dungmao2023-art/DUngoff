@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 #pragma once
 #include "PdfOps.h"
+#include <QPointF>
 namespace pdfedit {
 bool available();
+// Native image object on the current page. Center is normalized from top-left;
+// widthPercent is a percentage of page width, aspect ratio is preserved.
+dungpdf::Result insertImage(const QString& source,int page,const QString& imagePath,QPointF center,
+                           double widthPercent,const QByteArray& expectedSource,const QString& dest);
 dungpdf::Result replaceObject(const QString& source,int page,const QString& oldText,const QString& newText,const QString& dest,
                              const QByteArray& expectedSource = {});
 }

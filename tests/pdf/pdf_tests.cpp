@@ -861,6 +861,17 @@ int main(int argc, char** argv) {
         const auto source=P("native-edit-source.pdf"),dest=P("native-edited.pdf");
         const QByteArray original=makePdf(2,QStringLiteral("ORIGINAL"));
         writeFile(source,original);
+        const auto png=P("native-insert.png"),withImage=P("native-insert.pdf");
+        QImage solid(80,40,QImage::Format_ARGB32);solid.fill(QColor(15,160,40));
+        CHECK(solid.save(png),"create native image insertion fixture");
+        const auto imageResult=pdfedit::insertImage(source,2,png,QPointF(.5,.5),25,fingerprint(source),withImage);
+        if(!imageResult.ok)std::cerr<<imageResult.error.toStdString()<<'\n';
+        CHECK(imageResult.ok&&info(withImage).pages==2&&qdfOf(withImage).contains("/Subtype /Image")&&
+              readFile(source)==original,"insert real image object without replacing page text or source");
+        const auto badImage=P("bad-image.pdf");
+        CHECK(!pdfedit::insertImage(source,1,png,QPointF(1.5,.5),25,fingerprint(source),badImage).ok&&
+              !pdfedit::insertImage(source,1,png,QPointF(.5,.5),25,QByteArray(32,'x'),badImage).ok&&
+              !QFile::exists(badImage),"reject invalid and stale native image placement");
         const auto staleEdit=P("native-stale.pdf");
         CHECK(!pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",staleEdit,QByteArray(32,'x')).ok&&
               !QFile::exists(staleEdit),"stale text selection never publishes a changed PDF");
