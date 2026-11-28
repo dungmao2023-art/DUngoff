@@ -28,6 +28,14 @@ int main(int argc, char** argv) {
     check(slideshow::jumpTo(visible,"3")==-1 && slideshow::jumpTo(visible,"0")==-1 &&
           slideshow::jumpTo(visible,"6")==-1 && slideshow::jumpTo(visible,"999999999999")==-1,
           "numeric jump rejects hidden or invalid slides");
+    check(slideshow::autoAdvanceDelay(visible,1,5000,false,false,false,true)==5000,"autoplay advances to next visible slide");
+    check(slideshow::autoAdvanceDelay(visible,3,5000,false,false,false,true)==0,"autoplay stops at last visible slide");
+    check(slideshow::autoAdvanceDelay(visible,1,5000,true,false,false,true)==0 &&
+          slideshow::autoAdvanceDelay(visible,1,5000,false,true,false,true)==0 &&
+          slideshow::autoAdvanceDelay(visible,1,5000,false,false,true,true)==0 &&
+          slideshow::autoAdvanceDelay(visible,1,5000,false,false,false,false)==0,"autoplay pauses on blank, numeric entry, manual pause and render failure");
+    check(slideshow::autoAdvanceDelay(visible,1,0,false,false,false,true)==0 &&
+          slideshow::autoAdvanceDelay(visible,1,600001,false,false,false,true)==0,"autoplay interval bounded and manual mode unchanged");
     const QByteArray xml = "<p:sld xmlns:p=\"http://schemas.openxmlformats.org/presentationml/2006/main\"><p:cSld/><p:clrMapOvr/><p:timing/><p:extLst/></p:sld>";
     QByteArray out;
     Options o; o.autoAdvanceMs = 3000;

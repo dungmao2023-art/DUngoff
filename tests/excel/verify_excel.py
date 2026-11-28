@@ -158,11 +158,17 @@ if __name__ == "__main__":
     verify_delete_undo(sys.argv[1])
     from pathlib import Path
     fill_dir=Path(sys.argv[1]).parent
-    for name, expected in (("excel-native-fill-drag.xlsx", ["=A1*2","=A2*2","=A3*2","=A4*2"]),
+    for name, expected in (("excel-native-fill-input.xlsx", ["=A1*2",None,None,None]),
+                           ("excel-native-fill-baseline.xlsx", ["=A1*2",None,None,None]),
+                           ("excel-native-fill-drag.xlsx", ["=A1*2","=A2*2","=A3*2","=A4*2"]),
                            ("excel-native-fill-drag-undone.xlsx", ["=A1*2",None,None,None])):
         candidate=openpyxl.load_workbook(fill_dir / name).active
-        check([candidate[f"A{i}"].value for i in range(1,5)] == [10,20,30,40], name+": source values preserved")
-        check([candidate[f"B{i}"].value for i in range(1,5)] == expected, name+": relative formulas and Undo")
+        source=[candidate[f"A{i}"].value for i in range(1,5)]
+        formulas=[candidate[f"B{i}"].value for i in range(1,5)]
+        print(name, "source", repr(source), "formulas", repr(formulas), flush=True)
+        check(source == [10,20,30,40], name+": source values preserved")
+        check(formulas == expected, name+": relative formulas and Undo")
+        check(candidate["D1"].value=="KEEP_FILL_NEIGHBOUR", name+": unrelated cell preserved")
     if len(sys.argv) >= 4:
         stress(sys.argv[2], sys.argv[3])
     print("\nKẾT QUẢ XÁC MINH EXCEL: " + ("CÓ LỖI" if fails else "ĐẠT"))

@@ -46,6 +46,13 @@ def build(dest):
     os.makedirs(dest, exist_ok=True)
     p = os.path.join(dest, "excel-co-ban.xlsx")
     wb.save(p)
+    fill = Workbook()
+    sheet = fill.active
+    for i, value in enumerate((10, 20, 30, 40), 1):
+        sheet.cell(i, 1, value)
+    sheet["B1"] = "=A1*2"
+    sheet["D1"] = "KEEP_FILL_NEIGHBOUR"
+    fill.save(os.path.join(dest, "excel-native-fill-input.xlsx"))
     return p
 
 

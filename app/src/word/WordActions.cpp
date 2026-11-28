@@ -25,6 +25,7 @@
 #include <QTextDocumentFragment>
 
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
@@ -139,6 +140,41 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
     if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
+    if(name==QLatin1String("tableSplitCell")){
+        const WordInsertTarget target(tab);
+        const QString command=QStringLiteral(".uno:SplitCell");
+        if(!target.selected.empty()||target.caret.empty()||
+           target.tab->states().value(command)==QLatin1String("disabled")){
+            QMessageBox::information(parent,QObject::tr("Tách ô"),QObject::tr("Đặt con trỏ trong một ô bảng, không chọn nhiều ô."));
+            return true;
+        }
+        QDialog dialog(parent);
+        dialog.setWindowTitle(QObject::tr("Tách ô bảng"));
+        auto* layout=new QVBoxLayout(&dialog);
+        auto* form=new QFormLayout;
+        auto* direction=new QComboBox(&dialog);
+        direction->addItem(QObject::tr("Theo chiều dọc — thêm cột trong ô"),false);
+        direction->addItem(QObject::tr("Theo chiều ngang — thêm hàng trong ô"),true);
+        auto* count=new QSpinBox(&dialog);
+        count->setRange(2,10);count->setValue(2);
+        form->addRow(QObject::tr("Hướng tách"),direction);
+        form->addRow(QObject::tr("Số ô sau khi tách"),count);
+        layout->addLayout(form);
+        auto* hint=new QLabel(QObject::tr("Chỉ tách ô chứa con trỏ. Có thể dùng Ctrl+Z để hoàn tác."),&dialog);
+        hint->setWordWrap(true);layout->addWidget(hint);
+        auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);
+        buttons->button(QDialogButtonBox::Ok)->setText(QObject::tr("Tách ô"));
+        buttons->button(QDialogButtonBox::Cancel)->setDefault(true);
+        QObject::connect(buttons,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);
+        QObject::connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+        layout->addWidget(buttons);
+        if(dialog.exec()!=QDialog::Accepted||!target.verify())return true;
+        if(target.tab->states().value(command)==QLatin1String("disabled"))return true;
+        send(target.tab.data(),splitCell(count->value(),direction->currentData().toBool()));
+        doc->waitInputIdle();
+        if(target.tab&&target.tab->view())target.tab->view()->setFocus();
+        return true;
+    }
     if(name==QLatin1String("tableDeleteRow")||name==QLatin1String("tableDeleteColumn")||name==QLatin1String("tableMergeRow")){
         const bool row=name==QLatin1String("tableDeleteRow");
         const bool merge=name==QLatin1String("tableMergeRow");

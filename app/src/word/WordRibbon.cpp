@@ -63,6 +63,7 @@ QList<Ribbon::Tab> Ribbon::wordTabs(const Group& file, const Group& undo, const 
                 {QStringLiteral("word:tableDeleteRow"), tr("Xóa hàng…"), 0xE74D, QStringLiteral("−≡"), false},
                 {QStringLiteral("word:tableDeleteColumn"), tr("Xóa cột…"), 0xE74D, QStringLiteral("−‖"), false},
                 {QStringLiteral("word:tableMergeRow"), tr("Gộp cả hàng…"), 0xE8B9, QStringLiteral("⊞"), false},
+                {QStringLiteral("word:tableSplitCell"), tr("Tách ô…"), 0xE8B9, QStringLiteral("▥"), false},
             }},
             {tr("Đầu và chân trang"), {
                 {QStringLiteral("word:headerEnable"), tr("Bật đầu trang"), 0xE8A5, QStringLiteral("H"), false},

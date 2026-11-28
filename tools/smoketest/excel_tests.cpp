@@ -11,6 +11,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <vector>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -316,15 +317,16 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
     deletion.reset();
 
     step("kéo tay nắm điền công thức native Calc");
-    auto fill=engine->createNew(DocKind::Spreadsheet,&err);
-    check(bool(fill),"Tạo bảng thử kéo fill handle");
+    const auto fillInput=out/"excel-native-fill-input.xlsx";
+    ec.clear();
+    fs::copy_file(xlsx.parent_path()/"excel-native-fill-input.xlsx",fillInput,fs::copy_options::overwrite_existing,ec);
+    check(!ec,"Sao chép fixture kéo fill handle");
+    auto fill=engine->open(fillInput,&err);
+    check(bool(fill),"Mở fixture XLSX kéo fill handle: "+err);
     if(fill){
         fill->setClientView(512,512,7680,7680,0,0,7680,7680);
-        gotoCell(*fill,"A1");
-        check(fill->paste("text/plain;charset=utf-8","10\n20\n30\n40"),"Dán nguồn số");
-        fill->waitInputIdle();
-        gotoCell(*fill,"B1");fill->typeText(u"=A1*2");
-        fill->postKey(LOK_KEYEVENT_KEYINPUT,13,1280);fill->postKey(LOK_KEYEVENT_KEYUP,13,1280);
+        std::vector<unsigned char> tile(512*512*4);
+        fill->paintTile(tile.data(),512,512,0,0,7680,7680);
         fill->waitInputIdle();
         auto rect=[](const std::string& s,int& x,int& y,int& w,int& h){
             return std::sscanf(s.c_str(),"%d , %d , %d , %d",&x,&y,&w,&h)==4&&w>0&&h>0;
@@ -340,8 +342,17 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
             x<=cx+cw+w&&x+w>=cx+cw-w&&y<=cy+ch+h&&y+h>=cy+ch-h;
         check(target&&handle,"LOK native fill rectangle and destination: "+payload);
         if(target&&handle){
+            info("Fill source cursor: "+std::to_string(cx)+","+std::to_string(cy)+","+std::to_string(cw)+","+std::to_string(ch)+
+                " destination: "+std::to_string(tx)+","+std::to_string(ty)+","+std::to_string(tw)+","+std::to_string(th));
+            const auto baseline=fill->saveAs(out/"excel-native-fill-baseline.xlsx");
+            check(baseline.ok,"Lưu nguồn fill chưa chỉnh: "+baseline.message);
             fill->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,x+w/2,y+h/2,1,1,0);
-            fill->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,tx+tw/2,ty+th/2,1,1,0);
+            fill->waitInputIdle();settle(150);
+            for(int i=1;i<=4;++i){
+                fill->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,
+                    x+w/2+(tx+tw/2-x-w/2)*i/4,y+h/2+(ty+th/2-y-h/2)*i/4,1,1,0);
+                settle(100);
+            }
             fill->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,tx+tw/2,ty+th/2,1,1,0);
             fill->waitInputIdle();settle();
             const auto saved=fill->saveAs(out/"excel-native-fill-drag.xlsx");
