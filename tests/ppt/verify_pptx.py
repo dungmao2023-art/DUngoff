@@ -199,6 +199,7 @@ if master_file.exists():
             print("Native slide inheritance:",slide,sorted(layout_parts),sorted(master_parts))
         shared=set.intersection(*chains) if len(chains)==2 else set()
         check(bool(marked & shared),"Native edit saved in master or layout inherited by both original slides")
+        check(any(b"MASTER_EDIT_ME" in z.read(n) for n in marked & shared),"Original shared master text preserved")
         check(len(slides_xml)==2 and all(marker not in z.read(n) for n in slides_xml),"No master text copied into ordinary slide XML")
         check(any(b"MASTER_SLIDE_A" in z.read(n) for n in slides_xml) and any(b"MASTER_SLIDE_B" in z.read(n) for n in slides_xml),"Both original slides preserved")
 else:

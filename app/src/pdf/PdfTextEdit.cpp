@@ -27,6 +27,17 @@ static dungpdf::Result fail(const QString& error){dungpdf::Result r;r.error=erro
 #ifdef DUNG_HAVE_PDFIUM_EDIT
 namespace {
 QMutex mutex;
+// Keep the same embedded font and exact Unicode mapping. Reject control,
+// private-use, unassigned and surrogate characters instead of substituting.
+bool editableText(const QString& text){
+    if(text.isEmpty()||text.size()>500)return false;
+    for(const QChar c:text){
+        if(c==QLatin1Char(' '))continue;
+        if(!c.isPrint()||c.isSpace()||c.isSurrogate()||
+           c.category()==QChar::Other_PrivateUse||c.category()==QChar::Other_NotAssigned)return false;
+    }
+    return true;
+}
 struct Session{Session(){FPDF_InitLibrary();}~Session(){FPDF_DestroyLibrary();}};
 struct Doc{FPDF_DOCUMENT p;~Doc(){if(p)FPDF_CloseDocument(p);}};
 struct Page{FPDF_PAGE p;~Page(){if(p)FPDF_ClosePage(p);}};
@@ -61,9 +72,8 @@ dungpdf::Result replaceObject(const QString& source,int page,const QString& oldT
 #ifndef DUNG_HAVE_PDFIUM_EDIT
     return fail(QStringLiteral("Bản cài chưa có PDFium Editing SDK."));
 #else
-    if(oldText.isEmpty()||newText.isEmpty()||oldText==newText||oldText.size()>500||newText.size()>500||
-        !dungpdf::isAsciiText(oldText)||!dungpdf::isAsciiText(newText))
-        return fail(QStringLiteral("Bản đầu hỗ trợ thay nguyên một đoạn chữ ASCII không dấu."));
+    if(oldText==newText||!editableText(oldText)||!editableText(newText))
+        return fail(QStringLiteral("Chọn một đoạn chữ in được trên một dòng (tối đa 500 ký tự)."));
     const QFileInfo target(dest);
     if(target.exists()||target.isSymLink()||!QDir(target.absolutePath()).exists())return fail(QStringLiteral("Chọn tên tệp mới."));
     QFile input(source);
@@ -118,7 +128,7 @@ dungpdf::Result replaceObject(const QString& source,int page,const QString& oldT
         if(!v.p||FPDF_GetPageCount(v.p)!=pages)return fail(QStringLiteral("Bản sửa không đọc lại được."));
         Page p{FPDF_LoadPage(v.p,page-1)};if(!p.p)return fail(QStringLiteral("Không mở lại được trang."));
         Text t{FPDFText_LoadPage(p.p)};
-        if(!t.p||texts(p.p,t.p)!=expected)return fail(QStringLiteral("Chữ sau khi mở lại không khớp."));
+        if(!t.p||texts(p.p,t.p)!=expected)return fail(QStringLiteral("Font gốc không hỗ trợ đủ ký tự mới hoặc chữ sau khi mở lại không khớp. PDF nguồn không thay đổi."));
     }
     const auto info=dungpdf::info(path);
     if(!info.ok||info.pages!=pages||QFileInfo::exists(dest)||QFileInfo(dest).isSymLink()||!QFile::rename(path,dest))

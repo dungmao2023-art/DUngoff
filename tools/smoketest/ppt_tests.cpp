@@ -658,14 +658,17 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
             const auto before=activeRender();
             const auto activeId=master->partHash(active);
             check(before!=0&&master->currentPart()==active&&!activeId.empty(),"Active master editor tile renders without switching page");
-            master->command(".uno:Text");master->waitInputIdle(350,4000);
-            master->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,4000,3500,1,1,0);
-            master->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,5250,3900,1,1,0);
-            master->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,6500,4300,1,1,0);
+            // Re-establish the client viewport after entering the master view.
+            master->setClientView(512,512,7680,7680,0,0,7680,7680);
+            // Select actual inherited textbox (3-7 inches, y=3-4).
+            master->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,4600,4600,2,1,0);
+            master->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,4600,4600,2,1,0);
             master->waitInputIdle(350,4000);
-            master->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,6500,4300,1,1,0);
-            master->waitInputIdle(350,4000);master->typeText(u"DUNG_MASTER_MARKER");master->waitInputIdle(350,4000);
-            master->postKey(LOK_KEYEVENT_KEYINPUT,0,1281);master->postKey(LOK_KEYEVENT_KEYUP,0,1281);master->waitInputIdle();
+            // End of text and append marker, preserving original content.
+            master->postKey(LOK_KEYEVENT_KEYINPUT,0,1029); // END
+            master->postKey(LOK_KEYEVENT_KEYUP,0,1029);
+            master->typeText(u"DUNG_MASTER_MARKER");master->waitInputIdle(350,4000);
+            master->postKey(LOK_KEYEVENT_KEYINPUT,0,1281);master->postKey(LOK_KEYEVENT_KEYUP,0,1281);
             master->waitInputIdle(350,4000);
             const auto after=activeRender();
             check(before!=0&&after!=0&&before!=after&&master->currentPart()==active&&master->partHash(active)==activeId,

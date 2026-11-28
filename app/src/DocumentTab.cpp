@@ -398,7 +398,7 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
             m_slideRefresh->setSingleShot(true);
             m_slideRefresh->setInterval(250);
             connect(m_slideRefresh,&QTimer::timeout,this,[this]{
-                if(m_pptNotes||m_pendingThumbnails.isEmpty())return;
+                if(m_pptNotes||m_pptMaster||m_pendingThumbnails.isEmpty())return;
                 // Defer thumbnail work while typing or dragging; one slide per tick.
                 if(!isVisible())return; // resumed by showEvent, not periodic polling
                 if(!m_doc->inputIdleFor(150)) {
@@ -796,7 +796,7 @@ void DocumentTab::hideEvent(QHideEvent* event) {
 
 void DocumentTab::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
-    if(m_slideRefresh&&!m_pptNotes&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
+    if(m_slideRefresh&&!m_pptNotes&&!m_pptMaster&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
     // Re-evaluate the latest page after the stacked document becomes visible.
     if(m_pdfComparison&&!m_pdfComparison->isHidden())
         QTimer::singleShot(0,this,[this]{refreshPdfComparison();});
@@ -821,7 +821,7 @@ void DocumentTab::rebuildParts() {
         for (int i = 0; i < n; ++i) {
             m_slides->addItem(m_doc->kind() == DocKind::Presentation ? (m_pptMaster ? tr("Master %1") : tr("Trang chiếu %1")).arg(i + 1)
                                                                     : tr("Trang %1").arg(i + 1));
-            if(m_slideRefresh&&!m_pptNotes)m_pendingThumbnails.insert(i);
+            if(m_slideRefresh&&!m_pptNotes&&!m_pptMaster)m_pendingThumbnails.insert(i);
         }
         m_slides->setCurrentRow(cur);
         if(m_slideRefresh&&isVisible()&&!m_pendingThumbnails.isEmpty())m_slideRefresh->start(40);
@@ -854,7 +854,7 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
     if (m_rangeTools && (type == LOK_CALLBACK_CELL_ADDRESS || type == LOK_CALLBACK_CELL_SELECTION_AREA ||
         type == LOK_CALLBACK_CELL_FORMULA || type == LOK_CALLBACK_SET_PART))
         notifyDocumentRangeTools(m_rangeTools);
-    if(type==LOK_CALLBACK_INVALIDATE_TILES && m_slideRefresh && !m_pptNotes) {
+    if(type==LOK_CALLBACK_INVALIDATE_TILES && m_slideRefresh && !m_pptNotes&&!m_pptMaster) {
         m_pendingThumbnails.insert(m_slides->currentRow());
         if(isVisible())m_slideRefresh->start(250);
     }
@@ -916,7 +916,7 @@ void DocumentTab::onEngineEvent(int type, const QString& payload) {
                 m_rebuildingParts=true;
                 m_slides->setCurrentRow(part);
                 m_rebuildingParts=false;
-                if(m_slideRefresh&&!m_pptNotes) {
+                if(m_slideRefresh&&!m_pptNotes&&!m_pptMaster) {
                     for(int i=0;i<count;++i)m_pendingThumbnails.insert(i);
                     if(isVisible())m_slideRefresh->start(40);
                 }
