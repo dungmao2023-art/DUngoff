@@ -1401,15 +1401,18 @@ QWidget* PdfToolsDialog::buildSearch() {
     root->addLayout(actions);root->addLayout(historyBar);
     browse->setEnabled(printrender::available());go->setEnabled(printrender::available());
     auto* status=new QLabel(w);status->setWordWrap(true);status->setTextFormat(Qt::PlainText);root->addWidget(status);
-    auto* list=new QListWidget(w);list->setAccessibleName(tr("Trang PDF hoặc kết quả tìm"));
-    list->setMaximumHeight(116);root->addWidget(list);
+    auto* list=new QListWidget(w);list->setObjectName("pdfReaderPageList");list->setAccessibleName(tr("Trang PDF hoặc kết quả tìm"));
+    list->setMaximumHeight(116);root->addWidget(list);list->hide();
+    auto* pageListToggle=new QPushButton(tr("Danh sách trang"),w);pageListToggle->setObjectName("pdfPageListToggle");pageListToggle->setCheckable(true);
+    pageListToggle->setToolTip(tr("Hiện hoặc ẩn danh sách trang và kết quả tìm kiếm để dành chỗ đọc PDF."));
+    connect(pageListToggle,&QPushButton::toggled,w,[=](bool on){list->setVisible(on);pageListToggle->setText(on?tr("Ẩn danh sách"):tr("Danh sách trang"));});
     auto* nav=new QHBoxLayout;
     auto* previous=new QPushButton(tr("← Trước"),w);auto* next=new QPushButton(tr("Sau →"),w);next->setObjectName("pdfNextPage");
     auto* jump=new QSpinBox(w);jump->setObjectName("pdfPageNumber");jump->setRange(1,1);jump->setPrefix(tr("Trang "));
     jump->setAccessibleName(tr("Số trang cần mở"));
     auto* openPage=new QPushButton(tr("Đến trang"),w);
     previous->setEnabled(false);next->setEnabled(false);jump->setEnabled(false);openPage->setEnabled(false);
-    nav->addWidget(previous);nav->addWidget(next);nav->addStretch();nav->addWidget(jump);nav->addWidget(openPage);root->addLayout(nav);
+    nav->addWidget(previous);nav->addWidget(next);nav->addStretch();nav->addWidget(jump);nav->addWidget(openPage);nav->addWidget(pageListToggle);root->addLayout(nav);
     auto* text=new QPlainTextEdit(w);text->setObjectName("pdfExtractedText");text->setReadOnly(true);
     text->setPlaceholderText(tr("Chọn trang để đọc, kéo chọn chữ trên ảnh PDF hoặc sao chép chữ trích xuất."));
     text->setToolTip(tr("Chữ trích xuất được chuẩn hóa Unicode NFC; tô sáng tối đa 1.000 vị trí trên trang, không sửa PDF."));
@@ -1820,14 +1823,15 @@ QWidget* PdfToolsDialog::buildSearch() {
     });
     // Changing search options must not discard the page in normal reading mode.
     // Existing search results, however, must be invalidated before a new search.
-    auto invalidateSearch=[=]{if(!*browsing)clear();};
+    auto invalidateSearch=[=]{if(!*browsing&&snapshot->has_value())openRange(qMax(1,jump->value()));};
     connect(query,&QLineEdit::textChanged,w,invalidateSearch);
     connect(first,&QSpinBox::valueChanged,w,invalidateSearch);
     connect(last,&QSpinBox::valueChanged,w,invalidateSearch);
     connect(match,&QCheckBox::toggled,w,invalidateSearch);
     connect(go,&QPushButton::clicked,w,[=]{
-        clear();
+        const int readingPage=qMax(1,jump->value());
         const QString path=m_searchFile->text(),needle=query->text();
+        if(needle.trimmed().isEmpty()){status->setText(tr("Nhập chữ cần tìm."));query->setFocus();return;}
         const int a=first->value(),b=last->value();const bool cs=match->isChecked();
         const PdfSourceSnapshot source(path);
         printrender::TextSearch result;
@@ -1843,7 +1847,12 @@ QWidget* PdfToolsDialog::buildSearch() {
         if(!source.unchanged()||m_searchFile->text()!=path||query->text()!=needle||first->value()!=a||last->value()!=b||match->isChecked()!=cs){
             status->setText(tr("Nguồn hoặc điều kiện tìm đã thay đổi. Hãy tìm lại."));return;
         }
-        *snapshot=source;
+        if(result.hits.isEmpty()){
+            if(!*browsing)openRange(readingPage);
+            status->setText(result.textPages?tr("Không tìm thấy chữ. Vẫn giữ trang đang đọc."):tr("Không có lớp chữ trong vùng tìm. Hãy thử OCR."));return;
+        }
+        clear();*snapshot=source;
+        pageListToggle->setChecked(true);
         for(const auto& hit:result.hits){
             auto* item=new QListWidgetItem(tr("Trang %1 · %2 lần · %3").arg(hit.page).arg(hit.occurrences).arg(hit.snippet),list);
             item->setData(Qt::UserRole,hit.page);
