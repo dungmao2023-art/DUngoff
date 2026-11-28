@@ -793,10 +793,56 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
         auto* presetHint=new QLabel(QObject::tr("15 kiểu hiệu ứng vào/ra. Hiệu ứng nâng cao được ghi vào bản PPTX; trình chiếu trong ứng dụng chưa hỗ trợ đầy đủ."),&dialog);
         presetHint->setWordWrap(true);
         auto* quick=new QPushButton(QObject::tr("Áp dụng mẫu"),&dialog);
-        quick->setEnabled(shapes.size()<=100);
-        if(shapes.size()>100)quick->setToolTip(QObject::tr("Slide có hơn 100 đối tượng. Hãy thêm từng đối tượng cần thiết."));
+        auto* subset=new QPushButton(QObject::tr("Chọn đối tượng…"),&dialog);
+        QList<unsigned> selectedIds;
+        if(shapes.size()<=100)for(const auto& item:shapes)selectedIds.append(item.id);
+        auto refreshSubset=[&]{
+            const bool valid=!selectedIds.isEmpty()&&selectedIds.size()<=100;
+            quick->setEnabled(valid);
+            subset->setText(selectedIds.size()==shapes.size()?QObject::tr("Tất cả (%1)").arg(shapes.size()):
+                selectedIds.isEmpty()?QObject::tr("Chọn đối tượng…"):QObject::tr("Đã chọn %1/%2").arg(selectedIds.size()).arg(shapes.size()));
+            subset->setAccessibleName(QObject::tr("Chọn đối tượng dùng hoạt ảnh nhanh"));
+            quick->setToolTip(valid?QObject::tr("Tạo hoạt ảnh cho %1 đối tượng đã chọn.").arg(selectedIds.size()):
+                QObject::tr("Chọn từ 1 đến 100 đối tượng trước."));
+        };
+        refreshSubset();
+        QObject::connect(subset,&QPushButton::clicked,&dialog,[&]{
+            QDialog picker(&dialog);picker.setWindowTitle(QObject::tr("Chọn đối tượng dùng mẫu"));picker.resize(390,420);
+            auto* column=new QVBoxLayout(&picker);
+            auto* hint=new QLabel(QObject::tr("Chỉ các đối tượng được tích mới nhận hiệu ứng. Thứ tự theo danh sách slide."),&picker);
+            hint->setWordWrap(true);column->addWidget(hint);
+            auto* objects=new QListWidget(&picker);
+            for(const auto& item:shapes){
+                const int index=shape->findData(item.id);
+                auto* row=new QListWidgetItem(index>=0?shape->itemText(index):item.name,objects);
+                row->setFlags(row->flags()|Qt::ItemIsUserCheckable);row->setData(Qt::UserRole,item.id);
+                row->setCheckState(selectedIds.contains(item.id)?Qt::Checked:Qt::Unchecked);
+            }
+            auto* tools=new QHBoxLayout;auto* all=new QPushButton(QObject::tr("Chọn tất cả"),&picker);
+            auto* none=new QPushButton(QObject::tr("Bỏ chọn"),&picker);
+            all->setEnabled(shapes.size()<=100);tools->addWidget(all);tools->addWidget(none);tools->addStretch();
+            column->addLayout(tools);column->addWidget(objects,1);
+            auto* count=new QLabel(&picker);column->addWidget(count);
+            auto* controls=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&picker);
+            controls->button(QDialogButtonBox::Ok)->setText(QObject::tr("Dùng các mục đã chọn"));column->addWidget(controls);
+            auto checked=[&]{QList<unsigned> result;for(int k=0;k<objects->count();++k)
+                if(objects->item(k)->checkState()==Qt::Checked)result.append(objects->item(k)->data(Qt::UserRole).toUInt());return result;};
+            auto updateCount=[&]{const auto n=checked().size();count->setText(QObject::tr("%1 đã chọn · tối đa 100").arg(n));
+                controls->button(QDialogButtonBox::Ok)->setEnabled(n>0&&n<=100);};
+            auto checkAll=[&](Qt::CheckState state){
+                {QSignalBlocker block(objects);for(int k=0;k<objects->count();++k)objects->item(k)->setCheckState(state);}
+                updateCount();
+            };
+            QObject::connect(all,&QPushButton::clicked,&picker,[&]{checkAll(Qt::Checked);});
+            QObject::connect(none,&QPushButton::clicked,&picker,[&]{checkAll(Qt::Unchecked);});
+            QObject::connect(objects,&QListWidget::itemChanged,&picker,[&](QListWidgetItem*){updateCount();});
+            QObject::connect(controls,&QDialogButtonBox::accepted,&picker,&QDialog::accept);
+            QObject::connect(controls,&QDialogButtonBox::rejected,&picker,&QDialog::reject);
+            updateCount();
+            if(picker.exec()==QDialog::Accepted){selectedIds=checked();refreshSubset();}
+        });
         presetRow->addWidget(new QLabel(QObject::tr("Hoạt ảnh nhanh:"),&dialog));
-        presetRow->addWidget(preset,1);presetRow->addWidget(quick);root->addLayout(presetRow);
+        presetRow->addWidget(preset,1);presetRow->addWidget(subset);presetRow->addWidget(quick);root->addLayout(presetRow);
         root->addWidget(presetHint);
         auto* list = new AnimationOrderList(&dialog); list->setSelectionMode(QAbstractItemView::SingleSelection);
         list->setDragDropMode(QAbstractItemView::InternalMove);
@@ -882,8 +928,11 @@ QPushButton#AnimationPrimary{background:#C45530;color:white;font-weight:700;}
             effects[row]=o; refresh(row);
         });
         QObject::connect(quick,&QPushButton::clicked,&dialog,[&] {
+            QList<ppttransition::Shape> chosen;
+            const auto selection=ppttransition::selectPresetShapes(shapes,selectedIds,&chosen);
+            if(!selection.ok){QMessageBox::warning(&dialog,QObject::tr("Hoạt ảnh nhanh"),selection.error);return;}
             QList<ppttransition::AnimationOptions> candidate;
-            const auto valid=ppttransition::makeAnimationPreset(shapes,ppttransition::AnimationPreset(preset->currentIndex()),&candidate);
+            const auto valid=ppttransition::makeAnimationPreset(chosen,ppttransition::AnimationPreset(preset->currentIndex()),&candidate);
             if(!valid.ok){QMessageBox::warning(&dialog,QObject::tr("Hoạt ảnh nhanh"),valid.error);return;}
             if(!effects.isEmpty() && QMessageBox::question(&dialog,QObject::tr("Hoạt ảnh nhanh"),
                 QObject::tr("Thay danh sách đang soạn bằng mẫu %1?").arg(preset->currentText()),

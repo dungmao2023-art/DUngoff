@@ -53,6 +53,23 @@ inline Result makeAnimationPreset(const QList<Shape>& shapes, AnimationPreset pr
     *output=candidate;
     return {true,{}};
 }
+// Preserve source order, even if the UI selection arrived in another order.
+// Unknown IDs and duplicate IDs must not silently select a different object.
+inline Result selectPresetShapes(const QList<Shape>& all,const QList<unsigned>& ids,QList<Shape>* output){
+    if(!output||ids.isEmpty()||ids.size()>100)
+        return {false,QStringLiteral("Chọn từ 1 đến 100 đối tượng.")};
+    QList<Shape> selected;
+    for(const auto& shape:all){
+        if(ids.contains(shape.id)){
+            for(const auto& previous:selected)if(previous.id==shape.id)
+                return {false,QStringLiteral("ID đối tượng bị trùng.")};
+            selected.append(shape);
+        }
+    }
+    if(selected.size()!=ids.size())
+        return {false,QStringLiteral("Không xác minh được danh sách đối tượng.")};
+    *output=selected;return {true,{}};
+}
 QList<Shape> slideShapes(const QString& source, int slide1, QString* error);
 // Remove only a verified direct slide timing element, never transition or shape content.
 Result clearAnimationXml(const QByteArray& xml,QByteArray* output);

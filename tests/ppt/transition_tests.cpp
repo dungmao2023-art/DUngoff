@@ -15,6 +15,13 @@ int main(int argc, char** argv) {
     int errors = 0;
     auto check = [&](bool ok, const char* msg) { std::cout << (ok ? "PASS " : "FAIL ") << msg << '\n'; if (!ok) ++errors; };
     const QList<Shape> presetShapes{{1,"Title"},{2,"Text"},{3,"Picture"}};
+    QList<Shape> selectedPreset;
+    check(selectPresetShapes(presetShapes,{3,1},&selectedPreset).ok&&selectedPreset.size()==2&&
+          selectedPreset[0].id==1&&selectedPreset[1].id==3,"preset subset follows slide order");
+    check(!selectPresetShapes(presetShapes,{1,1},&selectedPreset).ok&&
+          !selectPresetShapes(presetShapes,{99},&selectedPreset).ok&&
+          !selectPresetShapes(presetShapes,{},&selectedPreset).ok&&selectedPreset.size()==2,
+          "invalid preset selection leaves existing list intact");
     QList<AnimationOptions> presetEffects;
     QList<AnimationTiming> presetTiming;
     check(makeAnimationPreset(presetShapes,AnimationPreset::AppearClickEach,&presetEffects).ok &&
