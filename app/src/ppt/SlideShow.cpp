@@ -1,5 +1,8 @@
 #include "SlideShow.h"
 #include "SlideNavigation.h"
+#include "SimpleEntrance.h"
+#include <QJsonDocument>
+#include <QJsonArray>
 #include <QToolTip>
 #include <QCursor>
 #include <QKeyEvent>
@@ -61,6 +64,12 @@ void SlideShow::restartAdvance() {
 void SlideShow::go(int delta) {
     if (m_blank != 0) { m_blank = 0; update(); restartAdvance(); return; }
     if (m_part < 0 || m_count <= 0) return;
+    if(delta>0&&m_entrancePending&&!m_afterEntrance.isNull()){
+        m_entrancePending=false;m_img=m_afterEntrance;update();restartAdvance();return;
+    }
+    if(delta<0&&m_entrancePart==m_part&&!m_entrancePending&&!m_beforeEntrance.isNull()){
+        m_entrancePending=true;m_img=m_beforeEntrance;update();restartAdvance();return;
+    }
     const int p=slideshow::adjacentVisible(m_visible,m_part,delta);
     if(p<0){
         if(delta==1){m_advance.stop();close();} // manual next ends the show
@@ -74,6 +83,8 @@ void SlideShow::go(int delta) {
 }
 
 void SlideShow::render() {
+    const bool alreadyShown=m_entrancePart==m_part&&!m_entrancePending&&!m_afterEntrance.isNull();
+    resetEntrance();
     m_img = QImage();
     if (m_part < 0 || m_part >= m_count || m_w <= 0 || m_h <= 0 ||
         m_w > std::numeric_limits<int>::max() || m_h > std::numeric_limits<int>::max() ||
@@ -89,6 +100,48 @@ void SlideShow::render() {
     m_img.fill(Qt::white);
     if(!m_doc->paintPartTile(m_img.bits(), m_part, pw, ph, 0, 0, int(m_w), int(m_h)))
         m_img=QImage(); // Stop autoplay; paintEvent shows a render-unavailable message.
+    if(!m_img.isNull()&&prepareEntrance()){
+        if(alreadyShown){m_entrancePending=false;m_img=m_afterEntrance;}
+        else m_img=m_beforeEntrance;
+    }
+}
+void SlideShow::resetEntrance(){
+    m_beforeEntrance={};m_afterEntrance={};m_entrancePending=false;m_entrancePart=-1;
+}
+bool SlideShow::prepareEntrance(){
+    // Avoid native layer API for unsupported animation trees.
+    const auto info=QJsonDocument::fromJson(QByteArray::fromStdString(m_doc->presentationInfo())).object();
+    QJsonObject slide;
+    for(const auto& item:info.value("slides").toArray()){
+        const auto candidate=item.toObject();if(candidate.value("index").toInt(-1)==m_part){slide=candidate;break;}
+    }
+    QString target;
+    if(!slideshow::findSimpleEntrance(slide.value("animations").toObject().value("root").toObject(),&target))return false;
+    const auto hash=slide.value("hash").toString();
+    dung::Document::SlideLayers layers;
+    if(!m_doc->renderSlideLayers(m_part,hash.toStdString(),qMin(1280,m_img.width()),qMin(1280,m_img.height()),layers))return false;
+    QImage before(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied),after=before.copy();
+    if(before.isNull()||after.isNull())return false;
+    before.fill(Qt::white);after.fill(Qt::white);
+    QPainter p(&before),q(&after);int entrance=0;bool background=false;
+    for(const auto& layer:layers.layers){
+        const auto o=QJsonDocument::fromJson(QByteArray::fromStdString(layer.json)).object();
+        const auto type=o.value("type").toString(),group=o.value("group").toString(),content=o.value("content").toObject();
+        if(layer.pixels.size()!=size_t(layers.width)*layers.height*4||(type!="bitmap"&&type!="animated"))return false;
+        if(group=="Background")background=true;
+        if(group!="Background"&&group!="MasterPage"&&group!="DrawPage")return false;
+        const QImage img(layer.pixels.data(),layers.width,layers.height,layers.width*4,
+                         layers.rgba?QImage::Format_RGBA8888_Premultiplied:QImage::Format_ARGB32_Premultiplied);
+        if(type=="animated"){
+            if(content.value("hash").toString()!=target||!content.value("initVisible").isBool()||content.value("initVisible").toBool())return false;
+            ++entrance;
+        }else p.drawImage(0,0,img);
+        q.drawImage(0,0,img);
+    }
+    p.end();q.end();
+    if(!background||entrance!=1||before==after)return false;
+    m_beforeEntrance=before;m_afterEntrance=after;m_entrancePending=true;m_entrancePart=m_part;
+    return true;
 }
 
 void SlideShow::paintEvent(QPaintEvent*) {
