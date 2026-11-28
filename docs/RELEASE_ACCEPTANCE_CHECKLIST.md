@@ -26,6 +26,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] W01.1 Soạn văn bản 3 trang tiếng Việt: chọn đoạn, font/cỡ/màu, đậm/nghiêng/gạch chân, căn trái/phải/giữa/đều, spacing, indent; Undo/Redo và roundtrip.
 - [ ] W01.2 Bullet/numbering nhiều cấp, tiếp tục và khởi động lại danh sách.
 - [ ] W02.1 Tạo bảng 4×5; chèn/xóa hàng cột, gộp/tách, chỉnh rộng/cao; giữ nội dung khi lưu.
+  - 28/11: UI tách ô 2–10 theo dọc/ngang bằng .uno:SplitCell (Amount/Horizontal/Proportional theo sw/sdi/swriter.sdi upstream 24.2), guard tài liệu/vùng chọn; test DOCX thay đổi cấu trúc và Undo hai hướng. Chờ CI v2/Linux và GUI; chưa nghiệm thu resize/ảnh.
 - [ ] W02.2 Chèn ảnh, resize giữ tỷ lệ, wrap, kéo vị trí; link, ký hiệu, ngắt trang.
 - [ ] W03.1 A4, lề tùy chỉnh theo nhu cầu hành chính, portrait/landscape, header/footer, số trang; kiểm preview/in.
 - [ ] W03.2 Heading 1–3, tạo TOC thật, sửa heading và cập nhật mục lục; mở lại DOCX.
@@ -45,7 +46,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] X04.1 FillDown/Right, chuỗi ngày/số, kéo fill handle; công thức và tham chiếu cập nhật đúng.
 - [ ] X05.1 Filter, sort một/nhiều khóa, freeze; dữ liệu nguyên hàng, header và công thức không lệch.
 - [ ] X05.2 Conditional formatting, data validation/dropdown, bảo vệ sheet; kiểm XLSX thật.
-  - 28/11: #170 CI 46103775849 Linux log xác nhận XML input/pristine/edited đều giữ allowBlank=true, showErrorMessage=true, errorStyle=stop; checker đọc allowBlank sai ngay trên input. Kiểm trực tiếp thuộc tính OOXML bắt buộc (1/true, không chấp nhận thiếu/false), giữ các gate dữ liệu và vùng. Chờ CI mới và GUI; không nâng stage.
+  - 28/11: #170 CI 46104703528 Windows v2/Linux PASS trên 86f6117: kiểm input/pristine/edited XML allowBlank, showErrorMessage, errorStyle; bảo toàn ô khóa/mở, dữ liệu, công thức, vùng dropdown tiếng Việt. Đồng bộ main sau #171/#172; chờ CI tích hợp và GUI tạo/sửa rule, không nâng stage.
 - [ ] X06.1 Tạo biểu đồ cột/đường/tròn từ vùng; sửa tiêu đề, nguồn, loại; thay dữ liệu cập nhật chart; lưu và mở lại Excel.
 - [ ] X07.1 Tạo PivotTable thật từ vùng có tiêu đề, chọn row/column/value, SUM/COUNT; sửa cấu hình, refresh sau đổi số và nhóm; kiểm cache và output XLSX.
 - [ ] X08.1 CSV nhập/xuất Unicode, dấu phân cách/quote/newline, mã dài/0 đầu; dedup/đối soát; số thành chữ không phá định dạng.
@@ -57,6 +58,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] P01.1 Chèn/sửa textbox, ảnh/hình, kéo/resize/rotate; căn chỉnh, thứ tự lớp, nhóm/bỏ nhóm; nhiều đối tượng, Undo/Redo.
 - [ ] P02.1 Tạo/xóa/nhân đôi/sắp xếp slide, layout, thumbnail, notes; mở lại PPTX.
 - [ ] P03.1 F5/Shift+F5, chuyển slide/phím ESC, quay đúng slide; toàn màn hình/cửa sổ, màn hình ngoài.
+  - 28/11: chế độ tự chuyển slide theo số giây mỗi trang (chỉ phiên trình chiếu); T tạm dừng/tiếp tục, B/W hoặc nhập số tạm dừng timer, bỏ slide ẩn và giữ slide cuối. Test quy tắc timer, CI/GUI còn chờ. Không đọc timing riêng của PPTX hoặc phát animation đối tượng; không nâng stage.
 - [ ] P04.1 Transition cơ bản, thời gian và advance; áp dụng cho một/nhiều slide; theme/master/layout cơ bản.
 - [ ] P05.1 Appear/Fade, nhiều đối tượng, click, duration/delay/order; phát thật PowerPoint/Impress, không ghi đè timing cũ.
   - 28/11: hỗ trợ chọn nhóm đối tượng cấp ngoài làm một mục animation, dùng ID nhóm thay vì ID con; không cho chọn nhóm lồng hoặc đối tượng con, vẫn chặn ID trùng và timing cũ. Test XML và hoàn nguyên byte gốc f9daccf502d5a193030d7ed5275fbf1d2ebc4d4a; CI và playback thật chưa xác nhận.

@@ -61,6 +61,9 @@ Call paragraphStyle(const std::string& s) {
     return {".uno:StyleApply", join({argString("Style", s), argString("FamilyName", "ParagraphStyles")})};
 }
 Call insertTable(int c, int r) { return {".uno:InsertTable", join({argLong("Columns", c), argLong("Rows", r)})}; }
+Call splitCell(int amount, bool horizontal) {
+    return {".uno:SplitCell", join({argLong("Amount", amount), argBool("Horizontal", horizontal), argBool("Proportional", false)})};
+}
 Call enablePageBand(bool header, const std::string& pageStyle) {
     return {header ? ".uno:InsertPageHeader" : ".uno:InsertPageFooter", join({argString("PageStyle", pageStyle), argBool("On", true)})};
 }

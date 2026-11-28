@@ -641,6 +641,19 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                         saveTable("word-table-merged.docx");
                         run(*reopened,".uno:Undo");
                         saveTable("word-table-merge-restored.docx");
+                        step("Word — tách ô dọc và ngang, hoàn tác");
+                        if(selectMarkedCell()){
+                            run(*reopened,w::splitCell(3,false));
+                            saveTable("word-table-split-vertical.docx");
+                            run(*reopened,".uno:Undo");
+                            saveTable("word-table-split-vertical-undone.docx");
+                        }
+                        if(selectMarkedCell()){
+                            run(*reopened,w::splitCell(2,true));
+                            saveTable("word-table-split-horizontal.docx");
+                            run(*reopened,".uno:Undo");
+                            saveTable("word-table-split-horizontal-undone.docx");
+                        }
                     }
                 }
             }

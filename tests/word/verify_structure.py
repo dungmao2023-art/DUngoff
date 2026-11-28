@@ -150,3 +150,26 @@ with zipfile.ZipFile(Path(sys.argv[1]).parent / "word-table-merge-restored.docx"
     check(len(first) == 1 and len(second) == 1 and first[0] is not second[0],
           "undo merge: both cell texts restored separately")
     check("TABLE_BODY_MARKER" in text(root), "undo merge: body retained")
+
+# Native SplitCell must change table structure, keep both original markers and
+# surrounding body text, and allow Undo to restore the prior grid.
+for filename, expected_rows, split_vertical, undone in (
+    ("word-table-split-vertical.docx", 6, True, False),
+    ("word-table-split-vertical-undone.docx", 6, False, True),
+    ("word-table-split-horizontal.docx", 7, False, False),
+    ("word-table-split-horizontal-undone.docx", 6, False, True),
+):
+    with zipfile.ZipFile(Path(sys.argv[1]).parent / filename) as z:
+        root = ET.fromstring(z.read("word/document.xml"))
+        tables = list(root.iter(W+"tbl"))
+        check(len(tables) == 1, filename + ": exactly one native table")
+        rows = tables[0].findall(W+"tr")
+        counts = [len(row.findall(W+"tc")) for row in rows]
+        check(len(rows) == expected_rows, filename + ": expected row count")
+        if split_vertical:
+            check(sorted(counts) == [5]*5+[7], filename + ": only target row gained two cells")
+        if undone:
+            check(counts == [5]*6, filename + ": Undo restored six by five grid")
+        check("TABLE_BODY_MARKER" in text(root), filename + ": body retained")
+        for marker in ("TABLE_CELL_MARKER", "TABLE_SECOND_CELL"):
+            check(text(tables[0]).count(marker) == 1, filename + ": original marker retained exactly once")
