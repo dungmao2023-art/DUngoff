@@ -30,6 +30,10 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QHBoxLayout>
+#include <QGridLayout>
+#include <QToolButton>
+#include <QPainter>
+#include <QIcon>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
@@ -429,6 +433,87 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
     }
     m_view = new TileView(m_doc.get(), this);
     middle->addWidget(m_view, 1);
+    if(m_doc->kind()==DocKind::Presentation&&!m_doc->readOnly()){
+        // Persistent, optional design surface; no additional engine or preview render.
+        auto* panel=new QScrollArea(this);
+        panel->setObjectName(QStringLiteral("PptQuickDesign"));
+        panel->setFrameShape(QFrame::NoFrame);
+        panel->setWidgetResizable(true);
+        panel->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        auto* body=new QWidget;
+        body->setObjectName(QStringLiteral("PptDesignBody"));
+        body->setAttribute(Qt::WA_StyledBackground,true);
+        body->setStyleSheet(QStringLiteral(
+            "QWidget#PptDesignBody{background:#FBFAF9;}"
+            "QToolButton{background:white;border:1px solid #E7DDD8;border-radius:7px;padding:3px;color:#334155;}"
+            "QToolButton:hover,QToolButton:focus{background:#FCEDE6;border-color:#C45530;}"
+            "QPushButton{background:white;border:1px solid #E7DDD8;border-radius:6px;padding:5px;color:#334155;}"
+            "QPushButton:hover{background:#FCEDE6;border-color:#C45530;}"));
+        auto* layout=new QVBoxLayout(body);
+        layout->setContentsMargins(9,10,9,10);layout->setSpacing(7);
+        auto* heading=new QLabel(tr("Thiết kế nhanh"),body);
+        heading->setStyleSheet(QStringLiteral("font-size:15px;font-weight:700;color:#A94728;"));
+        layout->addWidget(heading);
+        auto* subtitle=new QLabel(tr("Bố cục slide"),body);
+        subtitle->setStyleSheet(QStringLiteral("font-weight:600;"));
+        layout->addWidget(subtitle);
+        auto* hint=new QLabel(tr("Chọn bố cục cho slide hiện tại. Hình bên dưới là sơ đồ minh họa, không phải bản xem trước tài liệu."),body);
+        hint->setWordWrap(true);layout->addWidget(hint);
+        auto* grid=new QGridLayout;grid->setSpacing(5);layout->addLayout(grid);
+        struct LayoutChoice {int code;QString label;QList<QRect> boxes;};
+        // Native Impress AutoLayout values (include/xmloff/autolayout.hxx).
+        const LayoutChoice choices[]{
+            {0,tr("Trang bìa"),{QRect(12,18,64,9),QRect(22,32,44,7)}},
+            {1,tr("Nội dung"),{QRect(8,7,72,8),QRect(8,20,72,28)}},
+            {3,tr("Hai cột"),{QRect(8,7,72,8),QRect(8,20,34,28),QRect(46,20,34,28)}},
+            {18,tr("Bốn ô"),{QRect(8,7,72,8),QRect(8,19,34,13),QRect(46,19,34,13),QRect(8,35,34,13),QRect(46,35,34,13)}},
+            {19,tr("Chỉ tiêu đề"),{QRect(8,7,72,8)}},
+            {20,tr("Slide trống"),{}}
+        };
+        for(int k=0;k<6;++k){
+            const auto& choice=choices[k];
+            QPixmap pic(88,55);pic.fill(Qt::transparent);
+            QPainter p(&pic);p.setRenderHint(QPainter::Antialiasing);
+            p.setPen(QPen(QColor("#D6C8C0"),1));p.setBrush(Qt::white);p.drawRoundedRect(QRectF(1,1,86,53),3,3);
+            p.setPen(QPen(QColor("#D39881"),1,Qt::DashLine));p.setBrush(QColor("#FAE8DF"));
+            for(const auto& rect:choice.boxes)p.drawRoundedRect(QRectF(rect),2,2);
+            p.end();
+            auto* button=new QToolButton(body);
+            button->setText(choice.label);button->setToolTip(choice.label);button->setAccessibleName(choice.label);
+            button->setIcon(QIcon(pic));button->setIconSize(QSize(88,55));
+            button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+            button->setMinimumSize(100,80);button->setFocusPolicy(Qt::NoFocus);
+            grid->addWidget(button,k/2,k%2);
+            const int code=choice.code;
+            connect(button,&QToolButton::clicked,this,[this,code]{
+                if(!m_doc||m_doc->readOnly()||m_pptNotes||m_pptMaster||m_rebuildingParts)return;
+                m_doc->waitInputIdle();
+                const int part=m_doc->currentPart();
+                if(part<0||part>=m_doc->partCount()||!m_slides||m_slides->currentRow()!=part)return;
+                // Let Impress apply native placeholders/layout. No automatic deletion
+                // or rewriting of ordinary slide shapes in application code.
+                runCommand(QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"%1\"}}").arg(code));
+            });
+        }
+        auto* note=new QLabel(tr("Đổi bố cục có thể sắp xếp lại các khung nội dung. Dùng Ctrl+Z để hoàn tác. Trở về chế độ slide thường nếu đang chỉnh ghi chú hoặc master."),body);
+        note->setWordWrap(true);layout->addWidget(note);
+        layout->addStretch(1);
+        panel->setWidget(body);
+        auto* rail=new QWidget(this);
+        auto* rv=new QVBoxLayout(rail);rv->setContentsMargins(0,0,0,0);rv->addStretch(1);
+        auto* toggle=panelHandle(rail,false,tr("Thiết\nkế"),QStringLiteral("PptDesignPanelHandle"));
+        toggle->setAccessibleName(tr("Mở hoặc ẩn bảng thiết kế nhanh"));
+        toggle->setToolTip(toggle->accessibleName());
+        toggle->setStyleSheet(QStringLiteral("QPushButton{background:#FCEDE6;color:#A94728;border:1px solid #E7C6B8;border-radius:7px;font-weight:600;} QPushButton:checked{background:#C45530;color:white;}"));
+        rv->addWidget(toggle);rv->addStretch(1);
+        middle->addWidget(rail);middle->addWidget(panel);
+        panel->setFixedWidth(252);panel->hide();
+        connect(toggle,&QPushButton::toggled,this,[panel,toggle](bool open){
+            panel->setVisible(open);
+            toggle->setText(open?QObject::tr("›\nThiết\nkế"):QObject::tr("‹\nThiết\nkế"));
+            toggle->setToolTip(open?QObject::tr("Thu gọn bảng thiết kế"):QObject::tr("Mở bảng thiết kế"));
+        });
+    }
     if (m_doc->kind() == DocKind::Spreadsheet && !m_doc->readOnly()) {
         m_excelTools = new QTabWidget(this);
         m_excelTools->setObjectName(QStringLiteral("ExcelTools"));
