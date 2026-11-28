@@ -83,5 +83,19 @@ for filename, mode in (
           filename+": native "+mode+" topology")
     check(media==original_media,filename+": original embedded image bytes")
     check(content==original_text,filename+": full body preserved")
+# Actual OOXML drawing extent, source media, text, anchor and Undo.
+def resize_snapshot(filename):
+    root, media, content = picture_snapshot(filename)
+    anchors = list(root.iter(WP+"anchor"))
+    check(len(anchors)==1 and len(list(root.iter(WP+"inline")))==0, filename+": one floating picture")
+    extent = anchors[0].find(WP+"extent") if len(anchors)==1 else None
+    dims = tuple(int(extent.get(k,"0")) for k in ("cx","cy")) if extent is not None else (0,0)
+    return dims, media, content
+base_dims, base_media, base_text = resize_snapshot("word-image-resize-baseline.docx")
+dims, media, content = resize_snapshot("word-image-resized.docx")
+check(bool(base_media) and "IMAGE_RESIZE_KEEP" in base_text and min(base_dims)>0, "resize fixture contains real image and marker")
+check(abs(dims[0]-1828800)<=1270 and abs(dims[1]-914400)<=1270 and dims!=base_dims, "native resize changes actual extent to 2 x 1 inch")
+check(media==base_media and content==base_text, "resize retains embedded image bytes and document text")
+check(resize_snapshot("word-image-resize-undone.docx")== (base_dims,base_media,base_text), "Undo restores exact picture dimensions and content")
 print("\nKẾT QUẢ DOCX:", "CÓ LỖI" if fails else "TẤT CẢ ĐẠT")
 sys.exit(1 if fails else 0)
