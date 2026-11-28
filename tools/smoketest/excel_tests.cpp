@@ -346,14 +346,18 @@ int runExcelTests(const fs::path& program, const fs::path& xlsx, const fs::path&
                 " destination: "+std::to_string(tx)+","+std::to_string(ty)+","+std::to_string(tw)+","+std::to_string(th));
             const auto baseline=fill->saveAs(out/"excel-native-fill-baseline.xlsx");
             check(baseline.ok,"Lưu nguồn fill chưa chỉnh: "+baseline.message);
+            // Calc autofill uses a nearest-edge threshold, so a cell center
+            // can round back to the preceding row. End inside B4, near its bottom.
+            const int endX=tx+tw/2, endY=ty+th*4/5;
             fill->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,x+w/2,y+h/2,1,1,0);
             fill->waitInputIdle();settle(150);
             for(int i=1;i<=4;++i){
                 fill->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,
-                    x+w/2+(tx+tw/2-x-w/2)*i/4,y+h/2+(ty+th/2-y-h/2)*i/4,1,1,0);
+                    x+w/2+(endX-x-w/2)*i/4,y+h/2+(endY-y-h/2)*i/4,1,1,0);
                 settle(100);
             }
-            fill->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,tx+tw/2,ty+th/2,1,1,0);
+            fill->waitInputIdle();settle(200);
+            fill->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,endX,endY,1,1,0);
             fill->waitInputIdle();settle();
             const auto saved=fill->saveAs(out/"excel-native-fill-drag.xlsx");
             check(saved.ok,"Lưu kết quả kéo công thức: "+saved.message);

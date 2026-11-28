@@ -654,6 +654,36 @@ int runWordStructureTests(const fs::path& program, const fs::path& out) {
                             run(*reopened,".uno:Undo");
                             saveTable("word-table-split-horizontal-undone.docx");
                         }
+                        step("Word — chỉnh chiều cao hàng và chiều rộng cột");
+                        saveTable("word-table-resize-before.docx");
+                        // Each operation has an independent freshly opened
+                        // baseline, without the prior text-edit Undo history.
+                        for(bool row : {true,false}){
+                            auto resizeDoc=engine->open(out/"word-table-resize-before.docx",&error);
+                            check(bool(resizeDoc),"Mở nguồn resize độc lập: "+error);
+                            if(!resizeDoc)continue;
+                            resizeDoc->setClientView(512,512,7680,7680,0,0,7680,7680);
+                            run(*resizeDoc,w::findNext("TABLE_CELL_MARKER",false));
+                            const bool found=has(selText(*resizeDoc),"TABLE_CELL_MARKER");
+                            check(found,"Tìm đúng ô trong nguồn resize");
+                            if(!found)continue;
+                            resizeDoc->postKey(LOK_KEYEVENT_KEYINPUT,0,1026);
+                            resizeDoc->postKey(LOK_KEYEVENT_KEYUP,0,1026);
+                            resizeDoc->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+                            resizeDoc->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+                            resizeDoc->waitInputIdle();
+                            auto snapshot=[&](const char* filename){
+                                const auto dest=out/filename;
+                                fs::remove(dest,ec);
+                                const auto saved=resizeDoc->saveAs(dest);
+                                check(saved.ok,std::string("Lưu resize ")+filename+": "+saved.message);
+                            };
+                            if(!row)snapshot("word-table-resize-width-before.docx");
+                            run(*resizeDoc,w::tableDimension(row,row?1440:720));
+                            snapshot(row?"word-table-resize-height.docx":"word-table-resize-width.docx");
+                            run(*resizeDoc,".uno:Undo");
+                            snapshot(row?"word-table-resize-height-undone.docx":"word-table-resize-width-undone.docx");
+                        }
                     }
                 }
             }
