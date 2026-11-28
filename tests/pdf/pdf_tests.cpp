@@ -4,6 +4,7 @@
 #include "pdf/PdfOps.h"
 #include "pdf/PdfOcr.h"
 #include "pdf/PdfTextEdit.h"
+#include "pdf/PdfEditSession.h"
 #ifdef DUNG_HAVE_PDFIUM_EDIT
 #include <fpdfview.h>
 #include <fpdf_edit.h>
@@ -934,6 +935,55 @@ int main(int argc, char** argv) {
 #endif
     }else{
         CHECK(!pdfedit::replaceObject(a,1,"A","B",P("no-sdk.pdf")).ok&&!QFileInfo::exists(P("no-sdk.pdf")),"missing optional SDK fails visibly");
+    }
+    // Real PDF editing session: two revisions, Undo/Redo, branching,
+    // refusing overwrite and tampered revisions, then publishing final copy.
+    {
+        const auto source=P("session-source.pdf");
+        const auto original=makePdf(2,QStringLiteral("SESSION"));
+        writeFile(source,original);
+        PdfEditSession session;
+        session.directory=std::make_unique<QTemporaryDir>();
+        CHECK(session.directory->isValid(),"create private PDF edit session");
+        if(session.directory->isValid()){
+            session.original=source;
+            const auto initial=session.directory->filePath("initial.pdf");
+            CHECK(QFile::copy(source,initial),"snapshot original PDF");
+            session.current=initial;session.identity=fingerprint(initial);
+            session.history.append({initial,session.identity,0,1});session.cursor=0;
+            const auto first=session.directory->filePath("first.pdf");
+            const auto second=session.directory->filePath("second.pdf");
+            const bool firstOk=addTextNote({initial,{}},1,20,30,QStringLiteral("Ghi chú một"),first,session.identity,true).ok;
+            CHECK(firstOk,"edit first session PDF");
+            if(firstOk){
+                session.appendRevision(first,fingerprint(first),1);
+                const bool secondOk=addTextNote({first,{}},2,40,50,QStringLiteral("Ghi chú hai"),second,session.identity,true).ok;
+                CHECK(secondOk,"edit second session PDF");
+                if(secondOk){
+                    session.appendRevision(second,fingerprint(second),2);
+                    CHECK(session.canUndo()&&!session.canRedo()&&session.changes==2,"session history tracks edits");
+                    CHECK(session.selectRevision(1)&&session.current==first&&session.changes==1&&session.canRedo(),"undo selects actual previous PDF");
+                    CHECK(session.selectRevision(2)&&session.current==second&&session.changes==2,"redo selects actual next PDF");
+                    CHECK(!session.selectRevision(-1)&&!session.selectRevision(99),"reject invalid history index");
+                    CHECK(session.selectRevision(1),"undo before divergent edit");
+                    const auto alternate=session.directory->filePath("alternate.pdf");
+                    if(addTextNote({first,{}},1,60,60,QStringLiteral("Ghi chú thay thế"),alternate,session.identity,true).ok){
+                        session.appendRevision(alternate,fingerprint(alternate),1);
+                        CHECK(!session.canRedo()&&!QFileInfo::exists(second),"new edit discards obsolete redo branch");
+                        const auto final=P("session-final.pdf");
+                        CHECK(!publishSession(session,source)&&readFile(source)==original,"never overwrite original PDF");
+                        CHECK(publishSession(session,final)&&fingerprint(final)==session.identity&&info(final).pages==2,
+                              "publish a verified final PDF");
+                        CHECK(!publishSession(session,final),"never overwrite exported final PDF");
+                        const auto before=readFile(final);
+                        writeFile(alternate,QByteArray("tampered"));
+                        CHECK(!session.selectRevision(session.cursor)&&!publishSession(session,P("session-tampered.pdf"))&&
+                              !QFileInfo::exists(P("session-tampered.pdf"))&&readFile(final)==before&&readFile(source)==original,
+                              "reject tampered working PDF and preserve published files");
+                    }else CHECK(false,"create divergent revision");
+                }
+            }
+        }
     }
     // --- helper kiểm tra chữ ASCII (dùng trong giao diện để báo trước)
     CHECK(isAsciiText(QStringLiteral("Trang {n}/{total} - CONFIDENTIAL")), "isAsciiText: chữ không dấu hợp lệ");

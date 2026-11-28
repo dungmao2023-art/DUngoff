@@ -2,6 +2,7 @@
 #include "PdfToolsDialog.h"
 #include "PdfOcr.h"
 #include "PdfTextEdit.h"
+#include "PdfEditSession.h"
 #include <QPlainTextEdit>
 #include <QTextCursor>
 #include <QTextDocument>
@@ -82,49 +83,6 @@ struct PdfSourceSnapshot {
             f.size() == size && f.lastModified() == modified && f.birthTime() == birth;
     }
 };
-// Reader edits can be staged in a private temporary directory. Never
-// overwrite the original or expose incomplete output to the user.
-struct PdfEditSession {
-    std::unique_ptr<QTemporaryDir> directory;
-    QString original,current;
-    int serial=0,changes=0;
-    QByteArray identity;
-    struct Revision {QString path;QByteArray sha;int changes;int page;};
-    QList<Revision> history;
-    int cursor=-1;
-    bool active() const{return bool(directory);}
-    bool canUndo() const{return cursor>0;}
-    bool canRedo() const{return cursor>=0&&cursor+1<history.size();}
-    void appendRevision(const QString& path,const QByteArray& hash,int page){
-        // A new edit after Undo abandons the redo branch.
-        while(history.size()>cursor+1){
-            const auto removed=history.takeLast();
-            if(removed.path!=original&&removed.path!=path)QFile::remove(removed.path);
-        }
-        history.append({path,hash,changes+1,page});cursor=int(history.size())-1;
-        current=path;identity=hash;++changes;
-        // Keep at most six versions and 512 MiB of working copies. Never
-        // delete the selected version or the actual user-owned source.
-        qint64 bytes=0;
-        for(const auto& rev:history)if(rev.path!=original)bytes+=qMax<qint64>(0,QFileInfo(rev.path).size());
-        while(history.size()>1&&(history.size()>6||bytes>512LL*1024*1024)){
-            const auto removed=history.takeFirst();--cursor;
-            if(removed.path!=original){bytes-=qMax<qint64>(0,QFileInfo(removed.path).size());QFile::remove(removed.path);}
-        }
-    }
-};
-static bool publishSession(const PdfEditSession& session,const QString& dest){
-    if(!session.active()||session.changes<=0||session.identity.size()!=32||
-       dungpdf::fingerprint(session.current)!=session.identity)return false;
-    const QFileInfo target(dest);
-    if(target.exists()||target.isSymLink())return false;
-    QTemporaryDir temp(QDir(target.absolutePath()).filePath(QStringLiteral("~dung-pdf-final-XXXXXX")));
-    if(!temp.isValid())return false;
-    const auto staged=temp.filePath(QStringLiteral("final.pdf"));
-    if(!QFile::copy(session.current,staged)||dungpdf::fingerprint(staged)!=session.identity||
-       dungpdf::fingerprint(session.current)!=session.identity||!dungpdf::info(staged).ok)return false;
-    return QFile::rename(staged,target.absoluteFilePath());
-}
 // Keep wheel scrolling native; Ctrl+wheel changes magnification instead.
 class PdfPageScroll final : public QScrollArea {
 public:
@@ -1585,7 +1543,11 @@ QWidget* PdfToolsDialog::buildSearch() {
         const auto info=printrender::pdfInfo(path);
         if(!info.ok){QMessageBox::warning(this,tr("Phiên PDF"),info.error);return false;}
         switchReader(path,page,info.pages);
-        if(!snapshot->has_value()||snapshot->value().path!=path||!snapshot->value().unchanged())return false;
+        if(!snapshot->has_value()||snapshot->value().path!=path||!snapshot->value().unchanged()){
+            const auto oldInfo=printrender::pdfInfo(session->current);
+            if(oldInfo.ok)switchReader(session->current,page,oldInfo.pages);
+            return false;
+        }
         session->directory.reset();session->original.clear();session->current.clear();session->identity.clear();session->serial=0;session->changes=0;
         session->history.clear();session->cursor=-1;
         syncSession();return true;
@@ -1635,7 +1597,10 @@ QWidget* PdfToolsDialog::buildSearch() {
             switchReader(previous.path,previous.page,info.pages);
             status->setText(tr("Không mở được bản trong lịch sử."));return;
         }
-        session->cursor=index;session->current=rev.path;session->identity=rev.sha;session->changes=rev.changes;
+        if(!session->selectRevision(index)){
+            switchReader(previous.path,previous.page,info.pages);
+            status->setText(tr("Bản trong lịch sử đã thay đổi."));return;
+        }
         syncSession();status->setText(tr("Phiên PDF · %1 chỉnh sửa đang áp dụng.").arg(session->changes));
     };
     connect(undoSession,&QPushButton::clicked,w,[=]{navigateHistory(-1);});
