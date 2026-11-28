@@ -85,6 +85,9 @@ public:
     }
     std::function<void(QPointF,QPointF)> select;
     std::function<void()> copySelection;
+    std::function<void(QPointF)> placeNote;
+    void setNoteMode(bool on){noteMode=on;drag=false;setCursor(on?Qt::CrossCursor:Qt::IBeamCursor);update();}
+    bool hasPage() const{return !page.image.isNull();}
     QString selectedText;
     void setPage(printrender::PagePreview p){page=std::move(p);selectedText.clear();selection.clear();drag=false;update();}
     void setSelection(const printrender::PageSelection& s){selection=s.bounds;selectedText=s.text;update();}
@@ -110,7 +113,9 @@ protected:
     }
     void mousePressEvent(QMouseEvent* e)override{
         if(e->button()!=Qt::LeftButton||!imageRect().contains(e->position()))return;
-        setFocus();start=current=e->position();drag=true;selectedText.clear();selection.clear();update();
+        setFocus();
+        if(noteMode){if(placeNote)placeNote(point(e->position()));return;}
+        start=current=e->position();drag=true;selectedText.clear();selection.clear();update();
     }
     void mouseMoveEvent(QMouseEvent* e)override{if(drag){current=e->position();update();}}
     void mouseReleaseEvent(QMouseEvent* e)override{
@@ -124,7 +129,7 @@ protected:
 private:
     printrender::PagePreview page;
     QList<QPolygonF> selection;
-    QPointF start,current;bool drag=false;
+    QPointF start,current;bool drag=false,noteMode=false;
 };
 QString human(qint64 b) {
     if (b < 1024) return QStringLiteral("%1 B").arg(b);
@@ -1265,7 +1270,12 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* bottom=new QHBoxLayout;root->addLayout(bottom);
     auto* copy=new QPushButton(tr("Sao chép chữ đã chọn"),w);copy->setEnabled(false);bottom->addWidget(copy);
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
-    auto* edit=new QPushButton(tr("Sửa chữ gốc đã chọn"),w);bottom->addWidget(edit);bottom->addStretch();edit->setEnabled(false);
+    auto* edit=new QPushButton(tr("Sửa chữ gốc đã chọn"),w);bottom->addWidget(edit);edit->setEnabled(false);
+    auto* annotate=new QPushButton(tr("Thêm ghi chú"),w);annotate->setCheckable(true);annotate->setEnabled(false);bottom->addWidget(annotate);bottom->addStretch();
+    connect(annotate,&QPushButton::toggled,w,[=](bool active){
+        canvas->setNoteMode(active);
+        if(active)status->setText(tr("Nhấp vào vị trí muốn đặt ghi chú trên trang. Bấm lại nút để hủy."));
+    });
     if(!pdfedit::available())edit->setToolTip(tr("Bản cài chưa có PDFium Editing SDK."));
     auto browsing=std::make_shared<bool>(false);
     auto refreshNav=[=]{
@@ -1275,7 +1285,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         next->setEnabled(row>=0&&(row+1<list->count()||(*browsing&&current<jump->maximum())));
         if(row>=0){QSignalBlocker guard(jump);jump->setValue(list->item(row)->data(Qt::UserRole).toInt());}
     };
-    auto clear=[=]{snapshot->reset();*browsing=false;list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);status->clear();refreshNav();};
+    auto clear=[=]{snapshot->reset();*browsing=false;list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);status->clear();refreshNav();};
     auto openRange=[=](int page){
         clear();
         const QString path=m_searchFile->text();
@@ -1311,6 +1321,22 @@ QWidget* PdfToolsDialog::buildSearch() {
     };
     connect(copy,&QPushButton::clicked,w,copyCurrent);
     canvas->copySelection=copyCurrent;
+    canvas->placeNote=[=](QPointF point){
+        annotate->setChecked(false);
+        if(!list->currentItem()||!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
+        const auto source=snapshot->value();
+        const auto identity=dungpdf::fingerprint(source.path);
+        const int page=list->currentItem()->data(Qt::UserRole).toInt();
+        if(identity.size()!=32||!source.unchanged()){rejectStale();return;}
+        bool ok=false;
+        const auto content=QInputDialog::getMultiLineText(this,tr("Ghi chú PDF"),
+            tr("Nhập ghi chú tiếng Việt cho trang %1 (tối đa 2.000 ký tự).").arg(page),QString(),&ok);
+        if(!ok)return;
+        if(content.trimmed().isEmpty()||content.size()>2000){status->setText(tr("Ghi chú phải có từ 1 đến 2.000 ký tự."));return;}
+        if(!source.unchanged()||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
+        const auto dest=pickDest(this,source.path,tr("Ghi chú"));if(dest.isEmpty())return;
+        showResult(runWithPasswords({source.path},[=]{return addTextNote(inputFor(source.path),page,point.x()*100,point.y()*100,content,dest,identity,true);}),tr("Ghi chú PDF"));
+    };
     // Invalidate the preview as soon as a normal external file update becomes
     // observable. Recheck at point of use even if the timer has not run.
     auto* freshness=new QTimer(w);
@@ -1383,7 +1409,7 @@ QWidget* PdfToolsDialog::buildSearch() {
     });
     connect(query,&QLineEdit::returnPressed,go,&QPushButton::click);
     connect(list,&QListWidget::currentItemChanged,w,[=](QListWidgetItem* item,QListWidgetItem*){
-        text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);refreshNav();if(!item)return;
+        text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);annotate->setChecked(false);annotate->setEnabled(false);refreshNav();if(!item)return;
         if(!snapshot->has_value()||!snapshot->value().unchanged()){
             rejectStale();return;
         }
@@ -1397,7 +1423,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         auto preview=printrender::previewText(snapshot->value().path,item->data(Qt::UserRole).toInt(),QSize(1000,1400),needleForPage,match->isChecked());
         if(!snapshot->value().unchanged()){rejectStale();return;}
         if(!preview.error.isEmpty())status->setText(preview.error);
-        else canvas->setPage(std::move(preview));
+        else {canvas->setPage(std::move(preview));annotate->setEnabled(canvas->hasPage()&&!findQpdf().isEmpty());}
         text->setPlainText(extracted.normalized(QString::NormalizationForm_C));
         const auto needle=needleForPage.trimmed().normalized(QString::NormalizationForm_C);
         const auto offsets=printrender::highlightOffsets(text->toPlainText(),needle,match->isChecked());

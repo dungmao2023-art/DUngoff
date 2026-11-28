@@ -819,6 +819,13 @@ int main(int argc, char** argv) {
             CHECK(p.exitCode()==0&&json.contains("/Text")&&json.contains(text.toUtf8()),"annotation contains real Unicode /Text contents");
         }
         CHECK(!addTextNote({a,{}},99,50,50,text,P("bad-note.pdf")).ok&&!QFileInfo::exists(P("bad-note.pdf")),"invalid note page rejected");
+        const auto clicked=P("clicked-note.pdf");
+        CHECK(addTextNote({a,{}},1,50,50,text,clicked,fingerprint(a),true).ok&&
+              info(clicked).pages==3&&readFile(a)==aBytes,"direct click creates real annotation and preserves source");
+        const auto stale=P("stale-note.pdf");
+        CHECK(!addTextNote({a,{}},1,50,50,text,stale,QByteArray(32,'x'),true).ok&&
+              !addTextNote({a,{}},1,50,50,text,stale,{},true).ok&&!QFileInfo::exists(stale),
+              "direct annotation rejects missing or stale source fingerprint");
         CHECK(!fillTextField({a,{}},"Name","Test",P("no-form.pdf")).ok&&!QFileInfo::exists(P("no-form.pdf")),"no form does not publish result");
         // Real single-widget text form with standard Helvetica resources.
         QByteArray bytes="%PDF-1.4\n";QList<int> offsets;

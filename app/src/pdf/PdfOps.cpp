@@ -1636,11 +1636,15 @@ bool simpleFields(const EditablePdf& e,TextForm* out,QHash<QString,QString>* ref
     return true;
 }
 }
-Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest){
+Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest,
+                   const QByteArray& expectedSource,bool centerAtPoint){
     Result r;
     if(text.trimmed().isEmpty()||text.size()>2000||!std::isfinite(xPercent)||!std::isfinite(yPercent)||xPercent<0||xPercent>100||yPercent<0||yPercent>100){
         r.error=tr("Nội dung hoặc vị trí chú thích không hợp lệ.");return r;}
     EditablePdf e;if(!loadEditable(in,&e,&r))return r;
+    if((centerAtPoint&&expectedSource.size()!=32)||(!expectedSource.isEmpty()&&e.sha!=expectedSource)){
+        r.error=tr("PDF nguồn đã thay đổi. Hãy chọn lại vị trí chú thích.");return r;
+    }
     if(page<1||page>e.pages.size()){r.error=tr("Trang không hợp lệ.");return r;}
     const QString ref=e.pages.at(page-1).toObject().value(QStringLiteral("object")).toString();
     auto d=dictOf(e.objects,ref);double b[4];
@@ -1657,7 +1661,10 @@ Result addTextNote(const Input& in,int page,double xPercent,double yPercent,cons
     const int max=e.meta.value(QStringLiteral("maxobjectid")).toInt(-1);
     if(max<1||max>=2000000000){r.error=tr("Không xác minh được số đối tượng PDF.");return r;}
     const QString noteRef=QString::number(max+1)+QStringLiteral(" 0 R");
-    const double x=b[0]+(b[2]-b[0]-24)*xPercent/100,y=b[3]-24-(b[3]-b[1]-24)*yPercent/100;
+    const double x=centerAtPoint?qBound(b[0],b[0]+(b[2]-b[0])*xPercent/100-12,b[2]-24):
+        b[0]+(b[2]-b[0]-24)*xPercent/100;
+    const double y=centerAtPoint?qBound(b[1],b[3]-(b[3]-b[1])*yPercent/100-12,b[3]-24):
+        b[3]-24-(b[3]-b[1]-24)*yPercent/100;
     const QJsonObject note{{QStringLiteral("/Type"),QStringLiteral("/Annot")},{QStringLiteral("/Subtype"),QStringLiteral("/Text")},
         {QStringLiteral("/Rect"),QJsonArray{x,y,x+24,y+24}},{QStringLiteral("/Contents"),QStringLiteral("u:")+text},
         {QStringLiteral("/Name"),QStringLiteral("/Note")},{QStringLiteral("/C"),QJsonArray{1.0,0.8,0.0}},

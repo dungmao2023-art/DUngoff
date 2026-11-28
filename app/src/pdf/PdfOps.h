@@ -123,7 +123,8 @@ Result removeBlankPages(const Input& in, const QString& dest, bool allowReplace 
                         const BlankReport* confirmed = nullptr);
 
 // Interactive PDF note and basic AcroForm text field (new copy only).
-Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest);
+Result addTextNote(const Input& in,int page,double xPercent,double yPercent,const QString& text,const QString& dest,
+                   const QByteArray& expectedSource = {},bool centerAtPoint = false);
 struct TextForm { bool ok=false; QString error; QStringList names; QStringList values; };
 TextForm textFormFields(const Input& in);
 Result fillTextField(const Input& in,const QString& name,const QString& value,const QString& dest);
