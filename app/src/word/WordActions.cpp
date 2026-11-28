@@ -141,17 +141,18 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
     if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
-    if(name==QLatin1String("listRestart")){
+    if(name==QLatin1String("listRestart")||name==QLatin1String("listContinue")){
         doc->waitInputIdle();
         const WordInsertTarget target(tab);
-        const QString command=QStringLiteral(".uno:NumberingStart");
+        const bool restart=name==QLatin1String("listRestart");
+        const QString command=restart?QStringLiteral(".uno:NumberingStart"):QStringLiteral(".uno:ContinueNumbering");
         const auto state=tab->states().value(command);
         if(target.caret.empty()||!target.selected.empty()||
            (state!=QLatin1String("enabled")&&state!=QLatin1String("true")&&state!=QLatin1String("false"))){
-            QMessageBox::information(parent,QObject::tr("Đánh số lại"),QObject::tr("Đặt con trỏ trong mục danh sách cần bắt đầu lại; không chọn nhiều đoạn."));
+            QMessageBox::information(parent,restart?QObject::tr("Đánh số lại"):QObject::tr("Tiếp tục đánh số"),QObject::tr("Đặt con trỏ trong mục danh sách cần sửa; không chọn nhiều đoạn. Lệnh phải khả dụng."));
             return true;
         }
-        if(state==QLatin1String("true")||!target.verify())return true;
+        if((restart&&state==QLatin1String("true"))||!target.verify())return true;
         doc->command(ss(command));doc->waitInputIdle();
         if(target.tab&&target.tab->view())target.tab->view()->setFocus();
         return true;

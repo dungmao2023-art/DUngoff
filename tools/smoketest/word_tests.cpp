@@ -593,6 +593,29 @@ int runWordTests(const fs::path& program, const fs::path& out) {
                 }
             }
         }
+        // Reopen the restarted file so Undo cannot accidentally undo Restart.
+        list.reset();
+        list=engine->open(out/"word-list-restarted.docx",&err);
+        check(bool(list),"Mở danh sách đã đánh số lại: "+err);
+        if(list){
+            list->setClientView(512,512,7680,7680,0,0,7680,7680);
+            run(*list,".uno:GoToStartOfDoc");run(*list,w::findNext("LIST_THIRD",false));
+            const bool found=selText(*list)=="LIST_THIRD";
+            check(found,"Tìm đúng mục cần tiếp tục số");
+            if(found){
+                list->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+                list->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+                list->waitInputIdle();settle();
+                const bool caretOnly=selText(*list).empty();
+                check(caretOnly,"Continue numbering uses one caret");
+                if(caretOnly){
+                    run(*list,".uno:ContinueNumbering");
+                    snap("word-list-continued.docx");
+                    run(*list,".uno:Undo");
+                    snap("word-list-continue-undone.docx");
+                }
+            }
+        }
     }
 
     // ---------------- thống kê lệnh engine đã báo trạng thái ----------------
