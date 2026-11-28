@@ -87,7 +87,8 @@ void SlideShow::render() {
     m_img = QImage(pw, ph, QImage::Format_ARGB32_Premultiplied);
     if (m_img.isNull()) return;
     m_img.fill(Qt::white);
-    m_doc->paintPartTile(m_img.bits(), m_part, pw, ph, 0, 0, int(m_w), int(m_h));
+    if(!m_doc->paintPartTile(m_img.bits(), m_part, pw, ph, 0, 0, int(m_w), int(m_h)))
+        m_img=QImage(); // Stop autoplay; paintEvent shows a render-unavailable message.
 }
 
 void SlideShow::paintEvent(QPaintEvent*) {

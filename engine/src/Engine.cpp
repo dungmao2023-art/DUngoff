@@ -891,8 +891,15 @@ void Document::paintTile(uint8_t* buffer, int pxW, int pxH, int twipX, int twipY
     onEngine([&] { m_doc->paintTile(buffer, pxW, pxH, twipX, twipY, twipW, twipH); });
 }
 
-void Document::paintPartTile(uint8_t* buffer, int part, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH) {
-    onEngine([&] { m_doc->paintPartTile(buffer, part, 0, pxW, pxH, twipX, twipY, twipW, twipH); });
+bool Document::paintPartTile(uint8_t* buffer, int part, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH) {
+    if (!buffer || part < 0 || pxW <= 0 || pxH <= 0 || twipW <= 0 || twipH <= 0) return false;
+    return onEngine([&]() -> bool {
+        LibreOfficeKitDocument* d = m_doc->get();
+        if (!d || !d->pClass || part >= m_doc->getParts()) return false;
+        if (!LIBREOFFICEKIT_DOCUMENT_HAS(d, paintPartTile) || !d->pClass->paintPartTile) return false;
+        m_doc->paintPartTile(buffer, part, 0, pxW, pxH, twipX, twipY, twipW, twipH);
+        return true;
+    });
 }
 
 void Document::setPartMode(int mode) { onEngine([&] { m_doc->setPartMode(mode); }); }

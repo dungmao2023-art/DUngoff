@@ -126,7 +126,8 @@ public:
     void paintTile(uint8_t* buffer, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH);
     // Vẽ MỘT TRANG/SLIDE bất kỳ (không đổi trang hiện tại) vào bộ đệm BGRA premultiplied.
     // Dùng cho hình thu nhỏ và trình chiếu. mode: 0 = bình thường.
-    void paintPartTile(uint8_t* buffer, int part, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH);
+    // False: invalid input or optional LOK ABI unavailable; buffer untouched.
+    bool paintPartTile(uint8_t* buffer, int part, int pxW, int pxH, int twipX, int twipY, int twipW, int twipH);
     // Chế độ hiển thị của trang chiếu: 0 = trang chiếu, 1 = trang ghi chú (chỉ Impress).
     void setPartMode(int mode);
     // Thông tin trang dạng JSON của engine (vd. {"visible":"1","mode":0,...}); rỗng nếu engine không hỗ trợ.
