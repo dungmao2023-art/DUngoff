@@ -56,7 +56,7 @@ int main(int argc,char** argv){
     const auto shapes=ppttransition::slideShapes(args[2],1,&error);
     if(shapes.size()!=2){std::cerr<<"Expected two fixture shapes: "<<error.toStdString()<<std::endl;return 1;}
     ppttransition::AnimationOptions options;
-    options.shapeId=shapes.first().id;options.fade=false;options.durationMs=1;
+    options.shapeId=shapes.first().id;options.fade=false;options.durationMs=100;
     const auto animated=temp.filePath("animated.pptx");
     const auto made=ppttransition::createAnimationCopy(args[2],animated,1,options);
     if(!made.ok){std::cerr<<"Cannot create animated fixture: "<<made.error.toStdString()<<std::endl;return 1;}
