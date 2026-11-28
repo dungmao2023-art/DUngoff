@@ -506,13 +506,11 @@ int runWordTests(const fs::path& program, const fs::path& out) {
 
     step("Word — cấp danh sách và đánh số lại native");
     d2p.reset();
-    auto list=engine->createNew(DocKind::Text,&err);
-    check(bool(list),"Tạo fixture danh sách "+err);
+    auto list=engine->open(out/"word-list-input.docx",&err);
+    check(bool(list),"Mở fixture danh sách nhiều cấp "+err);
     if(list){
         list->setClientView(512,512,7680,7680,0,0,7680,7680);
-        list->typeText(u"LIST_FIRST\nLIST_SECOND\nLIST_THIRD");
-        list->waitInputIdle();selectAll(*list);
-        run(*list,".uno:DefaultNumbering");
+        list->waitInputIdle();
         auto snap=[&](const char* filename){
             const fs::path target=out/filename;
             fs::remove(target,ec);

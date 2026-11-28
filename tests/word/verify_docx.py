@@ -103,8 +103,16 @@ def list_snapshot(filename):
             level = num.find(W+"ilvl")
             entries[text] = (num.find(W+"numId").get(W+"val"), int(level.get(W+"val")) if level is not None else 0)
         return entries, numbering
-base, _ = list_snapshot("word-list-baseline.docx")
+base, definitions = list_snapshot("word-list-baseline.docx")
 check(set(base)=={"LIST_FIRST","LIST_SECOND","LIST_THIRD"}, "list baseline contains all three numbered paragraphs")
+if len(base)==3 and definitions is not None:
+    numid=base["LIST_FIRST"][0]
+    nums=[n for n in definitions.findall(W+"num") if n.get(W+"numId")==numid]
+    abstract_id=nums[0].find(W+"abstractNumId").get(W+"val") if len(nums)==1 else None
+    abstract=[n for n in definitions.findall(W+"abstractNum") if n.get(W+"abstractNumId")==abstract_id]
+    levels={int(n.get(W+"ilvl")) for n in abstract[0].findall(W+"lvl")} if len(abstract)==1 else set()
+    check({0,1,2}.issubset(levels),"baseline has explicit multilevel numbering definitions")
+    check(all(v==(numid,0) for v in base.values()),"all markers share one initial level-zero sequence")
 deeper, _ = list_snapshot("word-list-deeper.docx")
 if set(base)==set(deeper)=={"LIST_FIRST","LIST_SECOND","LIST_THIRD"}:
     check(deeper["LIST_SECOND"][1]==base["LIST_SECOND"][1]+1, "list level increased only for selected paragraph")
