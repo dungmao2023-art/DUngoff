@@ -338,7 +338,7 @@ int runWordTests(const fs::path& program, const fs::path& out) {
             d.postKey(LOK_KEYEVENT_KEYINPUT,0,1286);
             d.postKey(LOK_KEYEVENT_KEYUP,0,1286);
             d.waitInputIdle();selectAll(d);
-            check(has(selText(d),"MẪU_THAY ĐÍCH_GIỮ ")&&!has(selText(d),"ĐÍCH_GIỮ MẪU_THAY"),"Thay rỗng chỉ xóa kết quả đang chọn");
+            check(has(selText(d),"MẪU_THAY ĐÍCH_GIỮ")&&!has(selText(d),"ĐÍCH_GIỮ MẪU_THAY"),"Thay rỗng chỉ xóa kết quả đang chọn");
             run(d,".uno:Undo");selectAll(d);
             check(selText(d)==singleBefore,"Undo xóa vùng chọn khôi phục đầy đủ");
         }else check(false,"Tìm lại vùng trước khi xóa");
