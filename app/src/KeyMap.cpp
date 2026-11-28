@@ -83,6 +83,10 @@ LokKey toLokKey(const QKeyEvent* e) {
 std::vector<ImeOp> imeToOps(const QString& commit, int replaceStart, int replaceLen, bool* unsupported) {
     std::vector<ImeOp> ops;
     if (unsupported) *unsupported = false;
+    if (replaceLen < 0 || (replaceLen == 0 && replaceStart != 0)) {
+        if (unsupported) *unsupported = true;
+        return ops;
+    }
     if (replaceLen > 0) {
         // Backspace/Delete can only replace a range touching the caret.
         // A disjoint range before it must not delete the adjacent characters.
@@ -91,8 +95,9 @@ std::vector<ImeOp> imeToOps(const QString& commit, int replaceStart, int replace
             const int before = -replaceStart;
             for (int i = 0; i < before; ++i) ops.push_back({ImeOp::Backspace, 0});
             for (int i = 0; i < replaceLen - before; ++i) ops.push_back({ImeOp::Delete, 0});
-        } else if (unsupported) {
-            *unsupported = true;
+        } else {
+            if (unsupported) *unsupported = true;
+            return ops; // Reject the whole edit, including its commit string.
         }
     }
     for (const QChar c : commit) ops.push_back({ImeOp::Char, int(c.unicode())});
@@ -106,7 +111,11 @@ std::vector<ImeStep> imePlan(const QString& preedit, const QString& commit, int 
     auto preeditStep = [](const QString& t) { ImeStep s; s.kind = ImeStep::Preedit; s.text = t; return s; };
     auto endStep = [] { ImeStep s; s.kind = ImeStep::EndPreedit; return s; };
     if (composing) {
-        if (replaceLen > 0 && unsupported) *unsupported = true;      // đang soạn dở: không thay thêm phần khác
+        if (replaceLen != 0 || replaceStart != 0) {
+            if (unsupported) *unsupported = true;
+            if (composingAfter) *composingAfter = composing;
+            return steps; // No partial commit of an unsupported replacement.
+        }
         if (!commit.isEmpty()) {
             steps.push_back(preeditStep(commit));                      // commit thay chữ đang soạn
             steps.push_back(endStep());
@@ -120,7 +129,14 @@ std::vector<ImeStep> imePlan(const QString& preedit, const QString& commit, int 
         if (composingAfter) *composingAfter = !preedit.isEmpty();
         return steps;
     }
-    for (const ImeOp& op : imeToOps(commit, replaceStart, replaceLen, unsupported)) {
+    bool rejected = false;
+    const auto ops = imeToOps(commit, replaceStart, replaceLen, &rejected);
+    if (rejected) {
+        if (unsupported) *unsupported = true;
+        if (composingAfter) *composingAfter = composing;
+        return steps;
+    }
+    for (const ImeOp& op : ops) {
         ImeStep s;
         s.kind = op.kind == ImeOp::Backspace ? ImeStep::Backspace : op.kind == ImeOp::Delete ? ImeStep::Delete : ImeStep::Char;
         s.charCode = op.charCode;

@@ -11,6 +11,7 @@
 #endif
 #include <LibreOfficeKit/LibreOfficeKitEnums.h>
 #include <QPointer>
+#include <optional>
 #include "../vntext/VnText.h"
 #include "../vntext/SyllableCheck.h"
 #include "../tools/mailmerge/MailMergeWidget.h"
@@ -488,28 +489,61 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
         form->addRow(QObject::tr("Tìm:"),what);
         form->addRow(QObject::tr("Thay bằng:"),with);
         root->addLayout(form);
-        auto* note=new QLabel(QObject::tr("Tìm trước/sau trong tài liệu. Thay tất cả cần xác nhận; để trống ô Thay bằng nếu muốn xóa nội dung tìm thấy."),&dlg);
-        note->setWordWrap(true);root->addWidget(note);
+        auto* note=new QLabel(QObject::tr("Tìm trước/sau, rồi thay vùng chữ khớp chính xác chữ hoa/thường. Để trống ô Thay bằng nếu muốn xóa. Thay tất cả cần xác nhận."),&dlg);
+        note->setTextFormat(Qt::PlainText);note->setWordWrap(true);root->addWidget(note);
         auto* buttons=new QDialogButtonBox(QDialogButtonBox::Close,&dlg);
         auto* prev=buttons->addButton(QObject::tr("Tìm trước"),QDialogButtonBox::ActionRole);
         auto* next=buttons->addButton(QObject::tr("Tìm tiếp"),QDialogButtonBox::ActionRole);
+        auto* replaceSelected=buttons->addButton(QObject::tr("Thay vùng tìm thấy"),QDialogButtonBox::ActionRole);
         auto* replace=buttons->addButton(QObject::tr("Thay tất cả"),QDialogButtonBox::ActionRole);
         root->addWidget(buttons);
-        auto ready=[&]{return live && live->document()==doc && !what->text().isEmpty();};
-        auto refresh=[&]{prev->setEnabled(ready());next->setEnabled(ready());replace->setEnabled(ready()&&!live->readOnly());};
-        QObject::connect(what,&QLineEdit::textChanged,&dlg,[&]{refresh();});
+        std::optional<WordInsertTarget> match;
+        auto ready=[&]{return live && live->document()==doc && live->view() && !what->text().isEmpty();};
+        auto refresh=[&]{
+            const bool canEdit=ready()&&!live->readOnly();
+            prev->setEnabled(ready());next->setEnabled(ready());replace->setEnabled(canEdit);
+            replaceSelected->setEnabled(canEdit&&match.has_value());
+        };
+        QObject::connect(what,&QLineEdit::textChanged,&dlg,[&]{match.reset();refresh();});
         auto find=[&](bool backward){
-            if(!ready())return;
+            match.reset();
+            if(!ready()){refresh();return;}
             doc->waitInputIdle();
             send(live.data(),findNext(ss(what->text()),backward));
             doc->waitInputIdle();
-            if(doc->selectionAs("text/plain;charset=utf-8").empty())
+            if(!ready()){refresh();return;}
+            WordInsertTarget found(live.data());
+            if(found.selected==ss(what->text()) && !found.selection.empty()){
+                match.emplace(std::move(found));
+                note->setText(QObject::tr("Vùng chữ khớp chính xác: %1. Có thể thay một lần hoặc tiếp tục tìm.").arg(what->text()));
+            }else if(found.selected.empty())
                 note->setText(QObject::tr("Engine không trả vùng chọn. Kiểm tra từ khóa."));
-            else note->setText(QObject::tr("Đã gửi lệnh tìm; đóng hộp thoại để xem vùng chọn trong tài liệu."));
+            else note->setText(QObject::tr("Vùng chọn không khớp chính xác từ khóa; không cho thay một lần."));
+            refresh();
         };
         QObject::connect(prev,&QPushButton::clicked,&dlg,[&]{find(true);});
         QObject::connect(next,&QPushButton::clicked,&dlg,[&]{find(false);});
         QObject::connect(what,&QLineEdit::returnPressed,&dlg,[&]{find(false);});
+        QObject::connect(replaceSelected,&QPushButton::clicked,&dlg,[&]{
+            if(!ready()||live->readOnly()||!match)return;
+            const auto target=*match;
+            match.reset();refresh();
+            if(target.selected!=ss(what->text()) || !target.verify())return;
+            const QString replacement=with->text();
+            if(ss(replacement)==target.selected){
+                note->setText(QObject::tr("Nội dung thay thế giống vùng chọn; không sửa tài liệu."));
+                return;
+            }
+            bool submitted=true;
+            if(replacement.isEmpty()){
+                doc->postKey(LOK_KEYEVENT_KEYINPUT,0,1286);
+                doc->postKey(LOK_KEYEVENT_KEYUP,0,1286);
+            }else submitted=doc->paste("text/plain;charset=utf-8",ss(replacement));
+            doc->waitInputIdle();
+            note->setText(submitted
+                ? QObject::tr("Đã gửi thao tác thay vùng chọn. Đóng hộp thoại để kiểm tra hoặc Ctrl+Z để hoàn tác.")
+                : QObject::tr("Engine không xác nhận thao tác thay chữ. Hãy kiểm tra tài liệu trước khi thử lại."));
+        });
         QObject::connect(replace,&QPushButton::clicked,&dlg,[&]{
             if(!ready()||live->readOnly())return;
             const QString needle=what->text(),replacement=with->text();

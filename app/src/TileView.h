@@ -110,6 +110,7 @@ private:
     QRect cellOutlineTwips() const;
     void cancelComposition();       // huỷ chữ đang soạn (mất focus / Escape / bấm chuột)
     bool m_composing = false;       // engine đang giữ chữ đang soạn (preedit)
+    bool m_resettingIme = false;    // suppress reentrant events while resetting rejected composition
     bool m_caretVisible = false;
     bool m_caretVisSeen = false;   // engine đã từng gửi CURSOR_VISIBLE chưa
     bool m_blinkOn = true;
