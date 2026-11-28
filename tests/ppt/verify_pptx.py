@@ -82,5 +82,41 @@ for filename, expected in (
     order, info = layer_shapes(filename)
     check(order == expected, filename + ": native layer order")
     check(info == geometry, filename + ": object geometry and text preserved")
+# Group geometry is in a local coordinate system; transform into slide
+# coordinates before checking against the ungrouped baseline.
+from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.oxml.ns import qn
+for filename, expected_group in (
+    ("ppt-objects-grouped.pptx", True),
+    ("ppt-objects-ungrouped.pptx", False),
+    ("ppt-objects-ungroup-undone.pptx", True),
+    ("ppt-objects-group-undone.pptx", False),
+):
+    deck=Presentation(layer_dir / filename)
+    shapes=list(deck.slides[0].shapes)
+    check(len(deck.slides)==1, filename+": single slide preserved")
+    is_group=len(shapes)==1 and shapes[0].shape_type==MSO_SHAPE_TYPE.GROUP
+    check(is_group==expected_group, filename+": group topology")
+    if is_group:
+        g=shapes[0]
+        xf=g._element.find(qn("p:grpSpPr")).find(qn("a:xfrm"))
+        off=xf.find(qn("a:off")); ext=xf.find(qn("a:ext"))
+        co=xf.find(qn("a:chOff")); ce=xf.find(qn("a:chExt"))
+        sx=int(ext.get("cx"))/int(ce.get("cx"))
+        sy=int(ext.get("cy"))/int(ce.get("cy"))
+        pos=lambda s:(round(int(off.get("x"))+(s.left-int(co.get("x")))*sx),
+                      round(int(off.get("y"))+(s.top-int(co.get("y")))*sy),
+                      round(s.width*sx),round(s.height*sy))
+        children=list(g.shapes)
+    else:
+        children=shapes
+        pos=lambda s:(s.left,s.top,s.width,s.height)
+    order=[s.text for s in children if s.has_text_frame]
+    positions={s.text:pos(s) for s in children if s.has_text_frame}
+    print(filename, order, positions)
+    check(len(children)==2 and order==baseline, filename+": original objects and order retained")
+    check(positions.keys()==geometry.keys() and all(
+        abs(a-b)<=360 for k in positions for a,b in zip(positions[k],geometry[k])),
+        filename+": absolute geometry preserved within 0.01 mm")
 print("\nKẾT QUẢ XÁC MINH PPTX:", "CÓ LỖI" if fail else "TẤT CẢ ĐẠT")
 sys.exit(1 if fail else 0)

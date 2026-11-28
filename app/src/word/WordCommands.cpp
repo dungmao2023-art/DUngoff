@@ -64,6 +64,12 @@ Call insertTable(int c, int r) { return {".uno:InsertTable", join({argLong("Colu
 Call splitCell(int amount, bool horizontal) {
     return {".uno:SplitCell", join({argLong("Amount", amount), argBool("Horizontal", horizontal), argBool("Proportional", false)})};
 }
+Call tableDimension(bool row, unsigned twips) {
+    const std::string name=row?"TableRowHeight":"TableColumWidth";
+    // CntUInt32Item::PutValue in svl/source/items/cintitem.cxx
+    // extracts sal_Int32, despite the property's UInt32 item name.
+    return {".uno:"+name,argLong(name,twips)};
+}
 Call enablePageBand(bool header, const std::string& pageStyle) {
     return {header ? ".uno:InsertPageHeader" : ".uno:InsertPageFooter", join({argString("PageStyle", pageStyle), argBool("On", true)})};
 }

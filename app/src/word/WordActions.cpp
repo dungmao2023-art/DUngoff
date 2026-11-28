@@ -140,6 +140,28 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
     if (name == QLatin1String("reviewCount")) name = QStringLiteral("count");
     if (name == QLatin1String("adminMargin")) name = QStringLiteral("marginVN");
 
+    if(name==QLatin1String("tableRowHeight")||name==QLatin1String("tableColumnWidth")){
+        const bool row=name==QLatin1String("tableRowHeight");
+        const QString command=row?QStringLiteral(".uno:TableRowHeight"):QStringLiteral(".uno:TableColumWidth");
+        const WordInsertTarget target(tab);
+        if(!target.selected.empty()||target.caret.empty()||
+           target.tab->states().value(command)==QLatin1String("disabled")){
+            QMessageBox::information(parent,QObject::tr("Kích thước bảng"),QObject::tr("Đặt con trỏ trong một ô bảng, không chọn nhiều ô."));
+            return true;
+        }
+        bool ok=false;
+        const double cm=QInputDialog::getDouble(parent,row?QObject::tr("Chiều cao hàng"):QObject::tr("Chiều rộng cột"),
+            row?QObject::tr("Chiều cao (cm), tùy kiểu hàng hiện tại. Có thể hoàn tác bằng Ctrl+Z."):
+                QObject::tr("Chiều rộng (cm), có thể bị giới hạn bởi khổ bảng. Có thể hoàn tác bằng Ctrl+Z."),
+            row?1.0:2.0,0.5,row?10.0:15.0,2,&ok);
+        if(!ok||!target.verify())return true;
+        if(target.tab->states().value(command)==QLatin1String("disabled"))return true;
+        const auto twips=static_cast<unsigned>(cm*1440.0/2.54+0.5);
+        send(target.tab.data(),tableDimension(row,twips));
+        doc->waitInputIdle();
+        if(target.tab&&target.tab->view())target.tab->view()->setFocus();
+        return true;
+    }
     if(name==QLatin1String("tableSplitCell")){
         const WordInsertTarget target(tab);
         const QString command=QStringLiteral(".uno:SplitCell");

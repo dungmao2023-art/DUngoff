@@ -505,6 +505,29 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         layers->command(".uno:Undo");layers->waitInputIdle();
         snapshot("ppt-layer-backward-undone.pptx");
     }
+    layers.reset();
+    step("PowerPoint — nhóm, bỏ nhóm và Undo trên fixture độc lập");
+    auto grouped=engine->open(out/"ppt-layer-input.pptx",&err);
+    check(bool(grouped),"Mở fixture nhóm: "+err);
+    if(grouped){
+        grouped->setClientView(512,512,7680,7680,0,0,7680,7680);
+        renderHash(*grouped,0);
+        auto snap=[&](const char* file){
+            const auto dest=out/file;
+            fs::remove(dest,ec);
+            const auto saved=grouped->saveAs(dest);
+            check(saved.ok,std::string("Lưu nhóm ")+file+": "+saved.message);
+        };
+        grouped->command(".uno:SelectAll");grouped->waitInputIdle();
+        grouped->command(".uno:FormatGroup");grouped->waitInputIdle();
+        snap("ppt-objects-grouped.pptx");
+        grouped->command(".uno:FormatUngroup");grouped->waitInputIdle();
+        snap("ppt-objects-ungrouped.pptx");
+        grouped->command(".uno:Undo");grouped->waitInputIdle();
+        snap("ppt-objects-ungroup-undone.pptx");
+        grouped->command(".uno:Undo");grouped->waitInputIdle();
+        snap("ppt-objects-group-undone.pptx");
+    }
 
     std::cout << (g_fail ? "\nKẾT QUẢ PPT: CÓ LỖI\n" : "\nKẾT QUẢ PPT: TẤT CẢ ĐẠT\n");
     std::cout.flush();

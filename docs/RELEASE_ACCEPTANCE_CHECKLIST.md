@@ -26,7 +26,8 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] W01.1 Soạn văn bản 3 trang tiếng Việt: chọn đoạn, font/cỡ/màu, đậm/nghiêng/gạch chân, căn trái/phải/giữa/đều, spacing, indent; Undo/Redo và roundtrip.
 - [ ] W01.2 Bullet/numbering nhiều cấp, tiếp tục và khởi động lại danh sách.
 - [ ] W02.1 Tạo bảng 4×5; chèn/xóa hàng cột, gộp/tách, chỉnh rộng/cao; giữ nội dung khi lưu.
-  - 28/11: UI tách ô 2–10 theo dọc/ngang bằng .uno:SplitCell (Amount/Horizontal/Proportional theo sw/sdi/swriter.sdi upstream 24.2), guard tài liệu/vùng chọn; test DOCX thay đổi cấu trúc và Undo hai hướng. Chờ CI v2/Linux và GUI; chưa nghiệm thu resize/ảnh.
+  - 28/11: UI tách ô 2–10 theo dọc/ngang bằng .uno:SplitCell (Amount/Horizontal/Proportional theo sw/sdi/swriter.sdi upstream 24.2), guard tài liệu/vùng chọn; test DOCX thay đổi cấu trúc và Undo hai hướng. Chờ CI v2/Linux và GUI.
+  - 28/11: thêm đặt cao hàng/rộng cột (cm), native .uno:TableRowHeight/.uno:TableColumWidth theo sw/sdi/swriter.sdi và tabsh.cxx upstream; thử DOCX 1440/720 twip và Undo. UNO standalone Linux 25.2.3.2 xác nhận 1440/720 twip và Undo. CI 46104456794 Linux: split cả hai hướng PASS; resize width mất kiểm tra TABLE_SECOND_CELL. CI 46105069579 Linux xác nhận cả hai lệnh no-op, Undo đã hoàn tác chữ nhập trước đó. Upstream svl/source/items/cintitem.cxx CntUInt32Item::PutValue đọc sal_Int32, đổi JSON từ unsigned long sang long. Mỗi ca resize mở riêng baseline không có lịch sử nhập chữ. Giữ nguyên gate kích thước, nội dung và Undo, chờ CI mới. Ảnh/GUI còn thiếu.
 - [ ] W02.2 Chèn ảnh, resize giữ tỷ lệ, wrap, kéo vị trí; link, ký hiệu, ngắt trang.
 - [ ] W03.1 A4, lề tùy chỉnh theo nhu cầu hành chính, portrait/landscape, header/footer, số trang; kiểm preview/in.
 - [ ] W03.2 Heading 1–3, tạo TOC thật, sửa heading và cập nhật mục lục; mở lại DOCX.
@@ -46,6 +47,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] X04.1 FillDown/Right, chuỗi ngày/số, kéo fill handle; công thức và tham chiếu cập nhật đúng.
 - [ ] X05.1 Filter, sort một/nhiều khóa, freeze; dữ liệu nguyên hàng, header và công thức không lệch.
 - [ ] X05.2 Conditional formatting, data validation/dropdown, bảo vệ sheet; kiểm XLSX thật.
+  - 28/11: #170 CI 46104703528 Windows v2/Linux PASS trên 86f6117: kiểm input/pristine/edited XML allowBlank, showErrorMessage, errorStyle; bảo toàn ô khóa/mở, dữ liệu, công thức, vùng dropdown tiếng Việt. Đồng bộ main sau #171/#172; chờ CI tích hợp và GUI tạo/sửa rule, không nâng stage.
 - [ ] X06.1 Tạo biểu đồ cột/đường/tròn từ vùng; sửa tiêu đề, nguồn, loại; thay dữ liệu cập nhật chart; lưu và mở lại Excel.
 - [ ] X07.1 Tạo PivotTable thật từ vùng có tiêu đề, chọn row/column/value, SUM/COUNT; sửa cấu hình, refresh sau đổi số và nhóm; kiểm cache và output XLSX.
 - [ ] X08.1 CSV nhập/xuất Unicode, dấu phân cách/quote/newline, mã dài/0 đầu; dedup/đối soát; số thành chữ không phá định dạng.
@@ -55,7 +57,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 
 ### B1 — PowerPoint: ca làm bài thuyết trình
 - [ ] P01.1 Chèn/sửa textbox, ảnh/hình, kéo/resize/rotate; căn chỉnh, thứ tự lớp, nhóm/bỏ nhóm; nhiều đối tượng, Undo/Redo.
-  - 28/11: đưa lớp lên/xuống bằng .uno:Forward/.uno:Backward (sd/sdi/sdraw.sdi, drviews2.cxx upstream), guard graphic selection/state. Fixture 2 hình chồng nhau, kiểm thứ tự PPTX, geometry, chữ và Undo. Chờ CI/GUI, không nâng stage.
+  - 28/11: #176 layer order Linux CI 46107375044 PASS; đồng bộ main #173/#170; bổ sung .uno:FormatGroup/.uno:FormatUngroup với guard selection/state và fixture độc lập kiểm group topology, hình/chữ/thứ tự, tọa độ tuyệt đối và Undo hai chiều. Chờ CI mới/GUI.
 - [ ] P02.1 Tạo/xóa/nhân đôi/sắp xếp slide, layout, thumbnail, notes; mở lại PPTX.
 - [ ] P03.1 F5/Shift+F5, chuyển slide/phím ESC, quay đúng slide; toàn màn hình/cửa sổ, màn hình ngoài.
   - 28/11: chế độ tự chuyển slide theo số giây mỗi trang (chỉ phiên trình chiếu); T tạm dừng/tiếp tục, B/W hoặc nhập số tạm dừng timer, bỏ slide ẩn và giữ slide cuối. Test quy tắc timer, CI/GUI còn chờ. Không đọc timing riêng của PPTX hoặc phát animation đối tượng; không nâng stage.

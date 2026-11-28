@@ -27,6 +27,8 @@ Call paragraphStyle(const std::string& styleName);
 Call insertTable(int columns, int rows);
 // LibreOffice sw/sdi/swriter.sdi: Amount, Horizontal, Proportional.
 Call splitCell(int amount, bool horizontal);
+// Writer TableRowHeight / TableColumWidth use twips, unlike Calc width commands.
+Call tableDimension(bool row, unsigned twips);
 // Explicit On=true: never toggle off or delete existing page headers/footers.
 Call enablePageBand(bool header, const std::string& pageStyle);
 Call insertFootnote(bool endnote);
