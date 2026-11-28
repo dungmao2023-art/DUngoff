@@ -109,6 +109,18 @@ int main(int argc,char** argv){
             QKeyEvent event(QEvent::KeyPress,int(combo.key()),combo.keyboardModifiers());
             QApplication::sendEvent(canvas,&event);
         };
+        auto pressKey=[&](int key,Qt::KeyboardModifiers mods=Qt::NoModifier){
+            QKeyEvent event(QEvent::KeyPress,key,mods);QApplication::sendEvent(canvas,&event);
+        };
+        note->click();
+        check(note->isChecked()&&canvas->hasFocus(),"placement mode focuses page");
+        pressKey(Qt::Key_Escape);
+        check(!note->isChecked()&&dlg->isVisible()&&dungpdf::fingerprint(source)==hash,"Escape cancels placement without closing or modifying PDF");
+        const int beforePage=page->value();
+        pressKey(beforePage==1?Qt::Key_PageDown:Qt::Key_PageUp,Qt::ControlModifier);
+        check(page->value()==(beforePage==1?2:1),"keyboard navigates document pages");
+        pressKey(beforePage==1?Qt::Key_PageUp:Qt::Key_PageDown,Qt::ControlModifier);
+        check(page->value()==beforePage,"keyboard returns to previous page");
         pressShortcut(QKeySequence::Find);
         check(!search->isHidden()&&query->hasFocus(),"find shortcut opens and focuses search");
         searchToggle->click();
