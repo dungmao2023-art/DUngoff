@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "PdfTextEdit.h"
 #include <QFile>
+#include <QCryptographicHash>
 #include <QFileInfo>
 #include <QDir>
 #include <QTemporaryDir>
@@ -68,7 +69,7 @@ QStringList texts(FPDF_PAGE p,FPDF_TEXTPAGE t){
 }
 }
 #endif
-dungpdf::Result replaceObject(const QString& source,int page,const QString& oldText,const QString& newText,const QString& dest){
+dungpdf::Result replaceObject(const QString& source,int page,const QString& oldText,const QString& newText,const QString& dest,const QByteArray& expectedSource){
 #ifndef DUNG_HAVE_PDFIUM_EDIT
     return fail(QStringLiteral("Bản cài chưa có PDFium Editing SDK."));
 #else
@@ -81,6 +82,9 @@ dungpdf::Result replaceObject(const QString& source,int page,const QString& oldT
     const QByteArray bytes=input.readAll();
     if(input.error()!=QFileDevice::NoError||bytes.size()!=input.size())return fail(QStringLiteral("Không đọc đủ PDF."));
     input.close();
+    if(!expectedSource.isEmpty()&&(expectedSource.size()!=32||
+       QCryptographicHash::hash(bytes,QCryptographicHash::Sha256)!=expectedSource))
+        return fail(QStringLiteral("PDF nguồn đã thay đổi. Hãy chọn lại chữ."));
     QMutexLocker lock(&mutex);Session session;
     Doc doc{FPDF_LoadMemDocument64(bytes.constData(),size_t(bytes.size()),nullptr)};
     if(!doc.p)return fail(QStringLiteral("Không mở được PDF."));
@@ -131,7 +135,8 @@ dungpdf::Result replaceObject(const QString& source,int page,const QString& oldT
         if(!t.p||texts(p.p,t.p)!=expected)return fail(QStringLiteral("Font gốc không hỗ trợ đủ ký tự mới hoặc chữ sau khi mở lại không khớp. PDF nguồn không thay đổi."));
     }
     const auto info=dungpdf::info(path);
-    if(!info.ok||info.pages!=pages||QFileInfo::exists(dest)||QFileInfo(dest).isSymLink()||!QFile::rename(path,dest))
+    if(!info.ok||info.pages!=pages||(!expectedSource.isEmpty()&&dungpdf::fingerprint(source)!=expectedSource)||
+       QFileInfo::exists(dest)||QFileInfo(dest).isSymLink()||!QFile::rename(path,dest))
         return fail(QStringLiteral("Không xác minh hoặc công bố được PDF mới."));
     dungpdf::Result r;r.ok=true;r.files<<target.absoluteFilePath();r.warnings<<QStringLiteral("Kiểm tra bố cục khi độ dài chữ thay đổi.");return r;
 #endif

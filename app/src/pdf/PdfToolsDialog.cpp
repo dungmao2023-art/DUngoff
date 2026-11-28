@@ -1339,6 +1339,28 @@ QWidget* PdfToolsDialog::buildSearch() {
     };
     connect(copy,&QPushButton::clicked,w,copyCurrent);
     canvas->copySelection=copyCurrent;
+    auto continueEditing=[=](const Result& result,const QString& title,int page){
+        if(!result.ok||result.files.size()!=1){showResult(result,title);return;}
+        const auto path=result.files.first();
+        const auto info=printrender::pdfInfo(path);
+        if(!info.ok){showResult(result,title);return;}
+        QMessageBox box(this);box.setWindowTitle(title);
+        box.setText(tr("Đã lưu bản PDF mới. Tệp gốc vẫn giữ nguyên.\n%1").arg(path));
+        if(!result.warnings.isEmpty())box.setInformativeText(result.warnings.join(QLatin1Char('\n')));
+        auto* resume=box.addButton(tr("Tiếp tục chỉnh sửa bản mới"),QMessageBox::AcceptRole);
+        auto* stay=box.addButton(tr("Ở lại bản hiện tại"),QMessageBox::RejectRole);
+        box.setDefaultButton(resume);box.setEscapeButton(stay);box.exec();
+        if(box.clickedButton()!=resume)return;
+        // Reset the source, search and range without opening page 1 first.
+        // The next action always operates on the newly saved copy.
+        {QSignalBlocker fileGuard(m_searchFile),firstGuard(first),lastGuard(last),queryGuard(query);
+            m_searchFile->setText(path);query->clear();
+            first->setMaximum(qMax(1,info.pages));last->setMaximum(qMax(1,info.pages));
+            first->setValue(1);last->setValue(qBound(1,info.pages,200));
+        }
+        openRange(qBound(1,page,info.pages));
+        if(snapshot->has_value())status->setText(tr("Đang chỉnh sửa bản mới · Trang %1/%2. Tệp trước vẫn được giữ.").arg(qBound(1,page,info.pages)).arg(info.pages));
+    };
     auto saveMarkup=[=](dungpdf::MarkupKind kind){
         if(!list->currentItem()||!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
         const auto source=snapshot->value();
@@ -1348,7 +1370,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         const int page=list->currentItem()->data(Qt::UserRole).toInt();
         const auto label=kind==dungpdf::MarkupKind::Highlight?tr("Tô sáng"):tr("Gạch chân");
         const auto dest=pickDest(this,source.path,label);if(dest.isEmpty())return;
-        showResult(runWithPasswords({source.path},[=]{return addTextMarkup(inputFor(source.path),page,bounds,kind,identity,dest);}),label);
+        continueEditing(runWithPasswords({source.path},[=]{return addTextMarkup(inputFor(source.path),page,bounds,kind,identity,dest);}),label,page);
     };
     connect(highlight,&QPushButton::clicked,w,[=]{saveMarkup(dungpdf::MarkupKind::Highlight);});
     connect(underline,&QPushButton::clicked,w,[=]{saveMarkup(dungpdf::MarkupKind::Underline);});
@@ -1366,7 +1388,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         if(content.trimmed().isEmpty()||content.size()>2000){status->setText(tr("Ghi chú phải có từ 1 đến 2.000 ký tự."));return;}
         if(!source.unchanged()||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
         const auto dest=pickDest(this,source.path,tr("Ghi chú"));if(dest.isEmpty())return;
-        showResult(runWithPasswords({source.path},[=]{return addTextNote(inputFor(source.path),page,point.x()*100,point.y()*100,content,dest,identity,true);}),tr("Ghi chú PDF"));
+        continueEditing(runWithPasswords({source.path},[=]{return addTextNote(inputFor(source.path),page,point.x()*100,point.y()*100,content,dest,identity,true);}),tr("Ghi chú PDF"),page);
     };
     // Invalidate the preview as soon as a normal external file update becomes
     // observable. Recheck at point of use even if the timer has not run.
@@ -1380,12 +1402,14 @@ QWidget* PdfToolsDialog::buildSearch() {
         if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
         if(!list->currentItem()||canvas->selectedText.isEmpty())return;
         const auto source=snapshot->value();const int page=list->currentItem()->data(Qt::UserRole).toInt();const QString old=canvas->selectedText;
+        const auto identity=*selectionIdentity;
+        if(identity.size()!=32||dungpdf::fingerprint(source.path)!=identity){rejectStale();return;}
         bool ok=false;const auto replacement=QInputDialog::getText(this,tr("Sửa chữ PDF"),tr("Thay nguyên đối tượng chữ đã chọn. Hỗ trợ tiếng Việt nếu font gốc có ký tự tương ứng. Lưu bản sao PDF mới."),QLineEdit::Normal,old,&ok);
         if(!ok)return;
         if(!source.unchanged()){rejectStale();return;}
         const auto dest=pickDest(this,source.path,tr("Sửa chữ"));if(dest.isEmpty())return;
         if(!source.unchanged()){rejectStale();return;}
-        showResult(runWithPasswords({source.path},[=]{return pdfedit::replaceObject(source.path,page,old,replacement,dest);}),tr("Sửa chữ PDF"));
+        continueEditing(runWithPasswords({source.path},[=]{return pdfedit::replaceObject(source.path,page,old,replacement,dest,identity);}),tr("Sửa chữ PDF"),page);
     });
 
     canvas->select=[=](QPointF from,QPointF to){
@@ -1396,10 +1420,13 @@ QWidget* PdfToolsDialog::buildSearch() {
         const auto identity=dungpdf::fingerprint(snapshot->value().path);
         const auto selected=printrender::selectText(snapshot->value().path,item->data(Qt::UserRole).toInt(),from,to);
         if(!snapshot->value().unchanged()){rejectStale();return;}
-        canvas->setSelection(selected);copy->setEnabled(!selected.text.isEmpty());edit->setEnabled(pdfedit::available()&&!selected.text.isEmpty());
-        const bool markable=identity.size()==32&&!selected.text.isEmpty()&&!canvas->markupBounds().isEmpty()&&!findQpdf().isEmpty();
-        if(markable&&dungpdf::fingerprint(snapshot->value().path)==identity){
-            *selectionIdentity=identity;highlight->setEnabled(true);underline->setEnabled(true);
+        canvas->setSelection(selected);copy->setEnabled(!selected.text.isEmpty());
+        const bool verified=identity.size()==32&&!selected.text.isEmpty()&&dungpdf::fingerprint(snapshot->value().path)==identity;
+        edit->setEnabled(verified&&pdfedit::available());
+        if(verified){
+            *selectionIdentity=identity;
+            const bool markable=!canvas->markupBounds().isEmpty()&&!findQpdf().isEmpty();
+            highlight->setEnabled(markable);underline->setEnabled(markable);
         }
         if(!selected.error.isEmpty())status->setText(selected.error);
     };

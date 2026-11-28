@@ -861,8 +861,19 @@ int main(int argc, char** argv) {
         const auto source=P("native-edit-source.pdf"),dest=P("native-edited.pdf");
         const QByteArray original=makePdf(2,QStringLiteral("ORIGINAL"));
         writeFile(source,original);
-        const auto edited=pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",dest);
+        const auto staleEdit=P("native-stale.pdf");
+        CHECK(!pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",staleEdit,QByteArray(32,'x')).ok&&
+              !QFile::exists(staleEdit),"stale text selection never publishes a changed PDF");
+        const auto edited=pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",dest,fingerprint(source));
         CHECK(edited.ok&&readFile(source)==original&&info(dest).pages==2,"PDFium edits original text object");
+        if(edited.ok){
+            const auto chained=P("native-edited-note.pdf");
+            const auto editedBytes=readFile(dest);
+            CHECK(addTextNote({dest,{}},1,50,50,QStringLiteral("Ghi chú tiếp"),chained,fingerprint(dest),true).ok&&
+                  qdfOf(chained).contains("/Text")&&info(chained).pages==2&&
+                  readFile(dest)==editedBytes&&readFile(source)==original,
+                  "continue editing the latest PDF copy without altering either earlier version");
+        }
         CHECK(!pdfedit::replaceObject(source,1,"ORIGINAL","REPLACED",P("native-partial.pdf")).ok,"reject partial object");
 #ifdef DUNG_HAVE_PDFIUM_EDIT
         const auto vnSource=P("native-vietnamese.pdf"),vnDest=P("native-vietnamese-edited.pdf");
