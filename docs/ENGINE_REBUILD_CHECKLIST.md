@@ -84,7 +84,13 @@ Tham chiếu upstream: https://api.libreoffice.org/docs/idl/ref/interfacecom_1_1
 - Thêm ma trận standalone UNO (d376110bd30b0302c309cc95ee4ae48d7d97089c, workflow 0eb55ef43c87cf8315ad8ce112072276b9a6e317): split bảng Word, tạo TOC, validation + bảo vệ Calc, tạo PivotTable, nhóm hình Impress. Đọc DOCX/XLSX/PPTX thực; lỗi riêng từng case, không che fail. Kết quả đang chờ. Đây không phải live LOK, chưa có giao diện tính năng; cần kiểm Undo/selection/document identity sau khi chọn bridge.
 - Header LOK hiện có getPresentationInfo/createSlideRenderer/renderNextSlideLayer/postSlideshowCleanup, chưa chứng minh ABI/runtime hoặc playback. Ưu tiên probe v2 trước khi viết patch slideshow. Kiểm lại font/IME/clipboard/dialog theo ma trận; không thay workflow biên dịch engine, không build v3 hoặc phát hành installer.
 
-## 8. Kết luận audit
+## 8. V2 CI và hệ thống font — lượt tiếp theo
+
+- [CI 46085029776](https://github.com/dungmao2023-art/DUngoff/actions/runs/46085029776) head def4ab3a5c1d341700fc2aa6b4154097e451dde1: Windows v2 PASS, Linux engine hệ thống PASS. [Preflight 46085029856](https://github.com/dungmao2023-art/DUngoff/actions/runs/46085029856): split Word, validation/protection Calc, PivotTable thật, group Impress và direct margins PASS; TOC FAIL (log cũ thiếu exception), provider context FAIL. Không chuyển pin main.
+- App đã dùng danh sách .uno:CharFontName JSON theo tài liệu, cache theo tab, Ribbon Word/Excel/PPT, dialog Word/Excel refresh; fallback Qt có tooltip chưa xác minh; giữ tên font đang dùng nếu thiếu, không gửi lệnh chọn font thiếu như font mới. Test UI regression kiểm không lẫn font tab, không tự phát lệnh khi refresh, chặn font thiếu. Code đến 95fb70c9230f9048b51af97d32b239053112be37. Chờ CI mới; chưa xử lý fontconfig, Aptos ép thay thế, font nhúng hoặc font install hot refresh toàn bộ.
+- Probe TOC thay thứ tự gắn index trước cấu hình, ghi từng bước và traceback để xác định lỗi thật; chưa coi TOC thành công. Live LOK bridge vẫn chưa đạt; không rebuild v3.
+ 
+## 9. Kết luận audit
 
 Có blocker thực ở giao tiếp model/dialog và font fallback; chưa có đủ bằng chứng bắt buộc rebuild ngay. Engine v2 đã có, probe import đã sửa; direct UNO PASS, provider context FAIL; đang thử ma trận và CI ứng dụng trên v2. Danh sách này là scope gom một đợt nếu cần, không phải tuyên bố đã sửa hoặc hoàn tất kiểm thử. Các mục engine-independent phát triển song song. Không tăng trọng số/stage, không public release.
 
