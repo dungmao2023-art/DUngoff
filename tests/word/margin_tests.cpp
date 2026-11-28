@@ -6,6 +6,7 @@
 //                                            → thêm: chạy trên ENGINE THẬT: tạo tài liệu → bản phục hồi → vá lề → nạp lại vào engine
 //                                              → Lưu → đọc lại lề trong tệp đã lưu và so với giá trị đặt (đúng quy trình app dùng)
 #include "../../app/src/word/PageMargins.h"
+#include "../../app/src/excel/ExcelRules.h"
 #include "../../app/src/tools/filetools/ZipLite.h"
 
 #define LOK_USE_UNSTABLE_API
@@ -515,6 +516,24 @@ int main(int argc, char** argv) {
         QByteArray duplicate;
         check(!createTocXml(patched,2,&duplicate,&error),"existing TOC not duplicated");
         check(!createTocXml(source,4,&duplicate,&error),"reject unsupported level");
+    }
+    {
+        const QByteArray sheet="<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\"><c r=\"A1\"><f>1+2</f><v>3</v></c></row></sheetData><pageMargins left=\"1\" right=\"1\" top=\"1\" bottom=\"1\" header=\"0\" footer=\"0\"/></worksheet>";
+        QByteArray out;QString error;
+        const QStringList items={QStringLiteral("Đạt"),QStringLiteral("Chưa đạt")};
+        check(excelrules::patch(sheet,"B2:B5",items,false,&out,&error)&&out.contains("sqref=\"B2:B5\"")&&out.contains("Đạt")&&out.contains("<f>1+2</f>")&&out.indexOf("dataValidations")<out.indexOf("pageMargins"),"Excel dropdown real XML, preserve formulas");
+        QByteArray second;
+        check(!excelrules::patch(out,"C2:C5",items,false,&second,&error),"reject replacing existing dropdown rules");
+        check(!excelrules::patch(sheet,"B2:B5",{QStringLiteral("a,b"),QStringLiteral("c")},false,&second,&error),"reject ambiguous dropdown labels");
+        check(excelrules::patch(out,"",{},true,&second,&error)&&second.contains("sheetProtection")&&second.indexOf("sheetProtection")<second.indexOf("dataValidations"),"Excel protection retains dropdown and correct XML order");
+        const QString src=tmp+"/rules-source.xlsx",dst=tmp+"/rules-output.xlsx";
+        const QByteArray book="<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"First\" sheetId=\"1\" r:id=\"rId1\"/><sheet name=\"Second\" sheetId=\"2\" r:id=\"rId2\"/></sheets></workbook>";
+        const QByteArray rels="<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet7.xml\"/><Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet3.xml\"/></Relationships>";
+        check(makeZip(src,{{"xl/workbook.xml",book},{"xl/_rels/workbook.xml.rels",rels},{"xl/worksheets/sheet7.xml",sheet},{"xl/worksheets/sheet3.xml",sheet}}),"Excel rules package fixture");
+        check(!excelrules::createCopy(src,dst,1,"First","B2:B5",items,false,&error),"refuse mismatched sheet identity");
+        check(excelrules::createCopy(src,dst,1,"Second","B2:B5",items,false,&error),"create dropdown in referenced worksheet");
+        ft::ZipReader z;QByteArray untouched,changed;
+        check(z.open(dst,&error)&&excelrules::read(z,"xl/worksheets/sheet7.xml",&untouched,&error)&&excelrules::read(z,"xl/worksheets/sheet3.xml",&changed,&error)&&untouched==sheet&&changed.contains("dataValidation"),"only chosen sheet modified");
     }
     testZip(tmp);
     if (!docxDir.isEmpty()) testRealDocs(docxDir, tmp);

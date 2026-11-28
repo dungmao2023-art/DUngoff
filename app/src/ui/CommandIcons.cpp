@@ -62,7 +62,7 @@ QString iconNameForCommand(const QString& id) {
         {"xl:sortAscending", "sort"}, {"xl:sortDescending", "sort"},
         {".uno:ToggleMergeCells", "merge-cells"}, {".uno:WrapText", "wrap-text"},
         {"xl:colWidth", "col-width"}, {"xl:rowHeight", "row-height"}, {"xl:fillColor", "fill-color"}, {"xl:textColor", "font-color"},
-        {".uno:RecalcPivotTable", "transfer"}, {"xl:refreshPivot", "transfer"}, {"xl:createPivot", "table"}, {"xl:insertChart", "col-width"}, {"xl:formulaAssistant", "sum"}, {"xl:rangeTools", "col-width"}, {"xl:vnMoney", "currency"},
+        {".uno:RecalcPivotTable", "transfer"}, {"xl:refreshPivot", "transfer"}, {"xl:createPivot", "table"}, {"xl:createDropdown", "filter"}, {"xl:protectSheet", "protect"}, {"xl:insertChart", "col-width"}, {"xl:formulaAssistant", "sum"}, {"xl:rangeTools", "col-width"}, {"xl:vnMoney", "currency"},
         {"xl:find", "search"}, {"xl:replace", "replace"}, {"xl:fontName", "font-name"}, {"xl:fontSize", "font-size"},
         {"xl:sheetAdd", "add"}, {"xl:sheetDelete", "delete"}, {"xl:sheetDup", "slide-duplicate"}, {"xl:sheetRename", "rename"},
         {"xl:sheetMoveLeft", "transfer"}, {"xl:sheetMoveRight", "transfer"},

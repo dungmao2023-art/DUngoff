@@ -219,6 +219,10 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                     B("xl:sortDescending", tr("Giảm dần"), 0xE8CB, "Z↓", false),
                     B(".uno:DataFilterAutoFilter", tr("Bộ lọc"), 0xE71C, "⏷", true),
                 }},
+                {tr("Xác thực & bảo vệ"), {
+                    B("xl:createDropdown", tr("Dropdown"), 0xE70D, "▼", false),
+                    B("xl:protectSheet", tr("Bảo vệ sheet"), 0xE72E, "🔒", false),
+                }},
                 {tr("PivotTable"), {
                     B("xl:createPivot", tr("Tạo PivotTable"), 0xE8B9, "▦", false),
                     B("xl:refreshPivot", tr("Cập nhật Pivot"), 0xE72C, "↻", false),
