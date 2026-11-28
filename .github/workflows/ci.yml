@@ -33,10 +33,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libreoffice-calc libreoffice-writer libreoffice-impress libreoffice-draw \
+            libreoffice-calc libreoffice-writer libreoffice-impress libreoffice-draw python3-uno \
             qt6-base-dev qt6-base-private-dev qt6-image-formats-plugins libgl-dev cmake ninja-build python3-openpyxl python3-pip \
             xvfb imagemagick fonts-dejavu fonts-noto-core x11-utils qpdf tesseract-ocr tesseract-ocr-eng tesseract-ocr-vie poppler-utils
           pip3 install --break-system-packages python-docx python-pptx
+          /usr/bin/python3 -c 'import uno; print("System Python UNO available")'
           mkdir -p report
           # Qt PDF cho xem trước/in: thử cài, ghi lại kết quả (không làm hỏng cả job nếu gói không có)
           if sudo apt-get install -y --no-install-recommends qt6-pdf-dev 2>&1 | tee report/linux-qtpdf-install.log | tail -2; then :; fi
