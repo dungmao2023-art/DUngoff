@@ -90,7 +90,11 @@ Tham chiếu upstream: https://api.libreoffice.org/docs/idl/ref/interfacecom_1_1
 - App đã dùng danh sách .uno:CharFontName JSON theo tài liệu, cache theo tab, Ribbon Word/Excel/PPT, dialog Word/Excel refresh; fallback Qt có tooltip chưa xác minh; giữ tên font đang dùng nếu thiếu, không gửi lệnh chọn font thiếu như font mới. Test UI regression kiểm không lẫn font tab, không tự phát lệnh khi refresh, chặn font thiếu. Code đến 95fb70c9230f9048b51af97d32b239053112be37. Chờ CI mới; chưa xử lý fontconfig, Aptos ép thay thế, font nhúng hoặc font install hot refresh toàn bộ.
 - Probe TOC thay thứ tự gắn index trước cấu hình, ghi từng bước và traceback để xác định lỗi thật; chưa coi TOC thành công. Live LOK bridge vẫn chưa đạt; không rebuild v3.
  
-## 9. Kết luận audit
+## 9. Quyết định chuyển mặc định sang v2 (28/11/2026)
+
+Chủ dự án yêu cầu dùng v2 cho toàn bộ bản build tiếp theo, chỉ cần giữ v1. Main commit [5d37239](https://github.com/dungmao2023-art/DUngoff/commit/5d3723973bebe32f5d408992bc7e322552d8db89) đổi duy nhất ENGINE_TAG/SHA256 trong CI sang v2. Đối chiếu mã ứng dụng tại main cũ với head def4ab3: không có khác biệt nguồn ứng dụng, CI Windows v2/Linux hệ thống 46085029776 PASS; CI main mới vẫn cần xác nhận. Không phát hành bộ cài, không chạy build LibreOffice. Release v1 và archive rollback 15237803289 vẫn giữ; backup artifact 30 ngày, cần lưu riêng dài hạn. Các điều kiện chuyển pin cũ trong tài liệu là lịch sử và được thay bằng quyết định này; điều kiện nghiệm thu tính năng/merge PR không thay đổi. PR #160 vẫn chưa đạt toàn bộ kiểm thử, TOC lỗi tại gán ParaStyleName Text Body (run 46087396879), provider context vẫn FAIL. Không coi các API standalone là tính năng UI đã hoàn thành. Linux tiếp tục dùng engine hệ thống, v2 là gói Windows. Không đổi các tag release lịch sử hoặc tự sửa bản cài trên máy người dùng. 
+
+## 10. Kết luận audit
 
 Có blocker thực ở giao tiếp model/dialog và font fallback; chưa có đủ bằng chứng bắt buộc rebuild ngay. Engine v2 đã có, probe import đã sửa; direct UNO PASS, provider context FAIL; đang thử ma trận và CI ứng dụng trên v2. Danh sách này là scope gom một đợt nếu cần, không phải tuyên bố đã sửa hoặc hoàn tất kiểm thử. Các mục engine-independent phát triển song song. Không tăng trọng số/stage, không public release.
 
