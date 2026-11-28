@@ -1161,7 +1161,7 @@ QWidget* PdfToolsDialog::buildSearch() {
         if(!snapshot->has_value()||!snapshot->value().unchanged()){rejectStale();return;}
         if(!list->currentItem()||canvas->selectedText.isEmpty())return;
         const auto source=snapshot->value();const int page=list->currentItem()->data(Qt::UserRole).toInt();const QString old=canvas->selectedText;
-        bool ok=false;const auto replacement=QInputDialog::getText(this,tr("Sửa chữ PDF"),tr("Thay nguyên đối tượng chữ đã chọn (ASCII). Lưu bản sao PDF mới."),QLineEdit::Normal,old,&ok);
+        bool ok=false;const auto replacement=QInputDialog::getText(this,tr("Sửa chữ PDF"),tr("Thay nguyên đối tượng chữ đã chọn. Hỗ trợ tiếng Việt nếu font gốc có ký tự tương ứng. Lưu bản sao PDF mới."),QLineEdit::Normal,old,&ok);
         if(!ok)return;
         if(!source.unchanged()){rejectStale();return;}
         const auto dest=pickDest(this,source.path,tr("Sửa chữ"));if(dest.isEmpty())return;
