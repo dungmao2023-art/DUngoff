@@ -52,6 +52,9 @@
 #include <QKeySequence>
 #include <QSplitter>
 #include <QScrollArea>
+#include <QScrollBar>
+#include <QResizeEvent>
+#include <QWheelEvent>
 #include "../print/PrintRender.h"
 
 using namespace dungpdf;
@@ -77,6 +80,26 @@ struct PdfSourceSnapshot {
             f.size() == size && f.lastModified() == modified && f.birthTime() == birth;
     }
 };
+// Keep wheel scrolling native; Ctrl+wheel changes magnification instead.
+class PdfPageScroll final : public QScrollArea {
+public:
+    explicit PdfPageScroll(QWidget* parent=nullptr):QScrollArea(parent){}
+    std::function<void()> resized;
+    std::function<void(int)> zoomStep;
+protected:
+    void resizeEvent(QResizeEvent* event) override{
+        QScrollArea::resizeEvent(event);
+        if(resized)resized();
+    }
+    void wheelEvent(QWheelEvent* event) override{
+        if((event->modifiers()&Qt::ControlModifier)&&zoomStep){
+            const int delta=event->angleDelta().y();
+            if(delta)zoomStep(delta>0?1:-1);
+            event->accept();return;
+        }
+        QScrollArea::wheelEvent(event);
+    }
+};
 // A single rendered page with true PDF text geometry. No document edits.
 class PdfTextCanvas final : public QWidget {
 public:
@@ -88,6 +111,7 @@ public:
     std::function<void(QPointF)> placeNote;
     void setNoteMode(bool on){noteMode=on;drag=false;setCursor(on?Qt::CrossCursor:Qt::IBeamCursor);update();}
     bool hasPage() const{return !page.image.isNull();}
+    QSize naturalSize() const{return page.image.size();}
     QList<QRectF> markupBounds() const{
         QList<QRectF> result;
         if(selection.size()>256)return result;
@@ -1281,7 +1305,42 @@ QWidget* PdfToolsDialog::buildSearch() {
     text->setPlaceholderText(tr("Chọn trang để đọc, kéo chọn chữ trên ảnh PDF hoặc sao chép chữ trích xuất."));
     text->setToolTip(tr("Chữ trích xuất được chuẩn hóa Unicode NFC; tô sáng tối đa 1.000 vị trí trên trang, không sửa PDF."));
     auto* canvas=new PdfTextCanvas(w);
-    auto* split=new QSplitter(Qt::Horizontal,w);split->addWidget(canvas);split->addWidget(text);split->setStretchFactor(0,2);split->setStretchFactor(1,1);root->addWidget(split,3);
+    auto* scroll=new PdfPageScroll(w);
+    scroll->setWidgetResizable(false);scroll->setAlignment(Qt::AlignCenter);
+    scroll->setMinimumSize(240,220);scroll->setWidget(canvas);
+    auto* zoom=new QComboBox(w);zoom->setAccessibleName(tr("Mức thu phóng trang PDF"));
+    zoom->addItem(tr("Vừa trang"),0);
+    zoom->addItem(tr("Vừa chiều rộng"),-1);
+    for(int percent:{100,125,150,200,250,300})zoom->addItem(QString::number(percent)+QStringLiteral("%"),percent);
+    auto* zoomOut=new QPushButton(QStringLiteral("−"),w);zoomOut->setAccessibleName(tr("Thu nhỏ PDF"));
+    auto* zoomIn=new QPushButton(QStringLiteral("+"),w);zoomIn->setAccessibleName(tr("Phóng to PDF"));
+    nav->insertWidget(2,zoomOut);nav->insertWidget(3,zoom);nav->insertWidget(4,zoomIn);
+    auto fitPage=[=]{
+        const QSize view=scroll->viewport()->size();
+        const QSize natural=canvas->naturalSize();
+        if(natural.isEmpty()||view.width()<10||view.height()<10){
+            canvas->setFixedSize(qMax(1,view.width()),qMax(1,view.height()));return;
+        }
+        // Reserve scrollbar space when fitting width to avoid oscillation.
+        const int availableW=qMax(1,view.width()-20),availableH=qMax(1,view.height()-4);
+        const int mode=zoom->currentData().toInt();
+        QSize target=natural;
+        if(mode==0)target.scale(QSize(availableW,availableH),Qt::KeepAspectRatio);
+        else {
+            const int width=mode==-1?availableW:qBound(1,availableW*mode/100,4096);
+            target.scale(QSize(width,4096),Qt::KeepAspectRatio);
+        }
+        canvas->setFixedSize(target.expandedTo(QSize(1,1)));
+    };
+    scroll->resized=fitPage;
+    auto refreshZoom=[=]{zoomOut->setEnabled(zoom->currentIndex()>0);zoomIn->setEnabled(zoom->currentIndex()+1<zoom->count());};
+    auto stepZoom=[=](int delta){zoom->setCurrentIndex(qBound(0,zoom->currentIndex()+delta,zoom->count()-1));};
+    scroll->zoomStep=stepZoom;
+    connect(zoom,QOverload<int>::of(&QComboBox::currentIndexChanged),w,[=]{fitPage();refreshZoom();});
+    connect(zoomOut,&QPushButton::clicked,w,[=]{stepZoom(-1);});
+    connect(zoomIn,&QPushButton::clicked,w,[=]{stepZoom(1);});
+    refreshZoom();
+    auto* split=new QSplitter(Qt::Horizontal,w);split->addWidget(scroll);split->addWidget(text);split->setStretchFactor(0,2);split->setStretchFactor(1,1);root->addWidget(split,3);
     auto* bottom=new QHBoxLayout;root->addLayout(bottom);
     auto* copy=new QPushButton(tr("Sao chép chữ đã chọn"),w);copy->setEnabled(false);bottom->addWidget(copy);
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
@@ -1485,10 +1544,12 @@ QWidget* PdfToolsDialog::buildSearch() {
         }
         if(!error.isEmpty()){status->setText(error);return;}
         const QString needleForPage=*browsing?QString():query->text();
-        auto preview=printrender::previewText(snapshot->value().path,item->data(Qt::UserRole).toInt(),QSize(1000,1400),needleForPage,match->isChecked());
+        auto preview=printrender::previewText(snapshot->value().path,item->data(Qt::UserRole).toInt(),QSize(1800,2520),needleForPage,match->isChecked());
         if(!snapshot->value().unchanged()){rejectStale();return;}
         if(!preview.error.isEmpty())status->setText(preview.error);
-        else {canvas->setPage(std::move(preview));annotate->setEnabled(canvas->hasPage()&&!findQpdf().isEmpty());}
+        else {canvas->setPage(std::move(preview));fitPage();
+            scroll->verticalScrollBar()->setValue(0);scroll->horizontalScrollBar()->setValue(0);
+            annotate->setEnabled(canvas->hasPage()&&!findQpdf().isEmpty());}
         text->setPlainText(extracted.normalized(QString::NormalizationForm_C));
         const auto needle=needleForPage.trimmed().normalized(QString::NormalizationForm_C);
         const auto offsets=printrender::highlightOffsets(text->toPlainText(),needle,match->isChecked());
