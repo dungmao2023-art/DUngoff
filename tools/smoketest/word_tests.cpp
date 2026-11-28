@@ -541,12 +541,25 @@ int runWordTests(const fs::path& program, const fs::path& out) {
             if(!list)break;
             list->setClientView(512,512,7680,7680,0,0,7680,7680);
             if(!locate(restart?"LIST_THIRD":"LIST_SECOND"))continue;
-            const std::string command=restart?".uno:NumberingStart":".uno:IncrementLevel";
+            const std::string command=restart?".uno:NumberingStart":".uno:DecrementLevel";
             step("Word list: "+command);
             run(*list,command);
             snap(restart?"word-list-restarted.docx":"word-list-deeper.docx");
             run(*list,".uno:Undo");
             snap(restart?"word-list-restart-undone.docx":"word-list-level-undone.docx");
+        }
+        // Independently open the demoted result and promote the second item.
+        list.reset();
+        list=engine->open(out/"word-list-deeper.docx",&err);
+        check(bool(list),"Mở lại fixture đã xuống cấp: "+err);
+        if(list){
+            list->setClientView(512,512,7680,7680,0,0,7680,7680);
+            if(locate("LIST_SECOND")){
+                run(*list,".uno:IncrementLevel");
+                snap("word-list-promoted.docx");
+                run(*list,".uno:Undo");
+                snap("word-list-promote-undone.docx");
+            }
         }
     }
 

@@ -144,8 +144,10 @@ bool handleAction(const QString& id, DocumentTab* tab, QWidget* parent) {
        name==QLatin1String("listRestart")||name==QLatin1String("listContinue")){
         doc->waitInputIdle();
         const WordInsertTarget target(tab);
-        const QString command=name==QLatin1String("listLevelUp")?QStringLiteral(".uno:DecrementLevel"):
-            name==QLatin1String("listLevelDown")?QStringLiteral(".uno:IncrementLevel"):
+        // Writer uses IncrementLevel for Promote One Level and DecrementLevel
+        // for Demote One Level (WriterCommands.xcu / FN_NUM_BULLET_UP/DOWN).
+        const QString command=name==QLatin1String("listLevelUp")?QStringLiteral(".uno:IncrementLevel"):
+            name==QLatin1String("listLevelDown")?QStringLiteral(".uno:DecrementLevel"):
             name==QLatin1String("listRestart")?QStringLiteral(".uno:NumberingStart"):QStringLiteral(".uno:ContinueNumbering");
         const auto state=tab->states().value(command);
         if(target.caret.empty()||!target.selected.empty()||

@@ -123,6 +123,10 @@ undone, _ = list_snapshot("word-list-level-undone.docx")
 def topology(entries):
     return [(entries[k][1], entries[k][0]==entries["LIST_FIRST"][0]) for k in ("LIST_FIRST","LIST_SECOND","LIST_THIRD")] if len(entries)==3 else []
 check(bool(topology(base)) and topology(undone)==topology(base), "Undo restores original list structure")
+promoted, _ = list_snapshot("word-list-promoted.docx")
+check(bool(topology(base)) and topology(promoted)==topology(base),"Promote restores original level and sequence")
+promote_undone, _ = list_snapshot("word-list-promote-undone.docx")
+check(bool(topology(deeper)) and topology(promote_undone)==topology(deeper),"Undo promote restores demoted level and sequence")
 restarted, numbering = list_snapshot("word-list-restarted.docx")
 if len(restarted)==3:
     first, third=restarted["LIST_FIRST"],restarted["LIST_THIRD"]
