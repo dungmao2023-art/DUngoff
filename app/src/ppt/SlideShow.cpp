@@ -80,7 +80,22 @@ void SlideShow::go(int delta) {
     if(m_entrancePart==m_part&&!m_entranceFrames.isEmpty()){
         const int next=m_entranceStep+delta;
         if(next>=0&&next<m_entranceFrames.size()){
-            m_entranceStep=next;m_img=m_entranceFrames[next];update();restartAdvance();return;
+            const QImage previous=m_img;
+            m_entranceStep=next;m_img=m_entranceFrames[next];
+            if(delta>0&&next-1<m_entrancePlans.size()){
+                const auto plan=m_entrancePlans[next-1];
+                if(plan.kind!=slideshow::TransitionKind::Cut){
+                    const QRect bounds=slideshow::changedBounds(previous,m_img);
+                    if(!bounds.isEmpty()){
+                        m_entranceTransitionBounds=bounds;
+                        m_entranceTransitionOld=previous.copy(bounds);
+                        m_entranceTransitionNew=m_img.copy(bounds);
+                        m_transitionFrom=previous;m_transitionPlan=plan;
+                        m_transitionClock.start();m_transitionTimer.start();
+                    }
+                }
+            }
+            update();restartAdvance();return;
         }
     }
     const int p=slideshow::adjacentVisible(m_visible,m_part,delta);
@@ -98,6 +113,7 @@ void SlideShow::go(int delta) {
 }
 void SlideShow::stopTransition(){
     m_transitionTimer.stop();m_transitionFrom={};m_transitionPlan={};
+    m_entranceTransitionBounds={};m_entranceTransitionOld={};m_entranceTransitionNew={};
 }
 void SlideShow::startTransition(const QImage& previous){
     if(previous.isNull()||m_img.isNull()||previous==m_img)return;
@@ -146,7 +162,7 @@ void SlideShow::render() {
         m_img=QImage(); // Stop autoplay; paintEvent shows a render-unavailable message.
 }
 void SlideShow::resetEntrance(){
-    m_entranceFrames.clear();m_entranceStep=0;m_entrancePart=-1;
+    m_entranceFrames.clear();m_entrancePlans.clear();m_entranceStep=0;m_entrancePart=-1;
 }
 bool SlideShow::prepareEntrance(){
     // Avoid native layer API for unsupported animation trees.
@@ -158,11 +174,12 @@ bool SlideShow::prepareEntrance(){
     for(const auto& item:info.value("slides").toArray()){
         const auto candidate=item.toObject();if(candidate.value("index").toInt(-1)==m_part){slide=candidate;break;}
     }
-    QStringList targets;
-    if(!slideshow::findClickEntrances(slide.value("animations").toObject().value("root").toObject(),&targets)){
+    QVector<slideshow::ClickEntrance> entrancePlans;
+    if(!slideshow::findEntrancePlans(slide.value("animations").toObject().value("root").toObject(),&entrancePlans)){
         if(trace)std::cerr<<"Entrance metadata not supported"<<std::endl;
         return false;
     }
+    QStringList targets;for(const auto& entry:entrancePlans)targets.append(entry.target);
     const auto hash=slide.value("hash").toString();
     dung::Document::SlideLayers layers;
     if(!m_doc->renderSlideLayers(m_part,hash.toStdString(),qMin(1280,m_img.width()),qMin(1280,m_img.height()),layers)){
@@ -248,6 +265,7 @@ bool SlideShow::prepareEntrance(){
     for(auto it=fields.constBegin();it!=fields.constEnd();++it)if(!usedFields.contains(it.key()))return false;
     if(!background||animatedTargets.size()!=targets.size())return false;
     for(int step=1;step<frames.size();++step)if(frames[step]==frames[step-1])return false;
+    for(const auto& entry:entrancePlans)m_entrancePlans.append(entry.plan);
     m_entranceFrames=std::move(frames);m_entranceStep=0;m_entrancePart=m_part;
     return true;
 }
@@ -269,10 +287,17 @@ void SlideShow::paintEvent(QPaintEvent*) {
     const QSizeF sz = QSizeF(m_img.size()).scaled(QSizeF(size()), Qt::KeepAspectRatio);
     p.setRenderHint(QPainter::SmoothPixmapTransform);
     const QRectF slideRect(QPointF((width() - sz.width()) / 2, (height() - sz.height()) / 2), sz);
-    if(m_transitionTimer.isActive())
-        slideshow::paintTransition(p,slideRect,m_transitionFrom,m_img,m_transitionPlan,
-            qreal(m_transitionClock.elapsed())/m_transitionPlan.durationMs);
-    else p.drawImage(slideRect, m_img);
+    if(m_transitionTimer.isActive()){
+        const qreal progress=qreal(m_transitionClock.elapsed())/m_transitionPlan.durationMs;
+        if(!m_entranceTransitionBounds.isEmpty()){
+            p.drawImage(slideRect,m_transitionFrom);
+            const qreal sx=slideRect.width()/m_img.width(),sy=slideRect.height()/m_img.height();
+            const auto bounds=m_entranceTransitionBounds;
+            const QRectF region(slideRect.left()+bounds.x()*sx,slideRect.top()+bounds.y()*sy,
+                                bounds.width()*sx,bounds.height()*sy);
+            slideshow::paintTransition(p,region,m_entranceTransitionOld,m_entranceTransitionNew,m_transitionPlan,progress);
+        }else slideshow::paintTransition(p,slideRect,m_transitionFrom,m_img,m_transitionPlan,progress);
+    }else p.drawImage(slideRect, m_img);
     // Screen-only pointer: no engine calls, no document edits, no mark on letterbox.
     if(m_laserMode && slideRect.contains(m_laserPoint)){
         p.save();

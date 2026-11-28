@@ -39,6 +39,9 @@ private:
     QTimer m_transitionTimer;
     QElapsedTimer m_transitionClock;
     slideshow::TransitionPlan m_transitionPlan;
+    QRect m_entranceTransitionBounds;
+    QImage m_entranceTransitionOld,m_entranceTransitionNew;
+    QVector<slideshow::TransitionPlan> m_entrancePlans;
     slideshow::SignatureStyle m_signature=slideshow::SignatureStyle::Native;
 
     dung::Document* m_doc;

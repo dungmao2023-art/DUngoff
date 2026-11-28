@@ -16,6 +16,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <cmath>
+#include <QThread>
+#include <QElapsedTimer>
+#include "SimpleEntrance.h"
 #include <QPainter>
 #include "SlideTransitionPlayback.h"
 
@@ -100,6 +103,24 @@ int main(int argc,char** argv){
             std::cerr<<"FAIL distinct ink and hologram effects"<<std::endl;return 1;
         }
         std::cout<<"PASS transition painter: Fade, Push, Wipe, Dissolve, Silk, Prism, Focus, Ink, Hologram"<<std::endl;
+    }
+    {
+        const auto tree=QJsonDocument::fromJson(R"({"nodeName":"Par","nodeType":"OnClick","children":[{"nodeName":"Set","attributeName":"Visibility","to":"visible","targetElement":"shape","begin":"0s"},{"nodeName":"TransitionFilter","targetElement":"shape","transitionType":"Fade","transitionSubType":"CrossFade","dur":"0.75s","begin":"0s"}]})").object();
+        QVector<slideshow::ClickEntrance> plans;
+        if(!slideshow::findEntrancePlans(tree,&plans)||plans.size()!=1||
+           plans[0].plan.kind!=slideshow::TransitionKind::Fade||plans[0].plan.durationMs!=750){
+            std::cerr<<"FAIL entrance filter metadata"<<std::endl;return 1;
+        }
+        auto invalid=tree;auto children=invalid.value("children").toArray();
+        auto leaf=children[1].toObject();leaf.insert("targetElement","wrong");children[1]=leaf;invalid.insert("children",children);
+        if(slideshow::findEntrancePlans(invalid,&plans)){
+            std::cerr<<"FAIL mismatched animation target accepted"<<std::endl;return 1;
+        }
+        QImage first(64,64,QImage::Format_ARGB32_Premultiplied);first.fill(Qt::white);
+        QImage second=first.copy();second.setPixelColor(3,4,Qt::blue);second.setPixelColor(18,22,Qt::red);
+        if(slideshow::changedBounds(first,second)!=QRect(QPoint(3,4),QPoint(18,22))){
+            std::cerr<<"FAIL object animation bounds"<<std::endl;return 1;
+        }
     }
     QTemporaryDir temp;
     if(!temp.isValid())return 2;
@@ -198,5 +219,30 @@ int main(int argc,char** argv){
         multi->currentPart()==originalMulti;
     std::cout<<(multiOk?"PASS":"FAIL")<<" two native click entrances and backward steps"<<std::endl;
     delete playback;
-    std::_Exit(multiOk?0:1);
+    if(!multiOk)std::_Exit(1);
+    // Real PPTX with one timed entrance; verify an actual intermediate frame
+    // and return to the hidden state. This is deliberately not a static XML test.
+    auto fadeOptions=options;fadeOptions.fade=true;fadeOptions.durationMs=1000;
+    const auto fadeFile=temp.filePath("fade-entrance.pptx");
+    if(!ppttransition::createAnimationCopy(args[2],fadeFile,1,fadeOptions).ok)std::_Exit(1);
+    auto fadeDoc=engine->open(pathOf(fadeFile),&err);
+    if(!fadeDoc)std::_Exit(1);
+    fadeDoc->setClientView(512,512,7680,7680,0,0,7680,7680);
+    fadeDoc->waitInputIdle(350,4000);
+    std::cout<<"Fade metadata: "<<fadeDoc->presentationInfo()<<std::endl;
+    auto* fadeShow=new SlideShow(fadeDoc.get(),0,nullptr,false);
+    QPointer<SlideShow> liveFade(fadeShow);
+    QApplication::processEvents();
+    const auto hidden=fadeShow->grab().toImage();
+    key(fadeShow,Qt::Key_Right);
+    if(!liveFade||!liveFade->isVisible())std::_Exit(1);
+    auto pump=[](int ms){QElapsedTimer elapsed;elapsed.start();while(elapsed.elapsed()<ms){QApplication::processEvents();QThread::msleep(10);}};
+    pump(300);const auto middle=fadeShow->grab().toImage();
+    pump(900);const auto finished=fadeShow->grab().toImage();
+    key(fadeShow,Qt::Key_Left);
+    const bool fadeOk=hidden!=middle&&middle!=finished&&bluePixels(finished)>bluePixels(hidden)+500&&
+                      fadeShow->grab().toImage()==hidden;
+    std::cout<<(fadeOk?"PASS":"FAIL")<<" native timed fade entrance with intermediate pixels"<<std::endl;
+    delete fadeShow;
+    std::_Exit(fadeOk?0:1);
 }
