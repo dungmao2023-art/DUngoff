@@ -62,6 +62,7 @@ Phần này là các ca nghiệm thu con của 48 ID hiện có, KHÔNG phải b
 - [ ] D03.1 Chỉnh bản sao ODG chữ/ảnh/hình, Undo, xuất PDF, đối chiếu layout; thông báo giới hạn, không gọi là sửa stream gốc.
 - [ ] D05.1 Watermark, số trang, chữ Unicode và ảnh; xem trước, font nhúng, đúng vị trí/trang.
 - [ ] D06.1 OCR vie/eng trên Windows thật: đa trang, hủy, TXT/searchable PDF; kiểm chất lượng chữ và lớp text; cảnh báo raster, không trộn nguồn đổi.
+  - 28/11: giới hạn ảnh OCR trước gọi Tesseract (36 triệu pixel, mỗi chiều tối đa 12000), kiểm hủy sau tiến trình và trước ghi PDF; OCR TXT không cần qpdf. Test ảnh rộng quá giới hạn, ảnh lỗi và không tạo PDF khi từ chối; mã/test 5e1ca6d5a7089cd77d1b60f6e2f6ac8f263d47ef. CI và runtime Windows thật chưa xác minh; không nâng stage.
 - [ ] D07.1 Chú thích/điền form cơ bản nếu khả thi; lưu bản sao và xác minh, không coi overlay là redaction.
 
 ### B1 — Tiện ích cần cho công sở
