@@ -33,6 +33,7 @@
 #include <QGridLayout>
 #include <QToolButton>
 #include <QPainter>
+#include <QColor>
 #include <QIcon>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -490,8 +491,16 @@ QWidget#DocumentTemplates QPushButton:disabled { background:#E8EDF5; color:#6B7A
                 m_doc->waitInputIdle();
                 const int part=m_doc->currentPart();
                 if(part<0||part>=m_doc->partCount()||!m_slides||m_slides->currentRow()!=part)return;
-                // Let Impress apply native placeholders/layout. No automatic deletion
-                // or rewriting of ordinary slide shapes in application code.
+                const auto hash=m_doc->partHash(part);
+                if(hash.empty())return;
+                const int count=m_doc->partCount();
+                if(QMessageBox::question(this,tr("Đổi bố cục slide"),
+                    tr("Các khung nội dung có thể được sắp xếp lại. Áp dụng bố cục này cho slide %1?").arg(part+1),
+                    QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+                m_doc->waitInputIdle();
+                if(m_pptNotes||m_pptMaster||m_doc->readOnly()||m_rebuildingParts||
+                   m_doc->partCount()!=count||m_doc->currentPart()!=part||
+                   m_slides->currentRow()!=part||m_doc->partHash(part)!=hash)return;
                 runCommand(QStringLiteral(".uno:AssignLayout#{\"WhatLayout\":{\"type\":\"long\",\"value\":\"%1\"}}").arg(code));
             });
         }

@@ -616,6 +616,34 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         snap(std::string("ppt-rotate-")+item.name+"-undone.pptx");
     }
 
+    // Exercise every new layout on an independent source document. Check
+    // adjacent slide identity, and verify saved OOXML separately in Python.
+    for(const int code:{0,1,3,18,20}){
+        step("PowerPoint — layout and Undo: "+std::to_string(code));
+        auto design=engine->open(out/"ppt-layout-input.pptx",&err);
+        check(bool(design),"Open layout fixture: "+err);
+        if(!design)continue;
+        design->setPart(0);
+        design->setClientView(512,288,7680,4320,0,0,7680,4320);
+        design->waitInputIdle(350,4000);
+        const auto original=renderHash(*design,0),other=renderHash(*design,1);
+        const auto snapshot=[&](const std::string& suffix){
+            auto dest=out/("ppt-layout-"+std::to_string(code)+suffix+".pptx");
+            fs::remove(dest,ec);
+            const auto saved=design->saveAs(dest);
+            check(saved.ok,"Save layout "+dest.filename().string()+": "+saved.message);
+        };
+        snapshot("-before");
+        design->command(".uno:AssignLayout",longArg("WhatLayout",code));
+        design->waitInputIdle(350,4000);
+        check(design->partCount()==2&&renderHash(*design,1)==other,"Layout preserves neighbour slide");
+        snapshot("-edited");
+        design->command(".uno:Undo");design->waitInputIdle(350,4000);
+        check(design->partCount()==2&&renderHash(*design,0)==original&&renderHash(*design,1)==other,
+              "Layout Undo restores original slide pixels");
+        snapshot("-undone");
+    }
+
     step("PowerPoint — direct Slide Master editing and return to normal");
     auto master=engine->open(out/"ppt-master-input.pptx",&err);
     check(bool(master),"Mở fixture master: "+err);
