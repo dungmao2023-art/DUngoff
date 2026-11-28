@@ -707,6 +707,7 @@ jobs:
           python tests/ppt/make_layer_fixture.py smoke-ppt/ppt-layer-input.pptx
           if ($LASTEXITCODE -ne 0) { exit 1 }
           $env:QT_QPA_PLATFORM = "offscreen"
+          $env:DUNG_REQUIRE_NATIVE_ENTRANCE = "1"
           $pb = Get-ChildItem build/out -Recurse -Filter dung-pptplaybacktest.exe | Select-Object -First 1
           if (-not $pb) { throw "Missing native playback test" }
           $test = Start-Process $pb.FullName -ArgumentList @("$PWD/build/lo/engine/program", "$PWD/smoke-ppt/ppt-layer-input.pptx") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-ppt-playback.log -RedirectStandardError report/windows-ppt-playback.err.log
@@ -714,7 +715,9 @@ jobs:
           Get-Content report/windows-ppt-playback.log
           Get-Content report/windows-ppt-playback.err.log
           Remove-Item Env:QT_QPA_PLATFORM
-          if ($test.ExitCode -ne 0) { exit 1 }
+          Remove-Item Env:DUNG_REQUIRE_NATIVE_ENTRANCE
+          $test.Refresh()
+          if ($null -eq $test.ExitCode -or $test.ExitCode -ne 0 -or !(Select-String -Path report/windows-ppt-playback.log -SimpleMatch 'PASS actual entrance click/back')) { exit 1 }
           $p = Start-Process build/out/dung-smoketest.exe -ArgumentList @("--program", "$PWD/build/lo/engine/program", "--ppt", "fixtures/mau-trinh-chieu.pptx", "--out", "$PWD/smoke-ppt") -PassThru -NoNewWindow -RedirectStandardOutput report/windows-ppt.log -RedirectStandardError report/windows-ppt.err.log
           if (-not $p.WaitForExit(420000)) { Stop-Process $p -Force; Write-Host "::error::PowerPoint test timeout"; exit 1 }
           Get-Content report/windows-ppt.log

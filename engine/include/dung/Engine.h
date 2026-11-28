@@ -137,6 +137,7 @@ public:
     // Native Impress presentation and isolated slide layers, bounded bitmap memory.
     struct SlideLayer { std::string json; std::vector<uint8_t> pixels; };
     struct SlideLayers { int width=0,height=0; bool rgba=false; std::vector<SlideLayer> layers; };
+    bool supportsSlideLayers();
     std::string presentationInfo();
     bool renderSlideLayers(int part,const std::string& hash,int width,int height,SlideLayers& result);
     // Báo engine vùng đang hiển thị và tỉ lệ zoom (giúp Calc tính đúng con trỏ, tiêu đề hàng/cột).

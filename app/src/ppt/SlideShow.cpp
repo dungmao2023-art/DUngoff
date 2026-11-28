@@ -3,6 +3,7 @@
 #include "SimpleEntrance.h"
 #include <QJsonDocument>
 #include <QJsonArray>
+#include <QDebug>
 #include <QToolTip>
 #include <QCursor>
 #include <QKeyEvent>
@@ -110,16 +111,27 @@ void SlideShow::resetEntrance(){
 }
 bool SlideShow::prepareEntrance(){
     // Avoid native layer API for unsupported animation trees.
+    if(!m_doc->supportsSlideLayers())return false;
+    const bool trace=qEnvironmentVariableIsSet("DUNG_PPT_LAYER_TRACE");
     const auto info=QJsonDocument::fromJson(QByteArray::fromStdString(m_doc->presentationInfo())).object();
     QJsonObject slide;
     for(const auto& item:info.value("slides").toArray()){
         const auto candidate=item.toObject();if(candidate.value("index").toInt(-1)==m_part){slide=candidate;break;}
     }
     QString target;
-    if(!slideshow::findSimpleEntrance(slide.value("animations").toObject().value("root").toObject(),&target))return false;
+    if(!slideshow::findSimpleEntrance(slide.value("animations").toObject().value("root").toObject(),&target)){
+        if(trace)qInfo()<<"Entrance metadata not supported";
+        return false;
+    }
     const auto hash=slide.value("hash").toString();
     dung::Document::SlideLayers layers;
-    if(!m_doc->renderSlideLayers(m_part,hash.toStdString(),qMin(1280,m_img.width()),qMin(1280,m_img.height()),layers))return false;
+    if(!m_doc->renderSlideLayers(m_part,hash.toStdString(),qMin(1280,m_img.width()),qMin(1280,m_img.height()),layers)){
+        if(trace)qInfo()<<"Native slide renderer failed";
+        return false;
+    }
+    if(trace)qInfo()<<"Native layers"<<layers.width<<layers.height<<layers.rgba<<layers.layers.size();
+    // Log all synthetic-fixture metadata before applying conservative policy.
+    if(trace)for(const auto& layer:layers.layers)qInfo().noquote()<<QString::fromStdString(layer.json)<<"bytes"<<layer.pixels.size();
     QImage before(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
     QImage after(layers.width,layers.height,QImage::Format_ARGB32_Premultiplied);
     if(before.isNull()||after.isNull())return false;
@@ -129,19 +141,33 @@ bool SlideShow::prepareEntrance(){
         const auto o=QJsonDocument::fromJson(QByteArray::fromStdString(layer.json)).object();
         const auto type=o.value("type").toString(),group=o.value("group").toString();
         const auto content=o.value("content").toObject();
-        if(layer.pixels.size()!=size_t(layers.width)*layers.height*4||(type!="bitmap"&&type!="animated"))return false;
+        // Master placeholder layers have no pixels. They cannot be silently
+        // omitted: resolving real dynamic fields requires a separate implementation.
+        if(layer.pixels.size()!=size_t(layers.width)*layers.height*4||(type!="bitmap"&&type!="animated")){
+            if(trace)qInfo()<<"Unsupported native layer type or size"<<type<<group;
+            return false;
+        }
         if(group=="Background")background=true;
-        if(group!="Background"&&group!="MasterPage"&&group!="DrawPage")return false;
+        if(group!="Background"&&group!="MasterPage"&&group!="DrawPage"){
+            if(trace)qInfo()<<"Unsupported native layer group"<<group;
+            return false;
+        }
         const QImage img(layer.pixels.data(),layers.width,layers.height,layers.width*4,
                          layers.rgba?QImage::Format_RGBA8888_Premultiplied:QImage::Format_ARGB32_Premultiplied);
         if(type=="animated"){
-            if(content.value("hash").toString()!=target||!content.value("initVisible").isBool()||content.value("initVisible").toBool())return false;
+            if(content.value("hash").toString()!=target||!content.value("initVisible").isBool()||content.value("initVisible").toBool()){
+                if(trace)qInfo()<<"Native animation target or visibility mismatch"<<target<<content;
+                return false;
+            }
             ++entrance;
         }else p.drawImage(0,0,img);
         q.drawImage(0,0,img);
     }
     p.end();q.end();
-    if(!background||entrance!=1||before==after)return false;
+    if(!background||entrance!=1||before==after){
+        if(trace)qInfo()<<"Invalid entrance composition"<<background<<entrance<<(before==after);
+        return false;
+    }
     m_beforeEntrance=before;m_afterEntrance=after;m_entrancePending=true;m_entrancePart=m_part;
     return true;
 }

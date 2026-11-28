@@ -66,12 +66,25 @@ int main(int argc,char** argv){
     auto doc=engine->open(pathOf(animated),&err);
     if(!doc){std::cerr<<err<<std::endl;return 1;}
     std::cout<<"Native animation metadata: "<<doc->presentationInfo()<<std::endl;
+    const bool supported=doc->supportsSlideLayers();
+    std::cout<<"Native layer ABI: "<<supported<<std::endl;
+    const bool requireNative=qEnvironmentVariableIsSet("DUNG_REQUIRE_NATIVE_ENTRANCE");
+    if(requireNative&&!supported){std::cerr<<"FAIL required native layer ABI missing"<<std::endl;return 1;}
+    qputenv("DUNG_PPT_LAYER_TRACE","1");
     const int originalPart=doc->currentPart();
     auto* show=new SlideShow(doc.get(),0,nullptr,false);
     QApplication::processEvents();
     const auto before=show->grab().toImage();
     QPointer<SlideShow> safe(show);
     key(show,Qt::Key_Right);
+    // Older system engines without the layer ABI must still render an intact
+    // static show and navigate normally, never claim animation support.
+    if(!supported){
+        const bool ok=!before.isNull()&&bluePixels(before)>500&&redPixels(before)>500&&
+            (!safe||!safe->isVisible())&&doc->currentPart()==originalPart;
+        std::cout<<(ok?"PASS":"FAIL")<<" static fallback on engine without native layer ABI"<<std::endl;
+        std::_Exit(ok?0:1);
+    }
     // A static fallback would close a one-slide show instead of showing an effect.
     if(!safe||!safe->isVisible()){std::cerr<<"FAIL click advanced instead of playing effect"<<std::endl;std::_Exit(1);}
     const auto after=show->grab().toImage();

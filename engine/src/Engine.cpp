@@ -928,6 +928,19 @@ std::string Document::partHash(int part) {
     return r;
 }
 
+bool Document::supportsSlideLayers(){
+    if(kind()!=DocKind::Presentation)return false;
+    return onEngine([&]{
+        auto* d=m_doc->get();
+        return d&&d->pClass&&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,getPresentationInfo)&&d->pClass->getPresentationInfo&&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,createSlideRenderer)&&d->pClass->createSlideRenderer&&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,renderNextSlideLayer)&&d->pClass->renderNextSlideLayer&&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,postSlideshowCleanup)&&d->pClass->postSlideshowCleanup&&
+            LIBREOFFICEKIT_DOCUMENT_HAS(d,getTileMode)&&d->pClass->getTileMode;
+    });
+}
+
 std::string Document::presentationInfo() {
     if(kind()!=DocKind::Presentation)return {};
     char* data=onEngine([&]()->char*{
