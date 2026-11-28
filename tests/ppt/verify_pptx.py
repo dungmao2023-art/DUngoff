@@ -220,5 +220,41 @@ if master_file.exists():
         check(any(b"MASTER_SLIDE_A" in z.read(n) for n in slides_xml) and any(b"MASTER_SLIDE_B" in z.read(n) for n in slides_xml),"Both original slides preserved")
 else:
     check(False,"Native master edited PPTX missing")
+gallery_file=layer_dir/"ppt-shape-gallery.pptx"
+if gallery_file.exists():
+    with zipfile.ZipFile(gallery_file) as z:
+        a_ns="{http://schemas.openxmlformats.org/drawingml/2006/main}"
+        p_ns="{http://schemas.openxmlformats.org/presentationml/2006/main}"
+        tree=ET.fromstring(z.read("ppt/slides/slide1.xml"))
+        # Native editable p:sp objects, not flattened raster images.
+        presets={geom.get("prst") for shape in tree.iter(p_ns+"sp") for geom in shape.iter(a_ns+"prstGeom")}
+        required={"roundRect","ellipse","triangle","diamond","rightArrow","star5"}
+        check(required.issubset(presets),"Shape gallery native editable presets; missing "+str(required-presets))
+else:
+    check(False,"Shape gallery output missing")
+# Layout changes must preserve authored text in its original slide, and
+# Undo must restore original editable geometry, not just a screen bitmap.
+def layout_snapshot(file):
+    deck=Presentation(str(file))
+    return [
+        sorted((shape.text_frame.text, shape.left, shape.top, shape.width, shape.height)
+               for shape in slide.shapes if shape.has_text_frame and shape.text_frame.text.strip())
+        for slide in deck.slides
+    ]
+for code in (0,1,3,18,20):
+    files=[layer_dir/f"ppt-layout-{code}-{stage}.pptx" for stage in ("before","edited","undone")]
+    if not all(file.exists() for file in files):
+        check(False,f"Layout {code}: snapshot missing")
+        continue
+    before,edited,undone=map(layout_snapshot,files)
+    check(len(before)==len(edited)==len(undone)==2,f"Layout {code}: both slides preserved")
+    if len(before)!=2 or len(edited)!=2 or len(undone)!=2:
+        continue
+    texts=lambda slide: sorted(t[0] for t in slide)
+    check(texts(edited[0])==texts(before[0]) and
+          "LAYOUT_TITLE_ORIGINAL" in texts(edited[0]) and "LAYOUT_BODY_ORIGINAL" in texts(edited[0]),
+          f"Layout {code}: original title and body remain editable")
+    check(edited[1]==before[1],f"Layout {code}: neighbour content and geometry preserved")
+    check(undone==before,f"Layout {code}: Undo restores editable text and geometry")
 print("\nKẾT QUẢ XÁC MINH PPTX:", "CÓ LỖI" if fail else "TẤT CẢ ĐẠT")
 sys.exit(1 if fail else 0)

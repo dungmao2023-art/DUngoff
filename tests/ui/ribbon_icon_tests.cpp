@@ -110,12 +110,24 @@ int main(int argc, char** argv) {
                 QObject::disconnect(connection);
             }
         }
+        bool slideNew=false, animation=false, show=false, compactBold=false;
         for (auto* b : r.findChildren<QToolButton*>(QStringLiteral("RibbonButton"))) {
             ++built;
             if (b->icon().isNull() || b->icon().pixmap(QSize(22, 22)).isNull()) ++noIcon;
-            if(b->toolButtonStyle()!=Qt::ToolButtonIconOnly||b->toolTip().isEmpty()||b->accessibleName().isEmpty()){
-                printf("[LỖI] nút ribbon thiếu tooltip hoặc không ở chế độ icon\n");++fail;
+            const bool labeled=b->toolButtonStyle()==Qt::ToolButtonTextBesideIcon;
+            if((b->toolButtonStyle()!=Qt::ToolButtonIconOnly && !(k==dung::DocKind::Presentation&&labeled))||
+               b->toolTip().isEmpty()||b->accessibleName().isEmpty()||
+               (labeled&&(b->text().isEmpty()||b->width()<b->sizeHint().width()))){
+                printf("[LỖI] nút ribbon thiếu tooltip, sai kiểu hoặc thiếu chỗ cho nhãn\n");++fail;
             }
+            const QString id=b->property("commandId").toString();
+            if(id==QLatin1String(".uno:InsertPage"))slideNew=labeled;
+            if(id==QLatin1String("ppt.animationCopy"))animation=labeled;
+            if(id==QLatin1String("ppt.showHere"))show=labeled;
+            if(id==QLatin1String(".uno:Bold"))compactBold=!labeled;
+        }
+        if(k==dung::DocKind::Presentation&&(!slideNew||!animation||!show||!compactBold)){
+            printf("[LỖI] PowerPoint thiếu nhãn thao tác chính hoặc phông chữ không gọn\n");++fail;
         }
     }
     printf("Nút đã dựng: %d, nút không có icon: %d\n", built, noIcon);

@@ -54,3 +54,12 @@ for x, marker, rgb in ((1, "LAYER_A", (35, 90, 180)), (5, "LAYER_B", (180, 60, 3
     shape.fill.solid()
     shape.fill.fore_color.rgb = RGBColor(*rgb)
 deck.save(path.with_name("ppt-playback-input.pptx"))
+
+# Two independent slides with ordinary editable objects, plus a title placeholder.
+deck = Presentation()
+slide = deck.slides.add_slide(deck.slide_layouts[5])
+slide.shapes.title.text = "LAYOUT_TITLE_ORIGINAL"
+slide.shapes.add_textbox(Inches(1), Inches(2), Inches(4), Inches(1)).text = "LAYOUT_BODY_ORIGINAL"
+other = deck.slides.add_slide(deck.slide_layouts[6])
+other.shapes.add_textbox(Inches(1), Inches(2), Inches(4), Inches(1)).text = "LAYOUT_OTHER_SLIDE"
+deck.save(path.with_name("ppt-layout-input.pptx"))
