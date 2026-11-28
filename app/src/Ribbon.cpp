@@ -251,7 +251,7 @@ QList<Ribbon::Tab> Ribbon::tabsFor(DocKind kind, bool ro) const {
                 {tr("Trang chiếu"), {
                     {QStringLiteral(".uno:InsertPage"), tr("Trang mới"), 0xE710, QStringLiteral("+"), false},
                     {QStringLiteral(".uno:DuplicatePage"), tr("Nhân bản"), 0xE8C8, QStringLiteral("⧉"), false},
-                    {QStringLiteral(".uno:DeletePage"), tr("Xoá trang"), 0xE74D, QStringLiteral("−"), false},
+                    {QStringLiteral("ppt.deleteSlide"), tr("Xoá trang…"), 0xE74D, QStringLiteral("−"), false},
                     {QStringLiteral(".uno:MovePageUp"), tr("Dời lên"), 0xE74A, QStringLiteral("↑"), false},
                     {QStringLiteral(".uno:MovePageDown"), tr("Dời xuống"), 0xE74B, QStringLiteral("↓"), false},
                     {QStringLiteral(".uno:HideSlide"), tr("Ẩn trang"), 0xED1A, QStringLiteral("⊘"), false},
