@@ -5,6 +5,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QSet>
 #include <QFileInfo>
 #include <QFile>
 #include <QStandardPaths>
@@ -170,6 +171,12 @@ int main(int argc, char** argv) {
         CHECK(rz.ok, "cài gói mẫu thật từ tệp .zip");
         CHECK(tpl::compareVersion(tpl::installed().version, QStringLiteral("2026.2")) >= 0, "gói thật phiên bản 2026.2 trở lên");
         CHECK(tpl::sources(tpl::installed()).size() >= 35, "kho nguồn luật mở rộng");
+        int pptCount=0; QSet<QString> studentDecks;
+        for(const auto& e:tpl::entries(tpl::installed()))if(e.format==QStringLiteral("PPTX")){
+            ++pptCount;studentDecks.insert(QFileInfo(e.relPath).fileName());
+        }
+        CHECK(pptCount>=4 && studentDecks.contains(QStringLiteral("03_Thuyet_trinh_nhom_sinh_vien.pptx")) &&
+              studentDecks.contains(QStringLiteral("04_Bao_ve_do_an_khoa_luan.pptx")), "student presentation templates bundled and listed");
         int excelCount = 0;
         for (const auto& e : tpl::entries(tpl::installed())) if (e.format == QStringLiteral("XLSX")) ++excelCount;
         CHECK(excelCount >= 12, "có ít nhất 12 mẫu Excel");
