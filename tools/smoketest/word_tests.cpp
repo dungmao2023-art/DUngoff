@@ -557,6 +557,44 @@ int runWordTests(const fs::path& program, const fs::path& out) {
         snap("word-image-resize-undone.docx");
     }
 
+    step("Word — đánh số lại danh sách native và Undo");
+    picture.reset();
+    auto list=engine->open(out/"word-list-input.docx",&err);
+    check(bool(list),"Mở fixture danh sách "+err);
+    if(list){
+        list->setClientView(512,512,7680,7680,0,0,7680,7680);
+        list->waitInputIdle();
+        auto snap=[&](const char* filename){
+            const fs::path target=out/filename;
+            fs::remove(target,ec);
+            auto saved=list->saveAs(target);
+            check(saved.ok,std::string("Lưu danh sách ")+filename+": "+saved.message);
+        };
+        snap("word-list-baseline.docx");
+        list.reset();
+        list=engine->open(out/"word-list-baseline.docx",&err);
+        check(bool(list),"Mở lại danh sách: "+err);
+        if(list){
+            list->setClientView(512,512,7680,7680,0,0,7680,7680);
+            run(*list,".uno:GoToStartOfDoc");run(*list,w::findNext("LIST_THIRD",false));
+            const bool found=selText(*list)=="LIST_THIRD";
+            check(found,"Tìm đúng mục thứ ba");
+            if(found){
+                list->postKey(LOK_KEYEVENT_KEYINPUT,0,1027);
+                list->postKey(LOK_KEYEVENT_KEYUP,0,1027);
+                list->waitInputIdle();settle();
+                const bool caretOnly=selText(*list).empty();
+                check(caretOnly,"Caret without selection in LIST_THIRD");
+                if(caretOnly){
+                    run(*list,".uno:NumberingStart");
+                    snap("word-list-restarted.docx");
+                    run(*list,".uno:Undo");
+                    snap("word-list-restart-undone.docx");
+                }
+            }
+        }
+    }
+
     // ---------------- thống kê lệnh engine đã báo trạng thái ----------------
     {
         std::lock_guard<std::mutex> g(g_mu);

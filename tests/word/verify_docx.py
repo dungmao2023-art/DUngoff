@@ -97,5 +97,30 @@ check(bool(base_media) and "IMAGE_RESIZE_KEEP" in base_text and min(base_dims)>0
 check(abs(dims[0]-1828800)<=1270 and abs(dims[1]-914400)<=1270 and dims!=base_dims, "native resize changes actual extent to 2 x 1 inch")
 check(media==base_media and content==base_text, "resize retains embedded image bytes and document text")
 check(resize_snapshot("word-image-resize-undone.docx")== (base_dims,base_media,base_text), "Undo restores exact picture dimensions and content")
+# Restart is independently supported; multilevel promote/demote stays blocked in #186.
+def list_snapshot(filename):
+    with zipfile.ZipFile(Path(path).parent / filename) as package:
+        root=ET.fromstring(package.read("word/document.xml"))
+        entries={}
+        for para in root.iter(W+"p"):
+            text="".join(n.text or "" for n in para.iter(W+"t"))
+            if text not in ("LIST_FIRST","LIST_SECOND","LIST_THIRD"):
+                continue
+            props=para.find(W+"pPr")
+            num=props.find(W+"numPr") if props is not None else None
+            if num is None or num.find(W+"numId") is None:
+                continue
+            level=num.find(W+"ilvl")
+            entries[text]=(num.find(W+"numId").get(W+"val"),int(level.get(W+"val")) if level is not None else 0)
+        return entries
+def list_topology(entries):
+    keys=("LIST_FIRST","LIST_SECOND","LIST_THIRD")
+    if set(entries)!=set(keys):
+        return []
+    return [(entries[k][1],entries[k][0]==entries[keys[0]][0]) for k in keys]
+baseline=list_topology(list_snapshot("word-list-baseline.docx"))
+check(baseline==[(0,True),(0,True),(0,True)],"all three list items start in one sequence")
+check(list_topology(list_snapshot("word-list-restarted.docx"))==[(0,True),(0,True),(0,False)],"restart only third item, other items and levels unchanged")
+check(bool(baseline) and list_topology(list_snapshot("word-list-restart-undone.docx"))==baseline,"Undo restores list sequence")
 print("\nKẾT QUẢ DOCX:", "CÓ LỖI" if fails else "TẤT CẢ ĐẠT")
 sys.exit(1 if fails else 0)
