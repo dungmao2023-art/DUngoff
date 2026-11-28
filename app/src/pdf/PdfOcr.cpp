@@ -70,7 +70,14 @@ static OcrResult runTesseract(const QString& image, const QString& language, int
     if (exe.isEmpty()) return fail(QStringLiteral("Thiếu Tesseract: đặt gói OCR cạnh Dũng Office, cài Tesseract vào thư mục chuẩn của Windows hoặc thêm vào PATH."));
     QProcess proc;
     proc.setProgram(exe);
-    QStringList args{input.absoluteFilePath(), pdfBase.isEmpty() ? QStringLiteral("stdout") : pdfBase,
+    // Some Windows Tesseract builds still interpret argv filenames using
+    // the active ANSI codepage. Let Qt open Unicode paths and transfer the
+    // image/PDF via inherited binary standard handles instead. Never shell
+    // quote, transliterate or rename the user's file.
+    proc.setStandardInputFile(input.absoluteFilePath());
+    if(!pdfBase.isEmpty())
+        proc.setStandardOutputFile(pdfBase+QStringLiteral(".pdf"),QIODevice::Truncate);
+    QStringList args{QStringLiteral("stdin"), QStringLiteral("stdout"),
                      QStringLiteral("-l"), language, QStringLiteral("--psm"), QString::number(layout)};
     const auto bundled=bundledTesseract(QCoreApplication::applicationDirPath());
     if(!bundled.isEmpty() && exe==bundled) {

@@ -124,12 +124,18 @@ int main(int argc, char** argv) {
     std::cout << a.error.toStdString() << '\n' << a.text.toStdString() << '\n' << b.error.toStdString() << '\n' << b.text.toStdString() << '\n';
     const bool good = a.ok && a.text.contains(QStringLiteral("DUNG OFFICE"), Qt::CaseInsensitive) && a.text.contains(QStringLiteral("12345")) &&
         b.ok && bt.contains(QStringLiteral("VIỆT NAM"), Qt::CaseInsensitive) && bt.contains(QStringLiteral("12345"));
-    const QString pdf = temp.filePath(QStringLiteral("searchable.pdf"));
+    const QString pdf = QDir(samples).filePath(QStringLiteral("Bản nhận dạng.pdf"));
     const auto generated = dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,pdf,6);
     QFile file(pdf);
     const bool header = file.open(QIODevice::ReadOnly) && file.read(5) == "%PDF-";
     file.close();
+    QFile original(vi);
+    const bool sourceReadable=original.open(QIODevice::ReadOnly);
+    const QByteArray sourceBytes=sourceReadable?original.readAll():QByteArray{};
+    original.close();
     const bool refusesOverwrite = !dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,pdf).ok;
+    const bool sourcePreserved=sourceReadable&&!sourceBytes.isEmpty()&&original.open(QIODevice::ReadOnly)&&original.readAll()==sourceBytes;
+    original.close();
     const bool refusesBadDpi = !dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),0,temp.filePath(QStringLiteral("invalid.pdf"))).ok;
     bool searchable = false;
 #ifdef DUNG_HAVE_PDFIUM_EDIT
@@ -153,5 +159,5 @@ int main(int argc, char** argv) {
     const QString invalidPath = temp.filePath(QStringLiteral("invalid-layout.pdf"));
     const bool refusesLayout = !dungpdf::searchableImagePdf(vi,QStringLiteral("vie"),300,invalidPath,99).ok
         && !QFileInfo::exists(invalidPath);
-    return good && lineGood && generated.ok && header && refusesOverwrite && refusesBadDpi && refusesLayout && searchable ? 0 : 1;
+    return good && lineGood && generated.ok && header && refusesOverwrite && sourcePreserved && refusesBadDpi && refusesLayout && searchable ? 0 : 1;
 }
