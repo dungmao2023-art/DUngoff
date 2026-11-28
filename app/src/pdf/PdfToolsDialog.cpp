@@ -1337,16 +1337,30 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* query=new QLineEdit(w);query->setMaxLength(256);
     query->setPlaceholderText(tr("Nhập từ hoặc cụm từ"));
     auto* match=new QCheckBox(tr("Phân biệt hoa/thường"),w);
-    form->addRow(tr("PDF nguồn:"),fileRow(&m_searchFile,{}));
-    form->addRow(tr("Từ khóa:"),query);
-    form->addRow(tr("Từ trang:"),first);form->addRow(tr("Đến trang:"),last);
-    form->addRow(match);root->addLayout(form);
+    form->addRow(tr("PDF nguồn:"),fileRow(&m_searchFile,{}));root->addLayout(form);
+    auto* searchPanel=new QWidget(w);auto* searchLayout=new QVBoxLayout(searchPanel);
+    searchLayout->setContentsMargins(0,0,0,0);
+    auto* terms=new QHBoxLayout;
+    terms->addWidget(new QLabel(tr("Từ khóa:"),w));terms->addWidget(query,1);
+    terms->addWidget(match);searchLayout->addLayout(terms);
+    auto* range=new QHBoxLayout;
+    range->addWidget(new QLabel(tr("Từ trang:"),w));range->addWidget(first);
+    range->addWidget(new QLabel(tr("Đến trang:"),w));range->addWidget(last);range->addStretch();
+    searchLayout->addLayout(range);root->addWidget(searchPanel);
+    searchPanel->hide();
     auto* note=new QLabel(tr("Đọc và kéo chọn chữ trực tiếp trên trang, không cần tìm từ khóa. Tìm kiếm trong lớp chữ (tối đa 200 trang/lượt). PDF chỉ có ảnh cần OCR."),w);
     note->setWordWrap(true);root->addWidget(note);
     auto* actions=new QHBoxLayout;
     auto* browse=new QPushButton(tr("Đọc / sửa trực tiếp"),w);
     auto* go=new QPushButton(tr("Tìm trong PDF"),w);
-    actions->addWidget(browse);actions->addWidget(go);actions->addStretch();
+    auto* findToggle=new QPushButton(tr("Tìm chữ…"),w);findToggle->setCheckable(true);
+    auto* showText=new QPushButton(tr("Xem chữ trích xuất"),w);showText->setCheckable(true);
+    actions->addWidget(browse);actions->addWidget(findToggle);actions->addWidget(showText);actions->addStretch();
+    range->addWidget(go);
+    connect(findToggle,&QPushButton::toggled,w,[=](bool on){
+        searchPanel->setVisible(on);findToggle->setText(on?tr("Ẩn tìm kiếm"):tr("Tìm chữ…"));
+        if(on)query->setFocus();
+    });
     root->addLayout(actions);
     browse->setEnabled(printrender::available());go->setEnabled(printrender::available());
     auto* status=new QLabel(w);status->setWordWrap(true);status->setTextFormat(Qt::PlainText);root->addWidget(status);
@@ -1399,14 +1413,18 @@ QWidget* PdfToolsDialog::buildSearch() {
     connect(zoomIn,&QPushButton::clicked,w,[=]{stepZoom(1);});
     refreshZoom();
     auto* split=new QSplitter(Qt::Horizontal,w);split->addWidget(scroll);split->addWidget(text);split->setStretchFactor(0,2);split->setStretchFactor(1,1);root->addWidget(split,3);
+    text->hide();
+    connect(showText,&QPushButton::toggled,w,[=](bool on){text->setVisible(on);showText->setText(on?tr("Ẩn chữ trích xuất"):tr("Xem chữ trích xuất"));fitPage();});
     auto* bottom=new QHBoxLayout;root->addLayout(bottom);
-    auto* copy=new QPushButton(tr("Sao chép chữ đã chọn"),w);copy->setEnabled(false);bottom->addWidget(copy);
+    auto* copy=new QPushButton(tr("Sao chép"),w);copy->setToolTip(tr("Sao chép chữ đã chọn (Ctrl+C)"));copy->setEnabled(false);bottom->addWidget(copy);
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
-    auto* edit=new QPushButton(tr("Sửa chữ gốc đã chọn"),w);bottom->addWidget(edit);edit->setEnabled(false);
+    auto* edit=new QPushButton(tr("Sửa chữ"),w);edit->setToolTip(tr("Thay đối tượng chữ gốc đã chọn"));bottom->addWidget(edit);edit->setEnabled(false);
     auto* annotate=new QPushButton(tr("Thêm ghi chú"),w);annotate->setCheckable(true);annotate->setEnabled(false);bottom->addWidget(annotate);
-    auto* insertImage=new QPushButton(tr("Chèn ảnh"),w);insertImage->setCheckable(true);insertImage->setEnabled(false);bottom->addWidget(insertImage);
-    auto* moveImage=new QPushButton(tr("Chỉnh ảnh"),w);moveImage->setCheckable(true);moveImage->setEnabled(false);bottom->addWidget(moveImage);
-    auto* replaceImage=new QPushButton(tr("Thay ảnh"),w);replaceImage->setCheckable(true);replaceImage->setEnabled(false);bottom->addWidget(replaceImage);
+    auto* imageTools=new QHBoxLayout;root->addLayout(imageTools);
+    imageTools->addWidget(new QLabel(tr("Ảnh:"),w));
+    auto* insertImage=new QPushButton(tr("Chèn ảnh"),w);insertImage->setCheckable(true);insertImage->setEnabled(false);imageTools->addWidget(insertImage);
+    auto* moveImage=new QPushButton(tr("Chỉnh ảnh"),w);moveImage->setCheckable(true);moveImage->setEnabled(false);imageTools->addWidget(moveImage);
+    auto* replaceImage=new QPushButton(tr("Thay ảnh"),w);replaceImage->setCheckable(true);replaceImage->setEnabled(false);imageTools->addWidget(replaceImage);imageTools->addStretch();
     auto imageStart=std::make_shared<std::optional<QPointF>>();
     auto imageIdentity=std::make_shared<QByteArray>();
     auto* highlight=new QPushButton(tr("Tô sáng"),w);auto* underline=new QPushButton(tr("Gạch chân"),w);
@@ -1632,10 +1650,13 @@ QWidget* PdfToolsDialog::buildSearch() {
     connect(m_tabs,&QTabWidget::currentChanged,w,[=](int index){
         if(index==Search&&*initializedPath!=m_searchFile->text())loadReader();
     });
-    connect(query,&QLineEdit::textChanged,w,clear);
-    connect(first,&QSpinBox::valueChanged,w,clear);
-    connect(last,&QSpinBox::valueChanged,w,clear);
-    connect(match,&QCheckBox::toggled,w,clear);
+    // Changing search options must not discard the page in normal reading mode.
+    // Existing search results, however, must be invalidated before a new search.
+    auto invalidateSearch=[=]{if(!*browsing)clear();};
+    connect(query,&QLineEdit::textChanged,w,invalidateSearch);
+    connect(first,&QSpinBox::valueChanged,w,invalidateSearch);
+    connect(last,&QSpinBox::valueChanged,w,invalidateSearch);
+    connect(match,&QCheckBox::toggled,w,invalidateSearch);
     connect(go,&QPushButton::clicked,w,[=]{
         clear();
         const QString path=m_searchFile->text(),needle=query->text();
