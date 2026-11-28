@@ -166,13 +166,40 @@ for mode,expected in (("positive",270),("negative",45)):
         check(False,filename+": both objects must exist")
     check(rotation_snapshot("ppt-rotate-"+mode+"-undone.pptx")== (rotbase,rotgeom,angles),filename+": exact Undo")
 import zipfile
+import posixpath
+import xml.etree.ElementTree as ET
 master_file=layer_dir/"ppt-master-edited.pptx"
 if master_file.exists():
     with zipfile.ZipFile(master_file) as z:
-        masters=[n for n in z.namelist() if n.startswith("ppt/slideMasters/slideMaster") and n.endswith(".xml")]
-        slides_xml=[n for n in z.namelist() if n.startswith("ppt/slides/slide") and n.endswith(".xml")]
-        check(any(b"DUNG_MASTER_MARKER" in z.read(n) for n in masters),"Native edit saved text in actual slide master XML")
-        check(len(slides_xml)==2 and all(b"DUNG_MASTER_MARKER" not in z.read(n) for n in slides_xml),"No master text copied into ordinary slide XML")
+        names=set(z.namelist())
+        masters=[n for n in names if n.startswith("ppt/slideMasters/slideMaster") and n.endswith(".xml")]
+        layouts=[n for n in names if n.startswith("ppt/slideLayouts/slideLayout") and n.endswith(".xml")]
+        slides_xml=sorted(n for n in names if n.startswith("ppt/slides/slide") and n.endswith(".xml"))
+        marker=b"DUNG_MASTER_MARKER"
+        marked={n for n in masters+layouts if marker in z.read(n)}
+        print("Native master/layout XML containing marker:", sorted(marked))
+        def related(part, kind):
+            relfile=posixpath.join(posixpath.dirname(part),"_rels",posixpath.basename(part)+".rels")
+            if relfile not in names:
+                return set()
+            root=ET.fromstring(z.read(relfile))
+            targets=set()
+            for rel in root:
+                if rel.get("Type","").endswith("/"+kind) and rel.get("TargetMode")!="External":
+                    target=rel.get("Target","")
+                    resolved=posixpath.normpath(target.lstrip("/") if target.startswith("/") else posixpath.join(posixpath.dirname(part),target))
+                    if resolved in names:
+                        targets.add(resolved)
+            return targets
+        chains=[]
+        for slide in slides_xml:
+            layout_parts=related(slide,"slideLayout")
+            master_parts=set().union(*(related(layout,"slideMaster") for layout in layout_parts))
+            chains.append(layout_parts|master_parts)
+            print("Native slide inheritance:",slide,sorted(layout_parts),sorted(master_parts))
+        shared=set.intersection(*chains) if len(chains)==2 else set()
+        check(bool(marked & shared),"Native edit saved in master or layout inherited by both original slides")
+        check(len(slides_xml)==2 and all(marker not in z.read(n) for n in slides_xml),"No master text copied into ordinary slide XML")
         check(any(b"MASTER_SLIDE_A" in z.read(n) for n in slides_xml) and any(b"MASTER_SLIDE_B" in z.read(n) for n in slides_xml),"Both original slides preserved")
 else:
     check(False,"Native master edited PPTX missing")

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 #include "PdfToolsDialog.h"
 #include "PdfOcr.h"
+#include "PdfTextEdit.h"
 #include <QPlainTextEdit>
 #include <QTextCursor>
 #include <QTextDocument>
@@ -1138,12 +1139,22 @@ QWidget* PdfToolsDialog::buildSearch() {
     auto* copy=new QPushButton(tr("Sao chép chữ đã chọn trên trang"),w);copy->setEnabled(false);root->addWidget(copy);
     connect(copy,&QPushButton::clicked,w,[=]{if(!canvas->selectedText.isEmpty())QApplication::clipboard()->setText(canvas->selectedText);});
     auto snapshot=std::make_shared<std::optional<PdfSourceSnapshot>>();
-    auto clear=[=]{snapshot->reset();list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);status->clear();};
+    auto* edit=new QPushButton(tr("Sửa chữ gốc đã chọn"),w);root->addWidget(edit);edit->setEnabled(false);
+    if(!pdfedit::available())edit->setToolTip(tr("Bản cài chưa có PDFium Editing SDK."));
+    connect(edit,&QPushButton::clicked,w,[=]{
+        if(!snapshot->has_value()||!snapshot->value().unchanged()||!list->currentItem()||canvas->selectedText.isEmpty())return;
+        const auto source=snapshot->value();const int page=list->currentItem()->data(Qt::UserRole).toInt();const QString old=canvas->selectedText;
+        bool ok=false;const auto replacement=QInputDialog::getText(this,tr("Sửa chữ PDF"),tr("Thay nguyên đối tượng chữ đã chọn (ASCII). Lưu bản sao PDF mới."),QLineEdit::Normal,old,&ok);
+        if(!ok||!source.unchanged())return;
+        const auto dest=pickDest(this,source.path,tr("Sửa chữ"));if(dest.isEmpty()||!source.unchanged())return;
+        showResult(runWithPasswords({source.path},[=]{return pdfedit::replaceObject(source.path,page,old,replacement,dest);}),tr("Sửa chữ PDF"));
+    });
+    auto clear=[=]{snapshot->reset();list->clear();text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);status->clear();};
     canvas->select=[=](QPointF from,QPointF to){
         const auto* item=list->currentItem();
-        if(!item||!snapshot->has_value()||!snapshot->value().unchanged()){canvas->setSelection({});copy->setEnabled(false);return;}
+        if(!item||!snapshot->has_value()||!snapshot->value().unchanged()){canvas->setSelection({});copy->setEnabled(false);edit->setEnabled(false);return;}
         const auto selected=printrender::selectText(snapshot->value().path,item->data(Qt::UserRole).toInt(),from,to);
-        canvas->setSelection(selected);copy->setEnabled(!selected.text.isEmpty());
+        canvas->setSelection(selected);copy->setEnabled(!selected.text.isEmpty());edit->setEnabled(pdfedit::available()&&!selected.text.isEmpty());
         if(!selected.error.isEmpty())status->setText(selected.error);
     };
     connect(m_searchFile,&QLineEdit::textChanged,w,[=]{
@@ -1186,7 +1197,7 @@ QWidget* PdfToolsDialog::buildSearch() {
     });
     connect(query,&QLineEdit::returnPressed,go,&QPushButton::click);
     connect(list,&QListWidget::currentItemChanged,w,[=](QListWidgetItem* item,QListWidgetItem*){
-        text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);if(!item)return;
+        text->setExtraSelections({});text->clear();canvas->setPage({});copy->setEnabled(false);edit->setEnabled(false);if(!item)return;
         if(!snapshot->has_value()||!snapshot->value().unchanged()){
             status->setText(tr("PDF nguồn đã thay đổi. Hãy tìm lại."));return;
         }

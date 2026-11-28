@@ -638,13 +638,19 @@ int dungRunPptTests(const fs::path& program, const fs::path& pptx, const fs::pat
         }
         check(entered,"Native master mode with distinct page identities; count="+std::to_string(count)+" first="+first+" master="+hash);
         if(entered){
-            master->setPart(0);renderHash(*master,0);
+            // Entered master mode from the blank-layout slide. Edit the
+            // native current master/layout instead of guessing master index 0.
+            const int active=master->currentPart();
+            check(active>=0&&active<count,"Current master/layout index: "+std::to_string(active));
+            const auto before=renderHash(*master,active);
             master->command(".uno:Text");master->waitInputIdle(350,4000);
             master->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONDOWN,4000,3500,1,1,0);
             master->postMouse(LOK_MOUSEEVENT_MOUSEMOVE,6500,4300,1,1,0);
             master->postMouse(LOK_MOUSEEVENT_MOUSEBUTTONUP,6500,4300,1,1,0);
             master->waitInputIdle(350,4000);master->typeText(u"DUNG_MASTER_MARKER");master->waitInputIdle(350,4000);
             master->postKey(LOK_KEYEVENT_KEYINPUT,0,1281);master->postKey(LOK_KEYEVENT_KEYUP,0,1281);master->waitInputIdle();
+            const auto after=renderHash(*master,active);
+            check(before!=after,"Native master/layout render changed before leaving mode");
             master->command(".uno:CloseMasterView");master->waitInputIdle(350,4000);
             check(master->partCount()==2&&master->partHash(0)==first&&master->partHash(1)==second,"Return to both original normal slides in order");
             auto dest=out/"ppt-master-edited.pptx";fs::remove(dest,ec);

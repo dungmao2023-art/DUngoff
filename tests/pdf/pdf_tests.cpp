@@ -3,6 +3,7 @@
 // Chạy: dung-pdftest   (đặt DUNG_QPDF nếu qpdf không nằm trong PATH)
 #include "pdf/PdfOps.h"
 #include "pdf/PdfOcr.h"
+#include "pdf/PdfTextEdit.h"
 
 #include <QGuiApplication>
 #include <QCoreApplication>
@@ -718,6 +719,16 @@ int main(int argc, char** argv) {
         const auto result=fillTextField({source,{}},"Name","New value",filled);
         CHECK(result.ok&&readFile(source)==bytes,"fill form without changing original");
         if(result.ok){const auto re=textFormFields({filled,{}});CHECK(re.ok&&re.values==QStringList{"New value"},"read filled value after reopening");CHECK(qdfOf(filled).contains("/AP"),"filled form has widget appearance");}
+    }
+    if(pdfedit::available()){
+        const auto source=P("native-edit-source.pdf"),dest=P("native-edited.pdf");
+        const QByteArray original=makePdf(2,QStringLiteral("ORIGINAL"));
+        writeFile(source,original);
+        const auto edited=pdfedit::replaceObject(source,1,"ORIGINAL 1","REPLACED 1",dest);
+        CHECK(edited.ok&&readFile(source)==original&&info(dest).pages==2,"PDFium edits original text object");
+        CHECK(!pdfedit::replaceObject(source,1,"ORIGINAL","REPLACED",P("native-partial.pdf")).ok,"reject partial object");
+    }else{
+        CHECK(!pdfedit::replaceObject(a,1,"A","B",P("no-sdk.pdf")).ok&&!QFileInfo::exists(P("no-sdk.pdf")),"missing optional SDK fails visibly");
     }
     // --- helper kiểm tra chữ ASCII (dùng trong giao diện để báo trước)
     CHECK(isAsciiText(QStringLiteral("Trang {n}/{total} - CONFIDENTIAL")), "isAsciiText: chữ không dấu hợp lệ");
